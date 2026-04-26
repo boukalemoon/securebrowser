@@ -1,0 +1,38 @@
+/* İLGEZDİ — blocker.css */
+.bl-content { flex:1; overflow-y:auto; padding:12px; display:flex; flex-direction:column; gap:8px; }
+.bl-section { background:var(--bg-elevated); border:1px solid var(--border-color); border-radius:10px; padding:12px 14px; }
+.bl-section-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:1.5px; color:var(--accent); }
+.bl-level-grid { display:grid; grid-template-columns:1fr 1fr; gap:5px; margin-bottom:8px; }
+.bl-level-btn { padding:7px 4px; border-radius:7px; border:1px solid var(--border-color); background:var(--bg-input); color:var(--text-muted); font-size:11px; font-weight:600; cursor:pointer; transition:all .15s; text-align:center; }
+.bl-level-btn:hover { border-color:var(--accent); color:var(--text-main); }
+.bl-level-btn.active { border-color:var(--accent); background:var(--accent); color:var(--bg-base); }
+.bl-level-desc { font-size:11px; color:var(--text-muted); line-height:1.5; padding:4px 0; }
+.bl-stats-grid { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+.bl-stat-card { background:var(--bg-input); border:1px solid var(--border-color); border-radius:8px; padding:10px 8px; text-align:center; position:relative; overflow:hidden; }
+.bl-stat-card.accent { border-color:var(--border-accent); }
+.bl-stat-value { font-family:'Cinzel',serif; font-size:24px; font-weight:700; color:var(--accent); line-height:1; }
+.bl-stat-label { font-size:9px; color:var(--text-muted); margin-top:4px; text-transform:uppercase; letter-spacing:.5px; }
+.bl-current-site { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+.bl-toggle-site { padding:5px 14px; border-radius:20px; border:1px solid var(--accent); background:transparent; color:var(--accent); font-size:11px; font-weight:600; cursor:pointer; transition:all .15s; white-space:nowrap; }
+.bl-toggle-site:hover { background:var(--accent); color:var(--bg-base); }
+.bl-toggle-site.danger { border-color:var(--danger); color:var(--danger); }
+.bl-toggle-site.danger:hover { background:var(--danger); color:#fff; }
+.bl-add-row { display:flex; gap:6px; margin-bottom:8px; }
+.bl-add-row input { flex:1; background:var(--bg-input); border:1px solid var(--border-color); border-radius:7px; color:var(--text-main); padding:7px 10px; font-size:12px; outline:none; transition:border-color .2s; }
+.bl-add-row input:focus { border-color:var(--accent); }
+.bl-add-row input::placeholder { color:var(--text-muted); }
+.bl-add-btn { padding:7px 13px; border-radius:7px; border:none; background:var(--accent); color:var(--bg-base); font-size:11px; font-weight:700; cursor:pointer; transition:opacity .15s; white-space:nowrap; }
+.bl-add-btn:hover { opacity:.85; }
+.bl-white-item { display:flex; align-items:center; gap:8px; padding:6px 0; border-bottom:1px solid var(--border-dim); }
+.bl-white-item:last-child { border-bottom:none; }
+.bl-white-domain { flex:1; font-size:11px; color:var(--text-main); font-family:monospace; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.bl-white-remove { width:18px; height:18px; border-radius:50%; border:none; background:transparent; color:var(--text-muted); font-size:9px; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:background .15s; flex-shrink:0; }
+.bl-white-remove:hover { background:var(--danger); color:#fff; }
+.bl-top-item { padding:5px 0; border-bottom:1px solid var(--border-dim); }
+.bl-top-item:last-child { border-bottom:none; }
+.bl-top-info { display:flex; justify-content:space-between; margin-bottom:4px; }
+.bl-top-domain { font-size:11px; color:var(--text-main); font-family:monospace; }
+.bl-top-count { font-size:11px; color:var(--accent); font-weight:700; }
+.bl-top-bar { height:3px; background:var(--border-color); border-radius:2px; overflow:hidden; }
+.bl-top-fill { height:100%; background:var(--accent); border-radius:2px; transition:width .3s; }
+.bl-toast { position:fixed; bottom:20px; right:20px; z-index:99999; padding:9px 16px; border-radius:8px; font-size:12px; font-weight:600; background:var(--success); color:var(--bg-base); box-shadow:0 4px 20px rgba(0,0,0,.4); }

@@ -1,0 +1,116 @@
+/* ═══════════════════════════════════════════════════════
+   İLGEZDİ — bookmarks.css
+   ═══════════════════════════════════════════════════════ */
+
+/* Panel genel sarma */
+#panel-bookmarks .panel-body { padding:12px; }
+
+/* Arama / Ekle satırı */
+.bm-toolbar {
+  display:flex; gap:6px; margin-bottom:12px;
+}
+.bm-search-input {
+  flex:1; background:var(--bg-input);
+  border:1px solid var(--border-color);
+  border-radius:20px; color:var(--text-main);
+  padding:6px 12px; font-size:12px; outline:none;
+  transition:border-color .2s;
+}
+.bm-search-input:focus { border-color:var(--accent); }
+.bm-search-input::placeholder { color:var(--text-muted); }
+.bm-add-btn {
+  padding:6px 12px; background:var(--accent);
+  color:var(--bg-base); border:none;
+  border-radius:20px; font-size:11px;
+  font-weight:700; cursor:pointer; white-space:nowrap;
+  transition:opacity .15s;
+}
+.bm-add-btn:hover { opacity:.85; }
+
+/* Klasör başlığı */
+.bm-folder-header {
+  display:flex; align-items:center; gap:6px;
+  padding:6px 0; font-size:11px; font-weight:600;
+  color:var(--text-muted); text-transform:uppercase;
+  letter-spacing:1px; cursor:pointer;
+  border-bottom:1px solid var(--border-dim);
+  margin-bottom:6px;
+}
+.bm-folder-header:hover { color:var(--accent); }
+
+/* Kart grid */
+.bm-grid {
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(90px,1fr));
+  gap:8px; padding:4px 0;
+}
+
+.bm-card,.bm-folder {
+  display:flex; flex-direction:column;
+  align-items:center; justify-content:flex-start;
+  padding:10px 8px;
+  background:var(--bg-input);
+  border:1px solid var(--border-color);
+  border-radius:10px; cursor:pointer;
+  transition:transform .15s,box-shadow .15s,border-color .15s;
+  text-align:center; min-height:72px;
+  position:relative;
+}
+.bm-card:hover,.bm-folder:hover {
+  transform:translateY(-2px);
+  border-color:var(--accent);
+  box-shadow:0 4px 16px var(--accent-glow);
+}
+.bm-folder { border-style:dashed; border-color:var(--border-accent); }
+.bm-folder:hover { border-style:solid; }
+
+.bm-card img { width:24px; height:24px; margin-bottom:6px; border-radius:4px; }
+.bm-card .bm-favicon-fallback {
+  width:24px; height:24px; margin-bottom:6px;
+  border-radius:4px; background:var(--bg-elevated);
+  display:flex; align-items:center; justify-content:center;
+  font-size:12px; color:var(--accent);
+}
+.bm-folder .icon {
+  font-size:20px; margin-bottom:6px; color:var(--accent); opacity:.8;
+}
+
+.bm-card span,.bm-folder span {
+  font-size:10px; color:var(--text-main);
+  line-height:1.3; word-break:break-word;
+  display:-webkit-box; -webkit-line-clamp:2;
+  -webkit-box-orient:vertical; overflow:hidden;
+}
+
+/* Sağ tık / silme butonu */
+.bm-card .bm-remove {
+  position:absolute; top:4px; right:4px;
+  width:16px; height:16px; border-radius:50%;
+  background:var(--danger); color:#fff;
+  border:none; font-size:9px; cursor:pointer;
+  display:none; align-items:center; justify-content:center;
+}
+.bm-card:hover .bm-remove { display:flex; }
+
+/* Boş durum */
+.bm-empty {
+  display:flex; flex-direction:column;
+  align-items:center; justify-content:center;
+  height:160px; color:var(--text-muted);
+  font-size:12px; gap:8px;
+}
+.bm-empty-icon { font-size:32px; opacity:.3; }
+
+/* Liste görünümü (alternatif) */
+.bm-list-item {
+  display:flex; align-items:center; gap:10px;
+  padding:8px; border-radius:7px;
+  cursor:pointer; transition:background .15s;
+}
+.bm-list-item:hover { background:var(--bg-input); }
+.bm-list-item img { width:16px; height:16px; border-radius:3px; }
+.bm-list-title { flex:1; font-size:12px; color:var(--text-main); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.bm-list-url   { font-size:10px; color:var(--text-muted); font-family:var(--font-mono); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.bm-list-del   { width:18px; height:18px; border-radius:50%; border:none; background:transparent; color:var(--text-muted); cursor:pointer; font-size:10px; display:flex; align-items:center; justify-content:center; opacity:0; transition:all .15s; }
+.bm-list-item:hover .bm-list-del { opacity:1; }
+.bm-list-del:hover { background:var(--danger); color:#fff; }

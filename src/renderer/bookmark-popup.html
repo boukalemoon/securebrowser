@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy"
+    content="default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self' 'unsafe-inline';"
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Space+Mono&display=swap" rel="stylesheet" />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg-surface:  #111827;
+      --bg-elevated: #1c2333;
+      --bg-hover:    #242d42;
+      --accent:      #00d4ff;
+      --border:      #1e2d45;
+      --border-dim:  #131e2f;
+      --text-primary:   #e8eaf6;
+      --text-secondary: #8892a4;
+      --text-muted:     #4a5568;
+      --danger:      #ff5252;
+      --success:     #00e676;
+      --radius:      8px;
+      --radius-sm:   5px;
+    }
+
+    html, body {
+      height: 100%;
+      background: transparent;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 13px;
+      color: var(--text-primary);
+      user-select: none;
+      overflow: hidden;
+    }
+
+    #popup-root {
+      background: var(--bg-surface);
+      border: 1px solid var(--accent);
+      border-radius: var(--radius);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.6), 0 0 0 1px rgba(0,212,255,0.1);
+      overflow: hidden;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Header */
+    .popup-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border-dim);
+      background: var(--bg-elevated);
+      flex-shrink: 0;
+    }
+    .popup-header span {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+    .popup-close {
+      width: 22px; height: 22px;
+      border: none; border-radius: 50%;
+      background: transparent;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 12px;
+      display: flex; align-items: center; justify-content: center;
+      transition: all 0.15s;
+    }
+    .popup-close:hover { background: var(--danger); color: #fff; }
+
+    /* Body */
+    .popup-body {
+      padding: 12px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      flex: 1;
+    }
+    label {
+      font-size: 11px;
+      color: var(--text-secondary);
+      margin-bottom: 2px;
+      display: block;
+    }
+    input, select {
+      width: 100%;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text-primary);
+      padding: 6px 10px;
+      font-size: 12px;
+      font-family: inherit;
+      outline: none;
+      transition: border-color 0.2s;
+      user-select: text;
+    }
+    input:focus, select:focus { border-color: var(--accent); }
+    select option { background: var(--bg-elevated); }
+
+    /* Footer */
+    .popup-footer {
+      display: flex;
+      gap: 6px;
+      padding: 10px 14px;
+      border-top: 1px solid var(--border-dim);
+      flex-shrink: 0;
+    }
+    .btn {
+      flex: 1;
+      padding: 7px;
+      border: none;
+      border-radius: var(--radius-sm);
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .btn-save {
+      background: var(--accent);
+      color: #000;
+    }
+    .btn-save:hover { opacity: 0.85; }
+    .btn-delete {
+      background: transparent;
+      border: 1px solid var(--danger);
+      color: var(--danger);
+      flex: 0 0 auto;
+      padding: 7px 12px;
+    }
+    .btn-delete:hover { background: rgba(255,82,82,0.1); }
+
+    /* Loading */
+    #loading {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      color: var(--text-muted);
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+  <div id="popup-root">
+    <div id="loading">Yükleniyor…</div>
+  </div>
+
+  <script>
+    
+ const bridge = window.popupBridge;
+let popupData = null;
+
+bridge?.onData?.((data) => {
+  popupData = data;
+  render(data);
+});
+
+function render(data) {
+  const { isBookmarked, title, url, folders, folderId } = data;
+
+  document.getElementById('popup-root').innerHTML = `
+    <div class="popup-header">
+      <span>${isBookmarked ? '★ Sık Kullanılanlarda' : '☆ Sık Kullanılanlara Ekle'}</span>
+      <button class="popup-close" id="btn-close">✕</button>
+    </div>
+    <div class="popup-body">
+      <div>
+        <label>Başlık</label>
+        <input type="text" id="inp-title" value="${escHtml(title)}" />
+      </div>
+      <div>
+        <label>Klasör</label>
+        <select id="inp-folder">
+          ${folders.map(f =>
+            `<option value="${f.id}" ${f.id === folderId ? 'selected' : ''}>${escHtml(f.name)}</option>`
+          ).join('')}
+        </select>
+      </div>
+    </div>
+    <div class="popup-footer">
+      ${isBookmarked ? `<button class="btn btn-delete" id="btn-delete">🗑 Kaldır</button>` : ''}
+      <button class="btn btn-save" id="btn-save">${isBookmarked ? '💾 Güncelle' : '★ Ekle'}</button>
+    </div>
+  `;
+
+  setTimeout(() => {
+    const inp = document.getElementById('inp-title');
+    inp?.focus(); inp?.select();
+  }, 50);
+
+  document.getElementById('btn-close')?.addEventListener('click', close);
+  document.getElementById('btn-save')?.addEventListener('click', save);
+  document.getElementById('btn-delete')?.addEventListener('click', deleteBookmark);
+}
+
+function save() {
+  const title    = document.getElementById('inp-title')?.value.trim();
+  const folderId = document.getElementById('inp-folder')?.value;
+  bridge?.save?.({ title, folderId });
+}
+
+function deleteBookmark() {
+  bridge?.delete?.();
+}
+
+function close() {
+  bridge?.close?.();
+}
+
+function escHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') close();
+});
+
+window.addEventListener('blur', () => {
+  setTimeout(close, 100);
+});
+  </script>
+</body>
+</html>

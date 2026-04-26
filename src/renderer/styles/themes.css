@@ -1,0 +1,114 @@
+/* ═══════════════════════════════════════════════════════
+   İLGEZDİ BROWSER — themes.css
+   ═══════════════════════════════════════════════════════ */
+
+/* ── 1. ÖTÜKEN KAYALIKLARI (Ana / Varsayılan) ────────── */
+body.theme-otuken, body.theme-dark {
+  --bg-base:       #0f1218;
+  --bg-surface:    #161c28;
+  --bg-tab:        #1a2030;
+  --bg-tab-active: #1e2534;
+  --bg-input:      #222a3a;
+  --bg-elevated:   #1e2534;
+  --bg-hover:      #252d40;
+  --text-main:     #e2e8f0; --text-primary:   #e2e8f0;
+  --text-muted:    #8090a8; --text-secondary: #8090a8;
+  --accent:        #c8803a; --accent-dim:     #7a4d22;
+  --accent-glow:   rgba(200,128,58,0.18);
+  --runic-glow:    rgba(200,128,58,0.4);
+  --border-color:  #222a3a; --border:         #222a3a;
+  --border-dim:    #1a2030; --border-accent:  rgba(200,128,58,0.5);
+  --success:       #68d391; --danger:         #fc8181; --warning: #f6ad55;
+}
+
+/* ── 2. HİBRİT ALTIN ─────────────────────────────────── */
+body.theme-hibrit, body.theme-oled {
+  --bg-base:       #080c12;
+  --bg-surface:    #0f1520;
+  --bg-tab:        #141c28;
+  --bg-tab-active: #1a2234;
+  --bg-input:      #0c1118;
+  --bg-elevated:   #141c28;
+  --bg-hover:      #1e2840;
+  --text-main:     #e2e8f0; --text-primary:   #e2e8f0;
+  --text-muted:    #6a7a90; --text-secondary: #90CDF4;
+  --accent:        #d4a935; --accent-dim:     #8a7020;
+  --accent-glow:   rgba(212,169,53,0.2);
+  --runic-glow:    rgba(212,169,53,0.45);
+  --border-color:  #1e2838; --border:         #1e2838;
+  --border-dim:    #141c28; --border-accent:  rgba(212,169,53,0.5);
+  --success:       #68d391; --danger:         #fc8181; --warning: #f6ad55;
+}
+body.theme-hibrit #address-bar-wrapper:focus-within,
+body.theme-oled   #address-bar-wrapper:focus-within {
+  border-color:#90CDF4!important;
+  box-shadow:0 0 0 3px rgba(144,205,244,0.15)!important;
+}
+
+/* ── 3. UMAY ANA IŞIĞI (Açık) ────────────────────────── */
+body.theme-umay, body.theme-light {
+  --bg-base:       #edf2f7;
+  --bg-surface:    #f7fafc;
+  --bg-tab:        #e2e8f0;
+  --bg-tab-active: #f7fafc;
+  --bg-input:      #e8edf5;
+  --bg-elevated:   #edf2f7;
+  --bg-hover:      #d8e0ec;
+  --text-main:     #1a202c; --text-primary:   #1a202c;
+  --text-muted:    #4a5a70; --text-secondary: #4a5568;
+  --accent:        #3182ce; --accent-dim:     #bee3f8;
+  --accent-glow:   rgba(49,130,206,0.2);
+  --runic-glow:    rgba(49,130,206,0.35);
+  --border-color:  #c8d4e4; --border:         #c8d4e4;
+  --border-dim:    #dde8f5; --border-accent:  rgba(49,130,206,0.5);
+  --success:       #276749; --danger:         #c53030; --warning: #b45309;
+}
+body.theme-umay #titlebar,
+body.theme-light #titlebar {
+  border-image:linear-gradient(90deg,transparent,#3182ce,transparent) 1;
+}
+body.theme-umay .tab.active,
+body.theme-light .tab.active {
+  background:var(--bg-surface);
+  border-bottom-color:#3182ce!important;
+}
+
+/* ── 4. KAĞAN OTAĞI (Beji) ───────────────────────────── */
+body.theme-kagan {
+  --bg-base:       #cec5b0;
+  --bg-surface:    #ddd4be;
+  --bg-tab:        #bfb8a5;
+  --bg-tab-active: #ddd4be;
+  --bg-input:      #e8e0cc;
+  --bg-elevated:   #d4cbb8;
+  --bg-hover:      #b8b0a0;
+  --text-main:     #2c3340; --text-primary:   #2c3340;
+  --text-muted:    #5c5048; --text-secondary: #5c5048;
+  --accent:        #a82020; --accent-dim:     #601010;
+  --accent-glow:   rgba(168,32,32,0.2);
+  --runic-glow:    rgba(168,32,32,0.35);
+  --border-color:  #b8ae98; --border:         #b8ae98;
+  --border-dim:    #cec5b0; --border-accent:  rgba(168,32,32,0.4);
+  --success:       #276749; --danger:         #7b1818; --warning: #854d0e;
+}
+body.theme-kagan .tab { border-radius:5px 5px 0 0; }
+body.theme-kagan #address-bar-wrapper { border-radius:8px; }
+body.theme-kagan #titlebar {
+  border-image:linear-gradient(90deg,transparent,#a82020,transparent) 1;
+}
+
+/* ── Ortak overrides (tüm temalar) ───────────────────── */
+.tab.active {
+  border-bottom-color:var(--accent)!important;
+}
+#address-bar-wrapper:focus-within {
+  border-color:var(--accent)!important;
+  box-shadow:0 0 0 3px var(--accent-glow)!important;
+}
+.toggle:checked { background:var(--accent)!important; border-color:var(--accent)!important; }
+input:checked + .slider { background:var(--accent)!important; }
+.panel-header h2 { color:var(--accent)!important; }
+.setting-group h3 { color:var(--accent)!important; }
+.settings-section h3 { color:var(--accent)!important; }
+.bl-section-header { color:var(--accent)!important; }
+.sec-label { color:var(--accent)!important; }

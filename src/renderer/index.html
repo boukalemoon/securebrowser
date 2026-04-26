@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Content-Security-Policy"
+      content="default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self'; img-src * data: blob: 'self';" />
+  <title>İlgezdi</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;900&family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles/main.css" />
+  <link rel="stylesheet" href="styles/themes.css" />
+  <link rel="stylesheet" href="styles/bookmarks.css" />
+  <link rel="stylesheet" href="styles/blocker.css" />
+  <link rel="stylesheet" href="styles/glance.css" />
+</head>
+<body class="theme-otuken">
+  <div id="app">
+
+    <!-- ── Başlık Çubuğu ────────────────────────────────────────────────── -->
+    <header id="titlebar">
+      <div id="drag-region">
+        <div id="app-brand">
+          <img src="assets/ilgezdi-logo.png" width="28" height="28"
+               style="object-fit:contain;border-radius:4px;" />
+          <span id="brand-name">İLGEZDİ</span>
+        </div>
+        <div id="vpn-indicator" class="vpn-off">
+          <span class="vpn-dot"></span>
+          <span id="vpn-label">VPN Kapalı</span>
+        </div>
+      </div>
+      <div id="window-controls">
+        <button id="btn-minimize" title="Küçült">─</button>
+        <button id="btn-maximize" title="Büyüt">□</button>
+        <button id="btn-close"    title="Kapat">✕</button>
+      </div>
+    </header>
+
+    <!-- ── Sekme Çubuğu ──────────────────────────────────────────────────── -->
+    <div id="tabbar">
+      <div id="tabs-container"></div>
+      <button id="btn-new-tab" title="Yeni Sekme">＋</button>
+    </div>
+
+    <!-- ── Araç Çubuğu ──────────────────────────────────────────────────── -->
+    <div id="toolbar">
+      <div id="nav-buttons">
+        <button class="nav-btn" id="btn-back"    title="Geri">‹</button>
+        <button class="nav-btn" id="btn-forward" title="İleri">›</button>
+        <button class="nav-btn" id="btn-reload"  title="Yenile">↻</button>
+        <button class="nav-btn" id="btn-home"    title="Ana Sayfa">⌂</button>
+      </div>
+      <div id="address-bar-wrapper">
+        <span id="security-icon">🔒</span>
+        <input type="text" id="address-bar" placeholder="Adres gir veya ara..." spellcheck="false" autocomplete="off" />
+        <button id="btn-bookmark-star" title="Sık kullanılanlara ekle">☆</button>
+        <button id="btn-search">→</button>
+      </div>
+      <div id="toolbar-actions">
+        <!-- 🔒 VPN butonu vpn-panel.js tarafından dinamik eklenir -->
+        <button class="action-btn" id="btn-shield"   title="Koruma Durumu">🛡</button>
+        <button class="action-btn" id="btn-bookmarks" title="Sık Kullanılanlar">★</button>
+        <button class="action-btn" id="btn-logs"     title="Ziyaret Logları">📋</button>
+        <button class="action-btn" id="btn-settings" title="Ayarlar">⚙</button>
+        <button class="action-btn" id="btn-blocker" title="Engelleyici" style="position:relative">
+          🛡
+          <span id="blocker-count-badge"></span>
+        </button>
+      </div>
+    </div>
+
+    <!-- ── Paneller ──────────────────────────────────────────────────────── -->
+    <div id="panel-settings" class="side-panel hidden"></div>
+    <div id="panel-logs" class="side-panel hidden"></div>
+    <div id="panel-bookmarks" class="side-panel hidden"></div>
+    <div id="panel-blocker" class="side-panel hidden"></div>
+
+    <div id="panel-shield" class="side-panel hidden">
+      <div class="panel-header">
+        <h2>🛡 Koruma Durumu</h2>
+        <button class="panel-close" data-panel="shield">✕</button>
+      </div>
+      <div class="panel-body">
+        <div id="shield-stats"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="app.js"></script>
+  <script src="vpn-panel.js"></script>
+  <script src="log-panel.js"></script>
+  <script src="settings-panel.js"></script>
+  <script src="bookmarks-panel.js"></script>
+  <script src="blocker-panel.js"></script>
+  <script src="glance-renderer.js"></script>
+</body>
+</html>
