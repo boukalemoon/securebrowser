@@ -43,51 +43,90 @@ const FONT_FAMILIES = [
 ];
 
 // ─── Gerçek tema uygulama (sadece Kaydet'te çağrılır) ─────────────────────────
-function commitTheme(themeName, accentColor, fontSize, fontFamily) {
-  const th  = THEMES[themeName] || THEMES.otuken;
-  const acc = accentColor || th.accent;
-  const fs  = parseInt(fontSize) || 13;
-  const ff  = fontFamily || "'DM Sans', sans-serif";
+// YENİ MİMARİ: Tüm renkleri inline style olarak yazmak yerine
+// <html data-theme="..."> attribute'unu set ediyoruz. CSS dosyaları
+// (themes/otuken-default in semantic.css, themes/hibrit.css vs.)
+// kalan her şeyi otomatik halleder.
+//
+// Custom accent ise tema default'undan farklı bir renk seçtiyse inline yazılır,
+// aynı default'u seçtiyse inline temizlenir (CSS'deki tema default'u devreye girer).
 
-  _savedTheme      = themeName || 'otuken';
-  _savedAccent     = acc;
-  _savedFontSize   = fs;
-  _savedFontFamily = ff;
+const THEME_DEFAULT_ACCENTS = {
+  otuken: '#c8803a',
+  hibrit: '#d4a935',
+  umay:   '#2868a8',
+  kagan:  '#b02828',
+};
 
-  const r = document.documentElement;
-  const vars = {
-    '--bg-base': th.bg, '--bg-surface': th.surface, '--bg-tab': th.tab,
-    '--bg-tab-active': th.surface, '--bg-input': th.input, '--bg-elevated': th.surface,
-    '--bg-hover': th.input, '--text-main': th.textMain, '--text-primary': th.textMain,
-    '--text-muted': th.textMuted, '--text-secondary': th.textMuted,
-    '--accent': acc, '--accent-dim': acc+'33', '--accent-glow': acc+'2e',
-    '--runic-glow': acc+'66', '--border-accent': acc+'80',
-    '--border-color': th.border, '--border': th.border, '--border-dim': th.bg,
-    '--success': th.success, '--danger': th.danger, '--warning': th.warning,
-  };
-  Object.entries(vars).forEach(([k,v]) => r.style.setProperty(k,v));
-  document.body.style.setProperty('background-color', th.bg);
-  document.body.style.setProperty('color', th.textMain);
-  document.body.style.fontSize = fs + 'px';
-  r.style.setProperty('--font-size-base', fs + 'px');
-  document.body.style.fontFamily = ff;
-  document.body.className = document.body.className.replace(/theme-\S+/g,'').trim();
-  document.body.classList.add('theme-' + _savedTheme);
-  try {
-    localStorage.setItem('ilgezdi-theme', JSON.stringify({ themeName:_savedTheme, accentColor:acc, fontSize:fs, fontFamily:ff }));
-  } catch {}
+// Tema + accent'i sadece DOM'a yansıtır. localStorage'a yazmaz, _savedXxx'lere
+// dokunmaz. Önizleme ve commit'in ortak yardımcısı.
+function applyThemeToDOM(themeName, accentColor) {
+  const root = document.documentElement;
+  root.setAttribute('data-theme', themeName);
+
+  const themeDefault = THEME_DEFAULT_ACCENTS[themeName] || '#c8803a';
+  if (accentColor && accentColor !== themeDefault) {
+    root.style.setProperty('--accent',        accentColor);
+    root.style.setProperty('--accent-glow',   accentColor + '2e');
+    root.style.setProperty('--accent-border', accentColor + '80');
+  } else {
+    root.style.removeProperty('--accent');
+    root.style.removeProperty('--accent-glow');
+    root.style.removeProperty('--accent-border');
+  }
 }
 
-function loadSavedTheme() {
+// Kullanıcı "Kaydet"e basınca çağrılır. State'i + localStorage'ı + DOM'u günceller.
+function commitTheme(themeName, accentColor, fontSize, fontFamily) {
+  _savedTheme      = themeName || 'otuken';
+  _savedFontSize   = parseInt(fontSize) || 13;
+  _savedFontFamily = fontFamily || "'DM Sans', sans-serif";
+
+  const themeDefault = THEME_DEFAULT_ACCENTS[_savedTheme] || '#c8803a';
+  _savedAccent = (accentColor && accentColor !== themeDefault) ? accentColor : themeDefault;
+
+  // Eski body.theme-* class'larını temizle (eski sistem kalıntısı)
+  document.body.className = document.body.className.replace(/theme-\S+/g, '').trim();
+
+  // DOM'a yansıt — yardımcı fonksiyon kullanıyoruz
+  applyThemeToDOM(_savedTheme, _savedAccent);
+
+  // Font
+  document.body.style.fontSize   = _savedFontSize + 'px';
+  document.body.style.fontFamily = _savedFontFamily;
+
+ // config.json'a kaydet (Electron fs ile diske senkron yazılır — kayıp olmaz)
+window.secureBrowser?.saveConfig({
+  theme:       _savedTheme,
+  accentColor: _savedAccent,
+  fontSize:    _savedFontSize,
+  fontFamily:  _savedFontFamily,
+}).then(() => {
+  console.log('[İlgezdi/Theme] kaydedildi:', { theme: _savedTheme, accent: _savedAccent });
+}).catch(e => {
+  console.warn('[İlgezdi/Theme] kayıt hatası:', e);
+});
+}
+
+async function loadSavedTheme() {
   try {
-    const s = localStorage.getItem('ilgezdi-theme');
-    if (s) {
-      const { themeName, accentColor, fontSize, fontFamily } = JSON.parse(s);
-      commitTheme(themeName||'otuken', accentColor, fontSize||13, fontFamily);
-    } else {
-      commitTheme('otuken','#c8803a',13,"'DM Sans', sans-serif");
-    }
-  } catch { commitTheme('otuken','#c8803a',13,"'DM Sans', sans-serif"); }
+    const cfg = await window.secureBrowser?.getConfig();
+    console.log('[İlgezdi/Theme] config.json yüklenenler:', {
+      theme: cfg?.theme, accent: cfg?.accentColor
+    });
+
+    // Geçersiz/eski tema değerlerine karşı koruma
+    const validThemes = ['otuken', 'hibrit', 'umay', 'kagan'];
+    const theme      = validThemes.includes(cfg?.theme) ? cfg.theme : 'otuken';
+    const accent     = cfg?.accentColor || null;
+    const fontSize   = cfg?.fontSize    || 13;
+    const fontFamily = cfg?.fontFamily  || "'DM Sans', sans-serif";
+
+    commitTheme(theme, accent, fontSize, fontFamily);
+  } catch (e) {
+    console.warn('[İlgezdi/Theme] yükleme hatası:', e);
+    commitTheme('otuken', null, 13, "'DM Sans', sans-serif");
+  }
 }
 
 // ─── CSS ──────────────────────────────────────────────────────────────────────
@@ -249,8 +288,11 @@ function discardPendingChanges() {
   _pendingAccent     = _savedAccent;
   _pendingFontSize   = _savedFontSize;
   _pendingFontFamily = _savedFontFamily;
+
+  // DOM'u kayıtlı haline geri çek (önizlemeyi temizle)
+  applyThemeToDOM(_savedTheme, _savedAccent);
+
   updateUnsavedBar();
-  // Paneli yeniden render et (seçimleri sıfırla)
   renderSettingsTab('customization', settingsConfig);
 }
 
@@ -490,44 +532,69 @@ function renderSettingsTab(tabId, cfg) {
   if (tabId==='passwords')     bindPasswordEvents();
 }
 
-// ─── Özelleştirme eventleri — SADECE pending state günceller ─────────────────
+// ─── Özelleştirme eventleri — pending state + anlık önizleme ─────────────────
 function bindCustomizationEvents() {
-  // Tema kartları — sadece pending'i güncelle, UI'a dokunma
+  // Tema kartları — pending'i güncelle + ANLIK önizleme + accent'i tema default'una sıfırla
   document.querySelectorAll('.theme-card').forEach(card => {
     card.addEventListener('click', () => {
-      _pendingTheme = card.dataset.theme;
+      _pendingTheme  = card.dataset.theme;
+      _pendingAccent = THEME_DEFAULT_ACCENTS[_pendingTheme] || '#c8803a';
+
+      // DOM'a anlık yansıt — kullanıcı temayı gerçek zamanlı görsün
+      applyThemeToDOM(_pendingTheme, _pendingAccent);
+
+      // Tema kartı UI seçimi
       document.querySelectorAll('.theme-card').forEach(c => c.classList.remove('selected'));
       card.classList.add('selected');
-      updatePreviewBox();
-      updateUnsavedBar();
-    });
-  });
 
-  // Accent swatches
-  document.querySelectorAll('.accent-swatch').forEach(sw => {
-    sw.addEventListener('click', () => {
-      _pendingAccent = sw.dataset.accent;
+      // Accent swatch UI'ını da yeni default'a göre güncelle
       document.querySelectorAll('.accent-swatch').forEach(s => {
         const active = s.dataset.accent === _pendingAccent;
         s.classList.toggle('selected', active);
-        s.innerHTML = active ? '<span style="color:#000;font-size:11px;font-weight:900;pointer-events:none">✓</span>' : '';
+        s.innerHTML = active
+          ? '<span style="color:#000;font-size:11px;font-weight:900;pointer-events:none">✓</span>'
+          : '';
       });
       const picker = document.getElementById('custom-accent');
       if (picker) picker.value = _pendingAccent;
+
       updatePreviewBox();
       updateUnsavedBar();
     });
   });
 
-  // Özel renk picker
+  // Accent swatches — tıklayınca anlık önizleme
+  document.querySelectorAll('.accent-swatch').forEach(sw => {
+    sw.addEventListener('click', () => {
+      _pendingAccent = sw.dataset.accent;
+      applyThemeToDOM(_pendingTheme, _pendingAccent);
+
+      document.querySelectorAll('.accent-swatch').forEach(s => {
+        const active = s.dataset.accent === _pendingAccent;
+        s.classList.toggle('selected', active);
+        s.innerHTML = active
+          ? '<span style="color:#000;font-size:11px;font-weight:900;pointer-events:none">✓</span>'
+          : '';
+      });
+      const picker = document.getElementById('custom-accent');
+      if (picker) picker.value = _pendingAccent;
+
+      updatePreviewBox();
+      updateUnsavedBar();
+    });
+  });
+
+  // Özel renk picker — anlık önizleme
   document.getElementById('custom-accent')?.addEventListener('input', (e) => {
     _pendingAccent = e.target.value;
-    document.querySelectorAll('.accent-swatch').forEach(s => { s.classList.remove('selected'); s.innerHTML=''; });
+    applyThemeToDOM(_pendingTheme, _pendingAccent);
+
+    document.querySelectorAll('.accent-swatch').forEach(s => { s.classList.remove('selected'); s.innerHTML = ''; });
     updatePreviewBox();
     updateUnsavedBar();
   });
 
-  // Font boyutu — sadece önizleme kutusunu güncelle
+  // Font boyutu — sadece preview kutusunu günceller (global font Adım 5'te)
   document.getElementById('font-size-slider')?.addEventListener('input', (e) => {
     _pendingFontSize = parseInt(e.target.value);
     const badge = document.getElementById('font-size-val');
@@ -538,7 +605,6 @@ function bindCustomizationEvents() {
     updateUnsavedBar();
   });
 
-  // Font ailesi — sadece önizleme kutusunu güncelle
   document.getElementById('font-family-select')?.addEventListener('change', (e) => {
     _pendingFontFamily = e.target.value;
     const prev = document.getElementById('font-preview-text');
@@ -546,10 +612,9 @@ function bindCustomizationEvents() {
     updateUnsavedBar();
   });
 
-  // Yeni sekme modu
   document.getElementById('new-tab-mode')?.addEventListener('change', (e) => {
     const w = document.getElementById('custom-newtab-wrap');
-    if (w) w.style.display = e.target.value==='custom'?'':'none';
+    if (w) w.style.display = e.target.value === 'custom' ? '' : 'none';
   });
 }
 
@@ -701,7 +766,7 @@ function initKeyboardShortcuts() {
 }
 
 async function initFaz4() {
-  loadSavedTheme();
+  await loadSavedTheme();
   injectSettingsPanelStyles();
   injectSettingsPanelHTML();
   upgradeSettingsButton();
@@ -709,4 +774,9 @@ async function initFaz4() {
   console.log('[İlgezdi Faz4] Ayarlar hazır — önizleme modu aktif');
 }
 
+
 window.addEventListener('load', ()=>setTimeout(initFaz4, 700));
+
+window.addEventListener('DOMContentLoaded', ()=>{
+  console.log('[TEST B] DOMContentLoaded anında localStorage:', localStorage.getItem('ilgezdi-theme'));
+});

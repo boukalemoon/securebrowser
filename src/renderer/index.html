@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="tr">
+<html lang="tr" data-theme="otuken">  
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -8,13 +8,24 @@
   <title>İlgezdi</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;900&family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="styles/main.css" />
-  <link rel="stylesheet" href="styles/themes.css" />
-  <link rel="stylesheet" href="styles/bookmarks.css" />
-  <link rel="stylesheet" href="styles/blocker.css" />
-  <link rel="stylesheet" href="styles/glance.css" />
+<!-- Önce mevcut main.css -->
+<link rel="stylesheet" href="styles/main.css" />
+
+<!-- Sonra token sistemi (default Ötüken) -->
+<link rel="stylesheet" href="styles/tokens/primitives.css" />
+<link rel="stylesheet" href="styles/tokens/semantic.css" />
+
+<!-- Sonra alternatif temalar (data-theme attribute ile aktif olur) -->
+<link rel="stylesheet" href="styles/themes/hibrit.css" />
+<link rel="stylesheet" href="styles/themes/umay.css" />
+<link rel="stylesheet" href="styles/themes/kagan.css" />
+
+<!-- Component CSS'leri en son -->
+<link rel="stylesheet" href="styles/bookmarks.css" />
+<link rel="stylesheet" href="styles/blocker.css" />
+<link rel="stylesheet" href="styles/glance.css" />
 </head>
-<body class="theme-otuken">
+<body>
   <div id="app">
 
     <!-- ── Başlık Çubuğu ────────────────────────────────────────────────── -->
@@ -88,12 +99,12 @@
 
   </div>
 
-  <script src="app.js"></script>
-  <script src="vpn-panel.js"></script>
-  <script src="log-panel.js"></script>
-  <script src="settings-panel.js"></script>
-  <script src="bookmarks-panel.js"></script>
-  <script src="blocker-panel.js"></script>
-  <script src="glance-renderer.js"></script>
+<script src="app.js"></script>
+<script src="vpn-panel.js"></script>
+<script src="log-panel.js"></script>
+<script src="settings-panel.js"></script>
+<script src="bookmarks-panel.js"></script>
+<script src="blocker-panel.js"></script>
+<script src="glance-renderer.js"></script>
 </body>
 </html>

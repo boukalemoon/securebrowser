@@ -1,0 +1,38 @@
+/* ═══════════════════════════════════════════════════════════════
+   İLGEZDİ — HİBRİT ALTIN TEMASI (Han Çadırı Gecesi)
+   ───────────────────────────────────────────────────────────────
+   Konsept: Derin lacivert-siyah gece göğü, altın yıldız vurgusu.
+   Han çadırının gece görünümü, üstünde yanan altın meşaleler.
+   
+   Bu dosya SADECE semantic değişkenleri override eder.
+   Yeni değişken tanımlamaz, component shape'i değiştirmez.
+   ═══════════════════════════════════════════════════════════════ */
+
+[data-theme="hibrit"] {
+  /* Arkaplanlar — gece göğünün katmanları */
+  --bg-canvas:     var(--hibrit-gece-300);
+  --bg-surface:    var(--hibrit-gece-200);
+  --bg-elevated:   var(--hibrit-gece-100);
+  --bg-input:      var(--hibrit-gece-200);
+  --bg-hover:      var(--hibrit-gece-400);
+  --bg-tab:        var(--hibrit-gece-100);
+  --bg-tab-active: var(--hibrit-gece-200);
+
+  /* Metin — gece göğünde parşömen okunaklı kalmalı */
+  --fg-primary:   var(--otuken-parsomen-100);
+  --fg-secondary: var(--otuken-parsomen-200);
+  --fg-muted:     var(--otuken-parsomen-300);
+  --fg-inverse:   var(--hibrit-gece-300);
+
+  /* Accent — altın yıldız */
+  --accent:        var(--hibrit-altin-400);
+  --accent-strong: var(--hibrit-altin-500);
+  --accent-subtle: rgba(212, 169, 53, 0.15);
+  --accent-glow:   rgba(212, 169, 53, 0.20);
+  --accent-border: rgba(212, 169, 53, 0.5);
+
+  /* Sınırlar */
+  --border-subtle:  var(--hibrit-gece-200);
+  --border-default: var(--hibrit-gece-100);
+  --border-strong:  var(--accent-border);
+}

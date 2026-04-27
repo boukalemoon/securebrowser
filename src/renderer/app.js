@@ -5,6 +5,11 @@
 'use strict';
 
 const sb = window.secureBrowser;
+// GEÇİCİ — Adım 3 testi için. Adım 4 tamamlandıktan sonra silinecek.
+try {
+  localStorage.removeItem('ilgezdi-theme');
+  document.documentElement.removeAttribute('style');
+} catch {}
 
 // ─── State ────────────────────────────────────────────────────────────────────
 let currentTabs   = [];
