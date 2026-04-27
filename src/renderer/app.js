@@ -5,11 +5,6 @@
 'use strict';
 
 const sb = window.secureBrowser;
-// GEÇİCİ — Adım 3 testi için. Adım 4 tamamlandıktan sonra silinecek.
-try {
-  localStorage.removeItem('ilgezdi-theme');
-  document.documentElement.removeAttribute('style');
-} catch {}
 
 // ─── State ────────────────────────────────────────────────────────────────────
 let currentTabs   = [];
@@ -179,21 +174,21 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('btn-close').addEventListener('click',    () => sb.close());
 
   // Yeni sekme
-  document.getElementById('btn-new-tab').addEventListener('click', async () => {
-    const cfg    = await sb.getConfig();
-    const mode   = cfg.newTabMode || 'blank';
-    const custom = cfg.customNewTabUrl || '';
-    let url;
-    if      (mode === 'dash')             url = 'about:blank';
-    else if (mode === 'custom' && custom) url = custom;
-    else                                  url = 'about:blank';
+  async function openNewTab() {
+    const cfg = await sb.getConfig();
+    const url = (cfg.newTabMode === 'custom' && cfg.customNewTabUrl)
+      ? cfg.customNewTabUrl
+      : 'about:blank';
+    console.log('[İlgezdi] Yeni sekme açılıyor:', url);
     sb.newTab(url);
-  });
+  }
+
+  document.getElementById('btn-new-tab').addEventListener('click', openNewTab);
 
   // Sekme çubuğuna çift tıkla → yeni sekme
   document.getElementById('tabbar').addEventListener('dblclick', (e) => {
     if (e.target.closest('.tab') || e.target.closest('#btn-new-tab')) return;
-    sb.newTab();
+    openNewTab();
   });
 
   document.getElementById('btn-back').addEventListener('click',    () => sb.goBack());
@@ -235,20 +230,27 @@ document.addEventListener('DOMContentLoaded', async () => {
   sb.onActiveUrl((url)   => updateAddressBar(url));
   sb.onVpnStatus?.((data) => updateVpnIndicator(data.connected));
 
-  // Klavye kısayolları
-  document.addEventListener('keydown', (e) => {
-    if (e.ctrlKey && e.key === 't') { e.preventDefault(); sb.newTab(); }
-    if (e.ctrlKey && e.key === 'w') {
-      e.preventDefault();
-      const active = currentTabs.find(t => t.isActive);
-      if (active) sb.closeTab(active.id);
-    }
-    if (e.ctrlKey && e.key === 'l') { e.preventDefault(); addressBar.focus(); }
-    if (e.key === 'F5')             { e.preventDefault(); sb.reload(); }
-    if (e.altKey && e.key === 'ArrowLeft')  { e.preventDefault(); sb.goBack(); }
-    if (e.altKey && e.key === 'ArrowRight') { e.preventDefault(); sb.goForward(); }
-    if (e.key === 'Escape') { closeAllPanels(); }
-  });
+  // Gizli pencere butonu (keydown listener'ının DIŞINDA, diğer button handler'larıyla beraber)
+document.getElementById('btn-incognito')?.addEventListener('click', () => sb.openIncognito());
+
+// Klavye kısayolları
+document.addEventListener('keydown', (e) => {
+  if (e.ctrlKey && e.key === 't') { e.preventDefault(); sb.newTab(); }
+  if (e.ctrlKey && e.key === 'w') {
+    e.preventDefault();
+    const active = currentTabs.find(t => t.isActive);
+    if (active) sb.closeTab(active.id);
+  }
+  if (e.ctrlKey && e.shiftKey && (e.key === 'N' || e.key === 'n')) {
+    e.preventDefault();
+    sb.openIncognito();
+  }
+  if (e.ctrlKey && e.key === 'l') { e.preventDefault(); addressBar.focus(); }
+  if (e.key === 'F5')             { e.preventDefault(); sb.reload(); }
+  if (e.altKey && e.key === 'ArrowLeft')  { e.preventDefault(); sb.goBack(); }
+  if (e.altKey && e.key === 'ArrowRight') { e.preventDefault(); sb.goForward(); }
+  if (e.key === 'Escape') { closeAllPanels(); }
+});
 
   console.log('[İlgezdi] UI hazır');
 });

@@ -92,7 +92,7 @@ function commitTheme(themeName, accentColor, fontSize, fontFamily) {
   applyThemeToDOM(_savedTheme, _savedAccent);
 
   // Font
-  document.body.style.fontSize   = _savedFontSize + 'px';
+  document.documentElement.style.setProperty('--font-size-base', _savedFontSize + 'px');
   document.body.style.fontFamily = _savedFontFamily;
 
  // config.json'a kaydet (Electron fs ile diske senkron yazılır — kayıp olmaz)
@@ -776,7 +776,3 @@ async function initFaz4() {
 
 
 window.addEventListener('load', ()=>setTimeout(initFaz4, 700));
-
-window.addEventListener('DOMContentLoaded', ()=>{
-  console.log('[TEST B] DOMContentLoaded anında localStorage:', localStorage.getItem('ilgezdi-theme'));
-});

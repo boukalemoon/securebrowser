@@ -13,6 +13,11 @@ const { VpnManager, testDnsLeak } = require('./vpn-manager');
 const { setupBlocker, updateBlockerConfig, getBlockStats } = require('./blocker-main');
 const { setupGlance } = require('./glance-main');
 
+let incognitoWindow = null;
+const incognitoTabs = new Map();
+let activeIncognitoTabId = null;
+let incognitoTabCounter = 0;
+
 const USER_DATA = app.getPath('userData');
 const DB_PATH   = path.join(USER_DATA, 'logs.db');
 const CFG_PATH  = path.join(USER_DATA, 'config.json');
@@ -30,7 +35,7 @@ const DEFAULT_CONFIG = {
   userAgentRotation:     true,
   logEnabled:            true,
   logSyncServer:         '',
-  theme:                 'dark',
+  theme:                 'otuken',
   syncEnabled:           false,
   syncServerUrl:         '',
   syncApiKey:            '',
@@ -45,7 +50,7 @@ const DEFAULT_CONFIG = {
   customNewTabUrl:       '',
   fontSize:              13,
   fontFamily:            "'DM Sans', sans-serif",
-  accentColor:           '#6eb5ff',
+  accentColor:           '#c8803a',
 };
 
 function loadConfig() {
@@ -692,6 +697,39 @@ app.on('window-all-closed', async () => {
 
 app.on('activate', () => {
   if (BrowserWindow.getAllWindows().length === 0) createWindow();
+});
+
+function createIncognitoWindow() {
+  if (incognitoWindow && !incognitoWindow.isDestroyed()) {
+    incognitoWindow.focus();
+    return;
+  }
+
+  incognitoWindow = new BrowserWindow({
+    width: 1200, height: 800,
+    frame: false,
+    backgroundColor: '#0a0e1a',
+    title: 'İlgezdi — Gizli Pencere',
+    webPreferences: {
+      preload: path.join(__dirname, '../preload/preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: false,
+      session: session.fromPartition('incognito-' + Date.now()), // her açılışta temiz session
+    },
+    show: false,
+  });
+
+  incognitoWindow.once('ready-to-show', () => incognitoWindow.show());
+  incognitoWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
+
+  incognitoWindow.on('closed', () => {
+    incognitoWindow = null;
+  });
+}
+
+ipcMain.handle('open-incognito', () => {
+  createIncognitoWindow();
 });
 
 console.log('[İlgezdi] Başlatıldı. UserData:', USER_DATA);

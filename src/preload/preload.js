@@ -30,6 +30,8 @@ contextBridge.exposeInMainWorld('secureBrowser', {
   switchTab: (id)  => ipcRenderer.invoke('switch-tab', id),
   closeTab:  (id)  => ipcRenderer.invoke('close-tab', id),
 
+  openIncognito: () => ipcRenderer.invoke('open-incognito'),
+
   // ── Navigasyon ──────────────────────────────────────────────────────────────
   navigate:  (url) => ipcRenderer.invoke('navigate', url),
   goBack:    ()    => ipcRenderer.invoke('go-back'),
