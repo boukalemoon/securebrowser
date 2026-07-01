@@ -5,19 +5,31 @@
 
 'use strict';
 
-const { BrowserView } = require('electron');
+const { BrowserView, BrowserWindow } = require('electron');
 
 let glanceView = null;
 let glanceWin  = null;
 let glanceOpen = false;
 
+// Glance'i tetikleyen pencerede (ana ya da incognito) açılmalı — sabit mainWindow değil.
 function setupGlance(mainWindow, ipcMain) {
-  glanceWin = mainWindow;
+  // Bir pencere için resize/move olduğunda glance'i kapat. Aynı pencereye
+  // birden fazla kez bağlanmayı önlemek için işaretliyoruz.
+  const bindAutoClose = (win) => {
+    if (!win || win.__glanceBound) return;
+    win.__glanceBound = true;
+    win.on('resize', () => { if (glanceOpen) closeGlance(); });
+    win.on('move',   () => { if (glanceOpen) closeGlance(); });
+  };
+  bindAutoClose(mainWindow);
 
   ipcMain.handle('glance-open', (event, { url, triggerX, triggerY }) => {
     if (glanceOpen) closeGlance();
 
-    const winBounds = mainWindow.getBounds();
+    const win = BrowserWindow.fromWebContents(event.sender) || mainWindow;
+    glanceWin = win;
+    bindAutoClose(win);
+    const winBounds = win.getBounds();
     const PW = Math.min(820, winBounds.width  - 80);
     const PH = Math.min(560, winBounds.height - 160);
     const CHROME_H = 122;
@@ -34,7 +46,7 @@ function setupGlance(mainWindow, ipcMain) {
       webPreferences: { nodeIntegration: false, contextIsolation: false, sandbox: false }
     });
 
-    mainWindow.addBrowserView(glanceView);
+    win.addBrowserView(glanceView);
     // Toolbar için 36px boşluk bırak üstte
     glanceView.setBounds({ x: px, y: py, width: PW, height: PH });
     glanceView.setAutoResize({ width: false, height: false });
@@ -92,7 +104,7 @@ function setupGlance(mainWindow, ipcMain) {
       `).catch(() => {});
 
       // Renderer'a bildir
-      mainWindow.webContents.send('glance-loaded', {
+      win.webContents.send('glance-loaded', {
         url: currentUrl, title,
         x: px, y: py, width: PW, height: PH,
       });
@@ -110,14 +122,14 @@ function setupGlance(mainWindow, ipcMain) {
             clearInterval(btnPoll);
             const tabUrl = glanceView.webContents.getURL();
             closeGlance();
-            mainWindow.webContents.send('glance-new-tab', { url: tabUrl });
+            win.webContents.send('glance-new-tab', { url: tabUrl });
           }
         } catch { clearInterval(btnPoll); }
       }, 200);
     });
 
     glanceView.webContents.on('did-fail-load', () => {
-      mainWindow.webContents.send('glance-error');
+      win.webContents.send('glance-error');
     });
 
     return { ok: true, x: px, y: py, width: PW, height: PH };
@@ -125,16 +137,15 @@ function setupGlance(mainWindow, ipcMain) {
 
   ipcMain.handle('glance-close', () => { closeGlance(); return { ok: true }; });
 
-  ipcMain.handle('glance-open-tab', () => {
+  ipcMain.handle('glance-open-tab', (event) => {
     if (!glanceView) return { ok: false };
     const url = glanceView.webContents.getURL();
+    const target = glanceWin || BrowserWindow.fromWebContents(event.sender) || mainWindow;
     closeGlance();
-    mainWindow.webContents.send('glance-new-tab', { url });
+    if (target && !target.isDestroyed()) target.webContents.send('glance-new-tab', { url });
     return { ok: true };
   });
 
-  mainWindow.on('resize', () => { if (glanceOpen) closeGlance(); });
-  mainWindow.on('move',   () => { if (glanceOpen) closeGlance(); });
   console.log('[İlgezdi] Glance kuruldu');
 }
 

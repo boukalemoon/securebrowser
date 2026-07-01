@@ -1,0 +1,70 @@
+name: Release — İlgezdi Installers
+
+# v* etiketiyle (ör. v0.6.0) push edilince 3 platformda kurulum dosyalarını
+# üretir ve GitHub Releases'e yükler. Landing sayfası bu release'lerden indirir.
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            platform: win
+          - os: macos-latest
+            platform: mac
+          - os: ubuntu-latest
+            platform: linux
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Node kurulumu
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Bağımlılıklar
+        run: npm ci || npm install
+
+      - name: Build (${{ matrix.platform }})
+        run: npm run dist:${{ matrix.platform }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # macOS imzasını atla (Developer ID yoksa)
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+
+      - name: Kurulum dosyalarını yükle (artifact)
+        uses: actions/upload-artifact@v4
+        with:
+          name: ilgezdi-${{ matrix.platform }}
+          path: |
+            dist/*.exe
+            dist/*.dmg
+            dist/*.zip
+            dist/*.AppImage
+            dist/*.deb
+          if-no-files-found: ignore
+
+      - name: GitHub Release'e ekle
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/*.exe
+            dist/*.dmg
+            dist/*.zip
+            dist/*.AppImage
+            dist/*.deb
+          fail_on_unmatched_files: false
+          generate_release_notes: true

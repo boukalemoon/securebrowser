@@ -467,6 +467,14 @@ window.ilgezdiAuth = {
   },
   getSession: loadSession,
   showScreen: showAuthScreen,
+  // Ayarlar → Hesap: ekranı göster VE event'leri bağla (otomatik-giriş
+  // durumunda initAuth bindAuthEvents'i çağırmamış olabiliyor → butonlar ölü kalır).
+  open: () => {
+    showFormView();
+    switchTab('login');
+    showAuthScreen();
+    bindAuthEvents();
+  },
 };
 
 window.addEventListener('load', () => setTimeout(initAuth, 900));

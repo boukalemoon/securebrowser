@@ -31,6 +31,7 @@ contextBridge.exposeInMainWorld('secureBrowser', {
   closeTab:  (id)  => ipcRenderer.invoke('close-tab', id),
 
   openIncognito: () => ipcRenderer.invoke('open-incognito'),
+  isIncognito:   () => ipcRenderer.invoke('is-incognito'),
 
   // ── Navigasyon ──────────────────────────────────────────────────────────────
   navigate:  (url) => ipcRenderer.invoke('navigate', url),
@@ -67,6 +68,10 @@ contextBridge.exposeInMainWorld('secureBrowser', {
     sync:      (url, apiKey) => ipcRenderer.invoke('logs-sync', { serverUrl: url, apiKey }),
   },
 
+  // ── Sekme Görünürlüğü (Faz 5) ───────────────────────────────────────────────
+  hideActiveTab: () => ipcRenderer.invoke('hide-active-tab'),
+  showActiveTab: () => ipcRenderer.invoke('show-active-tab'),
+
   // ── Özelleştirme & Ayarlar (Faz 4) ──────────────────────────────────────────
   pickDownloadFolder: ()             => ipcRenderer.invoke('pick-download-folder'),
   clearCache:         ()             => ipcRenderer.invoke('clear-cache'),
@@ -88,6 +93,13 @@ contextBridge.exposeInMainWorld('secureBrowser', {
   onBookmarkPopupData:   (cb) => ipcRenderer.on('bookmark-popup-data',   (_, d) => cb(d)),
   onBookmarkPopupResult: (cb) => ipcRenderer.on('bookmark-popup-result', (_, d) => cb(d)),
   onBookmarkPopupClosed: (cb) => ipcRenderer.on('bookmark-popup-closed', ()     => cb()),
+
+  // ── Auth (Üyelik Sistemi) ────────────────────────────────────────────────────
+  auth: {
+    saveSession:  (s) => ipcRenderer.invoke('auth-save-session', s),
+    getSession:   ()  => ipcRenderer.invoke('auth-get-session'),
+    clearSession: ()  => ipcRenderer.invoke('auth-clear-session'),
+  },
 
   // ── Event Dinleyiciler ───────────────────────────────────────────────────────
   onTabsUpdate:       (cb) => ipcRenderer.on('tabs-update', (e, data) => cb(data)),

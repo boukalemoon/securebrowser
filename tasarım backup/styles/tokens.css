@@ -1,0 +1,135 @@
+/* İlgezdi — Design Tokens */
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Noto+Sans+Old+Turkic&display=swap');
+
+:root {
+  /* Ötüken Kayalıkları — koyu lacivert (default) */
+  --otuken-bg: #0e1a2e;
+  --otuken-bg-elev: #15243d;
+  --otuken-bg-soft: #1c2e4a;
+  --otuken-line: #2a3e5e;
+  --otuken-ink: #e8d9b8;
+  --otuken-ink-soft: #b8a888;
+  --otuken-ink-mute: #6f7a92;
+  --otuken-gold: #d4a85a;
+  --otuken-gold-bright: #f0c674;
+  --otuken-copper: #c87f4a;
+  --otuken-rune: #8aa6c8;
+
+  /* Umay Ana Işığı — açık tema */
+  --umay-bg: #f5ecd9;
+  --umay-bg-elev: #fbf5e6;
+  --umay-bg-soft: #ebe0c5;
+  --umay-line: #d8c9a4;
+  --umay-ink: #1a2640;
+  --umay-ink-soft: #4a5670;
+  --umay-ink-mute: #8a8472;
+  --umay-gold: #b8893a;
+  --umay-gold-bright: #d4a85a;
+  --umay-copper: #a45a30;
+  --umay-rune: #4a5670;
+
+  /* Kağan Otağı — kilim sıcak tonlar */
+  --kagan-bg: #f0e0c4;
+  --kagan-bg-elev: #f7e9d0;
+  --kagan-bg-soft: #e6d2ae;
+  --kagan-line: #c89a6a;
+  --kagan-ink: #3a1f12;
+  --kagan-ink-soft: #6a3f25;
+  --kagan-ink-mute: #8a6a4a;
+  --kagan-gold: #b85c3a;
+  --kagan-gold-bright: #d97950;
+  --kagan-copper: #8a3f25;
+  --kagan-rune: #5a2818;
+
+  /* Hibrit Altın — parlak altın geometri */
+  --hibrit-bg: #0a1422;
+  --hibrit-bg-elev: #122038;
+  --hibrit-bg-soft: #1a2c4a;
+  --hibrit-line: #2a4068;
+  --hibrit-ink: #f0d088;
+  --hibrit-ink-soft: #c8a868;
+  --hibrit-ink-mute: #6a7898;
+  --hibrit-gold: #f0c674;
+  --hibrit-gold-bright: #ffe4a0;
+  --hibrit-copper: #d49850;
+  --hibrit-rune: #88a4d0;
+
+  /* Active theme — defaults to Ötüken */
+  --bg: var(--otuken-bg);
+  --bg-elev: var(--otuken-bg-elev);
+  --bg-soft: var(--otuken-bg-soft);
+  --line: var(--otuken-line);
+  --ink: var(--otuken-ink);
+  --ink-soft: var(--otuken-ink-soft);
+  --ink-mute: var(--otuken-ink-mute);
+  --gold: var(--otuken-gold);
+  --gold-bright: var(--otuken-gold-bright);
+  --copper: var(--otuken-copper);
+  --rune: var(--otuken-rune);
+
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+
+  --font-display: 'Cinzel', Georgia, serif;
+  --font-ui: 'Inter', -apple-system, system-ui, sans-serif;
+  --font-rune: 'Noto Sans Old Turkic', 'Inter', sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+}
+
+[data-theme="otuken"] {
+  --bg: var(--otuken-bg);
+  --bg-elev: var(--otuken-bg-elev);
+  --bg-soft: var(--otuken-bg-soft);
+  --line: var(--otuken-line);
+  --ink: var(--otuken-ink);
+  --ink-soft: var(--otuken-ink-soft);
+  --ink-mute: var(--otuken-ink-mute);
+  --gold: var(--otuken-gold);
+  --gold-bright: var(--otuken-gold-bright);
+  --copper: var(--otuken-copper);
+  --rune: var(--otuken-rune);
+}
+
+[data-theme="umay"] {
+  --bg: var(--umay-bg);
+  --bg-elev: var(--umay-bg-elev);
+  --bg-soft: var(--umay-bg-soft);
+  --line: var(--umay-line);
+  --ink: var(--umay-ink);
+  --ink-soft: var(--umay-ink-soft);
+  --ink-mute: var(--umay-ink-mute);
+  --gold: var(--umay-gold);
+  --gold-bright: var(--umay-gold-bright);
+  --copper: var(--umay-copper);
+  --rune: var(--umay-rune);
+}
+
+[data-theme="kagan"] {
+  --bg: var(--kagan-bg);
+  --bg-elev: var(--kagan-bg-elev);
+  --bg-soft: var(--kagan-bg-soft);
+  --line: var(--kagan-line);
+  --ink: var(--kagan-ink);
+  --ink-soft: var(--kagan-ink-soft);
+  --ink-mute: var(--kagan-ink-mute);
+  --gold: var(--kagan-gold);
+  --gold-bright: var(--kagan-gold-bright);
+  --copper: var(--kagan-copper);
+  --rune: var(--kagan-rune);
+}
+
+[data-theme="hibrit"] {
+  --bg: var(--hibrit-bg);
+  --bg-elev: var(--hibrit-bg-elev);
+  --bg-soft: var(--hibrit-bg-soft);
+  --line: var(--hibrit-line);
+  --ink: var(--hibrit-ink);
+  --ink-soft: var(--hibrit-ink-soft);
+  --ink-mute: var(--hibrit-ink-mute);
+  --gold: var(--hibrit-gold);
+  --gold-bright: var(--hibrit-gold-bright);
+  --copper: var(--hibrit-copper);
+  --rune: var(--hibrit-rune);
+}

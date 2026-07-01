@@ -6,6 +6,61 @@
 
 const sb = window.secureBrowser;
 
+// ─── Marka Logosu (Claude Design SVG BrandMark) ────────────────────────────────
+// Şeffaf, tema-duyarlı vektör logo — beyaz arka planlı PNG'nin yerine.
+function brandMarkSVG(size = 28, uid = 'm', glow = false) {
+  const zig = Array.from({ length: 16 }).map((_, i) => {
+    const a = (i / 16) * Math.PI * 2;
+    const x1 = 50 + Math.cos(a) * 41, y1 = 50 + Math.sin(a) * 41;
+    const x2 = 50 + Math.cos(a) * 46, y2 = 50 + Math.sin(a) * 46;
+    return `<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="#8aa6c8" stroke-width="0.8" opacity="0.7"/>`;
+  }).join('');
+  return `
+<svg width="${size}" height="${size}" viewBox="0 0 100 100" style="display:block">
+  <defs>
+    <radialGradient id="globe-${uid}" cx="0.4" cy="0.35">
+      <stop offset="0%" stop-color="#cfe2f5"/><stop offset="60%" stop-color="#7fa6c8"/><stop offset="100%" stop-color="#3a5a7a"/>
+    </radialGradient>
+    <linearGradient id="gold-${uid}" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0%" stop-color="#f0c674"/><stop offset="100%" stop-color="#a8742a"/>
+    </linearGradient>
+    <linearGradient id="silver-${uid}" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0%" stop-color="#e8eef4"/><stop offset="100%" stop-color="#8a9eb3"/>
+    </linearGradient>
+    ${glow ? `<filter id="glow-${uid}"><feGaussianBlur stdDeviation="1.2" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>` : ''}
+  </defs>
+  <circle cx="50" cy="50" r="48" fill="#162840" stroke="#d4a85a" stroke-width="0.8"/>
+  <circle cx="50" cy="50" r="44" fill="none" stroke="#8aa6c8" stroke-width="0.6" stroke-dasharray="2 3" opacity="0.6"/>
+  ${zig}
+  <circle cx="50" cy="50" r="26" fill="url(#globe-${uid})" stroke="#d4a85a" stroke-width="0.6"/>
+  <ellipse cx="50" cy="50" rx="26" ry="10" fill="none" stroke="#3a5a7a" stroke-width="0.4" opacity="0.7"/>
+  <ellipse cx="50" cy="50" rx="10" ry="26" fill="none" stroke="#3a5a7a" stroke-width="0.4" opacity="0.7"/>
+  <line x1="24" y1="50" x2="76" y2="50" stroke="#3a5a7a" stroke-width="0.4" opacity="0.6"/>
+  <line x1="50" y1="24" x2="50" y2="76" stroke="#3a5a7a" stroke-width="0.4" opacity="0.6"/>
+  <g ${glow ? `filter="url(#glow-${uid})"` : ''}>
+    <rect x="46" y="32" width="8" height="34" fill="url(#silver-${uid})" stroke="#3a5a7a" stroke-width="0.4"/>
+    <polygon points="46,32 50,28 54,32" fill="url(#silver-${uid})" stroke="#3a5a7a" stroke-width="0.4"/>
+    <polygon points="46,66 50,70 54,66" fill="url(#silver-${uid})" stroke="#3a5a7a" stroke-width="0.4"/>
+  </g>
+  <g ${glow ? `filter="url(#glow-${uid})"` : ''}>
+    <polygon points="64,36 68,32 56,52 52,48" fill="url(#gold-${uid})" stroke="#a8742a" stroke-width="0.4"/>
+    <polygon points="36,64 32,68 44,48 48,52" fill="#444" opacity="0.5"/>
+  </g>
+  <g fill="#8aa6c8" opacity="0.85">
+    <path d="M38,82 q1.5,-3 4,-3 q1,-2 2,-1 q1,-2 2,-1 q0.5,1 0,2 q1,1 0,2 q1,1.5 -1,2 q-2,0.5 -3,0 q-2,0.5 -4,-1z"/>
+    <path d="M55,82 q1.5,-3 4,-3 q1,-2 2,-1 q1,-2 2,-1 q0.5,1 0,2 q1,1 0,2 q1,1.5 -1,2 q-2,0.5 -3,0 q-2,0.5 -4,-1z"/>
+  </g>
+</svg>`;
+}
+window.brandMarkSVG = brandMarkSVG;
+
+function injectBrandMarks() {
+  const tb = document.getElementById('app-brand-mark');
+  if (tb) tb.innerHTML = brandMarkSVG(28, 'tb');
+  const au = document.getElementById('auth-brand-mark');
+  if (au) au.innerHTML = brandMarkSVG(64, 'au', true);
+}
+
 // ─── State ────────────────────────────────────────────────────────────────────
 let currentTabs   = [];
 let currentConfig = {};
@@ -218,15 +273,34 @@ const QUICK_LINKS = [
   { name: 'Arşiv', url: 'https://archive.org',             color: '#3a5a4a', letter: 'A' },
 ];
 
-const SAMPLE_NEWS = [
-  { cat: 'TARİH', read: '8 dk', title: 'Orhun Yazıtları: Türk Tarihinin Mihenk Taşı', body: 'Bilge Kağan döneminde dikildiği düşünülen yazıtlar, Türkçenin bilinen en eski belgelerinden sayılmaktadır.', feature: true },
-  { cat: 'KEŞİF', read: '4 dk', title: 'Sibirya Bozkırlarında Yeni Kurgan Bulundu', body: '' },
-  { cat: 'KÜLTÜR', read: '6 dk', title: 'Demir Devri Atlı Göçebe Sanatı', body: '' },
-  { cat: 'DİL', read: '5 dk', title: 'Göktürkçe Alfabe ve 38 Harf', body: '' },
-  { cat: 'EFSANE', read: '3 dk', title: 'Ergenekon Destanı: Kurttan Türeyiş', body: '' },
+// Türk tarihi/kültürü haber havuzu — her yeni sekmede karıştırılıp döner.
+const NEWS_POOL = [
+  { cat: 'TARİH',  read: '8 dk', icon: '🗿', title: 'Orhun Yazıtları: Türk Tarihinin Mihenk Taşı', body: 'Bilge Kağan döneminde dikildiği düşünülen yazıtlar, Türkçenin bilinen en eski belgelerinden sayılmaktadır.' },
+  { cat: 'KEŞİF',  read: '4 dk', icon: '⛏️', title: 'Sibirya Bozkırlarında Yeni Kurgan Bulundu', body: 'Arkeologlar, Altay eteklerinde bozulmadan korunmuş bir beylik mezarı gün yüzüne çıkardı.' },
+  { cat: 'KÜLTÜR', read: '6 dk', icon: '🐎', title: 'Demir Devri Atlı Göçebe Sanatı', body: 'Hayvan üslubu motifleri, bozkır sanatının Avrasya boyunca yayılışını gösteriyor.' },
+  { cat: 'DİL',    read: '5 dk', icon: '𐰚', title: 'Göktürkçe Alfabe ve 38 Harf', body: 'Runik yazının ses değerleri ve taş yazıtlardaki kullanımı üzerine kısa bir gezinti.' },
+  { cat: 'EFSANE', read: '3 dk', icon: '🐺', title: 'Ergenekon Destanı: Kurttan Türeyiş', body: 'Demir dağı eriten bozkurt önderliğinde özgürlüğe çıkış anlatısı.' },
+  { cat: 'TARİH',  read: '7 dk', icon: '🏹', title: 'Mete Han ve İlk Düzenli Ordu', body: 'Onlu sistemin bozkır savaş sanatına getirdiği devrim niteliğindeki düzen.' },
+  { cat: 'KÜLTÜR', read: '5 dk', icon: '🎶', title: 'Bozkırın Sesi: Kopuz ve Ozanlar', body: 'Destanları kuşaktan kuşağa taşıyan ozan geleneği ve kopuzun yeri.' },
+  { cat: 'BİLİM',  read: '6 dk', icon: '🌌', title: 'Türk Takvimi ve On İki Hayvanlı Sistem', body: 'Gökyüzü gözlemine dayanan yıl döngüsü ve sembolizmi.' },
+  { cat: 'COĞRAFYA', read: '9 dk', icon: '🗺️', title: 'İpek Yolu Üzerinde Türk Boyları', body: 'Kervan yollarının kavşağında ticaret, göç ve kültür alışverişi.' },
+  { cat: 'MİMARİ', read: '4 dk', icon: '🏛️', title: 'Otağ’dan Kervansaraya', body: 'Göçebe çadırından anıtsal taş yapılara uzanan mimari süreklilik.' },
+  { cat: 'EFSANE', read: '3 dk', icon: '🦅', title: 'Umay Ana ve Bereket İnancı', body: 'Bozkır inanç dünyasında koruyucu dişil ruh Umay’ın izleri.' },
+  { cat: 'KEŞİF',  read: '5 dk', icon: '💎', title: 'Pazırık Kurganları’nda Buzda Kalan Hazine', body: 'Donmuş toprak sayesinde bozulmadan gelen halı, eyer ve dövmeler.' },
 ];
 
+function shuffle(arr) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
 function renderNewTab() {
+  // Her render'da havuzu karıştır → 1 öne çıkan + 4 yan haber döner
+  const picked = shuffle(NEWS_POOL).slice(0, 5).map((it, i) => ({ ...it, feature: i === 0 }));
   const shortcutsHtml = QUICK_LINKS.map(link => `
     <button class="shortcut" data-url="${link.url}" title="${link.name}">
       <span class="tile-mark" style="background:linear-gradient(135deg,${link.color},color-mix(in srgb,${link.color} 55%,#000));box-shadow:0 6px 14px -8px ${link.color}88">
@@ -236,11 +310,11 @@ function renderNewTab() {
     </button>
   `).join('');
 
-  const newsHtml = SAMPLE_NEWS.map((item) => {
+  const newsHtml = picked.map((item) => {
     if (item.feature) {
       return `
         <div class="news-card feature">
-          <div class="feature-img"><div class="placeholder-tag">GÖRSEL</div></div>
+          <div class="feature-img"><span class="feature-emoji">${item.icon}</span></div>
           <div class="body-pad">
             <div class="meta"><span class="cat">${item.cat}</span><span>${item.read}</span></div>
             <h4>${item.title}</h4>
@@ -250,7 +324,7 @@ function renderNewTab() {
     }
     return `
       <div class="news-card">
-        <div class="meta"><span class="cat">${item.cat}</span><span>${item.read}</span></div>
+        <div class="meta"><span class="cat">${item.icon} ${item.cat}</span><span>${item.read}</span></div>
         <h4>${item.title}</h4>
         ${item.body ? `<p>${item.body}</p>` : ''}
       </div>`;
@@ -425,7 +499,24 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // ── Main process güncellemeleri ───────────────────────────────────────────
   sb.onTabsUpdate((tabs) => renderTabs(tabs));
-  sb.onActiveUrl((url)   => updateAddressBar(url));
+  sb.onActiveUrl((url) => {
+    updateAddressBar(url);
+    // Boş sekme → İlgezdi yeni sekme sayfasını göster; gerçek URL → gizle
+    const blank = !url || url === 'about:blank' || url === 'ilgezdi://newtab';
+    if (blank) {
+      if (currentScreen !== 'newtab') {
+        showScreen('newtab', renderNewTab);
+        requestAnimationFrame(initNewTabEvents);
+      } else {
+        // Zaten newtab ekranındayız ama main süreci setActiveTab ile boş
+        // BrowserView'ı yeniden göstermiş olabilir → tekrar gizle (aksi halde
+        // ~1sn sonra boş beyaz ekran overlay'in üstünü kapatıyor).
+        sb.hideActiveTab?.();
+      }
+    } else if (currentScreen === 'newtab') {
+      hideScreen();
+    }
+  });
   sb.onVpnStatus?.((data) => updateVpnIndicator(data.connected));
 
   // ── Klavye kısayolları ────────────────────────────────────────────────────
@@ -448,6 +539,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       else closeAllPanels();
     }
   });
+
+  // Marka logolarını enjekte et (toolbar + auth)
+  injectBrandMarks();
 
   // İlk açılışta yeni sekme ekranını göster
   showScreen('newtab', renderNewTab);

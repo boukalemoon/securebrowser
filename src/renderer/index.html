@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta http-equiv="Content-Security-Policy"
-      content="default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self'; img-src * data: blob: 'self';" />
+      content="default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self'; img-src * data: blob: 'self'; connect-src 'self' https://*.supabase.co https://api.qrserver.com;" />
   <title>İlgezdi</title>
   <link rel="stylesheet" href="styles/tokens/primitives.css" />
   <link rel="stylesheet" href="styles/main.css" />
@@ -59,10 +59,9 @@
        ══════════════════════════════════════════════════════ -->
   <div id="toolbar">
 
-    <!-- Marka (logo + İLGEZDİ) -->
+    <!-- Marka (logo + İLGEZDİ) — SVG BrandMark app.js tarafından enjekte edilir -->
     <div class="brand-mark" id="app-brand">
-      <img src="assets/logo-mark.png" width="28" height="28"
-           style="object-fit:contain;display:block;" alt="İlgezdi" />
+      <span class="mark-svg" id="app-brand-mark"></span>
       <span class="wordmark">İLGEZDİ</span>
     </div>
 
@@ -220,7 +219,7 @@
     <span>·</span>
     <span id="status-url"></span>
     <span class="rune-stripe" id="status-runes" title="Göktürk Runik Yazısı">𐱅𐰢 𐰉 𐰽 𐱆 𐰚𐰢 𐱅𐰉𐰍</span>
-    <span>İlgezdi v0.5</span>
+    <span>İlgezdi v0.6</span>
   </div>
 
   <!-- ══════════════════════════════════════════════════════
@@ -232,7 +231,7 @@
       <button class="auth-skip" id="auth-skip" title="Misafir olarak devam et">✕</button>
 
       <div class="auth-brand">
-        <img src="assets/logo-mark.png" alt="İlgezdi" />
+        <span id="auth-brand-mark"></span>
         <span>İLGEZDİ</span>
       </div>
 

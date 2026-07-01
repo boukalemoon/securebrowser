@@ -74,12 +74,15 @@ function applyThemeToDOM(themeName, accentColor) {
   root.setAttribute('data-theme', themeName);
 
   const themeDefault = THEME_DEFAULT_ACCENTS[themeName] || '#d4a85a';
+  // Component'lar vurgu için --gold/--gold-bright/--copper kullanıyor (--accent değil),
+  // bu yüzden özel renk seçildiğinde ASIL bunları override ediyoruz.
+  const goldVars = ['--gold', '--gold-bright', '--copper', '--accent'];
   if (accentColor && accentColor !== themeDefault) {
-    root.style.setProperty('--accent',        accentColor);
+    goldVars.forEach(v => root.style.setProperty(v, accentColor));
     root.style.setProperty('--accent-glow',   accentColor + '2e');
     root.style.setProperty('--accent-border', accentColor + '80');
   } else {
-    root.style.removeProperty('--accent');
+    goldVars.forEach(v => root.style.removeProperty(v));
     root.style.removeProperty('--accent-glow');
     root.style.removeProperty('--accent-border');
   }
@@ -258,6 +261,7 @@ function injectSettingsPanelHTML() {
     <div class="panel-header"><h2>⚙ Ayarlar</h2><button class="panel-close" data-panel="settings">✕</button></div>
     <div class="settings-tabs">
       <button class="settings-tab active" data-tab="customization">🎨 Özelleştir</button>
+      <button class="settings-tab" data-tab="account">👤 Hesap</button>
       <button class="settings-tab" data-tab="general">⚙ Genel</button>
       <button class="settings-tab" data-tab="privacy">🛡 Gizlilik</button>
       <button class="settings-tab" data-tab="passwords">🔑 Şifreler</button>
@@ -307,6 +311,8 @@ function discardPendingChanges() {
 
   // DOM'u kayıtlı haline geri çek (önizlemeyi temizle)
   applyThemeToDOM(_savedTheme, _savedAccent);
+  document.documentElement.style.setProperty('--font-size-base', _savedFontSize + 'px');
+  document.body.style.fontFamily = _savedFontFamily;
 
   updateUnsavedBar();
   renderSettingsTab('customization', settingsConfig);
@@ -540,12 +546,63 @@ function renderSettingsTab(tabId, cfg) {
   const content = document.getElementById('settings-content');
   if (!content) return;
   if      (tabId==='customization') content.innerHTML = renderCustomizationTab(cfg);
+  else if (tabId==='account')       content.innerHTML = renderAccountTab();
   else if (tabId==='general')       content.innerHTML = renderGeneralTab(cfg);
   else if (tabId==='privacy')       content.innerHTML = renderPrivacyTab(cfg);
   else if (tabId==='passwords')     content.innerHTML = renderPasswordsTab();
   if (tabId==='customization') { bindCustomizationEvents(); updatePreviewBox(); }
+  if (tabId==='account')       bindAccountEvents();
   if (tabId==='general')       bindGeneralEvents();
   if (tabId==='passwords')     bindPasswordEvents();
+}
+
+// ─── Hesap sekmesi (QRtım / e-posta girişi) ───────────────────────────────────
+function renderAccountTab() {
+  return `
+    <div class="settings-section">
+      <h3>👤 Hesap</h3>
+      <div class="account-card" id="account-info" style="padding:14px;border:1px solid var(--border-color);border-radius:12px;background:var(--bg-surface);margin-bottom:14px;font-size:13px;color:var(--text-secondary)">
+        Yükleniyor…
+      </div>
+      <div class="account-actions" id="account-actions" style="display:flex;gap:8px;flex-wrap:wrap"></div>
+      <p style="font-size:11.5px;color:var(--text-muted);margin-top:12px;line-height:1.5">
+        QRtım hesabınızla giriş yaparak yer imlerinizi ve ayarlarınızı senkronlayın.
+        E-posta ile giriş / kayıt ya da QR kod ile giriş desteklenir.
+      </p>
+    </div>`;
+}
+
+async function bindAccountEvents() {
+  const info    = document.getElementById('account-info');
+  const actions = document.getElementById('account-actions');
+  if (!info || !actions) return;
+
+  let session = null;
+  try { session = await window.ilgezdiAuth?.getSession?.(); } catch {}
+
+  if (session && (session.userId || session.email)) {
+    const name = session.displayName || session.email || 'Kullanıcı';
+    info.innerHTML = `
+      <div style="display:flex;align-items:center;gap:12px">
+        <div style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,var(--gold),var(--copper));display:grid;place-items:center;color:#0e1a2e;font-weight:800;font-size:18px">${(name[0]||'K').toUpperCase()}</div>
+        <div>
+          <div style="color:var(--text-primary);font-weight:600">${name}</div>
+          <div style="color:var(--text-muted);font-size:12px">${session.email || ''} · ${session.plan || 'free'} · ${session.loginMethod || ''}</div>
+        </div>
+      </div>`;
+    actions.innerHTML = `<button class="btn-ghost" id="acc-logout">Çıkış Yap</button>`;
+    document.getElementById('acc-logout')?.addEventListener('click', async () => {
+      window.ilgezdiCloseAllPanels?.();
+      await window.ilgezdiAuth?.logout?.();
+    });
+  } else {
+    info.innerHTML = `<span style="color:var(--text-muted)">Henüz giriş yapılmadı.</span>`;
+    actions.innerHTML = `<button class="btn-primary" id="acc-open">Giriş Yap / Kayıt Ol</button>`;
+    document.getElementById('acc-open')?.addEventListener('click', () => {
+      window.ilgezdiCloseAllPanels?.();
+      window.ilgezdiAuth?.open?.();
+    });
+  }
 }
 
 // ─── Özelleştirme eventleri — pending state + anlık önizleme ─────────────────
@@ -610,13 +667,14 @@ function bindCustomizationEvents() {
     updateUnsavedBar();
   });
 
-  // Font boyutu — sadece preview kutusunu günceller (global font Adım 5'te)
+  // Font boyutu — canlı önizleme (--font-size-base'i anında uygula)
   document.getElementById('font-size-slider')?.addEventListener('input', (e) => {
     _pendingFontSize = parseInt(e.target.value);
     const badge = document.getElementById('font-size-val');
     const prev  = document.getElementById('font-preview-text');
     if (badge) badge.textContent = _pendingFontSize + 'px';
     if (prev)  prev.style.fontSize = _pendingFontSize + 'px';
+    document.documentElement.style.setProperty('--font-size-base', _pendingFontSize + 'px');
     updatePreviewBox();
     updateUnsavedBar();
   });

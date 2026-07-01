@@ -1,11 +1,18 @@
 {
-  "name": "securebrowser",
-  "version": "0.2.0",
-  "description": "Kişisel Güvenli Browser - Faz 2: WireGuard VPN",
+  "name": "ilgezdi",
+  "version": "0.6.0",
+  "description": "İlgezdi — Güvenli, gizlilik odaklı web tarayıcısı (Göktürk temalı)",
+  "author": "İlgezdi",
+  "license": "MIT",
   "main": "src/main/main.js",
   "scripts": {
     "start": "electron .",
     "dev": "electron . --dev",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder",
+    "dist:win": "electron-builder --win",
+    "dist:mac": "electron-builder --mac",
+    "dist:linux": "electron-builder --linux",
     "build:win": "electron-builder --win",
     "build:mac": "electron-builder --mac",
     "build:linux": "electron-builder --linux"
@@ -19,11 +26,64 @@
     "node-fetch": "^3.3.2"
   },
   "build": {
-    "appId": "com.personal.securebrowser",
-    "productName": "SecureBrowser",
-    "directories": { "output": "dist" },
-    "win": { "target": "nsis" },
-    "mac": { "target": "dmg" },
-    "linux": { "target": "AppImage" }
+    "appId": "com.ilgezdi.browser",
+    "productName": "İlgezdi",
+    "copyright": "Copyright © 2026 İlgezdi",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "artifactName": "Ilgezdi-${version}-${os}-${arch}.${ext}",
+    "files": [
+      "src/**/*",
+      "package.json",
+      "!**/*.map",
+      "!**/node_modules/*/{CHANGELOG.md,README.md,README,readme.md,readme}",
+      "!**/{.DS_Store,.git,.github,docs,site,tasarım backup}"
+    ],
+    "asar": true,
+    "win": {
+      "target": [
+        { "target": "nsis", "arch": ["x64"] },
+        { "target": "portable", "arch": ["x64"] }
+      ],
+      "icon": "build/icon.ico",
+      "artifactName": "Ilgezdi-Kurulum-${version}-${arch}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "İlgezdi",
+      "installerLanguages": ["tr_TR", "en_US"],
+      "language": "1055"
+    },
+    "mac": {
+      "target": [
+        { "target": "dmg", "arch": ["x64", "arm64"] },
+        { "target": "zip", "arch": ["x64", "arm64"] }
+      ],
+      "icon": "build/icon.png",
+      "category": "public.app-category.utilities",
+      "darkModeSupport": true
+    },
+    "dmg": {
+      "title": "İlgezdi ${version}",
+      "artifactName": "Ilgezdi-${version}-mac-${arch}.${ext}"
+    },
+    "linux": {
+      "target": [
+        { "target": "AppImage", "arch": ["x64"] },
+        { "target": "deb", "arch": ["x64"] }
+      ],
+      "icon": "build/icon.png",
+      "category": "Network;WebBrowser",
+      "maintainer": "İlgezdi <destek@ilgezdi.com>",
+      "synopsis": "Güvenli, gizlilik odaklı web tarayıcısı",
+      "description": "İlgezdi — Göktürk temalı, reklam/izleyici engelleyici ve VPN destekli güvenli web tarayıcısı."
+    },
+    "publish": null
   }
 }

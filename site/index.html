@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>İlgezdi — Güvenli Web Tarayıcısı</title>
+<meta name="description" content="İlgezdi — Göktürk temalı, reklam/izleyici engelleyici ve VPN destekli güvenli, gizlilik odaklı web tarayıcısı. Windows, macOS ve Linux için indir." />
+<meta property="og:title" content="İlgezdi — Güvenli Web Tarayıcısı" />
+<meta property="og:description" content="Göktürk temalı, gizlilik odaklı web tarayıcısı. Windows · macOS · Linux" />
+<meta property="og:image" content="/icon.png" />
+<meta property="og:type" content="website" />
+<link rel="icon" href="icon.png" />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Inter:wght@400;500;600;700&family=Noto+Sans+Old+Turkic&display=swap" />
+<style>
+  :root {
+    --bg: #0e1a2e; --bg-elev: #15243d; --bg-soft: #1c2e4a; --line: #2a3e5e;
+    --ink: #e8d9b8; --ink-soft: #b8a888; --ink-mute: #6f7a92;
+    --gold: #d4a85a; --gold-bright: #f0c674; --copper: #c87f4a; --rune: #8aa6c8;
+    --font-display: 'Cinzel', Georgia, serif;
+    --font-ui: 'Inter', system-ui, sans-serif;
+    --font-rune: 'Noto Sans Old Turkic', sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: var(--font-ui); color: var(--ink); background: #0a0e15;
+    background-image:
+      radial-gradient(circle at 20% 10%, rgba(212,168,90,0.10), transparent 45%),
+      radial-gradient(circle at 85% 70%, rgba(200,127,74,0.08), transparent 45%);
+    -webkit-font-smoothing: antialiased; min-height: 100vh; overflow-x: hidden;
+  }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 0 24px; }
+
+  /* Hero */
+  header.hero { text-align: center; padding: 80px 0 48px; }
+  .logo { width: 132px; height: 132px; margin: 0 auto 24px; display: block;
+    filter: drop-shadow(0 18px 40px rgba(0,0,0,0.55)); }
+  .runes { font-family: var(--font-rune); color: var(--rune); letter-spacing: 8px;
+    font-size: 15px; opacity: 0.75; margin-bottom: 10px; }
+  h1 { font-family: var(--font-display); font-weight: 800; font-size: 64px;
+    letter-spacing: 4px; color: var(--gold); text-shadow: 0 2px 0 rgba(0,0,0,0.3); }
+  .tagline { font-size: 18px; color: var(--ink-soft); margin: 14px auto 4px; max-width: 560px; line-height: 1.6; }
+  .ver { display: inline-block; margin-top: 18px; font-family: var(--font-rune), monospace;
+    font-size: 12px; letter-spacing: 1px; color: var(--gold-bright);
+    border: 1px solid color-mix(in srgb, var(--gold) 45%, transparent);
+    background: color-mix(in srgb, var(--gold) 12%, transparent);
+    padding: 5px 14px; border-radius: 20px; }
+
+  /* Download cards */
+  .downloads { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; margin: 40px 0 20px; }
+  @media (max-width: 760px) { h1 { font-size: 44px; } .downloads { grid-template-columns: 1fr; } }
+  .dl-card {
+    background: linear-gradient(180deg, var(--bg-elev), var(--bg));
+    border: 1px solid var(--line); border-radius: 16px; padding: 26px 22px; text-align: center;
+    transition: transform .2s, border-color .2s; position: relative; overflow: hidden;
+  }
+  .dl-card:hover { transform: translateY(-4px); border-color: var(--gold); }
+  .dl-ico { font-size: 42px; margin-bottom: 12px; display: block; }
+  .dl-card h3 { font-family: var(--font-display); font-size: 20px; letter-spacing: 1px; color: var(--ink); margin-bottom: 4px; }
+  .dl-card .os-sub { font-size: 12px; color: var(--ink-mute); margin-bottom: 18px; font-family: monospace; }
+  .btn {
+    display: inline-block; text-decoration: none; cursor: pointer;
+    border: 1px solid var(--gold); border-radius: 10px; padding: 11px 20px;
+    font-family: var(--font-display); font-weight: 600; font-size: 13px; letter-spacing: 1px;
+    text-transform: uppercase; color: var(--gold-bright);
+    background: linear-gradient(180deg, color-mix(in srgb, var(--gold) 24%, transparent), color-mix(in srgb, var(--copper) 16%, transparent));
+    transition: all .18s;
+  }
+  .btn:hover { transform: translateY(-1px); box-shadow: 0 8px 18px -8px var(--gold); }
+  .btn.soon { opacity: .55; border-color: var(--line); color: var(--ink-mute); background: transparent; cursor: default; }
+  .btn.soon:hover { transform: none; box-shadow: none; }
+  .dl-note { font-size: 11px; color: var(--ink-mute); margin-top: 12px; }
+
+  /* Features */
+  .features { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin: 56px 0; }
+  @media (max-width: 760px) { .features { grid-template-columns: 1fr 1fr; } }
+  .feat { background: color-mix(in srgb, var(--bg-elev) 60%, transparent);
+    border: 1px solid var(--line); border-radius: 12px; padding: 18px; }
+  .feat .fi { font-size: 24px; margin-bottom: 8px; }
+  .feat h4 { font-family: var(--font-display); font-size: 15px; color: var(--ink); margin-bottom: 4px; letter-spacing: .5px; }
+  .feat p { font-size: 12.5px; color: var(--ink-soft); line-height: 1.5; }
+
+  footer { text-align: center; padding: 40px 0 60px; color: var(--ink-mute); font-size: 12px; border-top: 1px solid var(--line); margin-top: 20px; }
+  footer .rune-stripe { font-family: var(--font-rune); letter-spacing: 6px; opacity: .5; margin-bottom: 10px; }
+  a.link { color: var(--gold); text-decoration: none; }
+  a.link:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="hero">
+      <img class="logo" src="icon.png" alt="İlgezdi" />
+      <div class="runes">𐰚𐰢 𐱅𐰉𐰍𐰢</div>
+      <h1>İLGEZDİ</h1>
+      <p class="tagline">Göktürk ruhuyla tasarlanmış; reklam engelleyici, VPN destekli, gizlilik odaklı web tarayıcısı.</p>
+      <span class="ver" id="ver">v0.6.0 · Ötüken</span>
+    </header>
+
+    <section class="downloads" id="downloads">
+      <div class="dl-card">
+        <span class="dl-ico">🪟</span>
+        <h3>Windows</h3>
+        <div class="os-sub">Windows 10/11 · x64</div>
+        <a class="btn" id="dl-win" href="#" data-file="Ilgezdi-Kurulum-0.6.0-x64.exe">İndir (.exe)</a>
+        <div class="dl-note">Kurulum sihirbazı (NSIS)</div>
+      </div>
+      <div class="dl-card">
+        <span class="dl-ico">🍎</span>
+        <h3>macOS</h3>
+        <div class="os-sub">Intel &amp; Apple Silicon</div>
+        <a class="btn" id="dl-mac" href="#" data-file="Ilgezdi-0.6.0-mac-arm64.dmg">İndir (.dmg)</a>
+        <div class="dl-note">Universal · x64 + arm64</div>
+      </div>
+      <div class="dl-card">
+        <span class="dl-ico">🐧</span>
+        <h3>Linux</h3>
+        <div class="os-sub">AppImage · .deb · x64</div>
+        <a class="btn" id="dl-linux" href="#" data-file="Ilgezdi-0.6.0-linux-x86_64.AppImage">İndir (AppImage)</a>
+        <div class="dl-note">Taşınabilir · kurulum gerektirmez</div>
+      </div>
+    </section>
+
+    <section class="features">
+      <div class="feat"><div class="fi">🛡️</div><h4>Engelleyici</h4><p>Reklam ve izleyici engelleme yerleşik olarak gelir.</p></div>
+      <div class="feat"><div class="fi">🔒</div><h4>VPN</h4><p>WireGuard profilleri, ping ve DNS-sızıntı testi.</p></div>
+      <div class="feat"><div class="fi">🎨</div><h4>4 Tema</h4><p>Ötüken, Umay, Kağan ve Hibrit Göktürk temaları.</p></div>
+      <div class="feat"><div class="fi">🕶️</div><h4>Gizlilik</h4><p>Gizli pencere, parmak izi koruması, güvenli günlük.</p></div>
+    </section>
+
+    <footer>
+      <div class="rune-stripe">𐱅𐰢 𐰉 𐰽 𐱆 𐰚𐰢 𐱅𐰉𐰍</div>
+      <p>İlgezdi © 2026 · <a class="link" href="https://github.com/boukalemoon/securebrowser/releases" id="repo-link">Kaynak &amp; Sürümler</a></p>
+      <p style="margin-top:6px;opacity:.7">İyi yolculuklar, Gezgin.</p>
+    </footer>
+  </div>
+
+  <script>
+    // Sürüm ve indirme linkleri — GitHub Releases tabanı. Yayınlayınca güncelle.
+    const RELEASES_BASE = 'https://github.com/boukalemoon/securebrowser/releases/latest/download';
+    document.querySelectorAll('.btn[data-file]').forEach(a => {
+      a.href = RELEASES_BASE + '/' + a.dataset.file;
+    });
+  </script>
+</body>
+</html>

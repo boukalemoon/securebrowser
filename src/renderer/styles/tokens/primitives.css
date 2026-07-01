@@ -118,6 +118,10 @@
   --runic-glow:  color-mix(in srgb, var(--gold) 35%, transparent);
 }
 
+/* ── Yazı boyutu tabanı — Ayarlar slider'ından gelen --font-size-base ──
+   (silinen semantic.css'ten taşındı; bu kural olmadan slider etkisiz kalıyor) */
+html, body { font-size: var(--font-size-base, 13px); }
+
 /* ── Hibrit Altın — parlak altın geometri ───────────────────── */
 [data-theme="hibrit"] {
   --bg:           #0a1422;

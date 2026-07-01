@@ -329,10 +329,15 @@ function createTab(win, state, url = config.homepage) {
     return { action: 'deny' };
   });
 
+  // Başlangıç başlığı: boş sekme → "Yeni Sekme", aksi halde alan adı.
+  const isBlank = !url || url === 'about:blank';
+  let initialTitle = 'Yeni Sekme';
+  if (!isBlank) { try { initialTitle = new URL(url).hostname || url; } catch { initialTitle = url; } }
+
   state.tabs.set(tabId, {
     view,
     url:          url,
-    title:        'Yükleniyor...',
+    title:        initialTitle,
     startTime:    Date.now(),
     blockedCount: 0,
   });
@@ -612,7 +617,9 @@ ipcMain.handle('bookmark-popup-open', (e, { x, y, data }) => {
     return { ok: false };
   }
 
-  const winBounds = mainWindow.getBounds();
+  // İsteği yapan pencereyi (ana ya da incognito) baz al — sabit mainWindow değil.
+  const ownerWin = BrowserWindow.fromWebContents(e.sender) || mainWindow;
+  const winBounds = ownerWin.getBounds();
 
   let px = Math.round(winBounds.x + x) - 280 + 20;
   let py = Math.round(winBounds.y + y) + 30;
@@ -640,6 +647,7 @@ ipcMain.handle('bookmark-popup-open', (e, { x, y, data }) => {
     }
   });
 
+  bookmarkPopupWin.__owner = ownerWin;
   bookmarkPopupWin.loadFile(path.join(__dirname, '../renderer/bookmark-popup.html'));
 
   bookmarkPopupWin.once('ready-to-show', () => {
@@ -655,8 +663,10 @@ ipcMain.handle('bookmark-popup-open', (e, { x, y, data }) => {
   });
 
   bookmarkPopupWin.on('closed', () => {
+    if (ownerWin && !ownerWin.isDestroyed()) {
+      ownerWin.webContents.send('bookmark-popup-closed');
+    }
     bookmarkPopupWin = null;
-    mainWindow.webContents.send('bookmark-popup-closed');
   });
 
   return { ok: true };
@@ -671,7 +681,10 @@ ipcMain.handle('bookmark-popup-close', () => {
 });
 
 ipcMain.handle('bookmark-popup-save', (e, result) => {
-  mainWindow.webContents.send('bookmark-popup-result', { action: 'save', ...result });
+  const owner = bookmarkPopupWin?.__owner;
+  if (owner && !owner.isDestroyed()) {
+    owner.webContents.send('bookmark-popup-result', { action: 'save', ...result });
+  }
   if (bookmarkPopupWin && !bookmarkPopupWin.isDestroyed()) {
     bookmarkPopupWin.close();
     bookmarkPopupWin = null;
@@ -680,7 +693,10 @@ ipcMain.handle('bookmark-popup-save', (e, result) => {
 });
 
 ipcMain.handle('bookmark-popup-delete', () => {
-  mainWindow.webContents.send('bookmark-popup-result', { action: 'delete' });
+  const owner = bookmarkPopupWin?.__owner;
+  if (owner && !owner.isDestroyed()) {
+    owner.webContents.send('bookmark-popup-result', { action: 'delete' });
+  }
   if (bookmarkPopupWin && !bookmarkPopupWin.isDestroyed()) {
     bookmarkPopupWin.close();
     bookmarkPopupWin = null;
@@ -743,7 +759,7 @@ app.whenReady().then(() => {
 
   setTimeout(() => {
     if (mainState.tabs.size === 0) {
-      const id = createTab(mainWindow, mainState);
+      const id = createTab(mainWindow, mainState, 'about:blank');
       setActiveTab(mainWindow, mainState, id);
     }
   }, 800);
@@ -795,7 +811,7 @@ function createIncognitoWindow() {
   // Renderer yüklenince ilk sekmeyi oluştur
   incognitoWindow.webContents.on('did-finish-load', () => {
     if (incognitoWindow && !incognitoWindow.isDestroyed() && incognitoState.tabs.size === 0) {
-      const id = createTab(incognitoWindow, incognitoState, config.homepage);
+      const id = createTab(incognitoWindow, incognitoState, 'about:blank');
       setActiveTab(incognitoWindow, incognitoState, id);
     }
   });
