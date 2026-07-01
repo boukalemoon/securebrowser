@@ -14,9 +14,6 @@ const { setupBlocker, updateBlockerConfig, getBlockStats } = require('./blocker-
 const { setupGlance } = require('./glance-main');
 
 let incognitoWindow = null;
-const incognitoTabs = new Map();
-let activeIncognitoTabId = null;
-let incognitoTabCounter = 0;
 
 const USER_DATA = app.getPath('userData');
 const DB_PATH   = path.join(USER_DATA, 'logs.db');
@@ -49,8 +46,8 @@ const DEFAULT_CONFIG = {
   newTabMode:            'blank',
   customNewTabUrl:       '',
   fontSize:              13,
-  fontFamily:            "'DM Sans', sans-serif",
-  accentColor:           '#c8803a',
+  fontFamily:            "'Inter', sans-serif",
+  accentColor:           '#d4a85a',
 };
 
 function loadConfig() {
@@ -181,6 +178,24 @@ function configureSession(ses) {
 let mainWindow = null;
 let bookmarkPopupWin = null;
 
+// ─── Per-pencere sekme durumu ────────────────────────────────────────────────
+// Her pencere (ana + incognito) kendi state nesnesine sahip
+const mainState = { tabs: new Map(), activeTabId: null, tabCounter: 0, panelIsOpen: false };
+const incognitoState = { tabs: new Map(), activeTabId: null, tabCounter: 0, panelIsOpen: false };
+
+const PANEL_WIDTH      = 420;
+const SIDEBAR_WIDTH    = 56;
+const TOOLBAR_HEIGHT   = 128; // 40 titlebar + 52 toolbar + 36 bookmarks bar
+const STATUSBAR_HEIGHT = 24;
+
+function getContextFromEvent(event) {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (incognitoWindow && !incognitoWindow.isDestroyed() && win && win.id === incognitoWindow.id) {
+    return { win: incognitoWindow, state: incognitoState };
+  }
+  return { win: mainWindow, state: mainState };
+}
+
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1400, height: 900, minWidth: 900, minHeight: 600,
@@ -196,6 +211,8 @@ function createWindow() {
     },
     show: false,
   });
+
+  mainWindow.on('resize', () => resizeActiveView(mainWindow, mainState));
 
   mainWindow.on('minimize', () => {
     if (bookmarkPopupWin && !bookmarkPopupWin.isDestroyed()) {
@@ -222,62 +239,66 @@ function createWindow() {
   });
 }
 
-const tabs = new Map();
-let activeTabId = null;
-let tabCounter  = 0;
+function createTab(win, state, url = config.homepage) {
+  const tabId = ++state.tabCounter;
+  const isIncognito = state === incognitoState;
 
-function createTab(url = config.homepage) {
-  const tabId = ++tabCounter;
-  const view  = new BrowserView({
+  const view = new BrowserView({
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
       webSecurity: true,
       allowRunningInsecureContent: false,
-      partition: 'persist:securebrowser',
+      partition: isIncognito
+        ? 'incognito-' + (win ? win.id : Date.now())
+        : 'persist:securebrowser',
     }
   });
- 
+
   configureSession(view.webContents.session);
- 
+
   view.webContents.on('page-title-updated', (e, title) => {
-    const tab = tabs.get(tabId);
+    const tab = state.tabs.get(tabId);
     if (tab) tab.title = title;
-    sendTabsUpdate();
+    sendTabsUpdate(win, state);
   });
- 
+
   view.webContents.on('did-navigate', (e, navUrl) => {
-    const tab = tabs.get(tabId);
+    const tab = state.tabs.get(tabId);
     if (tab) tab.url = navUrl;
-    sendTabsUpdate();
+    sendTabsUpdate(win, state);
   });
- 
+
   view.webContents.on('did-navigate-in-page', (e, navUrl) => {
-    const tab = tabs.get(tabId);
+    const tab = state.tabs.get(tabId);
     if (tab) tab.url = navUrl;
-    sendTabsUpdate();
+    sendTabsUpdate(win, state);
   });
- 
+
   view.webContents.on('did-finish-load', () => {
-    const tab = tabs.get(tabId);
+    const tab = state.tabs.get(tabId);
     if (!tab) return;
-    try {
-      const domain    = new URL(tab.url).hostname;
-      const vpnStatus = vpnManager?.getStatus();
-      logVisit({
-        url:         tab.url,
-        domain,
-        title:       tab.title,
-        vpnActive:   vpnStatus?.status === 'connected',
-        vpnProfile:  vpnStatus?.activeProfile?.name || '',
-        duration:    Date.now() - tab.startTime,
-        blockedReqs: tab.blockedCount,
-      });
-      tab.startTime    = Date.now();
-      tab.blockedCount = 0;
-    } catch {}
- 
+
+    // Gizli modda ziyaret loglanmaz
+    if (!isIncognito) {
+      try {
+        const domain    = new URL(tab.url).hostname;
+        const vpnStatus = vpnManager?.getStatus();
+        logVisit({
+          url:         tab.url,
+          domain,
+          title:       tab.title,
+          vpnActive:   vpnStatus?.status === 'connected',
+          vpnProfile:  vpnStatus?.activeProfile?.name || '',
+          duration:    Date.now() - tab.startTime,
+          blockedReqs: tab.blockedCount,
+        });
+        tab.startTime    = Date.now();
+        tab.blockedCount = 0;
+      } catch {}
+    }
+
     // ── Glance: Alt+tıklama yakalama script'i inject et ──
     view.webContents.executeJavaScript(`
       (function() {
@@ -302,118 +323,126 @@ function createTab(url = config.homepage) {
       })();
     `).catch(() => {});
   });
- 
-  view.webContents.setWindowOpenHandler(({ url }) => {
-    createTab(url);
+
+  view.webContents.setWindowOpenHandler(({ url: openUrl }) => {
+    createTab(win, state, openUrl);
     return { action: 'deny' };
   });
- 
-  tabs.set(tabId, {
+
+  state.tabs.set(tabId, {
     view,
     url:          url,
     title:        'Yükleniyor...',
     startTime:    Date.now(),
     blockedCount: 0,
   });
- 
+
   view.webContents.loadURL(url).catch(() => {});
- 
-  // ── Glance polling: 500ms'de bir Alt+tıklama var mı kontrol et ──
+
+  // ── Glance polling ──
   const glancePoll = setInterval(async () => {
-    const tab = tabs.get(tabId);
+    const tab = state.tabs.get(tabId);
     if (!tab) { clearInterval(glancePoll); return; }
-    if (tabId !== activeTabId) return; // Sadece aktif sekmeyi kontrol et
+    if (tabId !== state.activeTabId) return;
     try {
       const result = await view.webContents.executeJavaScript(
         '(function(){ var r=window.__glancePending; window.__glancePending=null; return r||null; })()'
       );
-      if (result && result.url && mainWindow) {
-        mainWindow.webContents.send('glance-request', result);
+      if (result && result.url && win && !win.isDestroyed()) {
+        win.webContents.send('glance-request', result);
       }
     } catch {}
   }, 500);
- 
-  // Tab'a poll referansını sakla — closeTab'da durdurabilmek için
-  tabs.get(tabId).__glancePoll = glancePoll;
- 
+
+  state.tabs.get(tabId).__glancePoll = glancePoll;
+
   return tabId;
 }
 
-let panelIsOpen = false;
-const PANEL_WIDTH    = 420;
-const TOOLBAR_HEIGHT = 122;
-
-function resizeActiveView() {
-  const tab = tabs.get(activeTabId);
-  if (!tab || !mainWindow) return;
-  const bounds = mainWindow.getContentBounds();
+function resizeActiveView(win, state) {
+  const tab = state.tabs.get(state.activeTabId);
+  if (!tab || !win || win.isDestroyed()) return;
+  const bounds = win.getContentBounds();
+  const usableWidth = bounds.width - SIDEBAR_WIDTH;
   tab.view.setBounds({
-    x:      0,
+    x:      SIDEBAR_WIDTH,
     y:      TOOLBAR_HEIGHT,
-    width:  panelIsOpen ? Math.max(bounds.width - PANEL_WIDTH, 100) : bounds.width,
-    height: bounds.height - TOOLBAR_HEIGHT,
+    width:  state.panelIsOpen ? Math.max(usableWidth - PANEL_WIDTH, 100) : usableWidth,
+    height: bounds.height - TOOLBAR_HEIGHT - STATUSBAR_HEIGHT,
   });
 }
 
-function setActiveTab(tabId) {
-  const tab = tabs.get(tabId);
-  if (!tab || !mainWindow) return;
+function setActiveTab(win, state, tabId) {
+  const tab = state.tabs.get(tabId);
+  if (!tab || !win || win.isDestroyed()) return;
 
-  const views = mainWindow.getBrowserViews();
-  views.forEach(v => mainWindow.removeBrowserView(v));
+  const views = win.getBrowserViews();
+  views.forEach(v => win.removeBrowserView(v));
 
-  mainWindow.addBrowserView(tab.view);
-  activeTabId = tabId;
+  win.addBrowserView(tab.view);
+  state.activeTabId = tabId;
 
-  resizeActiveView();
+  resizeActiveView(win, state);
   tab.view.setAutoResize({ width: false, height: false });
-  mainWindow.on('resize', () => resizeActiveView());
 
-  sendTabsUpdate();
+  sendTabsUpdate(win, state);
 }
 
-function closeTab(tabId) {
-  const tab = tabs.get(tabId);
+function closeTab(win, state, tabId) {
+  const tab = state.tabs.get(tabId);
   if (!tab) return;
- 
-  // Glance polling'i durdur
+
   if (tab.__glancePoll) clearInterval(tab.__glancePoll);
- 
-  if (mainWindow) mainWindow.removeBrowserView(tab.view);
+
+  if (win && !win.isDestroyed()) win.removeBrowserView(tab.view);
   tab.view.webContents.destroy();
-  tabs.delete(tabId);
- 
-  if (tabs.size === 0) {
-    const newId = createTab();
-    setActiveTab(newId);
-  } else if (activeTabId === tabId) {
-    const remaining = [...tabs.keys()];
-    setActiveTab(remaining[remaining.length - 1]);
+  state.tabs.delete(tabId);
+
+  if (state.tabs.size === 0) {
+    const newId = createTab(win, state);
+    setActiveTab(win, state, newId);
+  } else if (state.activeTabId === tabId) {
+    const remaining = [...state.tabs.keys()];
+    setActiveTab(win, state, remaining[remaining.length - 1]);
   }
-  sendTabsUpdate();
+  sendTabsUpdate(win, state);
 }
 
-function sendTabsUpdate() {
-  if (!mainWindow) return;
-  const tabsData = [...tabs.entries()].map(([id, tab]) => ({
-    id, url: tab.url, title: tab.title, isActive: id === activeTabId,
+function sendTabsUpdate(win, state) {
+  if (!win || win.isDestroyed()) return;
+  const tabsData = [...state.tabs.entries()].map(([id, tab]) => ({
+    id, url: tab.url, title: tab.title, isActive: id === state.activeTabId,
   }));
-  mainWindow.webContents.send('tabs-update', tabsData);
-  mainWindow.webContents.send('active-url', tabs.get(activeTabId)?.url || '');
+  win.webContents.send('tabs-update', tabsData);
+  win.webContents.send('active-url', state.tabs.get(state.activeTabId)?.url || '');
   if (vpnManager) {
-    mainWindow.webContents.send('vpn-status', vpnManager.getStatus());
+    win.webContents.send('vpn-status', vpnManager.getStatus());
   }
 }
 
 // ─── IPC Handlers ─────────────────────────────────────────────────────────────
 
-// Sekme
-ipcMain.handle('new-tab',    (e, url)   => { const id = createTab(url); setActiveTab(id); return id; });
-ipcMain.handle('switch-tab', (e, tabId) => setActiveTab(tabId));
-ipcMain.handle('close-tab',  (e, tabId) => closeTab(tabId));
+// Sekme — her handler hangi pencereden geldiğini tespit eder
+ipcMain.handle('new-tab', (event, url) => {
+  const { win, state } = getContextFromEvent(event);
+  const id = createTab(win, state, url);
+  setActiveTab(win, state, id);
+  return id;
+});
 
-ipcMain.handle('navigate', (e, url) => {
-  const tab = tabs.get(activeTabId);
+ipcMain.handle('switch-tab', (event, tabId) => {
+  const { win, state } = getContextFromEvent(event);
+  setActiveTab(win, state, tabId);
+});
+
+ipcMain.handle('close-tab', (event, tabId) => {
+  const { win, state } = getContextFromEvent(event);
+  closeTab(win, state, tabId);
+});
+
+ipcMain.handle('navigate', (event, url) => {
+  const { state } = getContextFromEvent(event);
+  const tab = state.tabs.get(state.activeTabId);
   if (!tab) return;
   let finalUrl = url;
   if (!url.startsWith('http://') && !url.startsWith('https://')) {
@@ -425,9 +454,22 @@ ipcMain.handle('navigate', (e, url) => {
   tab.url = finalUrl;
 });
 
-ipcMain.handle('go-back',    () => { const t = tabs.get(activeTabId); if (t?.view.webContents.canGoBack())    t.view.webContents.goBack(); });
-ipcMain.handle('go-forward', () => { const t = tabs.get(activeTabId); if (t?.view.webContents.canGoForward()) t.view.webContents.goForward(); });
-ipcMain.handle('reload',     () => tabs.get(activeTabId)?.view.webContents.reload());
+ipcMain.handle('go-back', (event) => {
+  const { state } = getContextFromEvent(event);
+  const t = state.tabs.get(state.activeTabId);
+  if (t?.view.webContents.canGoBack()) t.view.webContents.goBack();
+});
+
+ipcMain.handle('go-forward', (event) => {
+  const { state } = getContextFromEvent(event);
+  const t = state.tabs.get(state.activeTabId);
+  if (t?.view.webContents.canGoForward()) t.view.webContents.goForward();
+});
+
+ipcMain.handle('reload', (event) => {
+  const { state } = getContextFromEvent(event);
+  state.tabs.get(state.activeTabId)?.view.webContents.reload();
+});
 
 // Config
 ipcMain.handle('get-config',  ()          => config);
@@ -516,7 +558,7 @@ ipcMain.handle('pick-download-folder', async () => {
 ipcMain.handle('clear-cache', async () => {
   try {
     await session.defaultSession.clearCache();
-    for (const [, tab] of tabs) {
+    for (const [, tab] of mainState.tabs) {
       await tab.view.webContents.session.clearCache().catch(() => {});
     }
     return { success: true };
@@ -554,9 +596,9 @@ ipcMain.handle('show-notification', (e, { title, body }) => {
     new Notification({ title, body, icon: path.join(__dirname, '../renderer/assets/ilgezdi-logo.png') }).show();
   }
 });
- 
+
 ipcMain.handle('blocker-get-stats', () => getBlockStats());
- 
+
 ipcMain.handle('blocker-update-config', (event, blockerCfg) => {
   updateBlockerConfig(blockerCfg);
   return { ok: true };
@@ -564,26 +606,23 @@ ipcMain.handle('blocker-update-config', (event, blockerCfg) => {
 
 // Panel & Pencere
 ipcMain.handle('bookmark-popup-open', (e, { x, y, data }) => {
-  // Zaten açıksa kapat
   if (bookmarkPopupWin && !bookmarkPopupWin.isDestroyed()) {
     bookmarkPopupWin.close();
     bookmarkPopupWin = null;
-    return { ok: false }; // toggle
+    return { ok: false };
   }
- 
+
   const winBounds = mainWindow.getBounds();
- 
-  // Popup konumu: yıldız butonunun altında, sağ tarafa hizalı
+
   let px = Math.round(winBounds.x + x) - 280 + 20;
   let py = Math.round(winBounds.y + y) + 30;
- 
-  // Ekrandan taşmasın
+
   const { screen } = require('electron');
   const display = screen.getDisplayNearestPoint({ x: px, y: py });
   if (px + 300 > display.workArea.x + display.workArea.width) {
     px = display.workArea.x + display.workArea.width - 310;
   }
- 
+
   bookmarkPopupWin = new BrowserWindow({
     x: px, y: py,
     width: 300, height: 230,
@@ -600,29 +639,29 @@ ipcMain.handle('bookmark-popup-open', (e, { x, y, data }) => {
       sandbox: false,
     }
   });
- 
-  bookmarkPopupWin.loadFile(path.join(__dirname, '../renderer/bookmark-popup.html'));
- 
- bookmarkPopupWin.once('ready-to-show', () => {
-  bookmarkPopupWin.show();
-});
 
-bookmarkPopupWin.webContents.on('did-finish-load', () => {
-  if (bookmarkPopupWin && !bookmarkPopupWin.isDestroyed()) {
-    setTimeout(() => {
-      bookmarkPopupWin.webContents.send('bookmark-popup-data', data);
-    }, 100);
-  }
-});
- 
+  bookmarkPopupWin.loadFile(path.join(__dirname, '../renderer/bookmark-popup.html'));
+
+  bookmarkPopupWin.once('ready-to-show', () => {
+    bookmarkPopupWin.show();
+  });
+
+  bookmarkPopupWin.webContents.on('did-finish-load', () => {
+    if (bookmarkPopupWin && !bookmarkPopupWin.isDestroyed()) {
+      setTimeout(() => {
+        bookmarkPopupWin.webContents.send('bookmark-popup-data', data);
+      }, 100);
+    }
+  });
+
   bookmarkPopupWin.on('closed', () => {
     bookmarkPopupWin = null;
     mainWindow.webContents.send('bookmark-popup-closed');
   });
- 
+
   return { ok: true };
 });
- 
+
 ipcMain.handle('bookmark-popup-close', () => {
   if (bookmarkPopupWin && !bookmarkPopupWin.isDestroyed()) {
     bookmarkPopupWin.close();
@@ -630,7 +669,7 @@ ipcMain.handle('bookmark-popup-close', () => {
   }
   return { ok: true };
 });
- 
+
 ipcMain.handle('bookmark-popup-save', (e, result) => {
   mainWindow.webContents.send('bookmark-popup-result', { action: 'save', ...result });
   if (bookmarkPopupWin && !bookmarkPopupWin.isDestroyed()) {
@@ -639,8 +678,8 @@ ipcMain.handle('bookmark-popup-save', (e, result) => {
   }
   return { ok: true };
 });
- 
-ipcMain.handle('bookmark-popup-delete', (e) => {
+
+ipcMain.handle('bookmark-popup-delete', () => {
   mainWindow.webContents.send('bookmark-popup-result', { action: 'delete' });
   if (bookmarkPopupWin && !bookmarkPopupWin.isDestroyed()) {
     bookmarkPopupWin.close();
@@ -649,14 +688,34 @@ ipcMain.handle('bookmark-popup-delete', (e) => {
   return { ok: true };
 });
 
-ipcMain.on('panel-opened', (e, isOpen) => {
-  panelIsOpen = isOpen;
-  resizeActiveView();
+ipcMain.handle('hide-active-tab', (event) => {
+  const { state } = getContextFromEvent(event);
+  const tab = state.tabs.get(state.activeTabId);
+  if (tab) tab.view.setBounds({ x: 0, y: 0, width: 0, height: 0 });
 });
 
-ipcMain.on('window-minimize', () => mainWindow?.minimize());
-ipcMain.on('window-maximize', () => mainWindow?.isMaximized() ? mainWindow.unmaximize() : mainWindow?.maximize());
-ipcMain.on('window-close',    () => mainWindow?.close());
+ipcMain.handle('show-active-tab', (event) => {
+  const { win, state } = getContextFromEvent(event);
+  resizeActiveView(win, state);
+});
+
+ipcMain.on('panel-opened', (event, isOpen) => {
+  const { win, state } = getContextFromEvent(event);
+  state.panelIsOpen = isOpen;
+  resizeActiveView(win, state);
+});
+
+// Pencere kontrollerini doğru pencereye yönlendir
+ipcMain.on('window-minimize', (event) => {
+  BrowserWindow.fromWebContents(event.sender)?.minimize();
+});
+ipcMain.on('window-maximize', (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (win) win.isMaximized() ? win.unmaximize() : win.maximize();
+});
+ipcMain.on('window-close', (event) => {
+  BrowserWindow.fromWebContents(event.sender)?.close();
+});
 
 // ─── Uygulama Yaşam Döngüsü ───────────────────────────────────────────────────
 app.whenReady().then(() => {
@@ -666,6 +725,9 @@ app.whenReady().then(() => {
 
   vpnManager.onStatusChange(() => {
     mainWindow?.webContents.send('vpn-status', vpnManager.getStatus());
+    if (incognitoWindow && !incognitoWindow.isDestroyed()) {
+      incognitoWindow.webContents.send('vpn-status', vpnManager.getStatus());
+    }
   });
 
   configureSession(session.defaultSession);
@@ -680,9 +742,9 @@ app.whenReady().then(() => {
   }
 
   setTimeout(() => {
-    if (tabs.size === 0) {
-      const id = createTab();
-      setActiveTab(id);
+    if (mainState.tabs.size === 0) {
+      const id = createTab(mainWindow, mainState);
+      setActiveTab(mainWindow, mainState, id);
     }
   }, 800);
 });
@@ -705,6 +767,12 @@ function createIncognitoWindow() {
     return;
   }
 
+  // Önceki incognito state'i temizle
+  incognitoState.tabs.clear();
+  incognitoState.activeTabId = null;
+  incognitoState.tabCounter = 0;
+  incognitoState.panelIsOpen = false;
+
   incognitoWindow = new BrowserWindow({
     width: 1200, height: 800,
     frame: false,
@@ -715,21 +783,57 @@ function createIncognitoWindow() {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false,
-      session: session.fromPartition('incognito-' + Date.now()), // her açılışta temiz session
     },
     show: false,
   });
 
+  incognitoWindow.on('resize', () => resizeActiveView(incognitoWindow, incognitoState));
+
   incognitoWindow.once('ready-to-show', () => incognitoWindow.show());
   incognitoWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
 
+  // Renderer yüklenince ilk sekmeyi oluştur
+  incognitoWindow.webContents.on('did-finish-load', () => {
+    if (incognitoWindow && !incognitoWindow.isDestroyed() && incognitoState.tabs.size === 0) {
+      const id = createTab(incognitoWindow, incognitoState, config.homepage);
+      setActiveTab(incognitoWindow, incognitoState, id);
+    }
+  });
+
   incognitoWindow.on('closed', () => {
+    // Tüm incognito sekmelerini ve polling'leri temizle
+    for (const [, tab] of incognitoState.tabs) {
+      if (tab.__glancePoll) clearInterval(tab.__glancePoll);
+      try { tab.view.webContents.destroy(); } catch {}
+    }
+    incognitoState.tabs.clear();
+    incognitoState.activeTabId = null;
     incognitoWindow = null;
   });
 }
 
 ipcMain.handle('open-incognito', () => {
   createIncognitoWindow();
+});
+
+// ─── Auth (Üyelik Sistemi) ────────────────────────────────────────────────────
+ipcMain.handle('auth-get-session', () => config.authSession || null);
+
+ipcMain.handle('auth-save-session', (e, session) => {
+  config.authSession = session;
+  saveConfig(config);
+  return true;
+});
+
+ipcMain.handle('auth-clear-session', () => {
+  delete config.authSession;
+  saveConfig(config);
+  return true;
+});
+
+ipcMain.handle('is-incognito', (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  return !!(incognitoWindow && !incognitoWindow.isDestroyed() && win && win.id === incognitoWindow.id);
 });
 
 console.log('[İlgezdi] Başlatıldı. UserData:', USER_DATA);

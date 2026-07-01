@@ -1,104 +1,308 @@
 <!DOCTYPE html>
-<html lang="tr" data-theme="otuken">  
+<html lang="tr" data-theme="otuken">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta http-equiv="Content-Security-Policy"
       content="default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self'; img-src * data: blob: 'self';" />
   <title>İlgezdi</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;900&family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
-<!-- Önce mevcut main.css -->
-<link rel="stylesheet" href="styles/main.css" />
-
-<!-- Sonra token sistemi (default Ötüken) -->
-<link rel="stylesheet" href="styles/tokens/primitives.css" />
-<link rel="stylesheet" href="styles/tokens/semantic.css" />
-
-<!-- Sonra alternatif temalar (data-theme attribute ile aktif olur) -->
-<link rel="stylesheet" href="styles/themes/hibrit.css" />
-<link rel="stylesheet" href="styles/themes/umay.css" />
-<link rel="stylesheet" href="styles/themes/kagan.css" />
-
-<!-- Component CSS'leri en son -->
-<link rel="stylesheet" href="styles/bookmarks.css" />
-<link rel="stylesheet" href="styles/blocker.css" />
-<link rel="stylesheet" href="styles/glance.css" />
+  <link rel="stylesheet" href="styles/tokens/primitives.css" />
+  <link rel="stylesheet" href="styles/main.css" />
+  <link rel="stylesheet" href="styles/pages.css" />
+  <link rel="stylesheet" href="styles/bookmarks.css" />
+  <link rel="stylesheet" href="styles/blocker.css" />
+  <link rel="stylesheet" href="styles/glance.css" />
 </head>
 <body>
-  <div id="app">
+<div id="app">
 
-    <!-- ── Başlık Çubuğu ────────────────────────────────────────────────── -->
-    <header id="titlebar">
-      <div id="drag-region">
-        <div id="app-brand">
-          <img src="assets/ilgezdi-logo.png" width="28" height="28"
-               style="object-fit:contain;border-radius:4px;" />
-          <span id="brand-name">İLGEZDİ</span>
-        </div>
-        <div id="vpn-indicator" class="vpn-off">
-          <span class="vpn-dot"></span>
-          <span id="vpn-label">VPN Kapalı</span>
-        </div>
+  <!-- ══════════════════════════════════════════════════════
+       BAŞLIK ÇUBUĞU — sadece sekmeler ve pencere kontrolleri
+       (Tasarım: traffic-lights | tab-strip | window-actions)
+       ══════════════════════════════════════════════════════ -->
+  <header id="titlebar">
+
+    <!-- macOS trafik ışıkları -->
+    <div class="traffic-lights" id="wc-macos">
+      <button class="dot close" id="mac-btn-close"    title="Kapat"></button>
+      <button class="dot min"   id="mac-btn-minimize" title="Küçült"></button>
+      <button class="dot max"   id="mac-btn-maximize" title="Büyüt"></button>
+    </div>
+
+    <!-- Sekmeler (flex:1 → soldan sağa dolar) -->
+    <div class="tab-strip">
+      <div id="tabs-container"></div>
+      <button class="tab-add" id="btn-new-tab" title="Yeni Sekme (Ctrl+T)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+      </button>
+    </div>
+
+    <!-- Sağ: VPN durumu + Windows pencere kontrolleri -->
+    <div class="window-actions" id="titlebar-right">
+      <div id="vpn-indicator" class="vpn-off">
+        <span class="vpn-dot"></span>
+        <span id="vpn-label">VPN Kapalı</span>
       </div>
-      <div id="window-controls">
+      <!-- Windows kontrolleri (macOS modunda CSS ile gizlenir) -->
+      <div id="wc-windows">
         <button id="btn-minimize" title="Küçült">─</button>
         <button id="btn-maximize" title="Büyüt">□</button>
         <button id="btn-close"    title="Kapat">✕</button>
       </div>
-    </header>
-
-    <!-- ── Sekme Çubuğu ──────────────────────────────────────────────────── -->
-    <div id="tabbar">
-      <div id="tabs-container"></div>
-      <button id="btn-new-tab" title="Yeni Sekme">＋</button>
     </div>
 
-    <!-- ── Araç Çubuğu ──────────────────────────────────────────────────── -->
-    <div id="toolbar">
-      <div id="nav-buttons">
-        <button class="nav-btn" id="btn-back"    title="Geri">‹</button>
-        <button class="nav-btn" id="btn-forward" title="İleri">›</button>
-        <button class="nav-btn" id="btn-reload"  title="Yenile">↻</button>
-        <button class="nav-btn" id="btn-home"    title="Ana Sayfa">⌂</button>
-      </div>
+  </header>
+
+  <!-- ══════════════════════════════════════════════════════
+       ARAÇ ÇUBUĞU — marka + navigasyon + adres çubuğu
+       (Tasarım: brand-mark | nav-btn'ler | address-bar)
+       ══════════════════════════════════════════════════════ -->
+  <div id="toolbar">
+
+    <!-- Marka (logo + İLGEZDİ) -->
+    <div class="brand-mark" id="app-brand">
+      <img src="assets/logo-mark.png" width="28" height="28"
+           style="object-fit:contain;display:block;" alt="İlgezdi" />
+      <span class="wordmark">İLGEZDİ</span>
+    </div>
+
+    <!-- Navigasyon -->
+    <div id="nav-buttons">
+      <button class="nav-btn" id="btn-back"    title="Geri (Alt+Sol)">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+      </button>
+      <button class="nav-btn" id="btn-forward" title="İleri (Alt+Sağ)">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+      </button>
+      <button class="nav-btn" id="btn-reload"  title="Yenile (F5)">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 15.5-6.3L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15.5 6.3L3 16"/><path d="M3 21v-5h5"/></svg>
+      </button>
+      <button class="nav-btn" id="btn-home"    title="Ana Sayfa">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/></svg>
+      </button>
+    </div>
+
+    <!-- Adres çubuğu -->
+    <form id="address-bar-form" style="flex:1;display:flex;">
       <div id="address-bar-wrapper">
-        <span id="security-icon">🔒</span>
-        <input type="text" id="address-bar" placeholder="Adres gir veya ara..." spellcheck="false" autocomplete="off" />
-        <button id="btn-bookmark-star" title="Sık kullanılanlara ekle">☆</button>
-        <button id="btn-search">→</button>
+        <span id="security-icon" title="">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+        </span>
+        <input type="text" id="address-bar"
+               placeholder="Bir adres yaz veya İlgezdi ile ara…"
+               spellcheck="false" autocomplete="off" />
+        <div class="addr-actions">
+          <button type="button" id="btn-bookmark-star" title="Yer imine ekle (Ctrl+D)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l2.7 6 6.3.5-4.8 4.2 1.5 6.3L12 16.8 6.3 20l1.5-6.3L3 9.5 9.3 9z"/></svg>
+          </button>
+          <button type="submit" id="btn-search" title="Git">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+          </button>
+        </div>
       </div>
-      <div id="toolbar-actions">
-        <!-- 🔒 VPN butonu vpn-panel.js tarafından dinamik eklenir -->
-        <button class="action-btn" id="btn-shield"   title="Koruma Durumu">🛡</button>
-        <button class="action-btn" id="btn-bookmarks" title="Sık Kullanılanlar">★</button>
-        <button class="action-btn" id="btn-logs"     title="Ziyaret Logları">📋</button>
-        <button class="action-btn" id="btn-incognito" title="Gizli Pencere (Ctrl+Shift+N)">🕶️</button>
-        <button class="action-btn" id="btn-settings" title="Ayarlar">⚙</button>
-        <button class="action-btn" id="btn-blocker" title="Engelleyici" style="position:relative">
-          🛡
-          <span id="blocker-count-badge"></span>
-        </button>
-      </div>
-    </div>
+    </form>
 
-    <!-- ── Paneller ──────────────────────────────────────────────────────── -->
-    <div id="panel-settings" class="side-panel hidden"></div>
-    <div id="panel-logs" class="side-panel hidden"></div>
-    <div id="panel-bookmarks" class="side-panel hidden"></div>
-    <div id="panel-blocker" class="side-panel hidden"></div>
-
-    <div id="panel-shield" class="side-panel hidden">
-      <div class="panel-header">
-        <h2>🛡 Koruma Durumu</h2>
-        <button class="panel-close" data-panel="shield">✕</button>
-      </div>
-      <div class="panel-body">
-        <div id="shield-stats"></div>
-      </div>
+    <!-- Sağ araçlar -->
+    <div id="toolbar-right">
+      <button class="nav-btn" id="btn-incognito" title="Gizli Pencere (Ctrl+Shift+N)">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/><line x1="4" y1="4" x2="20" y2="20" stroke-width="2"/></svg>
+      </button>
+      <!-- vpn-panel.js bu div'e VPN butonunu inject eder -->
+      <div id="toolbar-actions"></div>
     </div>
 
   </div>
+
+  <!-- ══════════════════════════════════════════════════════
+       YER İŞARETLERİ ÇUBUĞU
+       ══════════════════════════════════════════════════════ -->
+  <div id="bookmarks-bar">
+    <div id="bookmarks-bar-items">
+      <!-- bookmarks-panel.js / app.js tarafından doldurulur -->
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════
+       ANA ALAN: kenar çubuğu + içerik
+       ══════════════════════════════════════════════════════ -->
+  <div id="main">
+
+    <!-- ── Kenar Çubuğu (Tasarım: sidebar) ──────────────── -->
+    <aside class="sidebar" id="sidebar">
+
+      <!-- Sayfa geçişi butonları -->
+      <button class="sidebar-btn active" id="sb-home"
+              data-screen="newtab" title="Ana Sayfa">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/></svg>
+      </button>
+      <!-- id="btn-bookmarks" — bookmarks-panel.js bu butonu yönetir -->
+      <button class="sidebar-btn" id="btn-bookmarks" title="Yer İşaretleri (Ctrl+B)">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l2.7 6 6.3.5-4.8 4.2 1.5 6.3L12 16.8 6.3 20l1.5-6.3L3 9.5 9.3 9z"/></svg>
+      </button>
+      <button class="sidebar-btn" id="sb-history"
+              data-screen="history" title="Geçmiş">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3 2"/></svg>
+      </button>
+      <button class="sidebar-btn" id="sb-downloads"
+              data-screen="downloads" title="İndirmeler">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg>
+      </button>
+
+      <div class="sidebar-divider"></div>
+
+      <!-- Araç / panel butonları -->
+      <button class="sidebar-btn" id="sb-discover"
+              data-screen="discover" title="Keşfet">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76" fill="currentColor"/></svg>
+      </button>
+      <!-- id="btn-shield" — app.js bu butonu yönetir -->
+      <button class="sidebar-btn" id="btn-shield" title="Koruma Durumu">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 5-4 8-8 9-4-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/></svg>
+      </button>
+      <!-- id="btn-blocker" — blocker-panel.js bu butonu yönetir -->
+      <button class="sidebar-btn" id="btn-blocker" title="Reklam & Tracker Engelleme">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M4.93 4.93l14.14 14.14"/></svg>
+      </button>
+      <!-- id="btn-logs" — log-panel.js bu butonu yönetir -->
+      <button class="sidebar-btn" id="btn-logs" title="Ziyaret Günlüğü (Ctrl+Shift+L)">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      </button>
+
+      <div class="sidebar-foot">
+        <!-- id="btn-settings" — settings-panel.js bu butonu yönetir -->
+        <button class="sidebar-btn" id="btn-settings" title="Ayarlar (Ctrl+,)">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        </button>
+      </div>
+
+    </aside>
+
+    <!-- ── İçerik + Paneller ──────────────────────────────── -->
+    <div id="content-area">
+
+      <!-- Özel sayfa ekranı (BrowserView'ın üstüne overlay) -->
+      <div id="screen-overlay" class="hidden">
+        <div id="screen-content"></div>
+      </div>
+
+      <!-- ── Yan Paneller ──────────────────────────────────── -->
+      <!-- id="btn-settings"  → settings-panel.js panel HTML'ini buraya yazar -->
+      <div id="panel-settings"  class="side-panel hidden"></div>
+      <!-- id="btn-logs"      → log-panel.js -->
+      <div id="panel-logs"      class="side-panel hidden"></div>
+      <!-- id="btn-bookmarks" → bookmarks-panel.js -->
+      <div id="panel-bookmarks" class="side-panel hidden"></div>
+      <!-- id="btn-blocker"   → blocker-panel.js -->
+      <div id="panel-blocker"   class="side-panel hidden"></div>
+
+      <!-- Koruma durumu paneli (app.js tarafından yönetilir) -->
+      <div id="panel-shield" class="side-panel hidden">
+        <div class="panel-header">
+          <h2>Koruma Durumu</h2>
+          <button class="panel-close">✕</button>
+        </div>
+        <div class="panel-body">
+          <div id="shield-stats"></div>
+        </div>
+      </div>
+
+      <!-- NOT: panel-vpn, vpn-panel.js tarafından #app'e eklenir -->
+
+    </div><!-- #content-area -->
+
+  </div><!-- #main -->
+
+  <!-- ══════════════════════════════════════════════════════
+       DURUM ÇUBUĞU
+       ══════════════════════════════════════════════════════ -->
+  <div class="statusbar" id="statusbar">
+    <span id="status-security"></span>
+    <span>·</span>
+    <span id="status-url"></span>
+    <span class="rune-stripe" id="status-runes" title="Göktürk Runik Yazısı">𐱅𐰢 𐰉 𐰽 𐱆 𐰚𐰢 𐱅𐰉𐰍</span>
+    <span>İlgezdi v0.5</span>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════
+       AUTH SCREEN — login / kayıt / QR giriş overlay
+       (auth-screen.js tarafından yönetilir)
+       ══════════════════════════════════════════════════════ -->
+  <div id="auth-screen" class="hidden">
+    <div class="auth-modal">
+      <button class="auth-skip" id="auth-skip" title="Misafir olarak devam et">✕</button>
+
+      <div class="auth-brand">
+        <img src="assets/logo-mark.png" alt="İlgezdi" />
+        <span>İLGEZDİ</span>
+      </div>
+
+      <div class="auth-tabs">
+        <button class="auth-tab active" id="auth-tab-login">Giriş Yap</button>
+        <button class="auth-tab"        id="auth-tab-register">Kayıt Ol</button>
+      </div>
+
+      <!-- GİRİŞ PANELİ -->
+      <div class="auth-panel" id="auth-panel-login">
+
+        <!-- Form görünümü -->
+        <div class="form-section" id="form-section">
+          <form id="auth-login-form" autocomplete="on">
+            <div class="auth-field">
+              <label>E-POSTA</label>
+              <input type="email" id="login-email" placeholder="ornek@eposta.com" autocomplete="email" />
+            </div>
+            <div class="auth-field">
+              <label>ŞİFRE</label>
+              <input type="password" id="login-password" placeholder="••••••••" autocomplete="current-password" />
+            </div>
+            <button type="submit" class="auth-btn" id="auth-login-btn">Giriş Yap</button>
+          </form>
+          <div class="auth-divider">veya</div>
+          <button class="auth-qr-btn" id="show-qr-btn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="15" y="15" width="2" height="2"/><rect x="19" y="15" width="2" height="2"/><rect x="15" y="19" width="2" height="2"/><rect x="19" y="19" width="2" height="2"/></svg>
+            QRtım ile Giriş
+          </button>
+        </div>
+
+        <!-- QR görünümü -->
+        <div class="qr-section hidden" id="qr-section">
+          <img id="qr-img" alt="QR Kod" />
+          <div class="qr-status" id="qr-status">Yükleniyor...</div>
+          <div class="qr-actions">
+            <button class="qr-refresh-btn" id="qr-refresh">↺ Yenile</button>
+            <button class="qr-back-btn"    id="show-form-btn">← E-posta ile giriş</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- KAYIT PANELİ -->
+      <div class="auth-panel hidden" id="auth-panel-register">
+        <form id="auth-register-form" autocomplete="on">
+          <div class="auth-field">
+            <label>AD SOYAD</label>
+            <input type="text"     id="register-name"      placeholder="Adınız Soyadınız"   autocomplete="name" />
+          </div>
+          <div class="auth-field">
+            <label>E-POSTA</label>
+            <input type="email"    id="register-email"     placeholder="ornek@eposta.com"    autocomplete="email" />
+          </div>
+          <div class="auth-field">
+            <label>ŞİFRE</label>
+            <input type="password" id="register-password"  placeholder="En az 8 karakter"   autocomplete="new-password" />
+          </div>
+          <div class="auth-field">
+            <label>ŞİFRE TEKRAR</label>
+            <input type="password" id="register-password2" placeholder="Şifreyi tekrar girin" autocomplete="new-password" />
+          </div>
+          <button type="submit" class="auth-btn" id="auth-register-btn">Kayıt Ol</button>
+        </form>
+      </div>
+
+      <div class="auth-status" id="auth-status"></div>
+    </div>
+  </div>
+
+</div><!-- #app -->
 
 <script src="app.js"></script>
 <script src="vpn-panel.js"></script>
@@ -107,5 +311,6 @@
 <script src="bookmarks-panel.js"></script>
 <script src="blocker-panel.js"></script>
 <script src="glance-renderer.js"></script>
+<script src="auth-screen.js"></script>
 </body>
 </html>

@@ -1,114 +1,143 @@
 /* ═══════════════════════════════════════════════════════════════
-   İLGEZDİ — PRIMITIVES (Ham Renk Paleti ve Ölçüler)
-   ───────────────────────────────────────────────────────────────
-   Burası ham hammadde havuzudur. Buradaki değişkenler "ne anlama
-   geldiği" değil "ne olduğu" hakkındadır. Component'lar BURADAN
-   doğrudan içmez — semantic.css üzerinden geçerler.
-   
-   Bu dosyayı değiştirmek = tema renklerini değiştirmek demektir.
+   İLGEZDİ — DESIGN TOKENS (Faz 5 · Claude Design entegrasyonu)
+   Yeni sistem: --gold, --ink, --bg tabanlı + eski alias'lar
    ═══════════════════════════════════════════════════════════════ */
 
-:root {
-  /* ─── ÖTÜKEN PALETİ (Bozkır Taşı) ──────────────────────────────
-     Soğuk slate-gri yerine sıcak obsidiyen-kahve tonları.
-     Antik taş, bakır metalürjisi, kemik beyazı parşömen estetiği. */
-  
-  --otuken-obsidyen-50:  #2c2218;  /* en açık obsidyen — input bg */
-  --otuken-obsidyen-100: #261d15;  /* tab bg */
-  --otuken-obsidyen-200: #1f1812;  /* surface, panel */
-  --otuken-obsidyen-300: #14100c;  /* base canvas — en koyu */
-  --otuken-obsidyen-400: #322619;  /* hover state */
-  
-  --otuken-parsomen-100: #f0e6d2;  /* main text — eski parşömen */
-  --otuken-parsomen-200: #c9b896;  /* secondary text */
-  --otuken-parsomen-300: #9a8870;  /* muted text — eskimiş */
-  
-  --otuken-bakir-400:    #c8803a;  /* accent — Türk metalürjisi */
-  --otuken-bakir-500:    #b06a28;  /* accent dim */
-  --otuken-bakir-600:    #7a4d22;  /* accent darker */
-  
-  --otuken-bozkir-400:   #7da558;  /* success — bozkır yeşili */
-  --otuken-toprak-400:   #c44536;  /* danger — kızıl toprak */
-  --otuken-altin-400:    #d4a935;  /* warning — altın */
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700;800&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&family=Noto+Sans+Old+Turkic&display=swap');
 
-  /* ─── HİBRİT ALTIN PALETİ (Han Çadırı Gecesi) ─────────────────
-     Derin lacivert-siyah gece göğü, altın yıldız vurgusu. */
-  
-  --hibrit-gece-50:  #1a2238;
-  --hibrit-gece-100: #141c30;
-  --hibrit-gece-200: #0f1424;
-  --hibrit-gece-300: #0a0e1a;  /* base — gece göğünün dibi */
-  --hibrit-gece-400: #1e2842;
-  
-  --hibrit-altin-400: #d4a935;
-  --hibrit-altin-500: #b8902a;
-  --hibrit-altin-600: #8a6c1f;
+/* ── Ötüken Kayalıkları — koyu lacivert (varsayılan) ─────────── */
+:root,
+[data-theme="otuken"] {
+  --bg:           #0e1a2e;
+  --bg-elev:      #15243d;
+  --bg-soft:      #1c2e4a;
+  --line:         #2a3e5e;
+  --ink:          #e8d9b8;
+  --ink-soft:     #b8a888;
+  --ink-mute:     #6f7a92;
+  --gold:         #d4a85a;
+  --gold-bright:  #f0c674;
+  --copper:       #c87f4a;
+  --rune:         #8aa6c8;
 
-  /* ─── UMAY PALETİ (Sabah Işığı) ───────────────────────────────
-     Soğuk beyaz değil — kremsi, hafif sıcak. Gök Tanrı'nın eşi
-     Umay Ana'nın koruyucu ışığı. */
-  
-  --umay-isik-50:  #ffffff;
-  --umay-isik-100: #fbf8f1;  /* surface */
-  --umay-isik-200: #f5f1e8;  /* base — kremsi sabah */
-  --umay-isik-300: #e8e2d2;  /* tab */
-  --umay-isik-400: #d4cab5;  /* border */
-  
-  --umay-toprak-700: #4a4030;  /* secondary text */
-  --umay-toprak-900: #1a1410;  /* main text — Ötüken obsidyenle aynı */
-  
-  --umay-gok-400: #2868a8;     /* accent — gök mavisi, derin */
-  --umay-gok-500: #1d527d;
-  --umay-gok-600: #133a5a;
+  /* Durum renkleri */
+  --success:      #68d391;
+  --danger:       #fc8181;
+  --warning:      #f6ad55;
 
-  /* ─── KAĞAN OTAĞI PALETİ (Keçe ve Kızıl) ──────────────────────
-     Çadır keçesinin doğal beji, hakan çadırının kızıl bayrağı. */
-  
-  --kagan-kece-100: #ddd0a8;
-  --kagan-kece-200: #c8b894;  /* base — keçe */
-  --kagan-kece-300: #b0a07c;
-  --kagan-kece-400: #968764;
-  
-  --kagan-koyu-700: #3d342a;  /* secondary text */
-  --kagan-koyu-900: #1f1810;  /* main text */
-  
-  --kagan-kizil-400: #b02828; /* accent — bayrak kızılı */
-  --kagan-kizil-500: #851d1d;
-  --kagan-kizil-600: #5c1414;
+  /* Eski alias'lar — mevcut panel JS'leri bozulmasın */
+  --bg-base:        var(--bg);
+  --bg-surface:     var(--bg-soft);
+  --bg-elevated:    var(--bg-elev);
+  --bg-input:       var(--bg-soft);
+  --bg-hover:       var(--bg-soft);
+  --bg-tab:         var(--bg-elev);
+  --bg-tab-active:  var(--bg-soft);
+  --border-color:   var(--line);
+  --border:         var(--line);
+  --border-dim:     var(--bg-elev);
+  --border-accent:  color-mix(in srgb, var(--gold) 50%, transparent);
+  --text-main:      var(--ink);
+  --text-primary:   var(--ink);
+  --text-secondary: var(--ink-soft);
+  --text-muted:     var(--ink-mute);
+  --accent:         var(--gold);
+  --accent-dim:     var(--copper);
+  --accent-glow:    color-mix(in srgb, var(--gold) 18%, transparent);
+  --runic-glow:     color-mix(in srgb, var(--gold) 35%, transparent);
 
-  /* ─── ÖLÇÜ SİSTEMİ ────────────────────────────────────────────
-     Tutarlılık için tüm spacing, radius, font-size'lar burada. */
-  
-  --space-1:  4px;
-  --space-2:  8px;
-  --space-3:  12px;
-  --space-4:  16px;
-  --space-5:  20px;
-  --space-6:  24px;
-  --space-8:  32px;
-  
-  --radius-sm:   4px;
-  --radius-md:   6px;
-  --radius-lg:   8px;
-  --radius-xl:   12px;
-  --radius-pill: 999px;
-  
-  --font-size-xs:   10px;
-  --font-size-sm:   11px;
-  --font-size-md:   12px;
-  --font-size-base: 13px;
-  --font-size-lg:   15px;
-  --font-size-xl:   18px;
-  
-  --font-stack-body:  'DM Sans', 'Segoe UI', sans-serif;
-  --font-stack-brand: 'Cinzel', Georgia, serif;
-  --font-stack-mono:  'Space Mono', 'Consolas', monospace;
-  
-  --titlebar-h: 38px;
-  --tabbar-h:   34px;
-  --toolbar-h:  46px;
-  
-  --transition-fast: 150ms ease;
-  --transition-base: 200ms ease;
-  --transition-slow: 280ms cubic-bezier(0.4, 0, 0.2, 1);
+  /* Boyutlar */
+  --sidebar-w:    56px;
+  --titlebar-h:   40px;
+  --toolbar-h:    52px;
+  --bookmarks-h:  36px;
+  --statusbar-h:  24px;
+  --panel-w:      420px;
+  --chrome-h:     calc(var(--titlebar-h) + var(--toolbar-h) + var(--bookmarks-h));
+
+  /* Yarıçaplar */
+  --radius-sm:    4px;
+  --radius:       8px;
+  --radius-lg:    14px;
+  --radius-pill:  20px;
+
+  /* Fontlar */
+  --font-brand:   'Cinzel', Georgia, serif;
+  --font-display: 'Cinzel', Georgia, serif;
+  --font-body:    'Inter', -apple-system, system-ui, sans-serif;
+  --font-ui:      'Inter', -apple-system, system-ui, sans-serif;
+  --font-mono:    'JetBrains Mono', ui-monospace, monospace;
+  --font-rune:    'Noto Sans Old Turkic', 'Inter', sans-serif;
+}
+
+/* ── Umay Ana Işığı — açık tema ──────────────────────────────── */
+[data-theme="umay"] {
+  --bg:           #f5ecd9;
+  --bg-elev:      #fbf5e6;
+  --bg-soft:      #ebe0c5;
+  --line:         #d8c9a4;
+  --ink:          #1a2640;
+  --ink-soft:     #4a5670;
+  --ink-mute:     #8a8472;
+  --gold:         #b8893a;
+  --gold-bright:  #d4a85a;
+  --copper:       #a45a30;
+  --rune:         #4a5670;
+
+  --bg-base: var(--bg); --bg-surface: var(--bg-soft); --bg-elevated: var(--bg-elev);
+  --bg-input: var(--bg-soft); --bg-hover: var(--bg-soft); --bg-tab: var(--bg-elev); --bg-tab-active: var(--bg-soft);
+  --border-color: var(--line); --border: var(--line); --border-dim: var(--bg-elev);
+  --border-accent: color-mix(in srgb, var(--gold) 50%, transparent);
+  --text-main: var(--ink); --text-primary: var(--ink); --text-secondary: var(--ink-soft); --text-muted: var(--ink-mute);
+  --accent: var(--gold); --accent-dim: var(--copper);
+  --accent-glow: color-mix(in srgb, var(--gold) 18%, transparent);
+  --runic-glow:  color-mix(in srgb, var(--gold) 35%, transparent);
+}
+
+/* ── Kagan Otağı — kilim sıcak tonlar ───────────────────────── */
+[data-theme="kagan"] {
+  --bg:           #f0e0c4;
+  --bg-elev:      #f7e9d0;
+  --bg-soft:      #e6d2ae;
+  --line:         #c89a6a;
+  --ink:          #3a1f12;
+  --ink-soft:     #6a3f25;
+  --ink-mute:     #8a6a4a;
+  --gold:         #b85c3a;
+  --gold-bright:  #d97950;
+  --copper:       #8a3f25;
+  --rune:         #5a2818;
+
+  --bg-base: var(--bg); --bg-surface: var(--bg-soft); --bg-elevated: var(--bg-elev);
+  --bg-input: var(--bg-soft); --bg-hover: var(--bg-soft); --bg-tab: var(--bg-elev); --bg-tab-active: var(--bg-soft);
+  --border-color: var(--line); --border: var(--line); --border-dim: var(--bg-elev);
+  --border-accent: color-mix(in srgb, var(--gold) 50%, transparent);
+  --text-main: var(--ink); --text-primary: var(--ink); --text-secondary: var(--ink-soft); --text-muted: var(--ink-mute);
+  --accent: var(--gold); --accent-dim: var(--copper);
+  --accent-glow: color-mix(in srgb, var(--gold) 18%, transparent);
+  --runic-glow:  color-mix(in srgb, var(--gold) 35%, transparent);
+}
+
+/* ── Hibrit Altın — parlak altın geometri ───────────────────── */
+[data-theme="hibrit"] {
+  --bg:           #0a1422;
+  --bg-elev:      #122038;
+  --bg-soft:      #1a2c4a;
+  --line:         #2a4068;
+  --ink:          #f0d088;
+  --ink-soft:     #c8a868;
+  --ink-mute:     #6a7898;
+  --gold:         #f0c674;
+  --gold-bright:  #ffe4a0;
+  --copper:       #d49850;
+  --rune:         #88a4d0;
+
+  --bg-base: var(--bg); --bg-surface: var(--bg-soft); --bg-elevated: var(--bg-elev);
+  --bg-input: var(--bg-soft); --bg-hover: var(--bg-soft); --bg-tab: var(--bg-elev); --bg-tab-active: var(--bg-soft);
+  --border-color: var(--line); --border: var(--line); --border-dim: var(--bg-elev);
+  --border-accent: color-mix(in srgb, var(--gold) 50%, transparent);
+  --text-main: var(--ink); --text-primary: var(--ink); --text-secondary: var(--ink-soft); --text-muted: var(--ink-mute);
+  --accent: var(--gold); --accent-dim: var(--copper);
+  --accent-glow: color-mix(in srgb, var(--gold) 18%, transparent);
+  --runic-glow:  color-mix(in srgb, var(--gold) 35%, transparent);
 }

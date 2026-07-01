@@ -6,9 +6,9 @@ let currentLang     = 'tr';
 
 // Kaydedilmiş (gerçek) değerler
 let _savedTheme      = 'otuken';
-let _savedAccent     = '#c8803a';
+let _savedAccent     = '#d4a85a';
 let _savedFontSize   = 13;
-let _savedFontFamily = "'DM Sans', sans-serif";
+let _savedFontFamily = "'Inter', sans-serif";
 
 // Panel içinde seçilen (henüz kaydedilmemiş) değerler
 let _pendingTheme      = null;
@@ -16,47 +16,56 @@ let _pendingAccent     = null;
 let _pendingFontSize   = null;
 let _pendingFontFamily = null;
 
+// NOT: Değerler primitives.css'teki Claude Design token'larıyla BİREBİR eşleşir.
+// bg=--bg · surface=--bg-soft · tab=--bg-elev · input=--bg-soft · textMain=--ink
+// textMuted=--ink-mute · accent=--gold · border=--line
 const THEMES = {
-  otuken: { bg:'#0f1218', surface:'#161c28', tab:'#1a2030', input:'#222a3a', textMain:'#e2e8f0', textMuted:'#8090a8', accent:'#c8803a', border:'#222a3a', success:'#68d391', danger:'#fc8181', warning:'#f6ad55' },
-  hibrit:  { bg:'#080c12', surface:'#0f1520', tab:'#141c28', input:'#0c1118', textMain:'#e2e8f0', textMuted:'#6a7a90', accent:'#d4a935', border:'#1e2838', success:'#68d391', danger:'#fc8181', warning:'#f6ad55' },
-  umay:    { bg:'#edf2f7', surface:'#f7fafc', tab:'#e2e8f0', input:'#e8edf5', textMain:'#1a202c', textMuted:'#4a5a70', accent:'#3182ce', border:'#c8d4e4', success:'#276749', danger:'#c53030', warning:'#b45309' },
-  kagan:   { bg:'#cec5b0', surface:'#ddd4be', tab:'#bfb8a5', input:'#e8e0cc', textMain:'#2c3340', textMuted:'#5c5048', accent:'#a82020', border:'#b8ae98', success:'#276749', danger:'#7b1818', warning:'#854d0e' },
+  otuken: { bg:'#0e1a2e', surface:'#1c2e4a', tab:'#15243d', input:'#1c2e4a', textMain:'#e8d9b8', textMuted:'#6f7a92', accent:'#d4a85a', border:'#2a3e5e', success:'#68d391', danger:'#fc8181', warning:'#f6ad55' },
+  hibrit:  { bg:'#0a1422', surface:'#1a2c4a', tab:'#122038', input:'#1a2c4a', textMain:'#f0d088', textMuted:'#6a7898', accent:'#f0c674', border:'#2a4068', success:'#68d391', danger:'#fc8181', warning:'#f6ad55' },
+  umay:    { bg:'#f5ecd9', surface:'#ebe0c5', tab:'#fbf5e6', input:'#ebe0c5', textMain:'#1a2640', textMuted:'#8a8472', accent:'#b8893a', border:'#d8c9a4', success:'#276749', danger:'#c53030', warning:'#b45309' },
+  kagan:   { bg:'#f0e0c4', surface:'#e6d2ae', tab:'#f7e9d0', input:'#e6d2ae', textMain:'#3a1f12', textMuted:'#8a6a4a', accent:'#b85c3a', border:'#c89a6a', success:'#276749', danger:'#7b1818', warning:'#854d0e' },
 };
 
 const ACCENT_COLORS = [
-  { name:'Bakır',      value:'#c8803a' },
-  { name:'Altın',      value:'#d4a935' },
-  { name:'Gök Mavisi', value:'#3182ce' },
-  { name:'Terracotta', value:'#a82020' },
+  { name:'Bakır',      value:'#d4a85a' },
+  { name:'Parlak Altın', value:'#f0c674' },
+  { name:'Tunç',       value:'#c87f4a' },
+  { name:'Terracotta', value:'#b85c3a' },
+  { name:'Gök Mavisi', value:'#8aa6c8' },
   { name:'Yeşil',      value:'#68d391' },
   { name:'Mor',        value:'#9f7aea' },
-  { name:'Turkuaz',    value:'#0bc5ea' },
   { name:'Kırmızı',    value:'#fc8181' },
 ];
 
 const FONT_FAMILIES = [
-  { name:"DM Sans (Varsayılan)", value:"'DM Sans', sans-serif" },
-  { name:"Cinzel (Runik)",       value:"'Cinzel', serif" },
-  { name:"System UI",            value:"system-ui, sans-serif" },
-  { name:"Segoe UI",             value:"'Segoe UI', sans-serif" },
-  { name:"Georgia",              value:"Georgia, serif" },
+  { name:"Inter (Varsayılan)", value:"'Inter', sans-serif" },
+  { name:"Cinzel (Runik)",     value:"'Cinzel', serif" },
+  { name:"System UI",          value:"system-ui, sans-serif" },
+  { name:"Segoe UI",           value:"'Segoe UI', sans-serif" },
+  { name:"Georgia",            value:"Georgia, serif" },
 ];
 
 // ─── Gerçek tema uygulama (sadece Kaydet'te çağrılır) ─────────────────────────
 // YENİ MİMARİ: Tüm renkleri inline style olarak yazmak yerine
-// <html data-theme="..."> attribute'unu set ediyoruz. CSS dosyaları
-// (themes/otuken-default in semantic.css, themes/hibrit.css vs.)
-// kalan her şeyi otomatik halleder.
+// <html data-theme="..."> attribute'unu set ediyoruz. Tema renkleri
+// styles/tokens/primitives.css içindeki [data-theme="..."] blokları
+// (Claude Design token'ları) tarafından otomatik uygulanır.
 //
 // Custom accent ise tema default'undan farklı bir renk seçtiyse inline yazılır,
 // aynı default'u seçtiyse inline temizlenir (CSS'deki tema default'u devreye girer).
 
+// Her temanın "dokunulmamış" vurgu rengi = o temanın --gold token'ı.
+// Kullanıcı bunu seçtiğinde inline override YAZILMAZ → primitives.css devreye girer.
 const THEME_DEFAULT_ACCENTS = {
-  otuken: '#c8803a',
-  hibrit: '#d4a935',
-  umay:   '#2868a8',
-  kagan:  '#b02828',
+  otuken: '#d4a85a',
+  hibrit: '#f0c674',
+  umay:   '#b8893a',
+  kagan:  '#b85c3a',
 };
+
+// Tasarım öncesi (eski) vurgu varsayılanları — kayıtlı config'de bunlardan biri
+// varsa "özel renk" değil, sadece eski default sayılır ve temizlenir.
+const LEGACY_DEFAULT_ACCENTS = ['#c8803a', '#d4a935', '#2868a8', '#b02828', '#3182ce', '#a82020'];
 
 // Tema + accent'i sadece DOM'a yansıtır. localStorage'a yazmaz, _savedXxx'lere
 // dokunmaz. Önizleme ve commit'in ortak yardımcısı.
@@ -64,7 +73,7 @@ function applyThemeToDOM(themeName, accentColor) {
   const root = document.documentElement;
   root.setAttribute('data-theme', themeName);
 
-  const themeDefault = THEME_DEFAULT_ACCENTS[themeName] || '#c8803a';
+  const themeDefault = THEME_DEFAULT_ACCENTS[themeName] || '#d4a85a';
   if (accentColor && accentColor !== themeDefault) {
     root.style.setProperty('--accent',        accentColor);
     root.style.setProperty('--accent-glow',   accentColor + '2e');
@@ -80,9 +89,9 @@ function applyThemeToDOM(themeName, accentColor) {
 function commitTheme(themeName, accentColor, fontSize, fontFamily) {
   _savedTheme      = themeName || 'otuken';
   _savedFontSize   = parseInt(fontSize) || 13;
-  _savedFontFamily = fontFamily || "'DM Sans', sans-serif";
+  _savedFontFamily = fontFamily || "'Inter', sans-serif";
 
-  const themeDefault = THEME_DEFAULT_ACCENTS[_savedTheme] || '#c8803a';
+  const themeDefault = THEME_DEFAULT_ACCENTS[_savedTheme] || '#d4a85a';
   _savedAccent = (accentColor && accentColor !== themeDefault) ? accentColor : themeDefault;
 
   // Eski body.theme-* class'larını temizle (eski sistem kalıntısı)
@@ -118,14 +127,21 @@ async function loadSavedTheme() {
     // Geçersiz/eski tema değerlerine karşı koruma
     const validThemes = ['otuken', 'hibrit', 'umay', 'kagan'];
     const theme      = validThemes.includes(cfg?.theme) ? cfg.theme : 'otuken';
-    const accent     = cfg?.accentColor || null;
+
+    // Tasarım öncesi kayıtlı vurgu rengi varsa "özel renk" sayma → null bırak ki
+    // yeni tema --gold token'ı devreye girsin (birebir tasarım görünümü).
+    let accent = cfg?.accentColor || null;
+    if (accent && LEGACY_DEFAULT_ACCENTS.includes(accent.toLowerCase())) accent = null;
+
     const fontSize   = cfg?.fontSize    || 13;
-    const fontFamily = cfg?.fontFamily  || "'DM Sans', sans-serif";
+    // Eski 'DM Sans' varsayılanı artık import edilmiyor → Inter'e migrate et.
+    let fontFamily = cfg?.fontFamily || "'Inter', sans-serif";
+    if (/DM Sans/i.test(fontFamily)) fontFamily = "'Inter', sans-serif";
 
     commitTheme(theme, accent, fontSize, fontFamily);
   } catch (e) {
     console.warn('[İlgezdi/Theme] yükleme hatası:', e);
-    commitTheme('otuken', null, 13, "'DM Sans', sans-serif");
+    commitTheme('otuken', null, 13, "'Inter', sans-serif");
   }
 }
 
@@ -323,10 +339,10 @@ function updatePreviewBox() {
 // ─── Tab HTML ─────────────────────────────────────────────────────────────────
 function renderCustomizationTab(cfg) {
   const themeList = [
-    { id:'otuken', label:'Ötüken Kayalıkları', bg:'#0f1218', dots:['#1a2030','#c8803a','#68d391'], badge:'Ana' },
-    { id:'hibrit',  label:'Hibrit Altın',       bg:'#080c12', dots:['#141c28','#d4a935','#90cdf4'], badge:'' },
-    { id:'umay',    label:'Umay Ana Işığı',      bg:'#edf2f7', dots:['#f7fafc','#3182ce','#d4a935'], badge:'' },
-    { id:'kagan',   label:'Kağan Otağı',         bg:'#cec5b0', dots:['#ddd4be','#a82020','#8b6b45'], badge:'' },
+    { id:'otuken', label:'Ötüken Kayalıkları', bg:'#0e1a2e', dots:['#1c2e4a','#d4a85a','#8aa6c8'], badge:'Ana' },
+    { id:'hibrit',  label:'Hibrit Altın',       bg:'#0a1422', dots:['#1a2c4a','#f0c674','#88a4d0'], badge:'' },
+    { id:'umay',    label:'Umay Ana Işığı',      bg:'#f5ecd9', dots:['#ebe0c5','#b8893a','#a45a30'], badge:'' },
+    { id:'kagan',   label:'Kağan Otağı',         bg:'#f0e0c4', dots:['#e6d2ae','#b85c3a','#8a3f25'], badge:'' },
   ];
   return `
     <div class="settings-section"><h3>Tema</h3>
@@ -351,7 +367,7 @@ function renderCustomizationTab(cfg) {
       </div>
       <div class="s-input-row">
         <label>Özel renk</label>
-        <input type="color" id="custom-accent" value="${_pendingAccent||'#c8803a'}" style="height:36px;padding:2px;cursor:pointer;border-radius:6px" />
+        <input type="color" id="custom-accent" value="${_pendingAccent||'#d4a85a'}" style="height:36px;padding:2px;cursor:pointer;border-radius:6px" />
       </div>
     </div>
     <div class="settings-section"><h3>Yazı Tipi</h3>
@@ -538,7 +554,7 @@ function bindCustomizationEvents() {
   document.querySelectorAll('.theme-card').forEach(card => {
     card.addEventListener('click', () => {
       _pendingTheme  = card.dataset.theme;
-      _pendingAccent = THEME_DEFAULT_ACCENTS[_pendingTheme] || '#c8803a';
+      _pendingAccent = THEME_DEFAULT_ACCENTS[_pendingTheme] || '#d4a85a';
 
       // DOM'a anlık yansıt — kullanıcı temayı gerçek zamanlı görsün
       applyThemeToDOM(_pendingTheme, _pendingAccent);
@@ -735,9 +751,12 @@ function upgradeSettingsButton() {
 
       // Kaydedilmiş değerleri yükle
       _savedTheme      = settingsConfig.theme;
-      _savedAccent     = settingsConfig.accentColor || THEMES[_savedTheme]?.accent || '#c8803a';
+      _savedAccent     = settingsConfig.accentColor || THEMES[_savedTheme]?.accent || '#d4a85a';
+      if (_savedAccent && LEGACY_DEFAULT_ACCENTS.includes(_savedAccent.toLowerCase()))
+        _savedAccent = THEME_DEFAULT_ACCENTS[_savedTheme] || '#d4a85a';
       _savedFontSize   = settingsConfig.fontSize    || 13;
-      _savedFontFamily = settingsConfig.fontFamily  || "'DM Sans', sans-serif";
+      _savedFontFamily = settingsConfig.fontFamily  || "'Inter', sans-serif";
+      if (/DM Sans/i.test(_savedFontFamily)) _savedFontFamily = "'Inter', sans-serif";
       currentLang      = settingsConfig.language    || 'tr';
 
       // Pending'i saved ile başlat
