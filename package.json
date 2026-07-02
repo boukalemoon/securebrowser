@@ -22,8 +22,9 @@
     "electron-builder": "^24.0.0"
   },
   "dependencies": {
-    "sql.js": "^1.12.0",
-    "node-fetch": "^3.3.2"
+    "@vercel/analytics": "^2.0.1",
+    "node-fetch": "^3.3.2",
+    "sql.js": "^1.12.0"
   },
   "build": {
     "appId": "com.ilgezdi.browser",
@@ -44,8 +45,18 @@
     "asar": true,
     "win": {
       "target": [
-        { "target": "nsis", "arch": ["x64"] },
-        { "target": "portable", "arch": ["x64"] }
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
       ],
       "icon": "build/icon.ico",
       "artifactName": "Ilgezdi-Kurulum-${version}-${arch}.${ext}"
@@ -57,13 +68,28 @@
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "İlgezdi",
-      "installerLanguages": ["tr_TR", "en_US"],
+      "installerLanguages": [
+        "tr_TR",
+        "en_US"
+      ],
       "language": "1055"
     },
     "mac": {
       "target": [
-        { "target": "dmg", "arch": ["x64", "arm64"] },
-        { "target": "zip", "arch": ["x64", "arm64"] }
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
       ],
       "icon": "build/icon.png",
       "category": "public.app-category.utilities",
@@ -75,8 +101,18 @@
     },
     "linux": {
       "target": [
-        { "target": "AppImage", "arch": ["x64"] },
-        { "target": "deb", "arch": ["x64"] }
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "deb",
+          "arch": [
+            "x64"
+          ]
+        }
       ],
       "icon": "build/icon.png",
       "category": "Network;WebBrowser",
