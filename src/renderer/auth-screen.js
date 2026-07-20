@@ -92,10 +92,21 @@ async function doRefresh(refreshToken) {
 }
 
 // ─── QR Session ───────────────────────────────────────────────────────────────
+// Tüm QR işlemleri ilgezdi-qr Edge Function üzerinden yürür;
+// ilgezdi_qr_sessions tablosuna istemciden doğrudan erişim kapalıdır.
+async function qrApi(body) {
+  const r = await fetch(`${SB_URL}/functions/v1/ilgezdi-qr`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'apikey': SB_KEY },
+    body: JSON.stringify(body),
+  });
+  return r.json();
+}
+
 async function createQrSession() {
-  const data = await restPost('ilgezdi_qr_sessions', { status: 'pending' });
-  if (!data || data.error || !data[0]) throw new Error('QR oturum oluşturulamadı');
-  return data[0];
+  const data = await qrApi({ action: 'create' });
+  if (!data?.session_token) throw new Error('QR oturum oluşturulamadı');
+  return data;
 }
 
 function stopQrPoll() {
@@ -115,9 +126,9 @@ async function loadQrCode() {
     const session = await createQrSession();
     _qrToken = session.session_token;
 
-    const payload  = `https://qrtim.com/browser-login?token=${session.session_token}`;
-    const encoded  = encodeURIComponent(payload);
-    img.src = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&color=d4a85a&bgcolor=0e1a2e&qzone=2&data=${encoded}`;
+    // QR yerelde üretilir — session_token asla üçüncü taraf servise gönderilmez.
+    const payload = `https://qartim.com/browser-login?token=${session.session_token}`;
+    img.src = await window.secureBrowser.qrGenerate(payload);
 
     const expiresAt = new Date(session.expires_at).getTime();
 
@@ -132,17 +143,12 @@ async function loadQrCode() {
 
     _qrPoll = setInterval(async () => {
       try {
-        const rows = await restGet(
-          'ilgezdi_qr_sessions',
-          `session_token=eq.${_qrToken}&select=status,user_id`
-        );
-        if (!rows?.length) return;
-        const { status: st, user_id } = rows[0];
-        if (st === 'approved' && user_id) {
+        const res = await qrApi({ action: 'status', session_token: _qrToken });
+        if (res?.status === 'approved' && res.token_hash) {
           stopQrPoll();
           setQrStatus('✓ Onaylandı, giriş yapılıyor...', 'success');
-          await finishQrLogin(user_id);
-        } else if (st === 'expired') {
+          await finishQrLogin(res.token_hash);
+        } else if (res?.status === 'expired' || res?.status === 'not_found') {
           stopQrPoll();
           setQrStatus('Süre doldu — yenile', 'error');
         }
@@ -154,15 +160,33 @@ async function loadQrCode() {
   }
 }
 
-async function finishQrLogin(userId) {
+async function finishQrLogin(tokenHash) {
   try {
-    const rows = await restGet('ilgezdi_profiles', `user_id=eq.${userId}&select=email,display_name,plan`);
-    const profile = rows?.[0] || {};
-    await saveSession({ userId, email: profile.email, displayName: profile.display_name, plan: profile.plan || 'free', loginMethod: 'qr' });
-    updateAccountBadge(profile.email || 'Kullanıcı');
+    // Tek kullanımlık token_hash'i gerçek Supabase oturumuyla değiştir
+    const data = await authPost('/verify', { type: 'magiclink', token_hash: tokenHash });
+    if (!data?.access_token) throw new Error(data?.error_description || data?.msg || 'Oturum doğrulanamadı');
+
+    const userId = data.user?.id;
+    // Profil, kullanıcının KENDİ access token'ıyla okunur (RLS: yalnızca kendi satırı)
+    let profile = {};
+    try {
+      const rows = await restGet('ilgezdi_profiles', `user_id=eq.${userId}&select=email,display_name,plan`, data.access_token);
+      profile = rows?.[0] || {};
+    } catch {}
+
+    await saveSession({
+      userId,
+      email:        profile.email || data.user?.email,
+      displayName:  profile.display_name || data.user?.user_metadata?.display_name || '',
+      plan:         profile.plan || 'free',
+      refreshToken: data.refresh_token,
+      loginMethod:  'qr',
+    });
+    setAuthContext(userId, data.access_token);
+    updateAccountBadge(profile.email || data.user?.email || 'Kullanıcı');
     setTimeout(hideAuthScreen, 700);
   } catch (e) {
-    setQrStatus('Profil alınamadı: ' + e.message, 'error');
+    setQrStatus('Giriş tamamlanamadı: ' + e.message, 'error');
   }
 }
 
@@ -170,6 +194,18 @@ async function finishQrLogin(userId) {
 async function saveSession(s)  { return window.secureBrowser?.auth?.saveSession(s); }
 async function loadSession()   { return window.secureBrowser?.auth?.getSession(); }
 async function clearSession()  { return window.secureBrowser?.auth?.clearSession(); }
+
+// Aktif access token bellekte tutulur (diske yazılmaz); sync modülü kullanır.
+let _accessToken = null;
+let _authUserId  = null;
+
+function setAuthContext(userId, accessToken) {
+  _authUserId  = userId  || null;
+  _accessToken = accessToken || null;
+  if (_authUserId && _accessToken) {
+    window.ilgezdiSync?.onLogin({ userId: _authUserId, accessToken: _accessToken });
+  }
+}
 
 // ─── DOM yardımcıları ─────────────────────────────────────────────────────────
 function authEl(id)    { return document.getElementById(id); }
@@ -202,6 +238,10 @@ function hideAuthScreen() {
   if (!el) return;
   el.classList.remove('visible');
   setTimeout(() => el.classList.add('hidden'), 300);
+  // Sekme içeriğini (BrowserView) geri getir — showAuthScreen gizlemişti.
+  // Yeni sekme gibi bir ekran overlay'i hâlâ açıksa view gizli kalmalı.
+  const overlayVisible = document.getElementById('screen-overlay')?.classList.contains('visible');
+  if (!overlayVisible) window.secureBrowser?.showActiveTab?.().catch?.(() => {});
 }
 
 // ─── Tab geçişi ───────────────────────────────────────────────────────────────
@@ -269,7 +309,8 @@ function bindAuthEvents() {
         displayName: data.user?.user_metadata?.display_name || '',
         plan: 'free', refreshToken: data.refresh_token, loginMethod: 'email',
       });
-      setStatus('✓ Giriş başarılı!', 'success');
+      setAuthContext(data.user?.id, data.access_token);
+      setStatus('✓ Giriş başarılı! Ayarların senkronize ediliyor...', 'success');
       updateAccountBadge(email);
       setTimeout(hideAuthScreen, 600);
     } catch (err) {
@@ -298,6 +339,7 @@ function bindAuthEvents() {
         userId: data.user?.id, email, displayName: name,
         plan: 'free', refreshToken: data.refresh_token, loginMethod: 'email',
       });
+      setAuthContext(data.user?.id, data.access_token);
       setStatus('✓ Hesabınız oluşturuldu! Hoş geldiniz.', 'success');
       updateAccountBadge(email);
       setTimeout(hideAuthScreen, 700);
@@ -440,16 +482,16 @@ async function initAuth() {
       try {
         const refreshed = await doRefresh(stored.refreshToken);
         await saveSession({ ...stored, refreshToken: refreshed.refresh_token });
+        setAuthContext(refreshed.user?.id || stored.userId, refreshed.access_token);
         updateAccountBadge(stored.email || stored.displayName);
         return; // Auth screen gösterme
       } catch {
-        // Refresh başarısız → auth screen göster
+        // Refresh başarısız → eski oturumu temizle, auth screen göster
+        await clearSession().catch(() => {});
       }
-    } else if (stored?.userId && !stored.refreshToken) {
-      // QR ile giriş yapılmış veya refresh token yok, ama userId var → geçerli say
-      updateAccountBadge(stored.email || stored.displayName || 'Kullanıcı');
-      return;
     }
+    // Not: refreshToken olmadan yerel "userId" tek başına oturum kanıtı DEĞİLDİR.
+    // QR girişi de artık gerçek refresh token üretir (Edge Function akışı).
   } catch {}
 
   await window.secureBrowser?.hideActiveTab?.().catch?.(() => {});
@@ -461,12 +503,29 @@ async function initAuth() {
 window.ilgezdiAuth = {
   logout: async () => {
     await clearSession();
+    setAuthContext(null, null);
+    window.ilgezdiSync?.onLogout();
     _eventsReady = false;
     showAuthScreen();
     bindAuthEvents();
   },
   getSession: loadSession,
   showScreen: showAuthScreen,
+  // Sync modülü için: bellekteki access token / kimlik bağlamı
+  getSyncContext: () => (_authUserId && _accessToken
+    ? { userId: _authUserId, accessToken: _accessToken } : null),
+  // Access token süresi dolunca sync modülü bunu çağırır; refresh token
+  // döndürülmez, yalnızca yeni access token verilir.
+  refreshAccessToken: async () => {
+    try {
+      const stored = await loadSession();
+      if (!stored?.refreshToken) return null;
+      const d = await doRefresh(stored.refreshToken);
+      await saveSession({ ...stored, refreshToken: d.refresh_token });
+      _accessToken = d.access_token || null;
+      return _accessToken;
+    } catch { return null; }
+  },
   // Ayarlar → Hesap: ekranı göster VE event'leri bağla (otomatik-giriş
   // durumunda initAuth bindAuthEvents'i çağırmamış olabiliyor → butonlar ölü kalır).
   open: () => {

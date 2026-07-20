@@ -7,6 +7,7 @@
 
 const { exec, execSync } = require('child_process');
 const { promisify }      = require('util');
+const { safeStorage }    = require('electron');
 const fs   = require('fs');
 const path = require('path');
 const os   = require('os');
@@ -48,10 +49,37 @@ class VpnManager {
     this._loadProfiles();
   }
 
+  // WireGuard private key'leri diske düz metin yazılmaz — safeStorage ile şifrelenir.
+  _encryptKey(plain) {
+    if (!plain) return '';
+    if (safeStorage.isEncryptionAvailable()) {
+      return 'enc:' + safeStorage.encryptString(plain).toString('base64');
+    }
+    return plain; // şifreleme yoksa (nadir) mevcut davranışa düş
+  }
+
+  _decryptKey(stored) {
+    if (!stored) return '';
+    if (stored.startsWith('enc:')) {
+      try { return safeStorage.decryptString(Buffer.from(stored.slice(4), 'base64')); }
+      catch { return ''; }
+    }
+    return stored; // eski düz metin kayıt
+  }
+
   _loadProfiles() {
     try {
       if (fs.existsSync(this.profilesPath)) {
         this.profiles = JSON.parse(fs.readFileSync(this.profilesPath, 'utf-8'));
+        // Eski düz metin anahtarları şifreli formata taşı
+        let migrated = false;
+        for (const p of this.profiles) {
+          if (p.privateKey && !p.privateKey.startsWith('enc:') && p.privateKey !== '••••••••') {
+            p.privateKey = this._encryptKey(p.privateKey);
+            migrated = true;
+          }
+        }
+        if (migrated) this._saveProfiles();
       }
     } catch (e) {
       this.profiles = [];
@@ -77,7 +105,7 @@ class VpnManager {
       name:       profile.name       || 'Yeni Sunucu',
       endpoint:   profile.endpoint   || '',
       publicKey:  profile.publicKey  || '',
-      privateKey: profile.privateKey || '',
+      privateKey: this._encryptKey(profile.privateKey || ''),
       clientIp:   profile.clientIp   || '10.8.0.2/32',
       dns:        profile.dns        || '1.1.1.1',
       location:   profile.location   || '🌐 Bilinmiyor',
@@ -100,7 +128,7 @@ class VpnManager {
   _generateWgConf(profile) {
     const [host, port] = profile.endpoint.split(':');
     return `[Interface]
-PrivateKey = ${profile.privateKey}
+PrivateKey = ${this._decryptKey(profile.privateKey)}
 Address = ${profile.clientIp}
 DNS = ${profile.dns}
 
@@ -168,9 +196,13 @@ Start-Process -FilePath "${WG_APP}" -ArgumentList "/installtunnelservice","${con
         'Çözüm: WireGuard uygulamasını aç, "Import tunnel(s) from file" ile şu dosyayı ekle:\n' +
         confPath + '\n\nSonra "Activate" butonuna bas.'
       );
+    } finally {
+      try { fs.unlinkSync(psPath); } catch {}
     }
 
     await new Promise(r => setTimeout(r, 2000));
+    // Servis conf'u kendi deposuna kopyaladı — private key içeren temp dosyayı sil
+    try { fs.unlinkSync(confPath); } catch {}
   }
 
   async _connectUnix(profile) {
@@ -190,10 +222,13 @@ Start-Process -FilePath "${WG_APP}" -ArgumentList "/installtunnelservice","${con
           const psPath = path.join(os.tmpdir(), 'sb-wg-uninstall.ps1');
           fs.writeFileSync(psPath, psScript);
           await execAsync(`powershell -ExecutionPolicy Bypass -WindowStyle Hidden -File "${psPath}"`).catch(() => {});
+          try { fs.unlinkSync(psPath); } catch {}
         }
+        try { fs.unlinkSync(path.join(os.tmpdir(), 'sb-vpn.conf')); } catch {}
       } else {
         const confPath = path.join(os.tmpdir(), 'sb-vpn.conf');
         await execAsync(`wg-quick down "${confPath}"`).catch(() => {});
+        try { fs.unlinkSync(confPath); } catch {}
       }
     } catch (e) {
       console.error('[VPN] Disconnect hatası:', e.message);

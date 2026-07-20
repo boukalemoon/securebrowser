@@ -1,0 +1,78 @@
+/* İlgezdi — Arku Uzak Masaüstü eklenti paneli */
+
+.arku-hero {
+  text-align: center;
+  padding: 18px 14px;
+  border: 1px solid var(--border, rgba(212,168,90,.25));
+  border-radius: 10px;
+  background: rgba(212,168,90,.05);
+  margin-bottom: 14px;
+}
+.arku-hero-icon { font-size: 30px; margin-bottom: 8px; }
+.arku-hero-text {
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--text-muted, #9a8f7d);
+  margin-bottom: 12px;
+}
+.arku-open-btn {
+  width: 100%;
+  padding: 9px 0;
+  border: none;
+  border-radius: 8px;
+  background: var(--accent, #d4a85a);
+  color: #1a1510;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+  transition: filter .15s ease;
+}
+.arku-open-btn:hover { filter: brightness(1.1); }
+
+.arku-update-card {
+  border: 1px solid rgba(109,186,114,.4);
+  background: rgba(109,186,114,.08);
+  border-radius: 10px;
+  padding: 12px;
+  margin-bottom: 14px;
+}
+.arku-update-title { font-size: 12.5px; font-weight: 700; margin-bottom: 6px; }
+.arku-update-desc  { font-size: 11px; color: var(--text-muted, #9a8f7d); line-height: 1.5; margin-bottom: 10px; }
+.arku-update-actions { display: flex; gap: 8px; }
+.arku-apply-btn {
+  flex: 1;
+  padding: 7px 0;
+  border: none;
+  border-radius: 7px;
+  background: #6dba72;
+  color: #10150f;
+  font-weight: 700;
+  font-size: 12px;
+  cursor: pointer;
+}
+.arku-apply-btn:hover { filter: brightness(1.1); }
+
+.arku-ver-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  padding: 7px 2px;
+  border-bottom: 1px solid var(--border, rgba(255,255,255,.06));
+  color: var(--text-muted, #9a8f7d);
+}
+.arku-ver-val { font-family: monospace; color: var(--text, #e8e0d0); }
+
+.arku-note { font-size: 11px; color: var(--text-muted, #9a8f7d); margin-top: 8px; text-align: center; }
+
+/* Kenar çubuğu rozetli buton: güncelleme bekliyor */
+#btn-arku { position: relative; }
+#btn-arku.has-update::after {
+  content: '';
+  position: absolute;
+  top: 6px; right: 6px;
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: #6dba72;
+  box-shadow: 0 0 6px rgba(109,186,114,.9);
+}

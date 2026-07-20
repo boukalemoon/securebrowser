@@ -4,14 +4,15 @@
 
 'use strict';
 
-const { app, BrowserWindow, BrowserView, ipcMain, session, dialog } = require('electron');
+const { app, BrowserWindow, BrowserView, ipcMain, session, dialog, safeStorage } = require('electron');
 const path = require('path');
 const fs   = require('fs');
 
 const { SecureLogManager } = require('./secure-log-manager');
 const { VpnManager, testDnsLeak } = require('./vpn-manager');
-const { setupBlocker, updateBlockerConfig, getBlockStats } = require('./blocker-main');
+const { attachBlocker, shouldBlockUrl, updateBlockerConfig, getBlockStats } = require('./blocker-main');
 const { setupGlance } = require('./glance-main');
+const { setupArku } = require('./arku-manager');
 
 let incognitoWindow = null;
 
@@ -144,7 +145,41 @@ function logVisit(data) {
   } catch (e) { console.error('[SecureLog] Hata:', e); }
 }
 
+// Site izin istekleri (kamera, mikrofon, konum...) — Electron varsayılanı
+// İZİN VERMEKTİR; burada hassas izinler kullanıcı onayına bağlanır.
+const QUIET_ALLOW = new Set(['fullscreen', 'clipboard-sanitized-write', 'pointerLock']);
+const ASK_USER    = new Set(['media', 'geolocation', 'notifications', 'midi', 'midiSysex']);
+const PERMISSION_TR = {
+  media: 'Kamera / Mikrofon', geolocation: 'Konum',
+  notifications: 'Bildirim', midi: 'MIDI cihazları', midiSysex: 'MIDI cihazları',
+};
+
+function setupPermissionHandler(ses) {
+  ses.setPermissionRequestHandler((webContents, permission, callback, details) => {
+    if (QUIET_ALLOW.has(permission)) return callback(true);
+    if (!ASK_USER.has(permission))   return callback(false);
+
+    const origin = (() => {
+      try { return new URL(details.requestingUrl || webContents.getURL()).origin; }
+      catch { return 'Bilinmeyen site'; }
+    })();
+
+    const parent = BrowserWindow.getFocusedWindow() || mainWindow;
+    dialog.showMessageBox(parent, {
+      type:      'question',
+      buttons:   ['Reddet', 'İzin Ver'],
+      defaultId: 0,
+      cancelId:  0,
+      title:     'İzin İsteği',
+      message:   `${origin}`,
+      detail:    `Bu site şu izni istiyor: ${PERMISSION_TR[permission] || permission}`,
+    }).then(r => callback(r.response === 1)).catch(() => callback(false));
+  });
+}
+
 function configureSession(ses) {
+  setupPermissionHandler(ses);
+
   if (config.fingerprintProtection) {
     ses.webRequest.onBeforeSendHeaders((details, callback) => {
       const headers = { ...details.requestHeaders };
@@ -152,36 +187,42 @@ function configureSession(ses) {
       delete headers['X-Forwarded-For'];
       delete headers['Via'];
       delete headers['X-WebRTC-IP'];
+      if (config.doNotTrack) headers['DNT'] = '1';
       callback({ requestHeaders: headers });
     });
   }
 
-  if (config.blockTrackers || config.blockAds) {
-    ses.webRequest.onBeforeRequest({ urls: ['*://*/*'] }, (details, callback) => {
-      if (isBlocked(details.url)) {
-        callback({ cancel: true });
-      } else {
-        callback({});
-      }
-    });
-  }
-
-  ses.webRequest.onHeadersReceived((details, callback) => {
-    const headers = { ...details.responseHeaders };
-    headers['Strict-Transport-Security'] = ['max-age=31536000; includeSubDomains'];
-    headers['X-Content-Type-Options'] = ['nosniff'];
-    headers['X-Frame-Options']        = ['SAMEORIGIN'];
-    callback({ responseHeaders: headers });
+  ses.webRequest.onBeforeRequest({ urls: ['*://*/*'] }, (details, callback) => {
+    // Faz 6 engelleyici (seviye/whitelist ayarlı) + temel liste
+    if (shouldBlockUrl(details.url)) return callback({ cancel: true });
+    if ((config.blockTrackers || config.blockAds) && isBlocked(details.url)) {
+      return callback({ cancel: true });
+    }
+    // HTTPS-Only: ana çerçeve http isteklerini https'e yükselt
+    if (config.httpsOnly && details.resourceType === 'mainFrame' && details.url.startsWith('http://')) {
+      return callback({ redirectURL: 'https://' + details.url.slice('http://'.length) });
+    }
+    callback({});
   });
 }
 
 let mainWindow = null;
 let bookmarkPopupWin = null;
 
+// Chrome (arayüz) pencereleri yalnızca yerel index.html yükler — preload API'sinin
+// harici bir sayfaya açılmaması için navigasyon ve pencere açma tamamen kapalıdır.
+function hardenChromeWindow(win) {
+  win.webContents.on('will-navigate', (e) => e.preventDefault());
+  win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+}
+
 // ─── Per-pencere sekme durumu ────────────────────────────────────────────────
 // Her pencere (ana + incognito) kendi state nesnesine sahip
-const mainState = { tabs: new Map(), activeTabId: null, tabCounter: 0, panelIsOpen: false };
-const incognitoState = { tabs: new Map(), activeTabId: null, tabCounter: 0, panelIsOpen: false };
+// viewHidden: renderer ekran overlay'i (yeni sekme, auth) gösterirken true olur.
+// resize/panel olayları bu bayrağa saygı duymalı — yoksa gizli boş view
+// yanlışlıkla geri gösterilip overlay'in üstünü örtüyor (boş ekran hatası).
+const mainState = { tabs: new Map(), activeTabId: null, tabCounter: 0, panelIsOpen: false, viewHidden: false };
+const incognitoState = { tabs: new Map(), activeTabId: null, tabCounter: 0, panelIsOpen: false, viewHidden: false };
 
 const PANEL_WIDTH      = 420;
 const SIDEBAR_WIDTH    = 56;
@@ -201,17 +242,19 @@ function createWindow() {
     width: 1400, height: 900, minWidth: 900, minHeight: 600,
     frame: false,
     backgroundColor: '#0a0e1a',
+    icon: path.join(__dirname, '../renderer/assets/app-icon.png'),
     webPreferences: {
       preload: path.join(__dirname, '../preload/preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false,
+      sandbox: true,
       webSecurity: true,
       allowRunningInsecureContent: false,
     },
     show: false,
   });
 
+  hardenChromeWindow(mainWindow);
   mainWindow.on('resize', () => resizeActiveView(mainWindow, mainState));
 
   mainWindow.on('minimize', () => {
@@ -221,7 +264,7 @@ function createWindow() {
     }
   });
 
-  setupBlocker(session.defaultSession, mainWindow);
+  attachBlocker(mainWindow);
   setupGlance(mainWindow, ipcMain);
 
   mainWindow.once('ready-to-show', () => mainWindow.show());
@@ -353,7 +396,9 @@ function createTab(win, state, url = config.homepage) {
       const result = await view.webContents.executeJavaScript(
         '(function(){ var r=window.__glancePending; window.__glancePending=null; return r||null; })()'
       );
-      if (result && result.url && win && !win.isDestroyed()) {
+      // Sayfa JS'i güvenilmezdir — yalnızca http(s) URL'leri kabul et
+      if (result && typeof result.url === 'string' && /^https?:\/\//i.test(result.url)
+          && win && !win.isDestroyed()) {
         win.webContents.send('glance-request', result);
       }
     } catch {}
@@ -367,6 +412,12 @@ function createTab(win, state, url = config.homepage) {
 function resizeActiveView(win, state) {
   const tab = state.tabs.get(state.activeTabId);
   if (!tab || !win || win.isDestroyed()) return;
+  // Renderer view'ı bilerek gizlediyse (ekran overlay açık) gizli tut —
+  // panel-opened / pencere resize olayları gizliliği bozmasın.
+  if (state.viewHidden) {
+    tab.view.setBounds({ x: 0, y: 0, width: 0, height: 0 });
+    return;
+  }
   const bounds = win.getContentBounds();
   const usableWidth = bounds.width - SIDEBAR_WIDTH;
   tab.view.setBounds({
@@ -404,7 +455,8 @@ function closeTab(win, state, tabId) {
   state.tabs.delete(tabId);
 
   if (state.tabs.size === 0) {
-    const newId = createTab(win, state);
+    // Son sekme kapandı → boş sekme (İlgezdi yeni sekme sayfası) aç
+    const newId = createTab(win, state, 'about:blank');
     setActiveTab(win, state, newId);
   } else if (state.activeTabId === tabId) {
     const remaining = [...state.tabs.keys()];
@@ -641,11 +693,13 @@ ipcMain.handle('bookmark-popup-open', (e, { x, y, data }) => {
     movable: false,
     webPreferences: {
       preload: path.join(__dirname, '../preload/popup-preload.js'),
-      contextIsolation: false,
+      contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false,
+      sandbox: true,
     }
   });
+
+  hardenChromeWindow(bookmarkPopupWin);
 
   bookmarkPopupWin.__owner = ownerWin;
   bookmarkPopupWin.loadFile(path.join(__dirname, '../renderer/bookmark-popup.html'));
@@ -706,12 +760,14 @@ ipcMain.handle('bookmark-popup-delete', () => {
 
 ipcMain.handle('hide-active-tab', (event) => {
   const { state } = getContextFromEvent(event);
+  state.viewHidden = true;
   const tab = state.tabs.get(state.activeTabId);
   if (tab) tab.view.setBounds({ x: 0, y: 0, width: 0, height: 0 });
 });
 
 ipcMain.handle('show-active-tab', (event) => {
   const { win, state } = getContextFromEvent(event);
+  state.viewHidden = false;
   resizeActiveView(win, state);
 });
 
@@ -735,6 +791,8 @@ ipcMain.on('window-close', (event) => {
 
 // ─── Uygulama Yaşam Döngüsü ───────────────────────────────────────────────────
 app.whenReady().then(() => {
+  // Windows: görev çubuğu / bildirimlerde doğru uygulama kimliği + ikon eşleşmesi
+  if (process.platform === 'win32') app.setAppUserModelId('com.ilgezdi.browser');
   initDB();
   vpnManager = new VpnManager(USER_DATA);
   secureLog  = new SecureLogManager(USER_DATA);
@@ -748,6 +806,16 @@ app.whenReady().then(() => {
 
   configureSession(session.defaultSession);
   createWindow();
+
+  // Arku Uzak Masaüstü eklentisi: arka plan sürüm denetimi + kullanıcı onaylı güncelleme
+  setupArku(ipcMain, {
+    userDataPath: USER_DATA,
+    getMainWindow: () => mainWindow,
+    forEachTabView: (cb) => {
+      for (const [, tab] of mainState.tabs) cb(tab.view);
+      for (const [, tab] of incognitoState.tabs) cb(tab.view);
+    },
+  });
 
   if (config.vpnAutoConnect && config.vpnLastProfileId) {
     setTimeout(() => {
@@ -788,21 +856,24 @@ function createIncognitoWindow() {
   incognitoState.activeTabId = null;
   incognitoState.tabCounter = 0;
   incognitoState.panelIsOpen = false;
+  incognitoState.viewHidden = false;
 
   incognitoWindow = new BrowserWindow({
     width: 1200, height: 800,
     frame: false,
     backgroundColor: '#0a0e1a',
     title: 'İlgezdi — Gizli Pencere',
+    icon: path.join(__dirname, '../renderer/assets/app-icon.png'),
     webPreferences: {
       preload: path.join(__dirname, '../preload/preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false,
+      sandbox: true,
     },
     show: false,
   });
 
+  hardenChromeWindow(incognitoWindow);
   incognitoWindow.on('resize', () => resizeActiveView(incognitoWindow, incognitoState));
 
   incognitoWindow.once('ready-to-show', () => incognitoWindow.show());
@@ -833,18 +904,59 @@ ipcMain.handle('open-incognito', () => {
 });
 
 // ─── Auth (Üyelik Sistemi) ────────────────────────────────────────────────────
-ipcMain.handle('auth-get-session', () => config.authSession || null);
+// Oturum (refresh token dahil) diske DÜZ METİN yazılmaz: safeStorage
+// (Windows DPAPI / macOS Keychain / Linux Secret Service) ile şifrelenir.
+// Şifreleme kullanılamıyorsa (nadir, ör. keyring'siz Linux) oturum kalıcı
+// saklanmaz — kullanıcı yeniden giriş yapar; token sızdırmaktan iyidir.
 
-ipcMain.handle('auth-save-session', (e, session) => {
-  config.authSession = session;
+function readAuthSession() {
+  // Yeni format: şifreli blob
+  if (config.authSessionEnc) {
+    try {
+      if (!safeStorage.isEncryptionAvailable()) return null;
+      return JSON.parse(safeStorage.decryptString(Buffer.from(config.authSessionEnc, 'base64')));
+    } catch { return null; }
+  }
+  // Eski format (düz metin) → şifreli formata taşı
+  if (config.authSession) {
+    const legacy = config.authSession;
+    writeAuthSession(legacy);
+    return legacy;
+  }
+  return null;
+}
+
+function writeAuthSession(sessionData) {
+  delete config.authSession; // düz metin kopya asla kalmasın
+  if (sessionData && safeStorage.isEncryptionAvailable()) {
+    config.authSessionEnc = safeStorage.encryptString(JSON.stringify(sessionData)).toString('base64');
+  } else {
+    delete config.authSessionEnc;
+  }
   saveConfig(config);
+}
+
+ipcMain.handle('auth-get-session', () => readAuthSession());
+
+ipcMain.handle('auth-save-session', (e, sessionData) => {
+  writeAuthSession(sessionData);
   return true;
 });
 
 ipcMain.handle('auth-clear-session', () => {
   delete config.authSession;
+  delete config.authSessionEnc;
   saveConfig(config);
   return true;
+});
+
+// QR kodu yerelde üretilir (üçüncü taraf QR servisi kullanılmaz — token sızmasın)
+ipcMain.handle('qr-generate', async (e, text) => {
+  const QRCode = require('qrcode');
+  return QRCode.toDataURL(String(text), {
+    width: 180, margin: 2,
+    color: { dark: '#d4a85aff', light: '#0e1a2eff' },
+  });
 });
 
 ipcMain.handle('is-incognito', (event) => {

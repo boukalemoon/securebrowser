@@ -94,6 +94,18 @@ contextBridge.exposeInMainWorld('secureBrowser', {
   onBookmarkPopupResult: (cb) => ipcRenderer.on('bookmark-popup-result', (_, d) => cb(d)),
   onBookmarkPopupClosed: (cb) => ipcRenderer.on('bookmark-popup-closed', ()     => cb()),
 
+  // ── Arku Uzak Masaüstü eklentisi ─────────────────────────────────────────────
+  arku: {
+    getInfo:           ()   => ipcRenderer.invoke('arku-get-info'),
+    getUrl:            ()   => ipcRenderer.invoke('arku-open-url'),
+    checkUpdate:       ()   => ipcRenderer.invoke('arku-check-update'),
+    applyUpdate:       ()   => ipcRenderer.invoke('arku-apply-update'),
+    onUpdateAvailable: (cb) => ipcRenderer.on('arku-update-available', (_, info) => cb(info)),
+  },
+
+  // ── QR üretimi (yerel, çevrimdışı) ──────────────────────────────────────────
+  qrGenerate: (text) => ipcRenderer.invoke('qr-generate', text),
+
   // ── Auth (Üyelik Sistemi) ────────────────────────────────────────────────────
   auth: {
     saveSession:  (s) => ipcRenderer.invoke('auth-save-session', s),

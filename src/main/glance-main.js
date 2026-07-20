@@ -24,6 +24,8 @@ function setupGlance(mainWindow, ipcMain) {
   bindAutoClose(mainWindow);
 
   ipcMain.handle('glance-open', (event, { url, triggerX, triggerY }) => {
+    // Uzak içerik yüklenecek — yalnızca http(s) kabul et
+    if (typeof url !== 'string' || !/^https?:\/\//i.test(url)) return { ok: false };
     if (glanceOpen) closeGlance();
 
     const win = BrowserWindow.fromWebContents(event.sender) || mainWindow;
@@ -43,9 +45,16 @@ function setupGlance(mainWindow, ipcMain) {
     if (py < CHROME_H + 10) py = CHROME_H + 10;
 
     glanceView = new BrowserView({
-      webPreferences: { nodeIntegration: false, contextIsolation: false, sandbox: false }
+      webPreferences: {
+        nodeIntegration: false,
+        contextIsolation: true,
+        sandbox: true,
+        // Sekmelerle aynı session: engelleyici + izin yöneticisi burada da geçerli
+        partition: 'persist:securebrowser',
+      }
     });
 
+    glanceView.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
     win.addBrowserView(glanceView);
     // Toolbar için 36px boşluk bırak üstte
     glanceView.setBounds({ x: px, y: py, width: PW, height: PH });

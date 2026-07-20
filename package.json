@@ -1,6 +1,6 @@
 {
   "name": "ilgezdi",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "İlgezdi — Güvenli, gizlilik odaklı web tarayıcısı (Göktürk temalı)",
   "author": "İlgezdi",
   "license": "MIT",
@@ -24,6 +24,7 @@
   "dependencies": {
     "@vercel/analytics": "^2.0.1",
     "node-fetch": "^3.3.2",
+    "qrcode": "^1.5.4",
     "sql.js": "^1.12.0"
   },
   "build": {

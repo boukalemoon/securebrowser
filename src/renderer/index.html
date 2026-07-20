@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta http-equiv="Content-Security-Policy"
-      content="default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self'; img-src * data: blob: 'self'; connect-src 'self' https://*.supabase.co https://api.qrserver.com;" />
+      content="default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self'; img-src * data: blob: 'self'; connect-src 'self' https://*.supabase.co;" />
   <title>İlgezdi</title>
   <link rel="stylesheet" href="styles/tokens/primitives.css" />
   <link rel="stylesheet" href="styles/main.css" />
@@ -12,6 +12,7 @@
   <link rel="stylesheet" href="styles/bookmarks.css" />
   <link rel="stylesheet" href="styles/blocker.css" />
   <link rel="stylesheet" href="styles/glance.css" />
+  <link rel="stylesheet" href="styles/arku.css" />
 </head>
 <body>
 <div id="app">
@@ -162,6 +163,10 @@
       <button class="sidebar-btn" id="btn-blocker" title="Reklam & Tracker Engelleme">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M4.93 4.93l14.14 14.14"/></svg>
       </button>
+      <!-- id="btn-arku" — arku-panel.js bu butonu yönetir -->
+      <button class="sidebar-btn" id="btn-arku" title="Arku Uzak Masaüstü">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+      </button>
       <!-- id="btn-logs" — log-panel.js bu butonu yönetir -->
       <button class="sidebar-btn" id="btn-logs" title="Ziyaret Günlüğü (Ctrl+Shift+L)">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
@@ -192,6 +197,8 @@
       <!-- id="btn-bookmarks" → bookmarks-panel.js -->
       <div id="panel-bookmarks" class="side-panel hidden"></div>
       <!-- id="btn-blocker"   → blocker-panel.js -->
+      <!-- id="btn-arku" → arku-panel.js -->
+      <div id="panel-arku" class="side-panel hidden"></div>
       <div id="panel-blocker"   class="side-panel hidden"></div>
 
       <!-- Koruma durumu paneli (app.js tarafından yönetilir) -->
@@ -245,6 +252,9 @@
 
         <!-- Form görünümü -->
         <div class="form-section" id="form-section">
+          <div class="auth-hint" style="font-size:11.5px;color:var(--ink-mute);text-align:center;margin-bottom:12px;">
+            Qrtım hesabınla giriş yap — ayarların ve yer imlerin otomatik senkronize edilir
+          </div>
           <form id="auth-login-form" autocomplete="on">
             <div class="auth-field">
               <label>E-POSTA</label>
@@ -309,7 +319,9 @@
 <script src="settings-panel.js"></script>
 <script src="bookmarks-panel.js"></script>
 <script src="blocker-panel.js"></script>
+<script src="arku-panel.js"></script>
 <script src="glance-renderer.js"></script>
 <script src="auth-screen.js"></script>
+<script src="sync-manager.js"></script>
 </body>
 </html>

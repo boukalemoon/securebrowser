@@ -78,7 +78,7 @@ function truncateUrl(url, maxLen = 80) {
 }
 
 // ─── Panel Yönetimi ────────────────────────────────────────────────────────────
-const ALL_PANELS = ['settings', 'logs', 'bookmarks', 'blocker', 'shield', 'vpn'];
+const ALL_PANELS = ['settings', 'logs', 'bookmarks', 'blocker', 'shield', 'vpn', 'arku'];
 
 function closeAllPanels() {
   ALL_PANELS.forEach(name => {
@@ -88,7 +88,7 @@ function closeAllPanels() {
     panel.classList.add('hidden');
   });
   // Panel butonlarının aktif stilini kaldır (data-screen butonlarına dokunma)
-  ['btn-shield', 'btn-bookmarks', 'btn-logs', 'btn-blocker', 'btn-settings'].forEach(id => {
+  ['btn-shield', 'btn-bookmarks', 'btn-logs', 'btn-blocker', 'btn-settings', 'btn-arku'].forEach(id => {
     document.getElementById(id)?.classList.remove('active');
   });
   sb.panelOpened(false);
@@ -515,6 +515,12 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     } else if (currentScreen === 'newtab') {
       hideScreen();
+    } else if (!currentScreen) {
+      // Güvenlik ağı: gerçek sayfa + ekran overlay'i yok → view görünür olmalı.
+      // (Auth ekranı gibi bir modal açıkken dokunma — o kapanırken kendisi
+      // showActiveTab çağırır.) Sekme geçişinde takılı-gizli durumu kurtarır.
+      const authVisible = document.getElementById('auth-screen')?.classList.contains('visible');
+      if (!authVisible) sb.showActiveTab?.();
     }
   });
   sb.onVpnStatus?.((data) => updateVpnIndicator(data.connected));

@@ -115,6 +115,7 @@ window.secureBrowser?.saveConfig({
   fontFamily:  _savedFontFamily,
 }).then(() => {
   console.log('[İlgezdi/Theme] kaydedildi:', { theme: _savedTheme, accent: _savedAccent });
+  window.ilgezdiSync?.schedulePush();
 }).catch(e => {
   console.warn('[İlgezdi/Theme] kayıt hatası:', e);
 });
@@ -774,6 +775,7 @@ function initSettingsPanelEvents() {
       logEnabled:            document.getElementById('cfg-log')?.checked             ?? true,
     };
     await window.secureBrowser?.saveConfig(finalCfg);
+    window.ilgezdiSync?.schedulePush();
     settingsConfig = finalCfg;
     window._ilgezdiNewTabMode   = finalCfg.newTabMode    || 'blank';
     window._ilgezdiCustomNewTab = finalCfg.customNewTabUrl || '';

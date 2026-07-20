@@ -35,12 +35,14 @@ function blockerAddWhitelist(domain) {
   blockerWhitelist.push(domain);
   blockerSave();
   window.secureBrowser?.saveConfig({ whitelist: blockerWhitelist, blockLevel: blockerLevel });
+  window.ilgezdiSync?.schedulePush();
 }
 
 function blockerRemoveWhitelist(domain) {
   blockerWhitelist = blockerWhitelist.filter(d => d !== domain);
   blockerSave();
   window.secureBrowser?.saveConfig({ whitelist: blockerWhitelist, blockLevel: blockerLevel });
+  window.ilgezdiSync?.schedulePush();
 }
 
 function blockerIsWhitelisted(url) {

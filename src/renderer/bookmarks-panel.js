@@ -176,8 +176,20 @@ function bmLoad() {
   } catch {}
 }
 
-function bmSaveFolders() { try { localStorage.setItem('ilgezdi-bm-folders', JSON.stringify(bmFolders)); } catch {} }
-function bmSaveItems()   { try { localStorage.setItem('ilgezdi-bm-items',   JSON.stringify(bmItems));   } catch {} }
+function bmSaveFolders() {
+  try { localStorage.setItem('ilgezdi-bm-folders', JSON.stringify(bmFolders)); } catch {}
+  window.ilgezdiSync?.schedulePush();
+}
+function bmSaveItems() {
+  try { localStorage.setItem('ilgezdi-bm-items', JSON.stringify(bmItems)); } catch {}
+  window.ilgezdiSync?.schedulePush();
+}
+
+// Qrtım senkronizasyonu uzak yer imlerini uyguladığında paneli tazele
+window.addEventListener('ilgezdi-sync-applied', () => {
+  bmLoad();
+  try { bmRenderFolders(); bmRenderPanel(); } catch {}
+});
 
 // ─── Yardımcı ─────────────────────────────────────────────────────────────────
 function bmGetFavicon(url) { try { return `https://www.google.com/s2/favicons?domain=${new URL(url).hostname}&sz=16`; } catch { return null; } }

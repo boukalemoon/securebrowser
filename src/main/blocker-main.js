@@ -3,8 +3,9 @@
  * blocker-main.js — main.js içine require edilecek
  * 
  * Kullanım (main.js içinde):
- *   const { setupBlocker } = require('./blocker-main');
- *   setupBlocker(session, mainWindow);
+ *   const { attachBlocker, shouldBlockUrl } = require('./blocker-main');
+ *   attachBlocker(mainWindow);            // istatistik bildirimleri için
+ *   // configureSession -> onBeforeRequest içinde shouldBlockUrl(url) çağrılır
  */
 
 'use strict';
@@ -147,53 +148,36 @@ function recordBlock(url, type) {
 }
 
 // ─── Ana Kurulum ──────────────────────────────────────────────────────────────
-function setupBlocker(session, mainWindow) {
-  const cfg = LEVEL_CONFIG[blockerConfig.level] || LEVEL_CONFIG.medium;
+// NOT: Electron'da bir session'ın onBeforeRequest'ine tek dinleyici takılabilir.
+// Bu yüzden engelleyici kendi dinleyicisini KAYDETMEZ; main.js configureSession
+// içindeki tek dinleyici shouldBlockUrl()'u çağırır. Böylece engelleyici tüm
+// sekme session'larında (persist + incognito) çalışır.
 
-  session.webRequest.onBeforeRequest({ urls: ['<all_urls>'] }, (details, callback) => {
-    const url = details.url;
+let notifyWindow = null;
 
-    // Engelleyici kapalıysa geç
-    if (!blockerConfig.enabled) return callback({ cancel: false });
-
-    // Whitelist kontrolü
-    if (isWhitelisted(url)) return callback({ cancel: false });
-
-    // Data/blob URL'leri geç
-    if (url.startsWith('data:') || url.startsWith('blob:')) {
-      return callback({ cancel: false });
-    }
-
-    let blocked = false;
-    let type    = null;
-
-    if (cfg.blockAds && isAdUrl(url)) {
-      blocked = true; type = 'ads';
-    } else if (cfg.blockTrackers && isTrackerUrl(url)) {
-      blocked = true; type = 'trackers';
-    } else if (cfg.blockCookieBanners && isCookieBannerUrl(url)) {
-      blocked = true; type = 'cookies';
-    }
-
-    if (blocked && type) {
-      recordBlock(url, type);
-      // Renderer'a istatistik gönder
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send('block-stats', { ...blockStats });
-      }
-      return callback({ cancel: true });
-    }
-
-    callback({ cancel: false });
-  });
-
-  // Cookie banner JS enjeksiyonu
-  session.webRequest.onCompleted({ urls: ['<all_urls>'] }, (details) => {
-    if (!cfg.blockCookieBanners) return;
-    if (isWhitelisted(details.url)) return;
-  });
-
+function attachBlocker(mainWindow) {
+  notifyWindow = mainWindow;
   console.log('[İlgezdi] Faz 6 Engelleyici aktif — Seviye:', blockerConfig.level);
+}
+
+/** true dönerse istek engellenmeli (istatistik de kaydedilir). */
+function shouldBlockUrl(url) {
+  if (!blockerConfig.enabled) return false;
+  if (isWhitelisted(url)) return false;
+  if (url.startsWith('data:') || url.startsWith('blob:')) return false;
+
+  const cfg = LEVEL_CONFIG[blockerConfig.level] || LEVEL_CONFIG.medium;
+  let type = null;
+  if (cfg.blockAds && isAdUrl(url))                       type = 'ads';
+  else if (cfg.blockTrackers && isTrackerUrl(url))        type = 'trackers';
+  else if (cfg.blockCookieBanners && isCookieBannerUrl(url)) type = 'cookies';
+  if (!type) return false;
+
+  recordBlock(url, type);
+  if (notifyWindow && !notifyWindow.isDestroyed()) {
+    notifyWindow.webContents.send('block-stats', { ...blockStats });
+  }
+  return true;
 }
 
 // ─── Config Güncelleme (IPC üzerinden) ───────────────────────────────────────
@@ -210,4 +194,4 @@ function getBlockStats() {
   return { ...blockStats };
 }
 
-module.exports = { setupBlocker, updateBlockerConfig, getBlockStats };
+module.exports = { attachBlocker, shouldBlockUrl, updateBlockerConfig, getBlockStats };
