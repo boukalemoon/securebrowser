@@ -3,5 +3,6 @@
   "outputDirectory": "site",
   "cleanUrls": true,
   "trailingSlash": false,
-  "framework": null
+  "framework": null,
+  "installCommand": "npm install --include=dev --ignore-scripts --no-audit --no-fund"
 }

@@ -146,6 +146,38 @@ footer{border-top:1px solid var(--line);padding:52px 0 40px;margin-top:20px}
 .reveal{opacity:0;transform:translateY(24px);transition:opacity .7s ease,transform .7s ease}
 .reveal.in{opacity:1;transform:none}
 
+/* ---- SmartScreen açıklaması ---- */
+.smartscreen{max-width:720px;margin:22px auto 0;border:1px solid var(--line);border-radius:var(--radius-lg);background:var(--bg-elev);overflow:hidden}
+.smartscreen summary{cursor:pointer;padding:16px 20px;font-size:14px;color:var(--ink-soft);list-style:none;display:flex;align-items:center;justify-content:center;gap:6px;text-align:center;flex-wrap:wrap}
+.smartscreen summary::-webkit-details-marker{display:none}
+.smartscreen summary span{color:var(--gold);font-weight:600}
+.smartscreen[open] summary{border-bottom:1px solid var(--line)}
+.ss-body{padding:18px 22px;color:var(--ink-soft);font-size:14px;line-height:1.7}
+.ss-body ol{margin:12px 0 12px 20px;display:flex;flex-direction:column;gap:7px}
+.ss-body b{color:var(--ink)}
+.ss-note{margin-top:12px;font-size:12.5px;color:var(--ink-mute)}
+
+/* ---- yorumlar ---- */
+.rev-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-bottom:20px}
+.rev-card{background:var(--bg-elev);border:1px solid var(--line);border-radius:var(--radius-lg);padding:22px 20px;display:flex;flex-direction:column;gap:10px}
+.rev-card .rc-stars{color:var(--gold-bright);font-size:14px;letter-spacing:2px}
+.rev-card .rc-comment{color:var(--ink-soft);font-size:14.5px;line-height:1.6;text-wrap:pretty}
+.rev-card .rc-name{color:var(--ink);font-weight:600;font-size:13.5px;margin-top:auto}
+.rev-empty{text-align:center;color:var(--ink-mute);font-size:14.5px;margin-bottom:20px}
+.rev-form-wrap{max-width:680px;margin:36px auto 0;background:var(--bg-elev);border:1px solid var(--line);border-radius:var(--radius-lg);padding:26px 26px 28px}
+.rev-form-wrap h3{font-family:var(--font-ui);font-weight:700;font-size:17px;margin-bottom:16px}
+.rev-row{display:flex;gap:12px;margin-bottom:12px;flex-wrap:wrap;align-items:center}
+.rev-form-wrap input[type=text],.rev-form-wrap textarea{background:var(--bg);border:1px solid var(--line);border-radius:var(--radius-md);padding:12px 14px;color:var(--ink);font-family:var(--font-ui);font-size:14.5px;width:100%;transition:border-color .2s}
+.rev-form-wrap input[type=text]{flex:1;min-width:180px;width:auto}
+.rev-form-wrap textarea{resize:vertical;margin-bottom:14px}
+.rev-form-wrap input:focus,.rev-form-wrap textarea:focus{outline:none;border-color:var(--gold)}
+.rev-stars{display:flex;gap:2px}
+.rev-stars button{background:none;border:none;cursor:pointer;font-size:24px;line-height:1;color:var(--line);padding:0 1px;transition:color .15s}
+.rev-stars button.on,.rev-stars button:hover{color:var(--gold-bright)}
+.rev-actions{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.rev-status{font-size:13px;color:var(--ink-mute)}
+.rev-status.ok{color:#4ade80}.rev-status.err{color:#f87171}
+
 @media(max-width:900px){
   .navlinks .nl{display:none}
   .menu-toggle{display:inline-flex}
@@ -153,6 +185,7 @@ footer{border-top:1px solid var(--line);padding:52px 0 40px;margin-top:20px}
   .sec-band .wrap{grid-template-columns:1fr;gap:38px}
   .shield-wrap{order:-1}
   .theme-strip{grid-template-columns:repeat(2,1fr)}
+  .rev-grid{grid-template-columns:1fr}
   .mobile-open .nl{display:block!important}
 }
 @media(max-width:560px){
@@ -176,6 +209,7 @@ footer{border-top:1px solid var(--line);padding:52px 0 40px;margin-top:20px}
         <a class="nl" href="#ozellikler">Özellikler</a>
         <a class="nl" href="#guvenlik">Güvenlik</a>
         <a class="nl" href="#temalar">Temalar</a>
+        <a class="nl" href="#yorumlar">Yorumlar</a>
         <div class="themebar" role="group" aria-label="Tema seçimi">
           <button class="swatch sw-otuken" data-theme="otuken" title="Ötüken" aria-pressed="true"></button>
           <button class="swatch sw-umay" data-theme="umay" title="Umay" aria-pressed="false"></button>
@@ -248,6 +282,20 @@ footer{border-top:1px solid var(--line);padding:52px 0 40px;margin-top:20px}
       </div>
     </div>
     <p style="text-align:center;margin-top:26px;color:var(--ink-mute);font-size:13.5px">Diğer sürümler ve kaynak kodu için <a href="https://github.com/boukalemoon/securebrowser/releases/latest">GitHub Releases</a> sayfasına bakın.</p>
+
+    <!-- Windows SmartScreen açıklaması -->
+    <details class="smartscreen">
+      <summary>Windows "Bilgisayarınız korundu / güvenli değil" uyarısı mı çıktı? &nbsp;<span>Ne yapmalı?</span></summary>
+      <div class="ss-body">
+        <p>Bu normaldir. İlgezdi yeni bir Türk yazılımı olduğu için Microsoft'un <b>SmartScreen</b> filtresi henüz "tanımıyor" ve indirmeyi ilk kez çalıştıranlara mavi bir uyarı gösterebilir. Uygulama <b>güvenlidir ve açık kaynaktır</b> — kaynak kodu GitHub'da herkese açıktır. Kurmak için:</p>
+        <ol>
+          <li>Mavi uyarı penceresinde <b>"Ek bilgi"</b> (More info) bağlantısına tıklayın.</li>
+          <li>Açılan <b>"Yine de çalıştır"</b> (Run anyway) düğmesine basın.</li>
+          <li>Kurulum sihirbazı başlar; kurulum bitince İlgezdi, Başlat menüsünde ve masaüstünde çıkar.</li>
+        </ol>
+        <p class="ss-note">Not: Bu uyarı zamanla, yeterli sayıda kullanıcı indirdikçe kendiliğinden kaybolur. Antivirüs uyarısı görürseniz de aynı şekilde "güven / izin ver" diyebilirsiniz.</p>
+      </div>
+    </details>
   </div>
 </section>
 
@@ -368,6 +416,43 @@ footer{border-top:1px solid var(--line);padding:52px 0 40px;margin-top:20px}
   </div>
 </section>
 
+<!-- YORUMLAR -->
+<section class="blk" id="yorumlar">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <div class="eyebrow">Görüşler</div>
+      <h2>Gezginler ne diyor?</h2>
+      <p id="rev-summary">İlgezdi'yi kullananların yorumları. Siz de deneyiminizi paylaşın — yorumlar incelendikten sonra yayınlanır.</p>
+    </div>
+
+    <div class="rev-grid" id="rev-list"><!-- JS ile doldurulur --></div>
+    <p id="rev-empty" class="rev-empty" style="display:none">Henüz yorum yok — ilk yorumu siz bırakın!</p>
+
+    <div class="rev-form-wrap reveal">
+      <h3>Yorumunuzu bırakın</h3>
+      <form id="rev-form" autocomplete="on">
+        <div class="rev-row">
+          <input type="text" id="rev-name" maxlength="60" placeholder="Adınız" required />
+          <div class="rev-stars" id="rev-stars" role="radiogroup" aria-label="Puan">
+            <button type="button" data-v="1" aria-label="1 yıldız">★</button>
+            <button type="button" data-v="2" aria-label="2 yıldız">★</button>
+            <button type="button" data-v="3" aria-label="3 yıldız">★</button>
+            <button type="button" data-v="4" aria-label="4 yıldız">★</button>
+            <button type="button" data-v="5" aria-label="5 yıldız">★</button>
+          </div>
+        </div>
+        <textarea id="rev-comment" maxlength="1000" rows="3" placeholder="Deneyiminizi yazın (en az 3 karakter)" required></textarea>
+        <!-- honeypot: gerçek kullanıcılar görmez, botlar doldurur -->
+        <input type="text" id="rev-website" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0" />
+        <div class="rev-actions">
+          <button type="submit" class="btn btn-primary" id="rev-submit">Gönder</button>
+          <span class="rev-status" id="rev-status"></span>
+        </div>
+      </form>
+    </div>
+  </div>
+</section>
+
 <div class="wrap"><div class="kilim"></div></div>
 
 <!-- CLOSING CTA -->
@@ -476,6 +561,72 @@ document.getElementById('menuToggle').addEventListener('click',()=>{
 // ---- scroll reveal ----------------------------------------------------------
 const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target)}}),{threshold:.12});
 document.querySelectorAll('.reveal').forEach(el=>io.observe(el));
+
+// ---- yorumlar (Vercel /api/reviews) -----------------------------------------
+(function(){
+  const listEl = document.getElementById('rev-list');
+  const emptyEl = document.getElementById('rev-empty');
+  const summaryEl = document.getElementById('rev-summary');
+  const form = document.getElementById('rev-form');
+  if(!listEl || !form) return;
+
+  const esc = (s)=>String(s).replace(/[&<>"']/g,(c)=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const stars = (n)=> n ? '★★★★★☆☆☆☆☆'.slice(5-n,10-n) : '';
+
+  async function load(){
+    try{
+      const r = await fetch('/api/reviews');
+      if(!r.ok) return;
+      const data = await r.json();
+      const items = data.items || [];
+      if(!items.length){ emptyEl.style.display='block'; return; }
+      emptyEl.style.display='none';
+      listEl.innerHTML = items.map(it=>`
+        <div class="rev-card">
+          ${it.rating?`<div class="rc-stars">${stars(it.rating)}</div>`:''}
+          <div class="rc-comment">${esc(it.comment)}</div>
+          <div class="rc-name">— ${esc(it.name)}</div>
+        </div>`).join('');
+      if(data.avgRating && summaryEl){
+        summaryEl.textContent = `Ortalama ${data.avgRating.toFixed(1)} / 5 · ${data.count} yorum. Siz de deneyiminizi paylaşın — yorumlar incelendikten sonra yayınlanır.`;
+      }
+    }catch(e){/* sessiz */}
+  }
+
+  // yıldız seçimi
+  let rating = 0;
+  const starWrap = document.getElementById('rev-stars');
+  starWrap.addEventListener('click',(e)=>{
+    const b = e.target.closest('button'); if(!b) return;
+    rating = parseInt(b.dataset.v,10);
+    [...starWrap.children].forEach(c=>c.classList.toggle('on', parseInt(c.dataset.v,10)<=rating));
+  });
+
+  form.addEventListener('submit', async (e)=>{
+    e.preventDefault();
+    const btn = document.getElementById('rev-submit');
+    const status = document.getElementById('rev-status');
+    const name = document.getElementById('rev-name').value.trim();
+    const comment = document.getElementById('rev-comment').value.trim();
+    const website = document.getElementById('rev-website').value; // honeypot
+    if(name.length<1 || comment.length<3){ status.textContent='Lütfen adınızı ve en az 3 karakter yorum girin.'; status.className='rev-status err'; return; }
+    btn.disabled=true; status.textContent='Gönderiliyor...'; status.className='rev-status';
+    try{
+      const r = await fetch('/api/reviews',{ method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ name, comment, rating: rating||null, website }) });
+      if(r.ok){
+        form.reset(); rating=0; [...starWrap.children].forEach(c=>c.classList.remove('on'));
+        status.textContent='✓ Teşekkürler! Yorumunuz incelendikten sonra yayınlanacak.'; status.className='rev-status ok';
+      }else{
+        status.textContent='Gönderilemedi, lütfen tekrar deneyin.'; status.className='rev-status err';
+      }
+    }catch(err){
+      status.textContent='Bağlantı hatası, lütfen tekrar deneyin.'; status.className='rev-status err';
+    }finally{ btn.disabled=false; }
+  });
+
+  load();
+})();
 </script>
 </body>
 </html>

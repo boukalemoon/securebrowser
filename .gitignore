@@ -6,3 +6,7 @@ dist/
 Thumbs.db
 userData/
 .vercel
+# Firebase servis hesabı anahtarları asla commit'lenmez (Vercel env'de tutulur)
+*firebase-adminsdk*.json
+serviceAccount*.json
+service-account*.json
