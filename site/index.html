@@ -627,6 +627,11 @@ document.querySelectorAll('.reveal').forEach(el=>io.observe(el));
 
   load();
 })();
+
+// ---- Vercel Web Analytics (statik site) -------------------------------------
+// Panelde Analytics etkinleştirilince /_vercel/insights/script.js otomatik sunulur.
+window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
 </script>
+<script defer src="/_vercel/insights/script.js"></script>
 </body>
 </html>
