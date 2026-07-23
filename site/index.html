@@ -211,10 +211,10 @@ footer{border-top:1px solid var(--line);padding:52px 0 40px;margin-top:20px}
         <a class="nl" href="#temalar">Temalar</a>
         <a class="nl" href="#yorumlar">Yorumlar</a>
         <div class="themebar" role="group" aria-label="Tema seçimi">
-          <button class="swatch sw-otuken" data-theme="otuken" title="Ötüken" aria-pressed="true"></button>
-          <button class="swatch sw-umay" data-theme="umay" title="Umay" aria-pressed="false"></button>
-          <button class="swatch sw-kagan" data-theme="kagan" title="Kağan Otağı" aria-pressed="false"></button>
-          <button class="swatch sw-hibrit" data-theme="hibrit" title="Hibrit Altın" aria-pressed="false"></button>
+          <button class="swatch sw-otuken" data-theme="otuken" data-track="tema-otuken" title="Ötüken" aria-pressed="true"></button>
+          <button class="swatch sw-umay" data-theme="umay" data-track="tema-umay" title="Umay" aria-pressed="false"></button>
+          <button class="swatch sw-kagan" data-theme="kagan" data-track="tema-kagan" title="Kağan Otağı" aria-pressed="false"></button>
+          <button class="swatch sw-hibrit" data-theme="hibrit" data-track="tema-hibrit" title="Hibrit Altın" aria-pressed="false"></button>
         </div>
       </div>
       <button class="menu-toggle" id="menuToggle" aria-label="Menü">☰</button>
@@ -232,7 +232,7 @@ footer{border-top:1px solid var(--line);padding:52px 0 40px;margin-top:20px}
     <p class="lede">Göktürk ruhuyla tasarlanmış; reklam engelleyici, WireGuard&nbsp;VPN destekli, gizlilik odaklı web tarayıcısı.</p>
     <div class="ver-badge"><span class="dot"></span> <span id="verText">Sürüm 0.7.0 · Kararlı</span></div>
     <div class="hero-cta">
-      <a class="btn btn-primary" id="smartDownload" href="https://github.com/boukalemoon/securebrowser/releases/latest">
+      <a class="btn btn-primary" id="smartDownload" data-track="indir-hero" href="https://github.com/boukalemoon/securebrowser/releases/latest">
         <span id="dlIcon"></span>
         <span id="dlLabel">İlgezdi'yi İndir</span>
       </a>
@@ -259,7 +259,7 @@ footer{border-top:1px solid var(--line);padding:52px 0 40px;margin-top:20px}
         </div>
         <h3>Windows</h3>
         <div class="plat-sub">Windows 10 / 11 · 64-bit</div>
-        <a class="btn btn-primary" data-dl="win" href="#">İndir (.exe)</a>
+        <a class="btn btn-primary" data-dl="win" data-track="indir-windows" href="#">İndir (.exe)</a>
         <div class="subfmt">x64 kurulum · ~90 MB</div>
       </div>
       <div class="dl-card reveal" data-os="mac">
@@ -268,7 +268,7 @@ footer{border-top:1px solid var(--line);padding:52px 0 40px;margin-top:20px}
         </div>
         <h3>macOS</h3>
         <div class="plat-sub">Apple Silicon &amp; Intel</div>
-        <a class="btn btn-primary" data-dl="mac-arm" href="#">İndir (Apple Silicon)</a>
+        <a class="btn btn-primary" data-dl="mac-arm" data-track="indir-mac" href="#">İndir (Apple Silicon)</a>
         <div class="subfmt">Intel Mac için <a data-dl="mac-intel" href="#">.dmg (x64)</a></div>
       </div>
       <div class="dl-card reveal" data-os="linux">
@@ -277,7 +277,7 @@ footer{border-top:1px solid var(--line);padding:52px 0 40px;margin-top:20px}
         </div>
         <h3>Linux</h3>
         <div class="plat-sub">AppImage · Debian (.deb)</div>
-        <a class="btn btn-primary" data-dl="linux" href="#">İndir (.AppImage)</a>
+        <a class="btn btn-primary" data-dl="linux" data-track="indir-linux" href="#">İndir (.AppImage)</a>
         <div class="subfmt">Debian için <a data-dl="deb" href="#">.deb (amd64)</a></div>
       </div>
     </div>
@@ -445,7 +445,7 @@ footer{border-top:1px solid var(--line);padding:52px 0 40px;margin-top:20px}
         <!-- honeypot: gerçek kullanıcılar görmez, botlar doldurur -->
         <input type="text" id="rev-website" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0" />
         <div class="rev-actions">
-          <button type="submit" class="btn btn-primary" id="rev-submit">Gönder</button>
+          <button type="submit" class="btn btn-primary" id="rev-submit" data-track="yorum-gonder">Gönder</button>
           <span class="rev-status" id="rev-status"></span>
         </div>
       </form>
@@ -626,6 +626,33 @@ document.querySelectorAll('.reveal').forEach(el=>io.observe(el));
   });
 
   load();
+})();
+
+// ---- İlgezdi kendi analitiği (/api/track → Nexus) ---------------------------
+(function(){
+  var vid;
+  try {
+    vid = localStorage.getItem('ilgezdi_vid');
+    if(!vid){ vid = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : (Date.now()+'-'+Math.random().toString(36).slice(2)); localStorage.setItem('ilgezdi_vid', vid); }
+  } catch(e){ vid = 'anon'; }
+
+  function track(type, area){
+    try {
+      fetch('/api/track', {
+        method:'POST', headers:{'Content-Type':'application/json'}, keepalive:true,
+        body: JSON.stringify({ type:type, area:area||'', vid:vid, path:location.pathname, ref:document.referrer||'' })
+      });
+    } catch(e){}
+  }
+
+  // sayfa görüntüleme
+  track('pageview', 'home');
+
+  // tıklama: data-track taşıyan öğeler
+  document.addEventListener('click', function(e){
+    var el = e.target.closest && e.target.closest('[data-track]');
+    if(el) track('click', el.getAttribute('data-track'));
+  }, true);
 })();
 
 // ---- Vercel Web Analytics (statik site) -------------------------------------
