@@ -68,14 +68,23 @@ let config = loadConfig();
 let vpnManager = null;
 let secureLog  = null;
 
-const USER_AGENTS = [
-  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-  'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-  'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0',
-  'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_2) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Safari/605.1.15',
-];
-let currentUA = USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)];
+// Tutarlı, temiz Chrome User-Agent.
+// Neden rotasyon YOK: her isteğe rastgele (hatta Firefox/Safari) UA basmak,
+// motor (Chromium) ve TLS parmak iziyle uyuşmadığından Google gibi siteler
+// tarafından "bu tarayıcı güvenli olmayabilir" diye engellenmeye yol açar.
+// Ayrıca Electron varsayılan UA'sındaki "Electron/…" ve uygulama adı token'ları
+// da aynı şekilde işaretlenir. Bu yüzden gerçek Chromium sürümüyle eşleşen tek
+// bir temiz UA kullanıp session.setUserAgent ile navigator.userAgent'ı da
+// aynı değere sabitliyoruz (başlık ↔ JS tutarlı).
+function buildUserAgent() {
+  const ver = process.versions.chrome || '120.0.0.0';
+  const osToken =
+    process.platform === 'darwin' ? 'Macintosh; Intel Mac OS X 10_15_7' :
+    process.platform === 'linux'  ? 'X11; Linux x86_64' :
+                                    'Windows NT 10.0; Win64; x64';
+  return `Mozilla/5.0 (${osToken}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${ver} Safari/537.36`;
+}
+const CLEAN_UA = buildUserAgent();
 
 const BLOCKED_DOMAINS = [
   'doubleclick.net', 'googleadservices.com', 'googlesyndication.com',
@@ -154,15 +163,35 @@ const PERMISSION_TR = {
   notifications: 'Bildirim', midi: 'MIDI cihazları', midiSysex: 'MIDI cihazları',
 };
 
+// İzin kararları site (origin) + izin türü bazında hatırlanır ve config'e
+// yazılır. Böylece bir siteyi reddedince tekrar tekrar sorulmaz — Google gibi
+// konumu periyodik isteyen siteler için kritik. Kararları sıfırlamak için
+// "Tüm verileri temizle" (clear-all) kullanılır.
+function permKey(origin, permission) { return `${origin}|${permission}`; }
+function getPermDecision(origin, permission) {
+  return config.permissionDecisions ? config.permissionDecisions[permKey(origin, permission)] : undefined;
+}
+function setPermDecision(origin, permission, granted) {
+  if (!config.permissionDecisions) config.permissionDecisions = {};
+  config.permissionDecisions[permKey(origin, permission)] = granted;
+  saveConfig(config);
+}
+
+function originOf(url) {
+  try { return new URL(url).origin; } catch { return null; }
+}
+
 function setupPermissionHandler(ses) {
   ses.setPermissionRequestHandler((webContents, permission, callback, details) => {
     if (QUIET_ALLOW.has(permission)) return callback(true);
     if (!ASK_USER.has(permission))   return callback(false);
 
-    const origin = (() => {
-      try { return new URL(details.requestingUrl || webContents.getURL()).origin; }
-      catch { return 'Bilinmeyen site'; }
-    })();
+    const origin = originOf(details.requestingUrl || webContents.getURL()) || 'Bilinmeyen site';
+
+    // Bu site için daha önce karar verilmişse tekrar SORMA — sessizce uygula.
+    const prior = getPermDecision(origin, permission);
+    if (prior === true)  return callback(true);
+    if (prior === false) return callback(false);
 
     const parent = BrowserWindow.getFocusedWindow() || mainWindow;
     dialog.showMessageBox(parent, {
@@ -172,25 +201,40 @@ function setupPermissionHandler(ses) {
       cancelId:  0,
       title:     'İzin İsteği',
       message:   `${origin}`,
-      detail:    `Bu site şu izni istiyor: ${PERMISSION_TR[permission] || permission}`,
-    }).then(r => callback(r.response === 1)).catch(() => callback(false));
+      detail:    `Bu site şu izni istiyor: ${PERMISSION_TR[permission] || permission}\n\nKararınız bu site için hatırlanır.`,
+    }).then(r => {
+      const granted = r.response === 1;
+      setPermDecision(origin, permission, granted);
+      callback(granted);
+    }).catch(() => callback(false));
+  });
+
+  // Senkron izin sorguları (navigator.permissions.query, ön-kontroller).
+  // Yalnızca daha önce açıkça İZİN VERİLMİŞ site+izin true döner; aksi halde
+  // false → site isteği tetikler, o da yukarıdaki karara/prompt'a düşer.
+  ses.setPermissionCheckHandler((webContents, permission, requestingOrigin) => {
+    if (QUIET_ALLOW.has(permission)) return true;
+    return getPermDecision(requestingOrigin, permission) === true;
   });
 }
 
 function configureSession(ses) {
   setupPermissionHandler(ses);
 
-  if (config.fingerprintProtection) {
-    ses.webRequest.onBeforeSendHeaders((details, callback) => {
-      const headers = { ...details.requestHeaders };
-      headers['User-Agent'] = currentUA;
+  // Temiz, tutarlı UA — hem başlık hem navigator.userAgent buradan gelir.
+  // fingerprintProtection'dan bağımsız her zaman uygulanır (Google girişi vb.).
+  try { ses.setUserAgent(CLEAN_UA); } catch {}
+
+  ses.webRequest.onBeforeSendHeaders((details, callback) => {
+    const headers = { ...details.requestHeaders };
+    if (config.fingerprintProtection) {
       delete headers['X-Forwarded-For'];
       delete headers['Via'];
       delete headers['X-WebRTC-IP'];
-      if (config.doNotTrack) headers['DNT'] = '1';
-      callback({ requestHeaders: headers });
-    });
-  }
+    }
+    if (config.doNotTrack) headers['DNT'] = '1';
+    callback({ requestHeaders: headers });
+  });
 
   ses.webRequest.onBeforeRequest({ urls: ['*://*/*'] }, (details, callback) => {
     // Faz 6 engelleyici (seviye/whitelist ayarlı) + temel liste
@@ -533,9 +577,6 @@ ipcMain.handle('get-config',  ()          => config);
 ipcMain.handle('save-config', (e, newCfg) => {
   config = { ...config, ...newCfg };
   saveConfig(config);
-  if (config.userAgentRotation) {
-    currentUA = USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)];
-  }
   return config;
 });
 
@@ -640,6 +681,11 @@ ipcMain.handle('clear-all', async () => {
       storages: ['cookies', 'localstorage', 'sessionstorage', 'shadercache', 'indexdb', 'websql'],
     });
     secureLog?.clearLogs();
+    // Site izin kararlarını da sıfırla — siteler yeniden sorabilir
+    if (config.permissionDecisions) {
+      config.permissionDecisions = {};
+      saveConfig(config);
+    }
     return { success: true };
   } catch (e) {
     return { success: false, error: e.message };
