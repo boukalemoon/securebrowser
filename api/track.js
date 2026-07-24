@@ -13,6 +13,24 @@ const { getFirestore } = require('firebase-admin/firestore');
 
 const DATABASE_ID = 'ai-studio-01b23ae1-726c-4e78-8f1b-3f0cefc7a2eb';
 
+// Yalnızca İlgezdi sitesinden gelen olaylar kabul edilir (doğrudan API
+// şişirmesini engeller). Yeni alan adı eklenirse buraya eklenir.
+const ALLOWED_HOSTS = ['ilgezdi.vercel.app', 'www.ilgezdi.com.tr', 'ilgezdi.com.tr'];
+
+// Bot / otomasyon / script imzaları — bunlardan gelen olay sayılmaz.
+const BOT_UA = /bot|crawl|spider|slurp|headless|phantom|puppeteer|playwright|preview|scan|monitor|lighthouse|curl|wget|python-requests|axios|node-fetch|go-http|okhttp/i;
+
+function hostOf(url) {
+  try { return new URL(url).host; } catch { return ''; }
+}
+function isFromSite(req) {
+  const origin = req.headers.origin;
+  const referer = req.headers.referer || req.headers.referrer;
+  const oh = origin ? hostOf(origin) : '';
+  const rh = referer ? hostOf(referer) : '';
+  return ALLOWED_HOSTS.includes(oh) || ALLOWED_HOSTS.includes(rh);
+}
+
 let _db = null;
 function db() {
   if (_db) return _db;
@@ -31,6 +49,11 @@ module.exports = async (req, res) => {
     return res.status(405).json({ error: 'method_not_allowed' });
   }
   try {
+    // Sadece siteden gelen, bot olmayan olaylar sayılır. Aksi halde sessizce
+    // yut (204) — hem doğrudan API şişirmesini hem bot trafiğini eler.
+    const ua = String(req.headers['user-agent'] || '');
+    if (!isFromSite(req) || BOT_UA.test(ua)) return res.status(204).end();
+
     let body = req.body;
     if (typeof body === 'string') {
       try { body = JSON.parse(body); } catch { return res.status(400).end(); }
