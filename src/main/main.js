@@ -21,7 +21,8 @@ const DB_PATH   = path.join(USER_DATA, 'logs.db');
 const CFG_PATH  = path.join(USER_DATA, 'config.json');
 
 const DEFAULT_CONFIG = {
-  homepage:              'https://start.duckduckgo.com',
+  homepage:              '',           // boş = İlgezdi başlangıç sayfası; URL = o sayfa açılır
+  searchEngine:          'duckduckgo', // varsayılan; kullanıcı ayarlardan değiştirebilir
   vpnEnabled:            false,
   vpnAutoConnect:        false,
   vpnLastProfileId:      null,
@@ -50,6 +51,32 @@ const DEFAULT_CONFIG = {
   fontFamily:            "'Inter', sans-serif",
   accentColor:           '#d4a85a',
 };
+
+// Arama motorları — kullanıcı ayarlardan seçer. Anahtar → sorgu URL öneki.
+const SEARCH_ENGINES = {
+  duckduckgo: 'https://duckduckgo.com/?q=',
+  google:     'https://www.google.com/search?q=',
+  bing:       'https://www.bing.com/search?q=',
+  yandex:     'https://yandex.com/search/?text=',
+  yahoo:      'https://search.yahoo.com/search?p=',
+  brave:      'https://search.brave.com/search?q=',
+  ecosia:     'https://www.ecosia.org/search?q=',
+  startpage:  'https://www.startpage.com/sp/search?query=',
+};
+
+function searchUrl(query) {
+  const base = SEARCH_ENGINES[config.searchEngine] || SEARCH_ENGINES.duckduckgo;
+  return base + encodeURIComponent(query);
+}
+
+// Uygulama açılışında / "Ana Sayfa" düğmesinde açılacak URL.
+// Boş homepage = İlgezdi başlangıç sayfası (about:blank → renderer overlay).
+function homepageUrl() {
+  const hp = (config.homepage || '').trim();
+  if (!hp || hp === 'about:blank') return 'about:blank';
+  if (!/^https?:\/\//i.test(hp)) return 'https://' + hp;
+  return hp;
+}
 
 function loadConfig() {
   try {
@@ -549,7 +576,7 @@ ipcMain.handle('navigate', (event, url) => {
   if (!url.startsWith('http://') && !url.startsWith('https://')) {
     finalUrl = url.includes('.') && !url.includes(' ')
       ? 'https://' + url
-      : 'https://duckduckgo.com/?q=' + encodeURIComponent(url);
+      : searchUrl(url);
   }
   tab.view.webContents.loadURL(finalUrl);
   tab.url = finalUrl;
@@ -873,7 +900,8 @@ app.whenReady().then(() => {
 
   setTimeout(() => {
     if (mainState.tabs.size === 0) {
-      const id = createTab(mainWindow, mainState, 'about:blank');
+      // Kullanıcının belirlediği anasayfayı aç (boşsa İlgezdi başlangıç sayfası)
+      const id = createTab(mainWindow, mainState, homepageUrl());
       setActiveTab(mainWindow, mainState, id);
     }
   }, 800);

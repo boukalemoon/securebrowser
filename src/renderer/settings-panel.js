@@ -407,8 +407,24 @@ function renderCustomizationTab(cfg) {
         <div class="s-input-row"><label>Özel URL</label><input type="text" id="custom-newtab-url" value="${cfg.customNewTabUrl||''}" placeholder="https://" /></div>
       </div>
     </div>
+    <div class="settings-section"><h3>Arama Motoru</h3>
+      <div class="s-input-row">
+        <select id="search-engine">
+          <option value="duckduckgo" ${cfg.searchEngine==='duckduckgo'?'selected':''}>DuckDuckGo (gizlilik)</option>
+          <option value="google"     ${cfg.searchEngine==='google'?'selected':''}>Google</option>
+          <option value="bing"       ${cfg.searchEngine==='bing'?'selected':''}>Bing</option>
+          <option value="yandex"     ${cfg.searchEngine==='yandex'?'selected':''}>Yandex</option>
+          <option value="yahoo"      ${cfg.searchEngine==='yahoo'?'selected':''}>Yahoo</option>
+          <option value="brave"      ${cfg.searchEngine==='brave'?'selected':''}>Brave Search</option>
+          <option value="ecosia"     ${cfg.searchEngine==='ecosia'?'selected':''}>Ecosia</option>
+          <option value="startpage"  ${cfg.searchEngine==='startpage'?'selected':''}>Startpage</option>
+        </select>
+      </div>
+      <p class="s-hint">Adres çubuğuna yazdığınız kelimeler bu motorda aranır.</p>
+    </div>
     <div class="settings-section"><h3>Ana Sayfa</h3>
-      <div class="s-input-row"><input type="text" id="homepage-input" value="${cfg.homepage||'about:blank'}" placeholder="https://" /></div>
+      <div class="s-input-row"><input type="text" id="homepage-input" value="${cfg.homepage && cfg.homepage!=='about:blank' ? cfg.homepage : ''}" placeholder="https://... (boş bırakılırsa İlgezdi başlangıç sayfası)" /></div>
+      <p class="s-hint">Uygulama açıldığında ve Ana Sayfa düğmesine basınca bu adres açılır.</p>
     </div>`;
 }
 
@@ -760,7 +776,9 @@ function initSettingsPanelEvents() {
       fontFamily:  _savedFontFamily,
       newTabMode:            document.getElementById('new-tab-mode')?.value          || settingsConfig.newTabMode,
       customNewTabUrl:       document.getElementById('custom-newtab-url')?.value     || settingsConfig.customNewTabUrl,
-      homepage:              document.getElementById('homepage-input')?.value        || settingsConfig.homepage,
+      // ?? kullanılıyor ki alan BOŞ bırakılınca (İlgezdi başlangıç sayfası) korunsun
+      homepage:              (document.getElementById('homepage-input')?.value ?? settingsConfig.homepage).trim(),
+      searchEngine:          document.getElementById('search-engine')?.value        || settingsConfig.searchEngine || 'duckduckgo',
       language:              document.getElementById('lang-select')?.value           || settingsConfig.language,
       downloadFolder:        document.getElementById('download-folder')?.value       || settingsConfig.downloadFolder,
       askDownloadLocation:   document.getElementById('cfg-ask-download')?.checked    ?? settingsConfig.askDownloadLocation,

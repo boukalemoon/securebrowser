@@ -433,7 +433,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('btn-forward')?.addEventListener('click', () => sb.goForward());
   document.getElementById('btn-reload')?.addEventListener('click',  () => sb.reload());
   document.getElementById('btn-home')?.addEventListener('click', () => {
-    sb.navigate(currentConfig.homepage || 'https://duckduckgo.com');
+    const hp = (currentConfig.homepage || '').trim();
+    if (hp && hp !== 'about:blank') sb.navigate(hp);
+    else sb.newTab('about:blank'); // boş anasayfa → İlgezdi başlangıç sayfası
   });
 
   // Adres çubuğu

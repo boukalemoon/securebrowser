@@ -17,7 +17,7 @@
 (function () {
   // Cihaza özgü olanlar (downloadFolder, VPN, oturum) BİLEREK senkronlanmaz.
   const SYNC_SETTING_KEYS = [
-    'homepage', 'theme', 'accentColor', 'fontSize', 'fontFamily', 'language',
+    'homepage', 'searchEngine', 'theme', 'accentColor', 'fontSize', 'fontFamily', 'language',
     'newTabMode', 'customNewTabUrl', 'blockTrackers', 'blockAds',
     'fingerprintProtection', 'httpsOnly', 'doNotTrack', 'userAgentRotation',
     'notifications', 'askDownloadLocation', 'blockLevel', 'whitelist',
