@@ -51,7 +51,9 @@ module.exports = async (req, res) => {
         .slice(0, 60);
       const ratings = items.map((i) => i.rating).filter((r) => r >= 1 && r <= 5);
       const avg = ratings.length ? ratings.reduce((a, b) => a + b, 0) / ratings.length : null;
-      res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate=300');
+      // Kısa cache: Nexus'ta onaylanan yorum sitede hızlı yayınlansın (moderasyon
+      // gecikmesini azaltır). Önceki 60s/300s fazla uzundu.
+      res.setHeader('Cache-Control', 's-maxage=15, stale-while-revalidate=30');
       return res.status(200).json({ items, count: items.length, avgRating: avg });
     }
 
