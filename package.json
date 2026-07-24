@@ -61,9 +61,13 @@
       "oneClick": false,
       "perMachine": false,
       "allowToChangeInstallationDirectory": true,
+      "allowElevation": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "İlgezdi",
+      "uninstallDisplayName": "İlgezdi Tarayıcı ${version}",
+      "runAfterFinish": true,
+      "deleteAppDataOnUninstall": false,
       "installerLanguages": [
         "tr_TR",
         "en_US"
