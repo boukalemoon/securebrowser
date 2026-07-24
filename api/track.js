@@ -23,6 +23,46 @@ const BOT_UA = /bot|crawl|spider|slurp|headless|phantom|puppeteer|playwright|pre
 function hostOf(url) {
   try { return new URL(url).host; } catch { return ''; }
 }
+
+// User-Agent'tan cihaz / tarayıcı / işletim sistemi sınıflandırması (kütüphanesiz).
+function parseUA(ua) {
+  const u = ua || '';
+  let os = 'Diğer';
+  if (/Windows NT/i.test(u)) os = 'Windows';
+  else if (/iPhone|iPad|iPod/i.test(u)) os = 'iOS';
+  else if (/Mac OS X/i.test(u)) os = 'macOS';
+  else if (/Android/i.test(u)) os = 'Android';
+  else if (/CrOS/i.test(u)) os = 'ChromeOS';
+  else if (/Linux/i.test(u)) os = 'Linux';
+
+  let device = 'Masaüstü';
+  if (/iPad|Tablet/i.test(u)) device = 'Tablet';
+  else if (/Mobi|iPhone|iPod|Windows Phone|Android.*Mobile/i.test(u)) device = 'Mobil';
+  else if (/Android/i.test(u)) device = 'Tablet';
+
+  const mobile = device !== 'Masaüstü';
+  let browser = 'Diğer';
+  if (/Edg(A|iOS)?\//i.test(u)) browser = 'Edge';
+  else if (/OPR\/|Opera/i.test(u)) browser = 'Opera';
+  else if (/SamsungBrowser/i.test(u)) browser = 'Samsung Internet';
+  else if (/Firefox\/|FxiOS/i.test(u)) browser = 'Firefox';
+  else if (/CriOS\//i.test(u)) browser = mobile ? 'Chrome Mobile' : 'Chrome';
+  else if (/Chrome\//i.test(u)) browser = mobile ? 'Chrome Mobile' : 'Chrome';
+  else if (/Safari\//i.test(u)) browser = 'Safari';
+  return { device, browser, os };
+}
+
+// Vercel edge geo başlıkları + istemci IP'si.
+function geoOf(req) {
+  const h = req.headers;
+  const dec = (s) => { try { return decodeURIComponent(String(s || '')); } catch { return String(s || ''); } };
+  const ipRaw = String(h['x-forwarded-for'] || h['x-real-ip'] || h['x-vercel-forwarded-for'] || '').split(',')[0].trim();
+  return {
+    country: String(h['x-vercel-ip-country'] || '').slice(0, 4),
+    city: dec(h['x-vercel-ip-city']).slice(0, 60),
+    ip: ipRaw.slice(0, 45),
+  };
+}
 function isFromSite(req) {
   const origin = req.headers.origin;
   const referer = req.headers.referer || req.headers.referrer;
@@ -64,12 +104,21 @@ module.exports = async (req, res) => {
     if (!type) return res.status(400).end();
 
     const now = new Date();
+    const p = parseUA(ua);
+    const g = geoOf(req);
     await db().collection('ilgezdi_events').add({
       type,
       vid:  String(body.vid  || 'anon').slice(0, 64),
       area: String(body.area || '').slice(0, 60),
       path: String(body.path || '').slice(0, 200),
       ref:  String(body.ref  || '').slice(0, 200),
+      // Vercel benzeri boyutlar: cihaz / tarayıcı / OS / ülke / şehir / IP
+      device:  p.device,
+      browser: p.browser,
+      os:      p.os,
+      country: g.country,
+      city:    g.city,
+      ip:      g.ip,
       ts:   Date.now(),
       day:  now.toISOString().slice(0, 10),
     });
