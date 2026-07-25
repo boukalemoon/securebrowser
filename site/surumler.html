@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="tr" data-theme="otuken">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>İlgezdi — Sürüm Notları</title>
+<meta name="description" content="İlgezdi web tarayıcısının sürüm geçmişi: her güncellemede eklenen özellikler, düzeltmeler ve güvenlik iyileştirmeleri."/>
+<meta property="og:title" content="İlgezdi — Sürüm Notları"/>
+<meta property="og:description" content="Hangi sürümde neyin geliştiğini görün."/>
+<meta property="og:image" content="/logo-mark.png"/>
+<link rel="icon" href="logo-mark.png"/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Noto+Sans+Old+Turkic&display=swap"/>
+<style>
+:root{
+  --otuken-bg:#0e1a2e;--otuken-bg-elev:#15243d;--otuken-bg-soft:#1c2e4a;--otuken-line:#2a3e5e;--otuken-ink:#e8d9b8;--otuken-ink-soft:#b8a888;--otuken-ink-mute:#6f7a92;--otuken-gold:#d4a85a;--otuken-gold-bright:#f0c674;--otuken-copper:#c87f4a;--otuken-rune:#8aa6c8;
+  --umay-bg:#f5ecd9;--umay-bg-elev:#fbf5e6;--umay-bg-soft:#ebe0c5;--umay-line:#d8c9a4;--umay-ink:#1a2640;--umay-ink-soft:#4a5670;--umay-ink-mute:#8a8472;--umay-gold:#b8893a;--umay-gold-bright:#d4a85a;--umay-copper:#a45a30;--umay-rune:#4a5670;
+  --kagan-bg:#f0e0c4;--kagan-bg-elev:#f7e9d0;--kagan-bg-soft:#e6d2ae;--kagan-line:#c89a6a;--kagan-ink:#3a1f12;--kagan-ink-soft:#6a3f25;--kagan-ink-mute:#8a6a4a;--kagan-gold:#b85c3a;--kagan-gold-bright:#d97950;--kagan-copper:#8a3f25;--kagan-rune:#5a2818;
+  --hibrit-bg:#0a1422;--hibrit-bg-elev:#122038;--hibrit-bg-soft:#1a2c4a;--hibrit-line:#2a4068;--hibrit-ink:#f0d088;--hibrit-ink-soft:#c8a868;--hibrit-ink-mute:#6a7898;--hibrit-gold:#f0c674;--hibrit-gold-bright:#ffe4a0;--hibrit-copper:#d49850;--hibrit-rune:#88a4d0;
+  --radius-md:8px;--radius-lg:14px;
+  --font-display:'Cinzel',Georgia,serif;--font-ui:'Inter',-apple-system,system-ui,sans-serif;--font-rune:'Noto Sans Old Turkic','Inter',sans-serif;--font-mono:'JetBrains Mono',ui-monospace,monospace;
+  --maxw:900px;
+  --new:#4ade80; --fix:#f0b429; --sec:#d4a85a; --imp:#8aa6c8;
+}
+[data-theme="otuken"]{--bg:var(--otuken-bg);--bg-elev:var(--otuken-bg-elev);--bg-soft:var(--otuken-bg-soft);--line:var(--otuken-line);--ink:var(--otuken-ink);--ink-soft:var(--otuken-ink-soft);--ink-mute:var(--otuken-ink-mute);--gold:var(--otuken-gold);--gold-bright:var(--otuken-gold-bright);--copper:var(--otuken-copper);--rune:var(--otuken-rune)}
+[data-theme="umay"]{--bg:var(--umay-bg);--bg-elev:var(--umay-bg-elev);--bg-soft:var(--umay-bg-soft);--line:var(--umay-line);--ink:var(--umay-ink);--ink-soft:var(--umay-ink-soft);--ink-mute:var(--umay-ink-mute);--gold:var(--umay-gold);--gold-bright:var(--umay-gold-bright);--copper:var(--umay-copper);--rune:var(--umay-rune);--new:#2e9c5c;--fix:#b8791a;--sec:#a9762e;--imp:#4a5670}
+[data-theme="kagan"]{--bg:var(--kagan-bg);--bg-elev:var(--kagan-bg-elev);--bg-soft:var(--kagan-bg-soft);--line:var(--kagan-line);--ink:var(--kagan-ink);--ink-soft:var(--kagan-ink-soft);--ink-mute:var(--kagan-ink-mute);--gold:var(--kagan-gold);--gold-bright:var(--kagan-gold-bright);--copper:var(--kagan-copper);--rune:var(--kagan-rune);--new:#2e9c5c;--fix:#b8791a;--sec:#b85c3a;--imp:#5a2818}
+[data-theme="hibrit"]{--bg:var(--hibrit-bg);--bg-elev:var(--hibrit-bg-elev);--bg-soft:var(--hibrit-bg-soft);--line:var(--hibrit-line);--ink:var(--hibrit-ink);--ink-soft:var(--hibrit-ink-soft);--ink-mute:var(--hibrit-ink-mute);--gold:var(--hibrit-gold);--gold-bright:var(--hibrit-gold-bright);--copper:var(--hibrit-copper);--rune:var(--hibrit-rune)}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--ink);font-family:var(--font-ui);line-height:1.62;-webkit-font-smoothing:antialiased;transition:background .4s,color .4s;overflow-x:hidden}
+a{color:var(--gold);text-decoration:none;transition:color .2s}
+a:hover{color:var(--gold-bright)}
+h1,h2,h3{font-family:var(--font-display);font-weight:700;line-height:1.15;color:var(--ink)}
+.wrap{max-width:var(--maxw);margin:0 auto;padding:0 24px}
+
+header{position:sticky;top:0;z-index:50;backdrop-filter:blur(12px);background:color-mix(in srgb,var(--bg) 82%,transparent);border-bottom:1px solid var(--line)}
+nav{display:flex;align-items:center;justify-content:space-between;height:66px}
+.brand{display:flex;align-items:center;gap:11px}
+.brand img{width:32px;height:32px;display:block}
+.brand .wm{font-family:var(--font-display);font-weight:800;letter-spacing:2px;font-size:18px;color:var(--gold)}
+.nav-right{display:flex;align-items:center;gap:18px}
+.nav-right a.nl{color:var(--ink-soft);font-weight:500;font-size:14px}
+.nav-right a.nl:hover{color:var(--gold)}
+.themebar{display:flex;gap:6px;align-items:center;padding:5px 7px;border:1px solid var(--line);border-radius:999px;background:var(--bg-elev)}
+.swatch{width:18px;height:18px;border-radius:50%;border:2px solid transparent;cursor:pointer;transition:transform .15s,border-color .15s;padding:0}
+.swatch:hover{transform:scale(1.15)}
+.swatch[aria-pressed="true"]{border-color:var(--gold-bright)}
+.sw-otuken{background:#0e1a2e}.sw-umay{background:#f5ecd9}.sw-kagan{background:#e6d2ae}.sw-hibrit{background:linear-gradient(135deg,#0a1422 50%,#f0c674 50%)}
+
+.head{text-align:center;padding:64px 0 34px}
+.head .rune{font-family:var(--font-rune);color:var(--rune);letter-spacing:.35em;font-size:15px;opacity:.7;margin-bottom:12px}
+.head h1{font-size:clamp(34px,6vw,56px);letter-spacing:2px;
+  background:linear-gradient(150deg,var(--ink),var(--gold-bright) 60%,var(--copper));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.head p{color:var(--ink-soft);font-size:16.5px;max-width:56ch;margin:12px auto 0;text-wrap:pretty}
+
+.timeline{padding:20px 0 70px;position:relative}
+.rel{position:relative;padding:0 0 30px 34px;border-left:2px solid var(--line);margin-left:8px}
+.rel:last-child{border-left-color:transparent}
+.rel::before{content:"";position:absolute;left:-9px;top:4px;width:16px;height:16px;border-radius:50%;background:var(--gold);box-shadow:0 0 0 4px color-mix(in srgb,var(--gold) 22%,transparent)}
+.rel.latest::before{background:var(--gold-bright);box-shadow:0 0 0 4px color-mix(in srgb,var(--gold-bright) 30%,transparent),0 0 16px var(--gold)}
+.rel-head{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:4px}
+.rel-ver{font-family:var(--font-display);font-weight:700;font-size:24px;letter-spacing:1px;color:var(--ink)}
+.rel-latest-tag{font-family:var(--font-mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:#1a1206;background:linear-gradient(135deg,var(--gold-bright),var(--copper));padding:3px 9px;border-radius:999px}
+.rel-date{font-family:var(--font-mono);font-size:12.5px;color:var(--ink-mute)}
+.rel-title{color:var(--gold);font-size:14px;font-weight:600;margin-bottom:14px}
+.rel-card{background:var(--bg-elev);border:1px solid var(--line);border-radius:var(--radius-lg);padding:18px 20px}
+.chg{display:flex;gap:12px;align-items:flex-start;padding:7px 0}
+.chg+.chg{border-top:1px solid color-mix(in srgb,var(--line) 55%,transparent)}
+.chg .lbl{flex:0 0 auto;font-family:var(--font-mono);font-size:10.5px;letter-spacing:.04em;text-transform:uppercase;padding:3px 8px;border-radius:6px;margin-top:1px;min-width:78px;text-align:center}
+.lbl.new{color:var(--new);background:color-mix(in srgb,var(--new) 14%,transparent);border:1px solid color-mix(in srgb,var(--new) 40%,transparent)}
+.lbl.fix{color:var(--fix);background:color-mix(in srgb,var(--fix) 14%,transparent);border:1px solid color-mix(in srgb,var(--fix) 40%,transparent)}
+.lbl.sec{color:var(--sec);background:color-mix(in srgb,var(--sec) 14%,transparent);border:1px solid color-mix(in srgb,var(--sec) 45%,transparent)}
+.lbl.imp{color:var(--imp);background:color-mix(in srgb,var(--imp) 14%,transparent);border:1px solid color-mix(in srgb,var(--imp) 40%,transparent)}
+.chg .txt{color:var(--ink-soft);font-size:14.5px;text-wrap:pretty}
+.chg .txt b{color:var(--ink);font-weight:600}
+
+.cta-dl{text-align:center;margin:0 0 60px}
+.btn{display:inline-flex;align-items:center;gap:9px;font-family:var(--font-ui);font-weight:600;font-size:15px;padding:13px 26px;border-radius:var(--radius-md);border:1px solid transparent;cursor:pointer;
+  background:linear-gradient(135deg,var(--gold-bright),var(--copper));color:#1a1206;box-shadow:0 8px 24px -8px var(--gold)}
+.btn:hover{color:#1a1206;transform:translateY(-2px)}
+
+footer{border-top:1px solid var(--line);padding:34px 0;text-align:center;color:var(--ink-mute);font-size:13px}
+footer a{font-family:var(--font-mono);font-size:12.5px}
+
+@media(max-width:560px){
+  .nav-right a.nl{display:none}
+  .chg{flex-direction:column;gap:5px}
+  .chg .lbl{min-width:0}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <nav>
+      <a class="brand" href="/"><img src="logo-mark.png" alt="İlgezdi"/><span class="wm">İLGEZDİ</span></a>
+      <div class="nav-right">
+        <a class="nl" href="/#indir">İndir</a>
+        <a class="nl" href="/">Ana Sayfa</a>
+        <div class="themebar" role="group" aria-label="Tema">
+          <button class="swatch sw-otuken" data-theme="otuken" title="Ötüken" aria-pressed="true"></button>
+          <button class="swatch sw-umay" data-theme="umay" title="Umay" aria-pressed="false"></button>
+          <button class="swatch sw-kagan" data-theme="kagan" title="Kağan Otağı" aria-pressed="false"></button>
+          <button class="swatch sw-hibrit" data-theme="hibrit" title="Hibrit Altın" aria-pressed="false"></button>
+        </div>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="head">
+    <div class="rune">𐰉𐰃𐱅𐰃𐰏</div>
+    <h1>Sürüm Notları</h1>
+    <p>İlgezdi her güncellemede ne kazandı? Yeni özellikler, düzeltmeler ve güvenlik iyileştirmeleri sürüm sürüm burada.</p>
+  </div>
+
+  <div class="timeline" id="timeline"><!-- JS ile doldurulur --></div>
+
+  <div class="cta-dl">
+    <a class="btn" href="/#indir">En son sürümü indir</a>
+  </div>
+</main>
+
+<footer>
+  <div class="wrap">
+    © 2026 İlgezdi · <a href="https://github.com/boukalemoon/securebrowser/releases">GitHub Sürümleri</a>
+  </div>
+</footer>
+
+<script>
+// ─── Sürüm geçmişi ───────────────────────────────────────────────────────────
+// Yeni sürüm eklemek için: en üste yeni bir nesne ekleyin. Tür: new | fix | sec | imp
+const RELEASES = [
+  {
+    version: '0.7.2', date: '25 Temmuz 2026', title: 'İndirme & kurulum kararlılığı',
+    changes: [
+      { t:'fix', d:'<b>İndirme 404 hatası kalıcı olarak giderildi.</b> İndirme bağlantıları artık sürümden bağımsız sabit adlar kullanıyor; yeni sürüm çıktığında eski bağlantılar bozulmuyor.' },
+    ],
+  },
+  {
+    version: '0.7.1', date: '24 Temmuz 2026', title: 'Kullanıcı geri bildirimleri',
+    changes: [
+      { t:'fix', d:'<b>Gerçek kurulum sihirbazı.</b> İndirilen dosya artık bilgisayara düzgün kurulur, Başlat menüsünde ve masaüstünde çıkar. (Önceki "sadece çalışan" sorun giderildi.)' },
+      { t:'fix', d:'<b>Ana sayfa açılışı.</b> Ayarlarda belirlediğiniz ana sayfa artık uygulama açılışında ve Ana Sayfa düğmesinde açılıyor.' },
+      { t:'new', d:'<b>Arama motoru seçimi.</b> Ayarlardan arama motorunuzu seçin: DuckDuckGo, Google, Bing, Yandex, Yahoo, Brave, Ecosia, Startpage.' },
+      { t:'fix', d:'<b>Web\'de hesap girişleri.</b> Google ve diğer sitelere giriş yaparken çıkan "bu tarayıcı güvenli olmayabilir" engeli kaldırıldı.' },
+      { t:'imp', d:'<b>İzin hatırlama.</b> Bir siteye verdiğiniz (ya da reddettiğiniz) kamera/konum izni artık tekrar tekrar sorulmuyor.' },
+    ],
+  },
+  {
+    version: '0.7.0', date: '20 Temmuz 2026', title: 'Güvenlik & Qrtım entegrasyonu',
+    changes: [
+      { t:'new', d:'<b>Qrtım hesabı ile giriş ve senkronizasyon.</b> Ayarlarınız ve yer imleriniz hesabınıza bağlı olarak taşınır. QR kod ile güvenli giriş.' },
+      { t:'sec', d:'<b>Güvenlik sıkılaştırma.</b> Oturum ve VPN anahtarları işletim sistemi kasasında şifreli saklanır; site izin yöneticisi; HTTPS-Only modu.' },
+      { t:'imp', d:'<b>Gerçek uygulama ikonu</b> ve arayüz iyileştirmeleri.' },
+    ],
+  },
+  {
+    version: '0.6.0', date: '1 Temmuz 2026', title: 'İlk kararlı sürüm',
+    changes: [
+      { t:'new', d:'<b>İlk genel sürüm:</b> sekmeli gezinme, gizli pencere, reklam & izleyici engelleyici, WireGuard VPN, 4 Göktürk teması ve şifreli etkinlik günlükleri.' },
+    ],
+  },
+];
+
+const LABEL = { new:'Yeni', fix:'Düzeltme', sec:'Güvenlik', imp:'İyileştirme' };
+
+document.getElementById('timeline').innerHTML = RELEASES.map((r, i) => `
+  <div class="rel${i===0?' latest':''}">
+    <div class="rel-head">
+      <span class="rel-ver">v${r.version}</span>
+      ${i===0?'<span class="rel-latest-tag">En son</span>':''}
+      <span class="rel-date">${r.date}</span>
+    </div>
+    <div class="rel-title">${r.title}</div>
+    <div class="rel-card">
+      ${r.changes.map(c => `
+        <div class="chg">
+          <span class="lbl ${c.t}">${LABEL[c.t]}</span>
+          <span class="txt">${c.d}</span>
+        </div>`).join('')}
+    </div>
+  </div>`).join('');
+
+// ─── Tema (ana site ile ortak: localStorage 'ilgezdi-web-theme') ─────────────
+const swatches = document.querySelectorAll('.swatch');
+function setTheme(t){
+  document.documentElement.setAttribute('data-theme', t);
+  swatches.forEach(s => s.setAttribute('aria-pressed', s.dataset.theme===t));
+  try{ localStorage.setItem('ilgezdi-web-theme', t); }catch(e){}
+}
+swatches.forEach(s => s.addEventListener('click', () => setTheme(s.dataset.theme)));
+try{ const saved = localStorage.getItem('ilgezdi-web-theme'); if(saved) setTheme(saved); }catch(e){}
+</script>
+</body>
+</html>
