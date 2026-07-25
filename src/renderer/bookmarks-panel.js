@@ -13,7 +13,22 @@ function bmInjectStyles() {
   const s = document.createElement('style');
   s.id = 'ilgezdi-bm-style';
   s.textContent = `
-    #panel-bookmarks { width:360px; }
+    #panel-bookmarks { width:360px; position:relative; }
+
+    .bm-import-menu {
+      position:absolute; z-index:60; min-width:210px;
+      background:var(--bg-elev, #15243d); border:1px solid var(--border-color);
+      border-radius:10px; padding:6px; box-shadow:0 16px 40px rgba(0,0,0,.5);
+    }
+    .bm-im-head { font-size:10px; text-transform:uppercase; letter-spacing:.08em;
+      color:var(--text-muted); padding:6px 8px 4px; }
+    .bm-im-item { display:flex; align-items:center; justify-content:space-between; gap:10px;
+      width:100%; padding:8px 10px; border:none; background:transparent; cursor:pointer;
+      color:var(--text-main); font-size:12.5px; border-radius:7px; text-align:left; }
+    .bm-im-item:hover { background:var(--bg-input); color:var(--accent); }
+    .bm-im-count { font-size:10px; background:var(--bg-input); border-radius:8px;
+      padding:1px 7px; color:var(--text-muted); }
+    .bm-im-sep { height:1px; background:var(--border-color); margin:5px 4px; }
 
     .bm-search-bar { padding:10px 12px 0; flex-shrink:0; }
     .bm-search-input {
@@ -503,6 +518,97 @@ function bmImportHTML(html) {
   return n;
 }
 
+// ─── İçe Aktarma (diğer tarayıcılardan) ───────────────────────────────────────
+// Gelen [{title,url,folder}] listesini İlgezdi yer imlerine birleştirir:
+// kaynak klasör adlarını korur, URL bazında yinelenenleri atlar, senkronlar.
+function bmMergeImported(items) {
+  if (!Array.isArray(items) || !items.length) return 0;
+  const existing    = new Set(bmItems.map(i => i.url));
+  const folderByName = new Map(bmFolders.map(f => [f.name, f.id]));
+  let added = 0;
+  items.forEach(it => {
+    if (!it || !it.url || !/^https?:\/\//i.test(it.url) || existing.has(it.url)) return;
+    const fname = (it.folder || 'İçe Aktarılan').trim() || 'İçe Aktarılan';
+    let fid = folderByName.get(fname);
+    if (!fid) {
+      const f = { id: bmGenId(), name: fname, createdAt: Date.now() };
+      bmFolders.push(f); folderByName.set(fname, f.id); fid = f.id;
+    }
+    bmItems.push({
+      id: bmGenId(), folderId: fid,
+      title: it.title || bmGetDomain(it.url), url: it.url,
+      favicon: bmGetFavicon(it.url), createdAt: Date.now(),
+    });
+    existing.add(it.url);
+    added++;
+  });
+  if (added) { bmSaveFolders(); bmSaveItems(); bmRenderFolders(); bmRenderPanel(); }
+  return added;
+}
+
+async function bmRunImport(source) {
+  try {
+    const res = source === '__file__'
+      ? await window.secureBrowser?.bookmarks?.importFile()
+      : await window.secureBrowser?.bookmarks?.importBrowser(source);
+    const items = res?.items || [];
+    if (!items.length) { alert('İçe aktarılacak yer imi bulunamadı.'); return; }
+    const added = bmMergeImported(items);
+    alert(added > 0
+      ? `${added} yer imi içe aktarıldı.`
+      : 'Tüm yer imleri zaten mevcuttu (yeni ekleme olmadı).');
+  } catch (e) {
+    alert('İçe aktarma başarısız: ' + (e?.message || e));
+  }
+}
+
+async function bmShowImportMenu() {
+  document.getElementById('bm-import-menu')?.remove();
+  let detected = [];
+  try { detected = await window.secureBrowser?.bookmarks?.detect() || []; } catch {}
+
+  const menu = document.createElement('div');
+  menu.id = 'bm-import-menu';
+  menu.className = 'bm-import-menu';
+  const rows = [];
+  if (detected.length) {
+    rows.push(`<div class="bm-im-head">Kurulu tarayıcılardan</div>`);
+    detected.forEach(b => rows.push(
+      `<button class="bm-im-item" data-src="${b.id}"><span>${b.name}</span><span class="bm-im-count">${b.count}</span></button>`
+    ));
+  } else {
+    rows.push(`<div class="bm-im-head">Kurulu tarayıcı bulunamadı</div>`);
+  }
+  rows.push(`<div class="bm-im-sep"></div>`);
+  rows.push(`<button class="bm-im-item" data-src="__file__"><span>📄 HTML dosyasından…</span></button>`);
+  menu.innerHTML = rows.join('');
+
+  const btn = document.getElementById('btn-bm-import');
+  const panel = document.getElementById('panel-bookmarks');
+  (panel || document.body).appendChild(menu);
+  if (btn) {
+    const r = btn.getBoundingClientRect();
+    const pr = (panel || document.body).getBoundingClientRect();
+    menu.style.top  = (r.bottom - pr.top + 4) + 'px';
+    menu.style.right = (pr.right - r.right) + 'px';
+  }
+
+  menu.querySelectorAll('.bm-im-item').forEach(el => {
+    el.addEventListener('click', () => {
+      const src = el.getAttribute('data-src');
+      menu.remove();
+      bmRunImport(src);
+    });
+  });
+  // Dışına tıklayınca kapat
+  setTimeout(() => {
+    const close = (ev) => {
+      if (!menu.contains(ev.target) && ev.target !== btn) { menu.remove(); document.removeEventListener('click', close, true); }
+    };
+    document.addEventListener('click', close, true);
+  }, 0);
+}
+
 // ─── Panel HTML ───────────────────────────────────────────────────────────────
 function bmInjectPanelHTML() {
   const panel = document.getElementById('panel-bookmarks');
@@ -512,8 +618,7 @@ function bmInjectPanelHTML() {
       <h2>★ Yer İmleri</h2>
       <div style="display:flex;gap:5px;align-items:center">
         <button class="bm-icon-btn" id="btn-bm-export" title="Dışa Aktar">⬆</button>
-        <button class="bm-icon-btn" id="btn-bm-import" title="İçe Aktar">⬇</button>
-        <input type="file" id="bm-import-input" accept=".html" style="display:none">
+        <button class="bm-icon-btn" id="btn-bm-import" title="Diğer tarayıcılardan içe aktar">⬇</button>
         <button class="panel-close" data-panel="bookmarks">✕</button>
       </div>
     </div>
@@ -534,18 +639,7 @@ function bmInitPanelEvents() {
     bmRenderPanel();
   });
   document.getElementById('btn-bm-export')?.addEventListener('click', bmExportHTML);
-  document.getElementById('btn-bm-import')?.addEventListener('click', () => document.getElementById('bm-import-input')?.click());
-  document.getElementById('bm-import-input')?.addEventListener('change', (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const count = bmImportHTML(ev.target.result);
-      alert(`${count} yer imi içe aktarıldı!`);
-    };
-    reader.readAsText(file);
-    e.target.value = '';
-  });
+  document.getElementById('btn-bm-import')?.addEventListener('click', bmShowImportMenu);
   document.querySelector('[data-panel="bookmarks"].panel-close')?.addEventListener('click', () => {
     window.ilgezdiCloseAllPanels?.();
   });

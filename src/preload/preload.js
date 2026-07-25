@@ -106,6 +106,13 @@ contextBridge.exposeInMainWorld('secureBrowser', {
   // ── QR üretimi (yerel, çevrimdışı) ──────────────────────────────────────────
   qrGenerate: (text) => ipcRenderer.invoke('qr-generate', text),
 
+  // ── Yer imi içe aktarma ──────────────────────────────────────────────────────
+  bookmarks: {
+    detect:        ()   => ipcRenderer.invoke('bm-import-detect'),
+    importBrowser: (id) => ipcRenderer.invoke('bm-import-browser', id),
+    importFile:    ()   => ipcRenderer.invoke('bm-import-file'),
+  },
+
   // ── Auth (Üyelik Sistemi) ────────────────────────────────────────────────────
   auth: {
     saveSession:  (s) => ipcRenderer.invoke('auth-save-session', s),
