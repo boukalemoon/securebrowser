@@ -113,6 +113,21 @@ contextBridge.exposeInMainWorld('secureBrowser', {
     importFile:    ()   => ipcRenderer.invoke('bm-import-file'),
   },
 
+  // ── Şifre yöneticisi ─────────────────────────────────────────────────────────
+  passwords: {
+    list:                ()   => ipcRenderer.invoke('pw-list'),
+    reveal:              (id) => ipcRenderer.invoke('pw-reveal', id),
+    add:                 (e)  => ipcRenderer.invoke('pw-add', e),
+    update:              (e)  => ipcRenderer.invoke('pw-update', e),
+    delete:              (id) => ipcRenderer.invoke('pw-delete', id),
+    count:               ()   => ipcRenderer.invoke('pw-count'),
+    encryptionAvailable: ()   => ipcRenderer.invoke('pw-encryption-available'),
+    importDetect:        ()   => ipcRenderer.invoke('pw-import-detect'),
+    importBrowser:       (id) => ipcRenderer.invoke('pw-import-browser', id),
+    importCsv:           ()   => ipcRenderer.invoke('pw-import-csv'),
+    forOrigin:           (o)  => ipcRenderer.invoke('pw-for-origin', o),
+  },
+
   // ── Auth (Üyelik Sistemi) ────────────────────────────────────────────────────
   auth: {
     saveSession:  (s) => ipcRenderer.invoke('auth-save-session', s),

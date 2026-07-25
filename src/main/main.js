@@ -14,6 +14,7 @@ const { attachBlocker, shouldBlockUrl, updateBlockerConfig, getBlockStats } = re
 const { setupGlance } = require('./glance-main');
 const { setupArku } = require('./arku-manager');
 const { setupBookmarkImport } = require('./bookmark-import');
+const { setupPasswordManager, getForOrigin } = require('./password-manager');
 
 let incognitoWindow = null;
 
@@ -411,6 +412,29 @@ function createTab(win, state, url = config.homepage) {
         });
         tab.startTime    = Date.now();
         tab.blockedCount = 0;
+      } catch {}
+    }
+
+    // ── Şifre otomatik doldurma ──
+    // Bu origin için kasada TEK eşleşen kimlik varsa login formunu doldur.
+    // Yalnızca doldurur (asla göndermez); gizli modda ve incognito'da devre dışı.
+    if (!isIncognito) {
+      try {
+        const creds = getForOrigin(tab.url);
+        if (creds.length === 1 && creds[0].password) {
+          const u = JSON.stringify(creds[0].username || '');
+          const p = JSON.stringify(creds[0].password);
+          view.webContents.executeJavaScript(`(function(){
+            try {
+              var pw = document.querySelector('input[type=password]:not([disabled]):not([readonly])');
+              if(!pw || pw.offsetParent===null) return;
+              var scope = pw.closest('form') || document;
+              var user = scope.querySelector('input[type=email],input[autocomplete=username],input[name*=user i],input[name*=email i],input[id*=user i],input[id*=email i],input[type=text]');
+              if(user && ${u}){ user.value=${u}; user.dispatchEvent(new Event('input',{bubbles:true})); user.dispatchEvent(new Event('change',{bubbles:true})); }
+              pw.value=${p}; pw.dispatchEvent(new Event('input',{bubbles:true})); pw.dispatchEvent(new Event('change',{bubbles:true}));
+            } catch(e){}
+          })();`).catch(() => {});
+        }
       } catch {}
     }
 
@@ -883,6 +907,7 @@ app.whenReady().then(() => {
 
   // Arku Uzak Masaüstü eklentisi: arka plan sürüm denetimi + kullanıcı onaylı güncelleme
   setupBookmarkImport(ipcMain, () => mainWindow);
+  setupPasswordManager(ipcMain, { userDataPath: USER_DATA, getMainWindow: () => mainWindow });
 
   setupArku(ipcMain, {
     userDataPath: USER_DATA,

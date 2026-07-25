@@ -502,7 +502,6 @@ function renderPrivacyTab(cfg) {
 }
 
 function renderPasswordsTab() {
-  const passwords = loadPasswords();
   const masterSet = !!localStorage.getItem('ilgezdi-master-hash');
   const unlocked  = sessionStorage.getItem('ilgezdi-pwd-unlocked') === '1';
   if (!masterSet) return `<div class="settings-section"><h3>Ana Şifre Kur</h3>
@@ -517,6 +516,13 @@ function renderPasswordsTab() {
     <button class="btn-save-settings" id="btn-master-unlock" style="margin-top:8px">🔓 Kilidi Aç</button>
     <div id="unlock-error" style="color:var(--danger);font-size:11px;margin-top:8px;min-height:16px"></div></div>`;
   return `
+    <div class="settings-section"><h3>Diğer Tarayıcıdan İçe Aktar</h3>
+      <p class="s-hint" style="margin-top:0">Chrome/Edge/Brave kayıtlı şifrelerinizi ya da tarayıcıdan dışa aktardığınız CSV dosyasını güvenli kasaya aktarın.</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="pwd-btn" id="btn-pwd-import-browser">⬇ Tarayıcıdan</button>
+        <button class="pwd-btn" id="btn-pwd-import-csv">📄 CSV'den</button>
+      </div>
+    </div>
     <div class="settings-section"><h3>Yeni Şifre Ekle</h3>
       <div class="s-input-row"><label>Site</label><input type="text" id="pwd-new-site" placeholder="google.com"/></div>
       <div class="s-input-row"><label>Kullanıcı adı</label><input type="text" id="pwd-new-user" placeholder="kullanici@email.com"/></div>
@@ -525,30 +531,88 @@ function renderPasswordsTab() {
     </div>
     <div class="settings-section">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-        <h3 style="margin:0;border:none;padding:0">Kayıtlı (${passwords.length})</h3>
+        <h3 style="margin:0;border:none;padding:0">Kayıtlı (<span id="pwd-count">…</span>)</h3>
         <button class="pwd-btn" id="btn-lock-passwords">🔒 Kilitle</button>
       </div>
-      ${passwords.length===0?'<p style="color:var(--text-muted);font-size:12px;text-align:center;padding:16px">Henüz şifre kaydedilmedi</p>'
-        :passwords.map((p,i)=>`<div class="pwd-entry">
-          <div class="pwd-entry-info">
-            <div class="pwd-site">${p.site}</div>
-            <div class="pwd-user">${p.username}</div>
-            <div class="pwd-pass" id="pwd-pass-${i}">••••••••</div>
-          </div>
-          <div class="pwd-actions">
-            <button class="pwd-btn" onclick="togglePwd(${i})">👁</button>
-            <button class="pwd-btn" onclick="copyPwd(${i})">📋</button>
-            <button class="pwd-btn danger" onclick="deletePwd(${i})">🗑</button>
-          </div></div>`).join('')}
+      <div id="pwd-list-container"><p style="color:var(--text-muted);font-size:12px;text-align:center;padding:16px">Yükleniyor…</p></div>
     </div>`;
 }
 
+// ── Güvenli kasa (main süreç, safeStorage) yardımcıları ──
+function _pwEsc(s){ return String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+let _pwMigrated = false;
+async function migrateOldPasswords() {
+  if (_pwMigrated) return; _pwMigrated = true;
+  try {
+    const raw = localStorage.getItem('ilgezdi-passwords');
+    if (!raw) return;
+    const old = JSON.parse(atob(raw)) || [];
+    for (const p of old) {
+      const url = p.site || p.url, password = p.password;
+      if (url && password) await window.secureBrowser?.passwords?.add({ url, username: p.username || '', password });
+    }
+    localStorage.removeItem('ilgezdi-passwords'); // güvensiz base64 kopyayı KALDIR
+  } catch {}
+}
+
+async function populatePwdList() {
+  const box = document.getElementById('pwd-list-container');
+  if (!box) return;
+  await migrateOldPasswords();
+  const list = await window.secureBrowser?.passwords?.list() || [];
+  const cnt = document.getElementById('pwd-count'); if (cnt) cnt.textContent = list.length;
+  if (!list.length) {
+    box.innerHTML = '<p style="color:var(--text-muted);font-size:12px;text-align:center;padding:16px">Henüz şifre yok. Diğer tarayıcınızdan içe aktarabilirsiniz.</p>';
+    return;
+  }
+  box.innerHTML = list.map(v => {
+    let host = v.url; try { host = new URL(v.url).hostname.replace(/^www\./,''); } catch {}
+    return `<div class="pwd-entry" data-id="${v.id}">
+      <div class="pwd-entry-info">
+        <div class="pwd-site">${_pwEsc(host)}</div>
+        <div class="pwd-user">${_pwEsc(v.username||'—')}</div>
+        <div class="pwd-pass" data-pass="${v.id}">••••••••</div>
+      </div>
+      <div class="pwd-actions">
+        <button class="pwd-btn" data-act="reveal" data-id="${v.id}">👁</button>
+        <button class="pwd-btn" data-act="copy" data-id="${v.id}">📋</button>
+        <button class="pwd-btn danger" data-act="del" data-id="${v.id}">🗑</button>
+      </div></div>`;
+  }).join('');
+  box.querySelectorAll('.pwd-btn[data-act]').forEach(b => b.addEventListener('click', onPwdAction));
+}
+
+async function onPwdAction(e) {
+  const btn = e.currentTarget, id = btn.getAttribute('data-id'), act = btn.getAttribute('data-act');
+  const pw = window.secureBrowser?.passwords;
+  if (act === 'reveal') {
+    const cell = document.querySelector(`.pwd-pass[data-pass="${id}"]`); if (!cell) return;
+    cell.textContent = cell.textContent === '••••••••' ? (await pw.reveal(id)) : '••••••••';
+  } else if (act === 'copy') {
+    navigator.clipboard.writeText(await pw.reveal(id)).then(()=>showSettingsToast('Şifre kopyalandı!'));
+  } else if (act === 'del') {
+    if (!confirm('Bu şifre silinsin mi?')) return;
+    await pw.delete(id); populatePwdList();
+  }
+}
+
+async function pwImportFromBrowser() {
+  const pw = window.secureBrowser?.passwords;
+  const found = await pw?.importDetect() || [];
+  if (!found.length) { showSettingsToast('Kurulu tarayıcı bulunamadı','error'); return; }
+  // Basit seçim: tek tarayıcı varsa doğrudan, çoklu ise ilkini sor
+  const pick = found.length === 1 ? found[0] : (found.find(f => confirm(`${f.name} şifrelerini içe aktar?`)) || null);
+  if (!pick) return;
+  showSettingsToast(`${pick.name} içe aktarılıyor…`);
+  const r = await pw.importBrowser(pick.id);
+  if (r?.error) showSettingsToast('İçe aktarma başarısız: ' + r.error, 'error');
+  else { showSettingsToast(`${r.imported} şifre içe aktarıldı`); populatePwdList(); }
+}
+
 // ─── Şifre ────────────────────────────────────────────────────────────────────
-function loadPasswords() { try { return JSON.parse(atob(localStorage.getItem('ilgezdi-passwords')||btoa('[]'))); } catch { return []; } }
-function savePasswords(p) { localStorage.setItem('ilgezdi-passwords',btoa(JSON.stringify(p))); }
-window.togglePwd = (i) => { const el=document.getElementById('pwd-pass-'+i); if(!el) return; const p=loadPasswords(); el.textContent=el.textContent==='••••••••'?(p[i]?.password||''):'••••••••'; };
-window.copyPwd   = (i) => { navigator.clipboard.writeText(loadPasswords()[i]?.password||'').then(()=>showSettingsToast('Şifre kopyalandı!')); };
-window.deletePwd = (i) => { const p=loadPasswords(); p.splice(i,1); savePasswords(p); renderSettingsTab('passwords',settingsConfig); };
+// (Eski güvensiz localStorage şifre saklama kaldırıldı — artık main süreç
+//  safeStorage kasası kullanılır: window.secureBrowser.passwords.*)
 
 function showSettingsToast(msg,type='success') {
   const el=document.createElement('div');
@@ -741,17 +805,24 @@ function bindPasswordEvents() {
   });
   document.getElementById('master-unlock-input')?.addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('btn-master-unlock')?.click();});
   document.getElementById('btn-lock-passwords')?.addEventListener('click',()=>{sessionStorage.removeItem('ilgezdi-pwd-unlocked');renderSettingsTab('passwords',settingsConfig);});
-  document.getElementById('btn-pwd-add')?.addEventListener('click',()=>{
+  document.getElementById('btn-pwd-add')?.addEventListener('click',async ()=>{
     const site=document.getElementById('pwd-new-site')?.value.trim();
     const user=document.getElementById('pwd-new-user')?.value.trim();
     const pass=document.getElementById('pwd-new-pass')?.value;
-    if(!site||!user||!pass){showSettingsToast('Tüm alanları doldurun','error');return;}
-    const p=loadPasswords(); p.push({site,username:user,password:pass,createdAt:Date.now()});
-    savePasswords(p);
+    if(!site||!pass){showSettingsToast('Site ve şifre zorunlu','error');return;}
+    await window.secureBrowser?.passwords?.add({ url: site, username: user, password: pass });
     ['pwd-new-site','pwd-new-user','pwd-new-pass'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
-    renderSettingsTab('passwords',settingsConfig);
-    showSettingsToast('Şifre kaydedildi!');
+    showSettingsToast('Şifre güvenli kasaya kaydedildi!');
+    populatePwdList();
   });
+  document.getElementById('btn-pwd-import-browser')?.addEventListener('click', pwImportFromBrowser);
+  document.getElementById('btn-pwd-import-csv')?.addEventListener('click', async ()=>{
+    const r = await window.secureBrowser?.passwords?.importCsv();
+    if (r?.error) showSettingsToast('İçe aktarma başarısız: '+r.error,'error');
+    else if (r) { showSettingsToast(`${r.imported} şifre içe aktarıldı`); populatePwdList(); }
+  });
+  // Kilit açıksa listeyi güvenli kasadan doldur
+  if (sessionStorage.getItem('ilgezdi-pwd-unlocked') === '1') populatePwdList();
 }
 
 // ─── Panel events ─────────────────────────────────────────────────────────────
