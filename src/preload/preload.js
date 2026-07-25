@@ -106,6 +106,15 @@ contextBridge.exposeInMainWorld('secureBrowser', {
   // ── QR üretimi (yerel, çevrimdışı) ──────────────────────────────────────────
   qrGenerate: (text) => ipcRenderer.invoke('qr-generate', text),
 
+  // ── Otomatik güncelleme ──────────────────────────────────────────────────────
+  updater: {
+    check:          ()  => ipcRenderer.invoke('updater-check'),
+    download:       ()  => ipcRenderer.invoke('updater-download'),
+    install:        ()  => ipcRenderer.invoke('updater-install'),
+    currentVersion: ()  => ipcRenderer.invoke('updater-current-version'),
+    onStatus:       (cb) => ipcRenderer.on('updater-status', (_, d) => cb(d)),
+  },
+
   // ── Yer imi içe aktarma ──────────────────────────────────────────────────────
   bookmarks: {
     detect:        ()   => ipcRenderer.invoke('bm-import-detect'),

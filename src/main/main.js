@@ -15,6 +15,7 @@ const { setupGlance } = require('./glance-main');
 const { setupArku } = require('./arku-manager');
 const { setupBookmarkImport } = require('./bookmark-import');
 const { setupPasswordManager, getForOrigin } = require('./password-manager');
+const { setupAutoUpdater } = require('./auto-updater');
 
 let incognitoWindow = null;
 
@@ -908,6 +909,9 @@ app.whenReady().then(() => {
   // Arku Uzak Masaüstü eklentisi: arka plan sürüm denetimi + kullanıcı onaylı güncelleme
   setupBookmarkImport(ipcMain, () => mainWindow);
   setupPasswordManager(ipcMain, { userDataPath: USER_DATA, getMainWindow: () => mainWindow });
+
+  // Otomatik güncelleme: arka planda denetim + kullanıcı onaylı indirme/kurulum
+  setupAutoUpdater(() => mainWindow);
 
   setupArku(ipcMain, {
     userDataPath: USER_DATA,

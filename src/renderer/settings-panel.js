@@ -476,6 +476,16 @@ function renderGeneralTab(cfg) {
         <tr><td>Ayarlar</td><td><span class="kbd">Ctrl</span>+<span class="kbd">,</span></td></tr>
         <tr><td>Yer İmleri</td><td><span class="kbd">Ctrl</span>+<span class="kbd">B</span></td></tr>
       </table>
+    </div>
+    <div class="settings-section"><h3>Uygulama Güncellemesi</h3>
+      <div class="s-input-row" style="align-items:center;justify-content:space-between;display:flex;gap:10px">
+        <div>
+          <div class="s-toggle-label">İlgezdi sürümü</div>
+          <div class="s-toggle-sub" id="app-version-text">—</div>
+        </div>
+        <button class="folder-btn" id="btn-check-updates">↻ Güncellemeleri denetle</button>
+      </div>
+      <div id="update-check-status" style="font-size:11.5px;color:var(--text-muted);margin-top:8px;min-height:15px"></div>
     </div>`;
 }
 
@@ -783,6 +793,25 @@ function bindGeneralEvents() {
   document.getElementById('btn-clear-history')?.addEventListener('click', async()=>{await window.secureBrowser?.logs?.clearLogs?.();   st('Geçmiş temizlendi ✓');});
   document.getElementById('btn-clear-cookies')?.addEventListener('click', async()=>{await window.secureBrowser?.clearCookies?.();      st('Çerezler temizlendi ✓');});
   document.getElementById('btn-clear-all')?.addEventListener('click',     async()=>{await window.secureBrowser?.clearAll?.();         st('Tüm veriler temizlendi ✓');});
+
+  // ── Uygulama güncellemesi ────────────────────────────────────────────────────
+  const up = window.secureBrowser?.updater;
+  const verEl = document.getElementById('app-version-text');
+  if (up && verEl) up.currentVersion().then(v => { verEl.textContent = v ? `Sürüm ${v}` : 'Sürüm —'; }).catch(()=>{});
+  document.getElementById('btn-check-updates')?.addEventListener('click', async (e) => {
+    const btn = e.currentTarget;
+    const us = document.getElementById('update-check-status');
+    if (!up) { if (us) us.textContent = 'Güncelleme modülü kullanılamıyor.'; return; }
+    btn.disabled = true; const old = btn.textContent; btn.textContent = 'Denetleniyor…';
+    if (us) { us.style.color = 'var(--text-muted)'; us.textContent = 'Sunucu denetleniyor…'; }
+    const r = await up.check();
+    btn.disabled = false; btn.textContent = old;
+    if (!us) return;
+    if (r?.reason === 'dev')      us.textContent = 'Geliştirme modunda güncelleme denetlenmez.';
+    else if (r?.ok === false)     { us.style.color = 'var(--danger)'; us.textContent = 'Denetlenemedi: ' + (r.reason || 'bilinmeyen hata'); }
+    else if (r?.version)          { us.style.color = 'var(--success)'; us.textContent = `Yeni sürüm bulundu: ${r.version} — bildirim şeridinden güncelleyin.`; }
+    else                          { us.style.color = 'var(--success)'; us.textContent = 'En güncel sürümü kullanıyorsunuz ✓'; }
+  });
 }
 
 function bindPasswordEvents() {
