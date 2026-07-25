@@ -58,7 +58,11 @@ function injectBrandMarks() {
   const tb = document.getElementById('app-brand-mark');
   if (tb) tb.innerHTML = brandMarkSVG(28, 'tb');
   const au = document.getElementById('auth-brand-mark');
-  if (au) au.innerHTML = brandMarkSVG(64, 'au', true);
+  // Auth / QR ekranı: SVG yaklaşımı yerine gerçek İlgezdi logosu (dairesel amblem).
+  if (au) au.innerHTML =
+    '<img src="assets/logo-mark.png" alt="İlgezdi" ' +
+    'style="width:64px;height:64px;object-fit:contain;border-radius:50%;display:block;' +
+    'box-shadow:0 4px 18px rgba(0,0,0,0.45);"/>';
 }
 
 // ─── State ────────────────────────────────────────────────────────────────────

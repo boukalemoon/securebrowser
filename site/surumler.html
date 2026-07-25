@@ -136,6 +136,14 @@ footer a{font-family:var(--font-mono);font-size:12.5px}
 // Yeni sürüm eklemek için: en üste yeni bir nesne ekleyin. Tür: new | fix | sec | imp
 const RELEASES = [
   {
+    version: '0.7.3', date: '25 Temmuz 2026', title: 'Yer imi & şifre içe aktarma',
+    changes: [
+      { t:'new', d:'<b>Diğer tarayıcılardan yer imi içe aktarma.</b> Chrome, Edge, Brave, Vivaldi ve Firefox\'tan (ya da HTML dosyasından) yer imlerinizi tek tıkla İlgezdi\'ye taşıyın. Klasör yapısı korunur.' },
+      { t:'new', d:'<b>Şifre yöneticisi.</b> Kayıtlı şifrelerinizi diğer tarayıcılardan (Chrome/Edge/Brave/Vivaldi ya da CSV) içe aktarın; şifreler cihazınızda işletim sistemi kasasıyla (DPAPI/Keychain) şifreli saklanır. Formlarda otomatik doldurma.' },
+      { t:'imp', d:'<b>Gerçek uygulama logosu</b> giriş / QR ekranında.' },
+    ],
+  },
+  {
     version: '0.7.2', date: '25 Temmuz 2026', title: 'İndirme & kurulum kararlılığı',
     changes: [
       { t:'fix', d:'<b>İndirme 404 hatası kalıcı olarak giderildi.</b> İndirme bağlantıları artık sürümden bağımsız sabit adlar kullanıyor; yeni sürüm çıktığında eski bağlantılar bozulmuyor.' },
