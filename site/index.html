@@ -502,15 +502,17 @@ footer{border-top:1px solid var(--line);padding:52px 0 40px;margin-top:20px}
 
 <script>
 // ---- Sürüm & indirme linkleri ----------------------------------------------
-// Yeni sürüm yayınlayınca SADECE bu satırı güncelle; tüm linkler buradan üretilir.
-const VERSION = '0.7.1';
+// Dosya adları SÜRÜMSÜZ ve SABİT: /latest/download/ ile her sürümde çalışır,
+// yeni sürüm çıkınca eski önbelleğe alınmış sayfalar 404 vermez.
+// VERSION yalnızca ekranda gösterim içindir; indirme adlarını ETKİLEMEZ.
+const VERSION = '0.7.2';
 const BASE = 'https://github.com/boukalemoon/securebrowser/releases/latest/download';
 const FILES = {
-  win:       `Ilgezdi-Kurulum-${VERSION}-x64.exe`,
-  'mac-arm': `Ilgezdi-${VERSION}-mac-arm64.dmg`,
-  'mac-intel':`Ilgezdi-${VERSION}-mac-x64.dmg`,
-  linux:     `Ilgezdi-${VERSION}-linux-x86_64.AppImage`,
-  deb:       `Ilgezdi-${VERSION}-linux-amd64.deb`,
+  win:       'Ilgezdi-Kurulum-x64.exe',
+  'mac-arm': 'Ilgezdi-mac-arm64.dmg',
+  'mac-intel':'Ilgezdi-mac-x64.dmg',
+  linux:     'Ilgezdi-linux-x86_64.AppImage',
+  deb:       'Ilgezdi-linux-amd64.deb',
 };
 document.querySelectorAll('[data-dl]').forEach(a=>{
   const f = FILES[a.getAttribute('data-dl')];

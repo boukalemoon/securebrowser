@@ -1,6 +1,6 @@
 {
   "name": "ilgezdi",
-  "version": "0.7.1",
+  "version": "0.7.2",
   "description": "İlgezdi — Güvenli, gizlilik odaklı web tarayıcısı (Göktürk temalı)",
   "author": "İlgezdi",
   "license": "MIT",
@@ -55,7 +55,7 @@
         }
       ],
       "icon": "build/icon.ico",
-      "artifactName": "Ilgezdi-Kurulum-${version}-${arch}.${ext}"
+      "artifactName": "Ilgezdi-Kurulum-${arch}.${ext}"
     },
     "nsis": {
       "oneClick": false,
@@ -97,7 +97,7 @@
     },
     "dmg": {
       "title": "İlgezdi ${version}",
-      "artifactName": "Ilgezdi-${version}-mac-${arch}.${ext}"
+      "artifactName": "Ilgezdi-mac-${arch}.${ext}"
     },
     "linux": {
       "target": [
@@ -115,6 +115,7 @@
         }
       ],
       "icon": "build/icon.png",
+      "artifactName": "Ilgezdi-linux-${arch}.${ext}",
       "category": "Network;WebBrowser",
       "maintainer": "İlgezdi <destek@ilgezdi.com>",
       "synopsis": "Güvenli, gizlilik odaklı web tarayıcısı",
