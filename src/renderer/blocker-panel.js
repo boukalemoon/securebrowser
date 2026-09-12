@@ -159,6 +159,7 @@ function blockerRenderStats() {
 function blockerRenderWhitelist() {
   const el = document.getElementById('blocker-whitelist');
   if (!el) return;
+  const H = window.ilgezdiHtml;
 
   if (blockerWhitelist.length === 0) {
     el.innerHTML = `<p style="color:var(--text-muted);font-size:12px;text-align:center;padding:16px">
@@ -167,14 +168,19 @@ function blockerRenderWhitelist() {
     return;
   }
 
-  el.innerHTML = blockerWhitelist.map(domain => `
+  // GİZLİLİK: Eskiden her satır için google.com/s2/favicons?domain=… isteniyordu —
+  // yani kullanıcının engellemeyi kapattığı her site, panel her açıldığında
+  // Google'a bildiriliyordu. Yerine yerel bir harf rozeti kullanılıyor.
+  // (Satır içi onerror da CSP'ye takıldığı için zaten çalışmıyordu — D-05.)
+  el.innerHTML = blockerWhitelist.map(domain => {
+    const letter = (String(domain).replace(/^www[.]/, '').charAt(0) || '?').toUpperCase();
+    return `
     <div class="bl-white-item">
-      <img src="https://www.google.com/s2/favicons?domain=${domain}&sz=14" 
-           width="14" height="14" onerror="this.style.display='none'">
-      <span class="bl-white-domain">${domain}</span>
-      <button class="bl-white-remove" data-domain="${domain}">✕</button>
-    </div>
-  `).join('');
+      <span aria-hidden="true" style="display:inline-grid;place-items:center;width:14px;height:14px;border-radius:3px;background:var(--bg-input);color:var(--text-muted);font-size:9px;font-weight:700;flex-shrink:0">${H.esc(letter)}</span>
+      <span class="bl-white-domain">${H.esc(domain)}</span>
+      <button class="bl-white-remove" data-domain="${H.esc(domain)}" aria-label="${H.esc(domain)} için engellemeyi yeniden aç">✕</button>
+    </div>`;
+  }).join('');
 
   el.querySelectorAll('.bl-white-remove').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -188,6 +194,7 @@ function blockerRenderWhitelist() {
 function blockerRenderTopBlocked() {
   const el = document.getElementById('blocker-top-list');
   if (!el) return;
+  const H = window.ilgezdiHtml;
 
   const entries = Object.entries(blockerStats.byDomain || {})
     .sort((a, b) => b[1] - a[1])
@@ -200,18 +207,21 @@ function blockerRenderTopBlocked() {
     return;
   }
 
-  const max = entries[0]?.[1] || 1;
-  el.innerHTML = entries.map(([domain, count]) => `
+  // Alan adları engellenen isteklerden geliyor (dış kaynaklı) — kaçışlanır.
+  const max = Number(entries[0]?.[1]) || 1;
+  el.innerHTML = entries.map(([domain, count]) => {
+    const c = Number(count) || 0;
+    return `
     <div class="bl-top-item">
       <div class="bl-top-info">
-        <span class="bl-top-domain">${domain}</span>
-        <span class="bl-top-count">${count}</span>
+        <span class="bl-top-domain">${H.esc(domain)}</span>
+        <span class="bl-top-count">${c}</span>
       </div>
       <div class="bl-top-bar">
-        <div class="bl-top-fill" style="width:${Math.round(count/max*100)}%"></div>
+        <div class="bl-top-fill" style="width:${Math.round(c / max * 100)}%"></div>
       </div>
-    </div>
-  `).join('');
+    </div>`;
+  }).join('');
 }
 
 // ─── Panel HTML ───────────────────────────────────────────────────────────────

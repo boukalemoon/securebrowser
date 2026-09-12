@@ -207,7 +207,12 @@ window.addEventListener('ilgezdi-sync-applied', () => {
 });
 
 // ─── Yardımcı ─────────────────────────────────────────────────────────────────
-function bmGetFavicon(url) { try { return `https://www.google.com/s2/favicons?domain=${new URL(url).hostname}&sz=16`; } catch { return null; } }
+// GİZLİLİK: Eskiden google.com/s2/favicons?domain=… adresi üretiliyordu — yani
+// yer imleri paneli her çizildiğinde kullanıcının TÜM yer imi alan adları
+// Google'a bildiriliyordu. Gizlilik odaklı bir tarayıcıda kabul edilemez.
+// Yerel yedek simge kullanılır; ileride favicon'lar gezinme sırasında sayfanın
+// kendisinden alınıp yerelde önbelleklenebilir.
+function bmGetFavicon(url) { return null; }
 function bmGetDomain(url)  { try { return new URL(url).hostname; } catch { return url; } }
 function bmGenId()         { return 'bm_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7); }
 
@@ -341,13 +346,23 @@ function bmRenderPanel() {
       const folder = bmFolders.find(f => f.id === fid);
       if (!fitems.length) return '';
       return `
-        <div class="bm-section-label">${folder?.name || '⭐ Genel'}</div>
+        <div class="bm-section-label">${window.ilgezdiHtml.esc(folder?.name || '⭐ Genel')}</div>
         ${fitems.map(item => bmItemHTML(item)).join('')}
       `;
     }).join('');
   } else {
     container.innerHTML = items.map(item => bmItemHTML(item)).join('');
   }
+
+  // Favicon yüklenemezse yedek simge (satır içi onerror CSP'ye takılıyordu)
+  container.querySelectorAll('img.bm-fav').forEach(img => {
+    img.addEventListener('error', () => {
+      const span = document.createElement('span');
+      span.style.fontSize = '14px';
+      span.textContent = '🌐';
+      img.replaceWith(span);
+    }, { once: true });
+  });
 
   // Navigasyon click
   container.querySelectorAll('.bm-item-info').forEach(el => {
@@ -371,20 +386,28 @@ function bmRenderPanel() {
 }
 
 function bmItemHTML(item) {
+  // GÜVENLİK (denetim Y-04): başlık, URL ve favicon dış kaynaklı — içe aktarılan
+  // yer imi dosyası ya da sayfanın kendi <title>'ı. Hepsi kaçışlanır; favicon
+  // yalnızca http(s) veya data:image olabilir.
+  // Satır içi onerror kaldırıldı: CSP (script-src 'self') onu zaten engelliyordu,
+  // yani yedek 🌐 simgesi hiç görünmüyordu. Yerine bmRenderPanel'de
+  // addEventListener kullanılıyor (denetim D-05).
+  const H = window.ilgezdiHtml;
+  const rawFav = String(item.favicon || '');
+  // Önceden kaydedilmiş Google favicon adresleri de yüklenmez (gizlilik — bkz. bmGetFavicon).
+  const fav = rawFav.includes('google.com/s2/favicons') ? '' : H.safeUrl(rawFav, { allowData: true });
   return `
-    <div class="bm-item" data-id="${item.id}">
+    <div class="bm-item" data-id="${H.esc(item.id)}">
       <div class="bm-item-icon">
-        ${item.favicon
-          ? `<img src="${item.favicon}" onerror="this.outerHTML='<span style=\\"font-size:14px\\">🌐</span>'">`
-          : '<span style="font-size:14px">🌐</span>'}
+        ${fav ? `<img class="bm-fav" src="${H.esc(fav)}" alt="">` : '<span style="font-size:14px">🌐</span>'}
       </div>
-      <div class="bm-item-info" data-url="${item.url}">
-        <div class="bm-item-title">${item.title}</div>
-        <div class="bm-item-url">${bmGetDomain(item.url)}</div>
+      <div class="bm-item-info" data-url="${H.esc(item.url)}">
+        <div class="bm-item-title">${H.esc(item.title)}</div>
+        <div class="bm-item-url">${H.esc(bmGetDomain(item.url))}</div>
       </div>
       <div class="bm-item-actions">
-        <button class="bm-action-btn" data-action="edit" data-id="${item.id}" title="Düzenle">✎</button>
-        <button class="bm-action-btn danger" data-action="delete" data-id="${item.id}" title="Sil">✕</button>
+        <button class="bm-action-btn" data-action="edit" data-id="${H.esc(item.id)}" title="Düzenle" aria-label="Düzenle">✎</button>
+        <button class="bm-action-btn danger" data-action="delete" data-id="${H.esc(item.id)}" title="Sil" aria-label="Sil">✕</button>
       </div>
     </div>`;
 }
@@ -402,7 +425,7 @@ function bmRenderFolders() {
       const count = bmItems.filter(i => i.folderId === f.id).length;
       return `
         <button class="bm-folder-item ${bmCurrentFolder === f.id ? 'active' : ''}" data-id="${f.id}">
-          <span class="bm-folder-name">${f.name}</span>
+          <span class="bm-folder-name">${window.ilgezdiHtml.esc(f.name)}</span>
           <span class="bm-folder-count">${count}</span>
           ${!['default','work','reading'].includes(f.id) ? `<span class="bm-folder-del" data-fid="${f.id}">✕</span>` : ''}
         </button>`;
@@ -451,11 +474,11 @@ function bmShowEditModal(id) {
           <button class="bm-modal-close">✕</button>
         </div>
         <div class="bm-modal-body">
-          <div><label>Başlık</label><input type="text" id="bm-edit-title" value="${item.title.replace(/"/g,'&quot;')}" /></div>
-          <div><label>URL</label><input type="text" id="bm-edit-url" value="${item.url.replace(/"/g,'&quot;')}" /></div>
+          <div><label>Başlık</label><input type="text" id="bm-edit-title" value="${window.ilgezdiHtml.esc(item.title)}" /></div>
+          <div><label>URL</label><input type="text" id="bm-edit-url" value="${window.ilgezdiHtml.esc(item.url)}" /></div>
           <div><label>Klasör</label>
             <select id="bm-edit-folder">
-              ${bmFolders.map(f => `<option value="${f.id}" ${f.id===item.folderId?'selected':''}>${f.name}</option>`).join('')}
+              ${bmFolders.map(f => `<option value="${f.id}" ${f.id===item.folderId?'selected':''}>${window.ilgezdiHtml.esc(f.name)}</option>`).join('')}
             </select>
           </div>
         </div>
@@ -491,8 +514,13 @@ function bmExportHTML() {
   bmFolders.forEach(folder => {
     const fi = bmItems.filter(i => i.folderId === folder.id);
     if (!fi.length) return;
-    lines.push(`  <DT><H3>${folder.name}</H3><DL><p>`);
-    fi.forEach(item => lines.push(`    <DT><A HREF="${item.url}">${item.title}</A>`));
+    lines.push(`  <DT><H3>${window.ilgezdiHtml.esc(folder.name)}</H3><DL><p>`);
+    // Dışa aktarılan dosya başka bir tarayıcıda açılır — kaçışsız başlık orada
+    // betik çalıştırabilir. Yalnızca http(s) bağlantılar yazılır.
+    fi.forEach(item => {
+      const href = window.ilgezdiHtml.safeUrl(item.url);
+      if (href) lines.push(`    <DT><A HREF="${window.ilgezdiHtml.esc(href)}">${window.ilgezdiHtml.esc(item.title)}</A>`);
+    });
     lines.push('  </DL><p>');
   });
   lines.push('</DL><p>');
@@ -574,7 +602,7 @@ async function bmShowImportMenu() {
   if (detected.length) {
     rows.push(`<div class="bm-im-head">Kurulu tarayıcılardan</div>`);
     detected.forEach(b => rows.push(
-      `<button class="bm-im-item" data-src="${b.id}"><span>${b.name}</span><span class="bm-im-count">${b.count}</span></button>`
+      `<button class="bm-im-item" data-src="${b.id}"><span>${window.ilgezdiHtml.esc(b.name)}</span><span class="bm-im-count">${Number(b.count) || 0}</span></button>`
     ));
   } else {
     rows.push(`<div class="bm-im-head">Kurulu tarayıcı bulunamadı</div>`);
@@ -623,7 +651,7 @@ function bmInjectPanelHTML() {
       </div>
     </div>
     <div class="bm-search-bar">
-      <input type="text" class="bm-search-input" id="bm-search" placeholder="🔍 Yer imi ara..." value="${bmSearchQuery}" />
+      <input type="text" class="bm-search-input" id="bm-search" placeholder="🔍 Yer imi ara..." value="${window.ilgezdiHtml.esc(bmSearchQuery)}" />
     </div>
     <div class="bm-layout">
       <div class="bm-sidebar"><div id="bm-folder-list"></div></div>

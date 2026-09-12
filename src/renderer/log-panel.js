@@ -223,7 +223,8 @@ function renderLogStats(stats) {
   set('stat-domains',  stats.uniqueDomains || 0);
   set('stat-vpn',      stats.vpnVisits     || 0);
   set('stat-blocked',  stats.blockedToday  || 0);
-  set('log-size-info', `${stats.logSizeKb || 0} KB şifreli dosya`);
+  // safeStorage yoksa günlük şifresiz tutulur — "şifreli" diye göstermeyelim.
+  set('log-size-info', `${stats.logSizeKb || 0} KB ${stats.encrypted === false ? 'şifresiz' : 'şifreli'} dosya`);
 }
 
 function renderLogList(data) {
@@ -234,19 +235,24 @@ function renderLogList(data) {
   if (!data.items?.length) {
     wrap.innerHTML = `<div class="log-empty"><div class="empty-icon">🔍</div>Sonuç bulunamadı</div>`;
   } else {
+    // GÜVENLİK (denetim Y-04): title / url / domain ziyaret edilen sitenin
+    // kontrolünde — başlık doğrudan sayfanın <title> etiketinden gelir. Kaçışsız
+    // innerHTML, herhangi bir sitenin şifre kasasına erişen ayrıcalıklı arayüze
+    // HTML/CSS enjekte etmesine izin veriyordu.
+    const H = window.ilgezdiHtml;
     wrap.innerHTML = data.items.map(log => {
       const d    = new Date(log.timestamp);
       const time = d.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
       const date = d.toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit' });
       return `
-        <div class="log-entry" data-url="${log.url}">
+        <div class="log-entry" data-url="${H.esc(H.safeUrl(log.url))}">
           <div class="log-entry-top">
-            <div class="log-domain">${log.domain || '-'}</div>
+            <div class="log-domain">${H.esc(log.domain || '-')}</div>
             ${log.vpnActive ? '<span class="log-vpn-tag">VPN</span>' : ''}
-            <div class="log-time">${date} ${time}</div>
+            <div class="log-time">${H.esc(date)} ${H.esc(time)}</div>
           </div>
-          ${log.title ? `<div class="log-title">${log.title}</div>` : ''}
-          <div class="log-url">${log.url}</div>
+          ${log.title ? `<div class="log-title">${H.esc(log.title)}</div>` : ''}
+          <div class="log-url">${H.esc(log.url)}</div>
         </div>
       `;
     }).join('');
@@ -399,51 +405,66 @@ function initLogPanelEvents() {
 
 // ─── HTML Rapor Oluşturucu ────────────────────────────────────────────────────
 function generateHTMLReport(items, stats) {
+  // GÜVENLİK (denetim Y-05): Bu dosya uygulamanın DIŞINDA, kullanıcının varsayılan
+  // tarayıcısında açılır — İlgezdi'nin CSP koruması orada yoktur. Eskiden sayfa
+  // başlıkları ve URL'ler kaçışsız yazılıyordu: <title> etiketine <script> koyan
+  // herhangi bir site, rapor açıldığında tüm tarama geçmişini dışarı gönderebiliyordu.
+  // Üç katman: (1) her değer kaçışlanır, (2) href yalnızca http(s),
+  // (3) belgenin kendi CSP'si betik çalıştırmayı ve dış bağlantıyı tamamen yasaklar.
+  const H = window.ilgezdiHtml;
+  stats = stats || {};
+  const n = (v) => Number(v) || 0;
+
   const rows = items.map(l => {
-    const d    = new Date(l.timestamp);
-    const time = d.toLocaleString('tr-TR');
+    const d     = new Date(l.timestamp);
+    const time  = d.toLocaleString('tr-TR');
+    const href  = H.safeUrl(l.url);
+    const label = H.esc(String(l.title || l.url || '-').slice(0, 60));
     return `<tr>
-      <td>${time}</td>
-      <td>${l.domain || '-'}</td>
-      <td><a href="${l.url}" style="color:#6eb5ff">${(l.title || l.url || '-').slice(0, 60)}</a></td>
+      <td>${H.esc(time)}</td>
+      <td>${H.esc(l.domain || '-')}</td>
+      <td>${href ? `<a href="${H.esc(href)}" rel="noopener noreferrer" style="color:#6eb5ff">${label}</a>` : label}</td>
       <td>${l.vpnActive ? '<span style="color:#00e676">✓ VPN</span>' : '-'}</td>
-      <td>${l.blockedReqs || 0}</td>
     </tr>`;
   }).join('');
+
+  const encNote = stats.encrypted === false
+    ? '⚠ Bu cihazda işletim sistemi şifrelemesi kullanılamadığı için ziyaret günlüğü şifresiz saklanıyor.'
+    : '🔐 Kayıtlar cihazınızda şifreli saklanıyor. Bu rapor dosyası ise ŞİFRESİZDİR ve tarama geçmişinizi içerir — paylaşırken dikkat edin.';
 
   return `<!DOCTYPE html>
 <html lang="tr">
 <head>
 <meta charset="UTF-8">
-<title>İlgezdi Browser — Ziyaret Raporu</title>
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:">
+<meta name="referrer" content="no-referrer">
+<title>İlgezdi — Ziyaret Raporu</title>
 <style>
   body { background:#0a0e1a; color:#e0e0e0; font-family:'Segoe UI',sans-serif; padding:30px; }
-  h1   { color:#e8b84b; display:flex; align-items:center; gap:12px; }
-  .stats { display:flex; gap:20px; margin:20px 0; }
+  h1   { color:#e8b84b; }
+  .stats { display:flex; gap:20px; margin:20px 0; flex-wrap:wrap; }
   .stat  { background:#151a2e; padding:16px 24px; border-radius:8px; border:1px solid #1e2540; }
   .stat-val { font-size:28px; font-weight:700; color:#6eb5ff; }
-  .stat-lbl { font-size:12px; color:#666; margin-top:4px; }
+  .stat-lbl { font-size:12px; color:#8a93a8; margin-top:4px; }
   table { width:100%; border-collapse:collapse; margin-top:20px; }
-  th    { background:#151a2e; padding:10px 12px; text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:1px; color:#666; border-bottom:2px solid #1e2540; }
-  td    { padding:9px 12px; font-size:12px; border-bottom:1px solid #0f1420; }
-  tr:hover td { background:#151a2e; }
-  .enc-note { margin-top:30px; padding:12px; background:rgba(0,230,118,0.05); border:1px solid rgba(0,230,118,0.1); border-radius:6px; font-size:11px; color:#00e676; }
+  th    { background:#151a2e; padding:10px 12px; text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:1px; color:#8a93a8; border-bottom:2px solid #1e2540; }
+  td    { padding:9px 12px; font-size:12px; border-bottom:1px solid #0f1420; word-break:break-word; }
+  .enc-note { margin-top:30px; padding:12px; background:rgba(232,184,75,0.06); border:1px solid rgba(232,184,75,0.2); border-radius:6px; font-size:12px; color:#e8b84b; }
 </style>
 </head>
 <body>
-<h1>🧭 İlgezdi Browser — Ziyaret Raporu</h1>
-<p style="color:#666;font-size:12px">Oluşturulma: ${new Date().toLocaleString('tr-TR')}</p>
+<h1>İlgezdi — Ziyaret Raporu</h1>
+<p style="color:#8a93a8;font-size:12px">Oluşturulma: ${H.esc(new Date().toLocaleString('tr-TR'))}</p>
 <div class="stats">
-  <div class="stat"><div class="stat-val">${stats.totalVisits || 0}</div><div class="stat-lbl">Toplam Ziyaret</div></div>
-  <div class="stat"><div class="stat-val">${stats.uniqueDomains || 0}</div><div class="stat-lbl">Benzersiz Domain</div></div>
-  <div class="stat"><div class="stat-val">${stats.vpnVisits || 0}</div><div class="stat-lbl">VPN ile Ziyaret</div></div>
-  <div class="stat"><div class="stat-val">${stats.blockedToday || 0}</div><div class="stat-lbl">Bugün Engellenen</div></div>
+  <div class="stat"><div class="stat-val">${n(stats.totalVisits)}</div><div class="stat-lbl">Toplam Ziyaret</div></div>
+  <div class="stat"><div class="stat-val">${n(stats.uniqueDomains)}</div><div class="stat-lbl">Benzersiz Alan Adı</div></div>
+  <div class="stat"><div class="stat-val">${n(stats.vpnVisits)}</div><div class="stat-lbl">VPN ile Ziyaret</div></div>
 </div>
 <table>
-  <thead><tr><th>Tarih / Saat</th><th>Domain</th><th>Sayfa</th><th>VPN</th><th>Engellenen</th></tr></thead>
-  <tbody>${rows || '<tr><td colspan="5" style="text-align:center;color:#666;padding:30px">Log bulunamadı</td></tr>'}</tbody>
+  <thead><tr><th>Tarih / Saat</th><th>Alan adı</th><th>Sayfa</th><th>VPN</th></tr></thead>
+  <tbody>${rows || '<tr><td colspan="4" style="text-align:center;color:#8a93a8;padding:30px">Kayıt bulunamadı</td></tr>'}</tbody>
 </table>
-<div class="enc-note">🔐 Bu rapor İlgezdi Browser'ın AES-256-GCM şifreli log sisteminden dışa aktarılmıştır. Orijinal loglar cihazınızda şifreli olarak saklanmaktadır.</div>
+<div class="enc-note">${H.esc(encNote)}</div>
 </body></html>`;
 }
 

@@ -226,7 +226,7 @@
     <span>·</span>
     <span id="status-url"></span>
     <span class="rune-stripe" id="status-runes" title="Göktürk Runik Yazısı">𐱅𐰢 𐰉 𐰽 𐱆 𐰚𐰢 𐱅𐰉𐰍</span>
-    <span>İlgezdi v0.6</span>
+    <span id="status-version">İlgezdi</span>
   </div>
 
   <!-- ══════════════════════════════════════════════════════
@@ -313,9 +313,14 @@
 
 </div><!-- #app -->
 
+<!-- diag-client HER ŞEYDEN ÖNCE: sonraki betiklerin yükleme hatalarını da yakalar -->
+<script src="diag-client.js"></script>
+<!-- html-safe: panellerin ortak kaçış yardımcısı — panellerden ÖNCE yüklenmeli -->
+<script src="html-safe.js"></script>
 <script src="app.js"></script>
 <script src="vpn-panel.js"></script>
 <script src="log-panel.js"></script>
+<script src="diag-panel.js"></script>
 <script src="settings-panel.js"></script>
 <script src="bookmarks-panel.js"></script>
 <script src="blocker-panel.js"></script>

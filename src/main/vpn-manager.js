@@ -18,6 +18,7 @@ const os   = require('os');
 // `execFile` + argüman dizisi kullanılır.
 const execFileAsync = promisify(execFile);
 const PLATFORM      = process.platform;
+const { log: diag } = require('./diagnostics');
 
 // ─── Profil Alanı Doğrulama ───────────────────────────────────────────────────
 // İki ayrı saldırı yüzeyini birlikte kapatır:
@@ -278,7 +279,25 @@ PersistentKeepalive = 25
       }
 
       this.activeProfile = profile;
+
+      // Komutun hata vermemesi tünelin gerçekten kalktığı anlamına GELMEZ
+      // (servis kurulup hemen durabilir, sunucu anahtarı yanlış olabilir).
+      // Doğrulanamayan bağlantı "bağlı" diye gösterilmez (denetim Y-07).
+      const up = await this._verifyTunnel();
+      if (!up) {
+        const state = PLATFORM === 'win32' ? await this._serviceState() : 'unknown';
+        // Kurulu ama çalışmayan servis kalmasın; hiç kurulmadıysa temizlik gereksiz.
+        if (state !== 'missing') await this.disconnect().catch(() => {});
+        this.activeProfile = null;
+        throw new Error(
+          'Tünel başlatıldı ama bağlantı doğrulanamadı.\n\n' +
+          'WireGuard kurulumunu ve sunucu bilgilerini (endpoint, public key) kontrol edin.'
+        );
+      }
+
       this._setStatus('connected');
+      this._startMonitor();
+      diag.info('vpn', 'VPN bağlandı ve doğrulandı', { platform: PLATFORM });
       console.log('[VPN] Bağlandı:', profile.name);
       return { success: true, profile: { ...profile, privateKey: '••••••••' } };
 
@@ -376,8 +395,19 @@ PersistentKeepalive = 25
       console.error('[VPN] Disconnect hatası:', e.message);
     }
 
+    // Kesme komutunun sonucuna güvenme — UAC iptal edildiyse tünel hâlâ açıktır.
+    // Eskiden bu durumda da "bağlı değil" deniyordu: kullanıcı VPN'in kapandığını
+    // sanıyor, trafik ise hâlâ tünelden geçiyordu (denetim Y-07).
+    const stillUp = await this._verifyTunnelOnce().catch(() => false);
+    if (stillUp) {
+      diag.warn('vpn', 'Bağlantı kesme tamamlanamadı, tünel hâlâ açık', { platform: PLATFORM });
+      throw new Error('Bağlantı kesilemedi — tünel hâlâ açık. Yönetici onayını verdiğinizden emin olup yeniden deneyin.');
+    }
+
+    this._stopMonitor();
     this.activeProfile = null;
     this._setStatus('disconnected');
+    diag.info('vpn', 'VPN bağlantısı kesildi', { platform: PLATFORM });
   }
 
   async pingProfile(profileId) {
@@ -436,36 +466,179 @@ PersistentKeepalive = 25
   }
 
   getStatus() {
+    const connected = this.status === 'connected' && !!this.activeProfile;
+    // KILL SWITCH — GERÇEK DURUM (denetim Y-06)
+    // Eskiden enableKillSwitch/disableKillSwitch yalnızca bir bayrağı değiştiriyordu
+    // ve hiçbir yerden çağrılmıyordu: güvenlik duvarı kuralı yoktu, tünel düşünce
+    // trafik doğrudan çıkıyordu. Artık yalnızca gerçekten sağlanan koruma bildirilir:
+    //
+    //  • Windows: WireGuard, tek eşin AllowedIPs değeri 0.0.0.0/0 ve ::/0 olduğunda
+    //    tünel dışı trafiği kendi WFP (Windows Filtering Platform) kurallarıyla
+    //    engeller (wireguard-windows, docs/netquirk.md). _generateWgConf tam olarak
+    //    bu yapılandırmayı üretiyor → DOĞRULANMIŞ bağlantı varken koruma etkindir.
+    //  • Linux / macOS (wg-quick): yerleşik böyle bir koruma yok. Tünel düşerse
+    //    trafik korumasız çıkar → "desteklenmiyor" olarak bildirilir.
+    const killSwitchSupported = PLATFORM === 'win32';
     return {
-      status:        this.status,
+      status:        this.status,   // connected | connecting | disconnected | dropped | error
       activeProfile: this.activeProfile ? { ...this.activeProfile, privateKey: '••••••••' } : null,
-      killSwitch:    this.killSwitchOn,
+      killSwitch:    connected && killSwitchSupported,
+      killSwitchSupported,
+      lastDropAt:    this.lastDropAt || null,
       platform:      PLATFORM,
       wgAvailable:   PLATFORM === 'win32' ? !!WG_EXE : true,
     };
   }
 
-  // Kill switch - basitleştirildi
-  async enableKillSwitch(endpoint) { this.killSwitchOn = true; }
-  async disableKillSwitch()        { this.killSwitchOn = false; }
-}
+  // ─── Tünel doğrulama ─────────────────────────────────────────────────────────
+  // Buradaki yöntemlerin hiçbiri yönetici yetkisi GEREKTİRMEZ. `wg show`
+  // gerektirirdi; yetkisiz çalışınca hep "bağlı değil" döneceği için kullanılmıyor.
 
-async function testDnsLeak() {
-  try {
-    const res = await fetch('https://dns.google/resolve?name=whoami.akamai.net&type=A', {
-      headers: { Accept: 'application/dns-json' },
-      signal: AbortSignal.timeout(5000),
-    });
-    const data = await res.json();
-    return { tested: true, results: [{ resolver: 'dns.google', status: 'fulfilled', data }] };
-  } catch (e) {
-    return { tested: false, error: e.message };
+  /** Windows servis durumu: running | starting | stopped | missing | unknown */
+  async _serviceState() {
+    // WireGuard Windows her tüneli "WireGuardTunnel$<ad>" adlı bir servis olarak çalıştırır.
+    try {
+      const { stdout } = await execFileAsync('sc.exe', ['query', 'WireGuardTunnel$sb-vpn'],
+        { windowsHide: true, timeout: 5000 });
+      const out = String(stdout || '');
+      if (out.includes('RUNNING'))       return 'running';
+      if (out.includes('START_PENDING')) return 'starting';
+      if (out.includes('STOP'))          return 'stopped';
+      // Durum sözcükleri beklenmedik biçimdeyse sayısal koda bak (4 = RUNNING).
+      if (/STATE\s*:\s*4\s/.test(out))   return 'running';
+      return 'unknown';
+    } catch (e) {
+      const out = String((e && (e.stdout || e.stderr || e.message)) || '');
+      if (out.includes('1060')) return 'missing';   // ERROR_SERVICE_DOES_NOT_EXIST
+      return 'unknown';
+    }
+  }
+
+  async _verifyTunnelOnce() {
+    if (PLATFORM === 'win32')  return (await this._serviceState()) === 'running';
+    // Linux: arayüz /sys/class/net altında görünür.
+    if (PLATFORM === 'linux')  return fs.existsSync('/sys/class/net/sb-vpn');
+    // macOS: wg-quick gerçek utun adını /var/run/wireguard/<ad>.name içinde tutar.
+    if (PLATFORM === 'darwin') return fs.existsSync('/var/run/wireguard/sb-vpn.name');
+    return false;
+  }
+
+  /** Servisin ayağa kalkması birkaç saniye sürebilir — kısa süre bekleyerek doğrula. */
+  async _verifyTunnel(attempts = 6) {
+    for (let i = 0; i < attempts; i++) {
+      if (PLATFORM === 'win32') {
+        const st = await this._serviceState();
+        if (st === 'running') return true;
+        if (st === 'missing') return false;
+      } else if (await this._verifyTunnelOnce()) {
+        return true;
+      }
+      await new Promise(r => setTimeout(r, 1000));
+    }
+    return false;
+  }
+
+  /** Bağlıyken tüneli izle; beklenmedik düşüşte kullanıcıyı "bağlı" yanılgısında bırakma. */
+  _startMonitor() {
+    this._stopMonitor();
+    this._monitor = setInterval(async () => {
+      if (this.status !== 'connected' || !this.activeProfile || this._checking) return;
+      this._checking = true;
+      try {
+        // Tek başarısız kontrol geçici olabilir (sorgu zaman aşımı) —
+        // düşüş ilan etmeden önce bir kez daha dene.
+        let up = await this._verifyTunnelOnce().catch(() => false);
+        if (!up) {
+          await new Promise(r => setTimeout(r, 2000));
+          up = await this._verifyTunnelOnce().catch(() => false);
+        }
+        if (!up && this.status === 'connected') {
+          this._stopMonitor();
+          this.activeProfile = null;
+          this.lastDropAt = Date.now();
+          diag.warn('vpn', 'Tünel izleme: bağlantı düştü', { platform: PLATFORM });
+          this._setStatus('dropped');
+        }
+      } finally {
+        this._checking = false;
+      }
+    }, 10000);
+    if (this._monitor.unref) this._monitor.unref();
+  }
+
+  _stopMonitor() {
+    if (this._monitor) { clearInterval(this._monitor); this._monitor = null; }
+  }
+
+  /**
+   * Açılışta sistemle eşitle. Uygulama çöktüyse ya da tünel önceki oturumdan
+   * açık kaldıysa arayüz "bağlı değil" derken trafik hâlâ tünelden geçiyor
+   * olabilir. Bu durumda kullanıcının kapatabilmesi için tüneli görünür kıl.
+   */
+  async reconcile() {
+    const up = await this._verifyTunnelOnce().catch(() => false);
+    if (!up || this.activeProfile) return;
+    this.activeProfile = {
+      id: null, name: 'Önceki oturumdan kalan tünel', endpoint: '—',
+      location: '🌐', publicKey: '', privateKey: '', clientIp: '', dns: '',
+    };
+    diag.warn('vpn', 'Açılışta önceki oturumdan kalan açık tünel bulundu', { platform: PLATFORM });
+    this._setStatus('connected');
+    this._startMonitor();
+  }
+
+  // ─── DNS sızıntı testi (denetim Y-08) ───────────────────────────────────────
+  async testDnsLeak() {
+    // Sistem çözümleyicisini (getaddrinfo) kullanan dns.lookup ile Akamai'nin
+    // whoami kaydı sorgulanır; bu kayıt, sorguyu Akamai'ye ileten ÇÖZÜMLEYİCİNİN
+    // IP'sini döndürür. Eski test sorguyu Google DoH üzerinden yaptığı için her
+    // koşulda Google'ın IP'sini görüyor ve hiçbir sızıntıyı yakalayamıyordu.
+    const dnsp = require('dns').promises;
+    const withTimeout = (p, ms) => Promise.race([
+      p, new Promise((_, rej) => setTimeout(() => rej(new Error('zaman aşımı')), ms)),
+    ]);
+
+    let resolverIp = null;
+    try {
+      const r = await withTimeout(dnsp.lookup('whoami.akamai.net', { family: 4 }), 6000);
+      resolverIp = r && r.address;
+    } catch (e) {
+      return { tested: false, error: 'DNS sorgusu başarısız: ' + (e.message || e) };
+    }
+
+    const connected = this.status === 'connected' && !!this.activeProfile;
+    const vpnDns = connected ? String(this.activeProfile.dns || '') : '';
+    let endpointIp = null;
+    if (connected) {
+      const ep = parseEndpoint(this.activeProfile.endpoint);
+      if (ep) {
+        endpointIp = isIpv4(ep.host)
+          ? ep.host
+          : await withTimeout(dnsp.lookup(ep.host, { family: 4 }), 4000).then(r => r.address).catch(() => null);
+      }
+    }
+
+    let verdict;
+    let level;
+    if (!connected) {
+      level = 'info';
+      verdict = 'VPN bağlı değil. DNS sorguları ağınızın çözümleyicisinden geçiyor — bu beklenen durumdur.';
+    } else if (endpointIp && resolverIp === endpointIp) {
+      level = 'ok';
+      verdict = 'Güvenli: DNS sorguları VPN sunucusu üzerinden çıkıyor.';
+    } else {
+      level = 'warn';
+      verdict = 'Kesin doğrulanamadı. Çözümleyici IP: ' + resolverIp +
+        '. Bu IP VPN sağlayıcınıza ya da tünelde tanımlı DNS sunucusuna aitse sorun yok; ' +
+        'internet servis sağlayıcınıza aitse DNS sızıntısı var.';
+    }
+    diag.info('vpn', 'DNS sızıntı testi yapıldı', { level, vpnConnected: connected });
+    return { tested: true, resolverIp, vpnConnected: connected, vpnDns, endpointIp, verdict, level };
   }
 }
 
 module.exports = {
   VpnManager,
-  testDnsLeak,
   // Saf doğrulama yardımcıları — güvenlik sınırını oluşturdukları için
   // testten geçirilebilir olmaları gerekiyor.
   _internals: { parseEndpoint, validateProfileInput, isIpv4, isHost, isAddrCidr, isDnsList, cleanLabel },

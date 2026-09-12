@@ -144,6 +144,22 @@ contextBridge.exposeInMainWorld('secureBrowser', {
     clearSession: ()  => ipcRenderer.invoke('auth-clear-session'),
   },
 
+  // ── Tanılama / hata bildirimi ────────────────────────────────────────────────
+  // Ziyaret geçmişi DEĞİL, uygulamanın kendi sağlığı. Gönderilen her şey
+  // kimliksizleştirilir ve kullanıcı onayına bağlıdır (bkz. diagnostics.js).
+  diag: {
+    reportError:     (info)  => ipcRenderer.send('diag-renderer-error', info),
+    log:             (entry) => ipcRenderer.send('diag-log', entry),
+    getRecent:       (n)     => ipcRenderer.invoke('diag-get-recent', n),
+    getSummary:      ()      => ipcRenderer.invoke('diag-get-summary'),
+    previewReport:   (note)  => ipcRenderer.invoke('diag-preview-report', note),
+    sendReport:      (note)  => ipcRenderer.invoke('diag-send-report', note),
+    exportReport:    (note)  => ipcRenderer.invoke('diag-export-report', note),
+    setConsent:      (v)     => ipcRenderer.invoke('diag-set-consent', v),
+    openLogFolder:   ()      => ipcRenderer.invoke('diag-open-log-folder'),
+    resetIdentity:   ()      => ipcRenderer.invoke('diag-reset-identity'),
+  },
+
   // ── Event Dinleyiciler ───────────────────────────────────────────────────────
   onTabsUpdate:       (cb) => ipcRenderer.on('tabs-update', (e, data) => cb(data)),
   onActiveUrl:        (cb) => ipcRenderer.on('active-url',  (e, url)  => cb(url)),

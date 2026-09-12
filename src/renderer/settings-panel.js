@@ -266,6 +266,7 @@ function injectSettingsPanelHTML() {
       <button class="settings-tab" data-tab="general">⚙ Genel</button>
       <button class="settings-tab" data-tab="privacy">🛡 Gizlilik</button>
       <button class="settings-tab" data-tab="passwords">🔑 Şifreler</button>
+      <button class="settings-tab" data-tab="diag">🩺 Tanılama</button>
     </div>
     <div class="settings-unsaved-bar" id="settings-unsaved-bar">
       <span>⚠ Kaydedilmemiş değişiklikler var</span>
@@ -497,12 +498,11 @@ function renderPrivacyTab(cfg) {
     </div>`;
   return `
     <div class="settings-section"><h3>Tracker & Reklam</h3>
-      ${row('cfg-tracker','Tracker Engelleme','200+ tracker domain',cfg.blockTrackers!==false)}
+      ${row('cfg-tracker','İzleyici Engelleme','Bilinen izleyici alan adlarına istekler engellenir',cfg.blockTrackers!==false)}
       ${row('cfg-ads','Reklam Engelleme','Reklam sunucuları bloke',cfg.blockAds!==false)}
     </div>
     <div class="settings-section"><h3>Fingerprint & Kimlik</h3>
-      ${row('cfg-fp','Fingerprint Koruması','Parmak izi maskelenir',cfg.fingerprintProtection!==false)}
-      ${row('cfg-ua','User-Agent Rotasyonu','Her oturumda farklı UA',cfg.userAgentRotation!==false)}
+      ${row('cfg-fp','IP Başlıklarını Gizle','Proxy/IP başlıkları (X-Forwarded-For, Via) gönderilmez',cfg.fingerprintProtection!==false)}
       ${row('cfg-https-only','Yalnızca HTTPS','HTTP sitelere güvenli bağlan',cfg.httpsOnly)}
       ${row('cfg-dnt','Do Not Track','Takip etme sinyali gönder',cfg.doNotTrack)}
     </div>
@@ -639,10 +639,13 @@ function renderSettingsTab(tabId, cfg) {
   else if (tabId==='general')       content.innerHTML = renderGeneralTab(cfg);
   else if (tabId==='privacy')       content.innerHTML = renderPrivacyTab(cfg);
   else if (tabId==='passwords')     content.innerHTML = renderPasswordsTab();
+  else if (tabId==='diag')          content.innerHTML = window.ilgezdiDiagPanel?.render?.()
+                                      || '<p class="s-hint">Tanılama modülü yüklenemedi.</p>';
   if (tabId==='customization') { bindCustomizationEvents(); updatePreviewBox(); }
   if (tabId==='account')       bindAccountEvents();
   if (tabId==='general')       bindGeneralEvents();
   if (tabId==='passwords')     bindPasswordEvents();
+  if (tabId==='diag')          window.ilgezdiDiagPanel?.bind?.();
 }
 
 // ─── Hesap sekmesi (QRtım / e-posta girişi) ───────────────────────────────────
@@ -910,7 +913,6 @@ function initSettingsPanelEvents() {
       blockTrackers:         document.getElementById('cfg-tracker')?.checked         ?? true,
       blockAds:              document.getElementById('cfg-ads')?.checked             ?? true,
       fingerprintProtection: document.getElementById('cfg-fp')?.checked              ?? true,
-      userAgentRotation:     document.getElementById('cfg-ua')?.checked              ?? true,
       httpsOnly:             document.getElementById('cfg-https-only')?.checked      ?? false,
       doNotTrack:            document.getElementById('cfg-dnt')?.checked             ?? false,
       logEnabled:            document.getElementById('cfg-log')?.checked             ?? true,

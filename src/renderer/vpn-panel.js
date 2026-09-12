@@ -232,10 +232,31 @@ function renderVpnStatus(status) {
     toggleBtn.disabled  = false;
   }
 
-  // Kill switch
+  // Tünel beklenmedik şekilde koptuysa bunu açıkça söyle — "Bağlı Değil" ile
+  // "bağlantın koptu, şu an korumasızsın" aynı şey değil.
+  if (status.status === 'dropped') {
+    icon.textContent = '⚠️';
+    text.textContent = 'Bağlantı koptu';
+    sub.textContent  = 'VPN tüneli beklenmedik şekilde kapandı — trafiğiniz korumasız.';
+  }
+
+  // Kill switch — GERÇEK durum (denetim Y-06). Eskiden vpn-manager'da hiçbir şey
+  // yapmayan bir bayraktı. Artık yalnızca doğrulanmış tünel + koruma sağlayan
+  // platform varsa "Aktif" gösterilir (bkz. vpn-manager.js getStatus notu).
   if (ksStatus) {
-    ksStatus.textContent = status.killSwitch ? 'Aktif' : 'Kapalı';
-    ksStatus.className   = `ks-badge ${status.killSwitch ? 'on' : 'off'}`;
+    if (status.killSwitch) {
+      ksStatus.textContent = 'Aktif';
+      ksStatus.className   = 'ks-badge on';
+      ksStatus.title       = 'WireGuard, tünel dışındaki trafiği güvenlik duvarı kurallarıyla engelliyor.';
+    } else if (status.killSwitchSupported === false) {
+      ksStatus.textContent = 'Bu platformda yok';
+      ksStatus.className   = 'ks-badge off';
+      ksStatus.title       = 'Bu işletim sisteminde tünel düşerse trafik korumasız çıkar.';
+    } else {
+      ksStatus.textContent = 'Kapalı';
+      ksStatus.className   = 'ks-badge off';
+      ksStatus.title       = 'Kill switch yalnızca VPN bağlıyken etkindir.';
+    }
   }
 
   // Başlık çubuğu VPN göstergesi güncelle
@@ -254,6 +275,9 @@ function renderVpnProfiles(profiles, pings = {}) {
     return;
   }
 
+  // Profil adı/konum/endpoint kullanıcıdan ya da yapıştırılan bir yapılandırmadan
+  // geliyor — kaçışlanır (denetim Y-04).
+  const H = window.ilgezdiHtml;
   list.innerHTML = profiles.map(p => {
     const ping      = pings[p.id] || p.ping;
     const pingClass = !ping ? '' : ping < 80 ? 'ping-good' : ping < 150 ? 'ping-mid' : 'ping-bad';
@@ -262,10 +286,10 @@ function renderVpnProfiles(profiles, pings = {}) {
 
     return `
       <div class="vpn-profile-item ${isActive ? 'active-vpn' : ''}" data-id="${p.id}">
-        <div class="profile-location">${p.location || '🌐'}</div>
+        <div class="profile-location">${H.esc(p.location || '🌐')}</div>
         <div class="profile-info">
-          <div class="profile-name">${p.name}</div>
-          <div class="profile-endpoint">${p.endpoint}</div>
+          <div class="profile-name">${H.esc(p.name)}</div>
+          <div class="profile-endpoint">${H.esc(p.endpoint)}</div>
         </div>
         <div class="profile-ping ${pingClass}">${pingText}</div>
         <div class="profile-actions">
@@ -364,14 +388,20 @@ function initVpnPanelEvents() {
     res.textContent = 'Sorgu gönderiliyor...';
 
     const result = await sb.vpn.testDnsLeak();
-    if (result.tested) {
-      res.textContent = 'DNS Test Sonuçları:\n' +
-        result.results.map(r =>
-          `${r.status === 'fulfilled' ? '✓' : '✗'} ${r.resolver.split('/')[2]}`
-        ).join('\n') +
-        '\n\nTüm sorgular VPN üzerinden geçiyorsa güvenlisiniz.';
+    // Sonuç textContent ile yazılır — çözümleyici IP'si dış kaynaklı veri.
+    if (result && result.tested) {
+      const mark = result.level === 'ok' ? '✓' : result.level === 'warn' ? '⚠' : 'ℹ';
+      res.textContent =
+        mark + ' ' + result.verdict + '\n\n' +
+        'Çözümleyici IP: ' + (result.resolverIp || '—') + '\n' +
+        'VPN: ' + (result.vpnConnected ? 'bağlı' : 'bağlı değil') +
+        (result.vpnDns ? '\nTünel DNS: ' + result.vpnDns : '');
+      res.style.color = result.level === 'ok'   ? 'var(--success)'
+                      : result.level === 'warn' ? 'var(--warning)'
+                      :                           'var(--text-secondary)';
     } else {
-      res.textContent = 'Test yapılamadı: ' + (result.error || 'Bağlantı yok');
+      res.textContent = '✗ Test yapılamadı: ' + ((result && result.error) || 'bilinmeyen hata');
+      res.style.color = 'var(--danger)';
     }
     btn.textContent = '🔍 DNS Sızıntı Testi';
     btn.disabled = false;

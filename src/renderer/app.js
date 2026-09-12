@@ -228,16 +228,30 @@ function updateAddressBar(url) {
 
 // ─── Koruma Durumu ────────────────────────────────────────────────────────────
 async function loadShield() {
-  const cfg   = await sb.getConfig();
-  const stats = await sb.getBlockedStats();
+  // GERÇEK DURUM (denetim O-06). Eskiden bu panel yapılandırma BAYRAKLARINI koruma
+  // gibi gösteriyordu: kaldırılmış UA rotasyonu "✓ Aktif", VPN bağlantısı yerine
+  // vpnEnabled ayarı, engellenen istek sayısı ise hiç yazılmayan ölü bir tablodan
+  // (hep 0). Artık her satır çalışma zamanındaki gerçek kaynaktan okunuyor.
+  const [cfg, vpn, block, logStats] = await Promise.all([
+    sb.getConfig(),
+    sb.vpn?.getStatus?.().catch(() => null),
+    sb.blocker?.getStats?.().catch(() => null),
+    sb.logs?.getStats?.().catch(() => null),
+  ]);
+  const H = window.ilgezdiHtml;
+  const vpnOn = vpn?.status === 'connected';
 
   const items = [
-    { name: 'VPN Bağlantısı',       on: cfg.vpnEnabled },
-    { name: 'Tracker Engelleme',    on: cfg.blockTrackers },
-    { name: 'Reklam Engelleme',     on: cfg.blockAds },
-    { name: 'Fingerprint Koruması', on: cfg.fingerprintProtection },
-    { name: 'User-Agent Rotasyonu', on: cfg.userAgentRotation },
-    { name: 'Ziyaret Logları',      on: cfg.logEnabled },
+    { name: 'VPN Bağlantısı', on: vpnOn,
+      note: vpnOn ? '' : (vpn?.status === 'dropped' ? 'bağlantı koptu' : 'bağlı değil') },
+    { name: 'Kill Switch', on: !!vpn?.killSwitch,
+      note: vpn?.killSwitchSupported === false ? 'bu platformda yok' : (vpnOn ? '' : 'VPN kapalı') },
+    { name: 'İzleyici Engelleme', on: cfg.blockTrackers !== false },
+    { name: 'Reklam Engelleme',   on: cfg.blockAds !== false },
+    { name: 'Yalnızca HTTPS',     on: !!cfg.httpsOnly },
+    { name: 'Şifreli Ziyaret Günlüğü',
+      on: cfg.logEnabled !== false && logStats?.encrypted !== false,
+      note: cfg.logEnabled === false ? 'kapalı' : (logStats?.encrypted === false ? 'şifreleme kullanılamıyor' : '') },
   ];
   const activeCount = items.filter(i => i.on).length;
 
@@ -251,12 +265,12 @@ async function loadShield() {
         ${activeCount}/${items.length} Koruma Aktif
       </div>
       <div style="font-size:12px;color:var(--text-muted);margin-top:4px">
-        Bugün ${stats.today || 0} istek engellendi
+        Bugün ${Number(block?.today) || 0} istek engellendi
       </div>
     </div>
     ${items.map(item => `
       <div class="shield-item">
-        <span class="shield-name">${item.name}</span>
+        <span class="shield-name">${H.esc(item.name)}${item.note ? ` <span style="color:var(--text-muted);font-size:11px">· ${H.esc(item.note)}</span>` : ''}</span>
         <span class="shield-status ${item.on ? 'status-on' : 'status-off'}">
           ${item.on ? '✓ Aktif' : '✗ Kapalı'}
         </span>
@@ -384,7 +398,9 @@ function initNewTabEvents() {
 document.addEventListener('DOMContentLoaded', async () => {
 
   currentConfig = await sb.getConfig();
-  updateVpnIndicator(currentConfig.vpnEnabled);
+  // Göstergeyi yapılandırma bayrağından değil GERÇEK bağlantı durumundan başlat.
+  updateVpnIndicator(false);
+  sb.vpn?.getStatus?.().then((st) => updateVpnIndicator(st?.status === 'connected')).catch(() => {});
 
   // Pencere kontrol stili (macOS / Windows)
   const wcStyle = currentConfig.windowControlStyle || 'windows';
@@ -529,12 +545,21 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (!authVisible) sb.showActiveTab?.();
     }
   });
-  sb.onVpnStatus?.((data) => updateVpnIndicator(data.connected));
+  // getStatus() { status, … } döndürür; `connected` diye bir alan YOKTU —
+  // başlık çubuğundaki gösterge bu yüzden hiç yanmıyordu (denetim D-01).
+  sb.onVpnStatus?.((data) => updateVpnIndicator(data?.status === 'connected'));
 
   // ── Klavye kısayolları ────────────────────────────────────────────────────
   document.addEventListener('keydown', (e) => {
-    if (e.ctrlKey && e.key === 't') { e.preventDefault(); openNewTab(); }
-    if (e.ctrlKey && e.key === 'w') {
+    // e.key CapsLock/Shift ile büyük harf gelir — küçük harfe indirerek karşılaştır.
+    // Shift'li varyantlar (Ctrl+Shift+L = günlük, Ctrl+Shift+N = gizli) ayrı işlenir.
+    const k = String(e.key || '').toLowerCase();
+    if (e.ctrlKey && !e.shiftKey && k === 't') { e.preventDefault(); openNewTab(); }
+    if (e.ctrlKey && !e.shiftKey && k === 'd') {
+      e.preventDefault();
+      document.getElementById('btn-bookmark-star')?.click();
+    }
+    if (e.ctrlKey && !e.shiftKey && k === 'w') {
       e.preventDefault();
       const active = currentTabs.find(t => t.isActive);
       if (active) sb.closeTab(active.id);
@@ -542,7 +567,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (e.ctrlKey && e.shiftKey && (e.key === 'N' || e.key === 'n')) {
       e.preventDefault(); sb.openIncognito();
     }
-    if (e.ctrlKey && e.key === 'l') { e.preventDefault(); addressBar?.focus(); }
+    if (e.ctrlKey && !e.shiftKey && k === 'l') { e.preventDefault(); addressBar?.focus(); }
     if (e.key === 'F5')              { e.preventDefault(); sb.reload(); }
     if (e.altKey && e.key === 'ArrowLeft')  { e.preventDefault(); sb.goBack(); }
     if (e.altKey && e.key === 'ArrowRight') { e.preventDefault(); sb.goForward(); }
@@ -554,6 +579,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Marka logolarını enjekte et (toolbar + auth)
   injectBrandMarks();
+
+  // Durum çubuğundaki sürüm — eskiden index.html'e sabit "v0.6" yazılıydı (D-02).
+  sb.updater?.currentVersion?.().then((v) => {
+    const el = document.getElementById('status-version');
+    if (el && v) el.textContent = 'İlgezdi v' + v;
+  }).catch(() => {});
 
   // İlk açılışta yeni sekme ekranını göster
   showScreen('newtab', renderNewTab);

@@ -9,13 +9,14 @@ const path = require('path');
 const fs   = require('fs');
 
 const { SecureLogManager } = require('./secure-log-manager');
-const { VpnManager, testDnsLeak } = require('./vpn-manager');
+const { VpnManager } = require('./vpn-manager');
 const { attachBlocker, shouldBlockUrl, updateBlockerConfig, getBlockStats } = require('./blocker-main');
 const { setupGlance } = require('./glance-main');
 const { setupArku } = require('./arku-manager');
 const { setupBookmarkImport } = require('./bookmark-import');
 const { setupPasswordManager, getForOrigin } = require('./password-manager');
 const { setupAutoUpdater } = require('./auto-updater');
+const { setupDiagnostics, log: diag, logError } = require('./diagnostics');
 
 let incognitoWindow = null;
 
@@ -45,6 +46,10 @@ const DEFAULT_CONFIG = {
   blockAds:              true,
   blockLevel:            'medium',   // low | medium | high | full
   whitelist:             [],         // engellemenin kapatıldığı alan adları
+  // Tanılama: undefined = henüz sorulmadı, true/false = kullanıcı kararı.
+  // Varsayılan olarak KAPALI kabul edilir (açık rıza olmadan gönderim yok).
+  diagnosticsConsent:    undefined,
+  diagnosticsEndpoint:   'https://ilgezdi.vercel.app/api/diag',
   fingerprintProtection: true,
   dnsServer:             '1.1.1.1',
   userAgentRotation:     true,
@@ -710,7 +715,8 @@ ipcMain.handle('vpn-disconnect', async () => {
 });
 ipcMain.handle('vpn-get-status',    ()     => vpnManager?.getStatus() || { status: 'disconnected' });
 ipcMain.handle('vpn-ping-all',      async () => vpnManager?.pingAllProfiles() || {});
-ipcMain.handle('vpn-test-dns-leak', async () => testDnsLeak());
+ipcMain.handle('vpn-test-dns-leak', async () =>
+  vpnManager ? vpnManager.testDnsLeak() : { tested: false, error: 'VPN modülü hazır değil' });
 
 // Faz 3 — Şifreli Loglar
 ipcMain.handle('logs-get-stats',  ()            => secureLog?.getStats() || {});
@@ -798,7 +804,9 @@ ipcMain.handle('clear-all', async (event) => {
 });
 
 ipcMain.handle('show-notification', (e, { title, body }) => {
-  if (!config.vpnNotify) return;
+  // Genel bildirim anahtarı da dikkate alınır — eskiden yalnızca vpnNotify'a
+  // bakılıyor, Ayarlar'daki "Bildirimler" anahtarı hiçbir etki yapmıyordu.
+  if (config.notifications === false || config.vpnNotify === false) return;
   const { Notification } = require('electron');
   if (Notification.isSupported()) {
     new Notification({ title, body, icon: path.join(__dirname, '../renderer/assets/ilgezdi-logo.png') }).show();
@@ -944,11 +952,38 @@ ipcMain.on('window-close', (event) => {
 app.whenReady().then(() => {
   // Windows: görev çubuğu / bildirimlerde doğru uygulama kimliği + ikon eşleşmesi
   if (process.platform === 'win32') app.setAppUserModelId('com.ilgezdi.browser');
+
+  // Tanılama İLK kurulur: bundan sonraki her kurulum adımında oluşan hata
+  // yakalanıp günlüğe yazılabilsin. (Çökme yakalayıcıları da burada takılıyor.)
+  setupDiagnostics(ipcMain, {
+    userDataPath:  USER_DATA,
+    getConfig:     () => config,
+    saveConfig:    (cfg) => { config = cfg; saveConfig(config); },
+    getMainWindow: () => mainWindow,
+  });
+
   initDB();
   vpnManager = new VpnManager(USER_DATA);
+  // Önceki oturumdan açık kalmış tüneli bul — yoksa arayüz "bağlı değil" derken
+  // trafik tünelden geçmeye devam eder ve kullanıcı kapatamaz.
+  vpnManager.reconcile().catch(() => {});
   secureLog  = new SecureLogManager(USER_DATA);
 
   vpnManager.onStatusChange(() => {
+    // Tünel beklenmedik şekilde düştüyse kullanıcı arayüze bakmıyor olabilir —
+    // sistem bildirimiyle haber ver. (Tanılamaya vpn-manager içinde yazılıyor.)
+    if (vpnManager.status === 'dropped' && config.notifications !== false && config.vpnNotify !== false) {
+      try {
+        const { Notification } = require('electron');
+        if (Notification.isSupported()) {
+          new Notification({
+            title: 'VPN bağlantısı koptu',
+            body:  'Tünel beklenmedik şekilde kapandı. Trafiğiniz şu anda VPN ile korunmuyor.',
+            icon:  path.join(__dirname, '../renderer/assets/ilgezdi-logo.png'),
+          }).show();
+        }
+      } catch {}
+    }
     mainWindow?.webContents.send('vpn-status', vpnManager.getStatus());
     if (incognitoWindow && !incognitoWindow.isDestroyed()) {
       incognitoWindow.webContents.send('vpn-status', vpnManager.getStatus());
