@@ -4,7 +4,8 @@
  * Arku, tarayıcıya gömülü bir web mini-uygulaması olarak çalışır
  * (https://arku-remote.vercel.app). Bu modül, eklenti mantığıyla:
  *   - Kurulu (kabul edilmiş) Arku sürümünü userData/arku-app.json'da tutar,
- *   - GitHub Releases üzerinden yeni sürümü arka planda denetler,
+ *   - GitHub Releases üzerinden yeni sürümü arka planda denetler
+ *     (yalnızca kullanıcı Arku'yu en az bir kez açtıysa — gizlilik),
  *   - Yeni sürüm bulununca renderer'a bildirir (arku-update-available),
  *   - Kullanıcı ONAY verince açık Arku sekmelerini önbelleği atlayarak
  *     yeniler ve sürüm kaydını günceller. Onay olmadan hiçbir şey değişmez.
@@ -21,7 +22,7 @@ const CHECK_INTERVAL   = 6 * 60 * 60 * 1000; // 6 saat
 const FIRST_CHECK_MS   = 30 * 1000;          // açılıştan 30 sn sonra ilk denetim
 
 let statePath = null;
-let arkuState = { installedVersion: null, lastCheckAt: null };
+let arkuState = { installedVersion: null, lastCheckAt: null, openedAt: null };
 let latestKnown = null;   // son denetimde görülen sürüm
 let notifiedFor = null;   // aynı sürüm için tek bildirim
 let deps = null;          // { getMainWindow, forEachTabView }
@@ -124,12 +125,22 @@ function setupArku(ipcMain, options) {
   loadState();
 
   ipcMain.handle('arku-get-info',     () => getInfo());
-  ipcMain.handle('arku-open-url',     () => ARKU_URL);
+  ipcMain.handle('arku-open-url',     () => {
+    // Kullanıcı Arku'yu açtı → arka plan sürüm denetimi artık anlamlı.
+    if (!arkuState.openedAt) { arkuState.openedAt = Date.now(); saveState(); }
+    return ARKU_URL;
+  });
   ipcMain.handle('arku-check-update', () => checkForUpdate({ notify: false }));
   ipcMain.handle('arku-apply-update', () => applyUpdate());
 
-  setTimeout(() => checkForUpdate(), FIRST_CHECK_MS);
-  setInterval(() => checkForUpdate(), CHECK_INTERVAL);
+  // GİZLİLİK (denetim O-17): Eskiden bu denetim kullanıcı Arku'yu HİÇ açmasa bile
+  // açılıştan 30 sn sonra ve 6 saatte bir GitHub API'sine gidiyordu — kullanılmayan
+  // bir eklenti için kullanıcının IP'si düzenli olarak dışarıya bildiriliyordu.
+  // Artık arka plan denetimi yalnızca Arku en az bir kez açıldıysa çalışır; panel
+  // üzerinden elle denetim (arku-check-update) her zaman çalışır.
+  const backgroundCheck = () => { if (arkuState.openedAt) checkForUpdate(); };
+  setTimeout(backgroundCheck, FIRST_CHECK_MS);
+  setInterval(backgroundCheck, CHECK_INTERVAL);
 }
 
 module.exports = { setupArku, ARKU_URL };
