@@ -4,7 +4,12 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta http-equiv="Content-Security-Policy"
-      content="default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self'; img-src * data: blob: 'self'; connect-src 'self' https://*.supabase.co;" />
+      content="default-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; script-src 'self'; img-src * data: blob: 'self'; connect-src 'self' https://*.supabase.co; base-uri 'none'; object-src 'none'; frame-src 'none';" />
+  <!-- CSP notları:
+       • font-src/style-src artık yalnızca 'self' — yazı tipleri yerel (O-17).
+       • base-uri 'none': base-uri default-src'ye DÜŞMEZ; tanımlanmazsa enjekte
+         edilen bir <base href> göreli bağlantıları ele geçirebilirdi (Y-04).
+       • object-src / frame-src 'none': arayüz eklenti ya da iframe kullanmıyor. -->
   <title>İlgezdi</title>
   <link rel="stylesheet" href="styles/tokens/primitives.css" />
   <link rel="stylesheet" href="styles/main.css" />

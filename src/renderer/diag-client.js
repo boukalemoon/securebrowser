@@ -66,6 +66,21 @@
     });
   });
 
+  // ── CSP ihlalleri ──────────────────────────────────────────────────────────
+  // CSP sıkılaştırıldıkça (font-src, base-uri, frame-src…) engellenen bir kaynak
+  // JS hatası ÜRETMEZ: tarayıcı bunu yalnızca DevTools konsoluna yazar ve özellik
+  // sessizce "çalışmıyor" olarak kalır. Tam da bu tür görünmez bozulmayı
+  // yakalamak için tanılama günlüğüne alınır.
+  document.addEventListener('securitypolicyviolation', (e) => {
+    const key = 'csp:' + e.violatedDirective + ':' + (e.blockedURI || '');
+    if (!shouldReport(key)) return;
+    sb.diag.log({
+      level: 'warn', cat: 'csp',
+      msg: 'CSP ihlali: ' + e.violatedDirective,
+      data: { blocked: e.blockedURI || '', source: e.sourceFile || '', line: e.lineNumber || 0 },
+    });
+  });
+
   // ── Arayüz kodundan çağrılabilen yapılandırılmış logger ────────────────────
   // Kullanım: ilgezdiLog.warn('bookmarks', 'içe aktarma boş döndü', { count: 0 })
   window.ilgezdiLog = {

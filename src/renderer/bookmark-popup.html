@@ -3,11 +3,14 @@
 <head>
   <meta charset="UTF-8" />
   <meta http-equiv="Content-Security-Policy"
-    content="default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self' 'unsafe-inline';" />
+    content="default-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; script-src 'self' 'unsafe-inline'; base-uri 'none'; object-src 'none';" />
   <!-- NOT (denetim D-04): Bu <meta> etiketi eskiden kapatılmamıştı. Ayrıştırıcı
        aşağıdaki <link> etiketini meta'nın özniteliği sanıp yutuyor, yazı tipi
        hiç yüklenmiyordu. -->
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Space+Mono&display=swap" rel="stylesheet" />
+  <!-- Yazı tipleri yerel (O-17). Eski bağlantı Google'dan DM Sans + Space Mono
+       istiyordu, ama bu popup'ın CSS'i Inter kullanıyor — yüklenen yazı tipi
+       hiç kullanılmıyordu. -->
+  <link href="styles/fonts.css" rel="stylesheet" />
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
 

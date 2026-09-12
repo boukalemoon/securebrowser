@@ -3,7 +3,9 @@
    Yeni sistem: --gold, --ink, --bg tabanlı + eski alias'lar
    ═══════════════════════════════════════════════════════════════ */
 
-@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700;800&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&family=Noto+Sans+Old+Turkic&display=swap');
+/* Yazı tipleri YEREL (denetim O-17) — eskiden fonts.googleapis.com'dan çekiliyor,
+   her açılışta kullanıcının IP'si Google'a gidiyordu. Ayrıntı: ../fonts.css */
+@import url('../fonts.css');
 
 /* ── Ötüken Kayalıkları — koyu lacivert (varsayılan) ─────────── */
 :root,
