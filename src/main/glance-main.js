@@ -1,6 +1,16 @@
 /**
  * İlgezdi — Glance Özelliği (Main Process)
  * glance-main.js
+ *
+ * Denetim düzeltmeleri (O-10):
+ *   • Glance içindeki HER gezinme `did-finish-load` tetikliyor ve her seferinde
+ *     YENİ bir 200 ms'lik buton yoklaması başlıyordu; eskiler durmadığı için
+ *     birikiyordu. Artık glance başına tek yoklama var, kapanışta temizleniyor.
+ *   • `glance-loaded` her yüklemede gönderiliyordu; arayüz her seferinde yeni
+ *     bir kaplama/araç çubuğu ekleyip üst üste bindiriyordu. Yalnızca ilk yüklemede.
+ *   • `did-fail-load` alt çerçeveler ve normal yönlendirme iptalleri (-3) için de
+ *     tetikleniyor, açık ve çalışan glance'te "Sayfa yüklenemedi" gösteriyordu.
+ *   • Araç çubuğu sayfaya innerHTML ile basılan başlıktan kuruluyordu; textContent.
  */
 
 'use strict';
@@ -10,6 +20,58 @@ const { BrowserView, BrowserWindow } = require('electron');
 let glanceView = null;
 let glanceWin  = null;
 let glanceOpen = false;
+let glancePoll = null;    // glance başına TEK buton yoklaması
+let glanceShown = false;  // arayüze glance-loaded yalnızca bir kez
+
+function stopPoll() {
+  if (glancePoll) { clearInterval(glancePoll); glancePoll = null; }
+}
+
+// Sayfaya enjekte edilen araç çubuğu. Sayfa bağlamında çalışır (ayrıcalıksız);
+// yine de başlık/host textContent ile yazılır.
+const TOOLBAR_SCRIPT = `
+  (function() {
+    if (document.getElementById('__ilgezdi_glance_bar')) return;
+
+    var bar = document.createElement('div');
+    bar.id = '__ilgezdi_glance_bar';
+    bar.style.cssText = [
+      'position:fixed','top:0','left:0','right:0','height:36px',
+      'background:#111827','border-bottom:1px solid #00d4ff',
+      'display:flex','align-items:center','justify-content:space-between',
+      'padding:0 12px','z-index:2147483647','font-family:sans-serif',
+      'box-shadow:0 2px 12px rgba(0,212,255,0.2)'
+    ].join(';');
+
+    var left = document.createElement('div');
+    left.style.cssText = 'display:flex;align-items:center;gap:8px;overflow:hidden;flex:1';
+    var eye = document.createElement('span'); eye.style.fontSize = '14px'; eye.textContent = '👁';
+    var host = document.createElement('span');
+    host.style.cssText = 'font-size:11px;color:#8892a4;font-family:monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
+    host.textContent = document.location.hostname;
+    var title = document.createElement('span');
+    title.style.cssText = 'font-size:11px;color:#e8eaf6;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
+    title.textContent = String(document.title || '').substring(0, 60);
+    left.appendChild(eye); left.appendChild(host); left.appendChild(title);
+
+    var right = document.createElement('div');
+    right.style.cssText = 'display:flex;gap:6px;flex-shrink:0';
+    var openBtn = document.createElement('button');
+    openBtn.style.cssText = 'padding:4px 10px;border:1px solid #1e2d45;border-radius:4px;background:#1c2333;color:#8892a4;font-size:11px;cursor:pointer';
+    openBtn.textContent = '⊕ Sekmeye Aç';
+    openBtn.onclick = function() { window.__glanceOpenTab = true; };
+    var closeBtn = document.createElement('button');
+    closeBtn.style.cssText = 'width:26px;height:26px;border:1px solid #1e2d45;border-radius:50%;background:#1c2333;color:#8892a4;font-size:12px;cursor:pointer';
+    closeBtn.textContent = '✕';
+    closeBtn.onclick = function() { window.__glanceClose = true; };
+    right.appendChild(openBtn); right.appendChild(closeBtn);
+
+    bar.appendChild(left); bar.appendChild(right);
+    document.documentElement.style.paddingTop = '36px';
+    if (document.body) document.body.style.paddingTop = '0';
+    document.documentElement.insertBefore(bar, document.documentElement.firstChild);
+  })();
+`;
 
 // Glance'i tetikleyen pencerede (ana ya da incognito) açılmalı — sabit mainWindow değil.
 function setupGlance(mainWindow, ipcMain) {
@@ -23,7 +85,7 @@ function setupGlance(mainWindow, ipcMain) {
   };
   bindAutoClose(mainWindow);
 
-  ipcMain.handle('glance-open', (event, { url, triggerX, triggerY }) => {
+  ipcMain.handle('glance-open', (event, { url, triggerX, triggerY } = {}) => {
     // Uzak içerik yüklenecek — yalnızca http(s) kabul et
     if (typeof url !== 'string' || !/^https?:\/\//i.test(url)) return { ok: false };
     if (glanceOpen) closeGlance();
@@ -36,8 +98,8 @@ function setupGlance(mainWindow, ipcMain) {
     const PH = Math.min(560, winBounds.height - 160);
     const CHROME_H = 122;
 
-    let px = Math.round(triggerX - PW / 2);
-    let py = Math.round(triggerY + 50);
+    let px = Math.round((Number(triggerX) || 0) - PW / 2);
+    let py = Math.round((Number(triggerY) || 0) + 50);
 
     if (px < 10) px = 10;
     if (px + PW > winBounds.width  - 10) px = winBounds.width  - PW - 10;
@@ -51,94 +113,66 @@ function setupGlance(mainWindow, ipcMain) {
         sandbox: true,
         // Sekmelerle aynı session: engelleyici + izin yöneticisi burada da geçerli
         partition: 'persist:securebrowser',
+      },
+    });
+    const view = glanceView;       // bu glance'e ait referans (kapanış yarışlarına karşı)
+    glanceShown = false;
+
+    view.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+    win.addBrowserView(view);
+    view.setBounds({ x: px, y: py, width: PW, height: PH });
+    view.setAutoResize({ width: false, height: false });
+    view.webContents.loadURL(url).catch(() => {});
+    glanceOpen = true;
+
+    view.webContents.on('did-finish-load', () => {
+      if (glanceView !== view) return;       // bu arada kapandı/yenisi açıldı
+
+      // Araç çubuğu her yüklemede yeniden gerekir (gezinme DOM'u değiştirir)
+      view.webContents.executeJavaScript(TOOLBAR_SCRIPT).catch(() => {});
+
+      // Arayüz kaplamasını YALNIZCA ilk yüklemede kur — sonraki gezinmelerde
+      // tekrar göndermek üst üste binen kaplamalar oluşturuyordu.
+      if (!glanceShown) {
+        glanceShown = true;
+        win.webContents.send('glance-loaded', {
+          url: view.webContents.getURL(),
+          title: view.webContents.getTitle(),
+          x: px, y: py, width: PW, height: PH,
+        });
+      }
+
+      // Buton yoklaması: glance başına TEK tane
+      if (!glancePoll) {
+        glancePoll = setInterval(async () => {
+          if (glanceView !== view || !glanceOpen) { stopPoll(); return; }
+          try {
+            const r = await view.webContents.executeJavaScript(
+              '(function(){ var c=!!window.__glanceClose, o=!!window.__glanceOpenTab;' +
+              ' window.__glanceClose=false; window.__glanceOpenTab=false; return {c:c,o:o}; })()'
+            );
+            if (r && r.c) {
+              closeGlance();
+            } else if (r && r.o) {
+              const tabUrl = view.webContents.getURL();
+              closeGlance();
+              if (win && !win.isDestroyed()) win.webContents.send('glance-new-tab', { url: tabUrl });
+            }
+          } catch {
+            // Sayfa gezinme ortasındaysa executeJavaScript başarısız olabilir — geçici,
+            // yoklamayı DURDURMA (eskiden durduruyordu ve düğmeler ölü kalıyordu).
+          }
+        }, 250);
+        if (glancePoll.unref) glancePoll.unref();
       }
     });
 
-    glanceView.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
-    win.addBrowserView(glanceView);
-    // Toolbar için 36px boşluk bırak üstte
-    glanceView.setBounds({ x: px, y: py, width: PW, height: PH });
-    glanceView.setAutoResize({ width: false, height: false });
-    glanceView.webContents.loadURL(url);
-    glanceOpen = true;
-
-    glanceView.webContents.on('did-finish-load', () => {
-      if (!glanceView) return;
-
-      const title = glanceView.webContents.getTitle();
-      const currentUrl = glanceView.webContents.getURL();
-
-      // Toolbar'ı BrowserView içine inject et
-      glanceView.webContents.executeJavaScript(`
-        (function() {
-          if (document.getElementById('__ilgezdi_glance_bar')) return;
-
-          var bar = document.createElement('div');
-          bar.id = '__ilgezdi_glance_bar';
-          bar.style.cssText = [
-            'position:fixed','top:0','left:0','right:0','height:36px',
-            'background:#111827','border-bottom:1px solid #00d4ff',
-            'display:flex','align-items:center','justify-content:space-between',
-            'padding:0 12px','z-index:2147483647','font-family:sans-serif',
-            'box-shadow:0 2px 12px rgba(0,212,255,0.2)'
-          ].join(';');
-
-          bar.innerHTML = [
-            '<div style="display:flex;align-items:center;gap:8px;overflow:hidden;flex:1">',
-              '<span style="font-size:14px">👁</span>',
-              '<span style="font-size:11px;color:#8892a4;font-family:monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">',
-                document.location.hostname,
-              '</span>',
-              '<span style="font-size:11px;color:#e8eaf6;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">',
-                document.title.substring(0, 60),
-              '</span>',
-            '</div>',
-            '<div style="display:flex;gap:6px;flex-shrink:0">',
-              '<button id="__glance_newtab" style="padding:4px 10px;border:1px solid #1e2d45;border-radius:4px;background:#1c2333;color:#8892a4;font-size:11px;cursor:pointer">⊕ Sekmeye Aç</button>',
-              '<button id="__glance_close" style="width:26px;height:26px;border:1px solid #1e2d45;border-radius:50%;background:#1c2333;color:#8892a4;font-size:12px;cursor:pointer">✕</button>',
-            '</div>'
-          ].join('');
-
-          document.documentElement.style.paddingTop = '36px';
-          document.body.style.paddingTop = '0';
-          document.documentElement.insertBefore(bar, document.documentElement.firstChild);
-
-          document.getElementById('__glance_close').onclick = function() {
-            window.__glanceClose = true;
-          };
-          document.getElementById('__glance_newtab').onclick = function() {
-            window.__glanceOpenTab = true;
-          };
-        })();
-      `).catch(() => {});
-
-      // Renderer'a bildir
-      win.webContents.send('glance-loaded', {
-        url: currentUrl, title,
-        x: px, y: py, width: PW, height: PH,
-      });
-
-      // Buton polling
-      const btnPoll = setInterval(async () => {
-        if (!glanceView || !glanceOpen) { clearInterval(btnPoll); return; }
-        try {
-          const close   = await glanceView.webContents.executeJavaScript('(function(){ var r=window.__glanceClose; window.__glanceClose=false; return r||false; })()');
-          const openTab = await glanceView.webContents.executeJavaScript('(function(){ var r=window.__glanceOpenTab; window.__glanceOpenTab=false; return r||false; })()');
-          if (close) {
-            clearInterval(btnPoll);
-            closeGlance();
-          } else if (openTab) {
-            clearInterval(btnPoll);
-            const tabUrl = glanceView.webContents.getURL();
-            closeGlance();
-            win.webContents.send('glance-new-tab', { url: tabUrl });
-          }
-        } catch { clearInterval(btnPoll); }
-      }, 200);
-    });
-
-    glanceView.webContents.on('did-fail-load', () => {
-      win.webContents.send('glance-error');
+    view.webContents.on('did-fail-load', (_e, errorCode, _desc, _url, isMainFrame) => {
+      // -3 = ERR_ABORTED: yönlendirme / kullanıcı gezinmesi, hata değil.
+      // Alt çerçeve hataları da glance'in kendisinin yüklenemediği anlamına gelmez.
+      if (!isMainFrame || errorCode === -3) return;
+      if (glanceView !== view) return;
+      if (win && !win.isDestroyed()) win.webContents.send('glance-error');
     });
 
     return { ok: true, x: px, y: py, width: PW, height: PH };
@@ -159,11 +193,15 @@ function setupGlance(mainWindow, ipcMain) {
 }
 
 function closeGlance() {
-  if (glanceView && glanceWin) {
-    try { glanceWin.removeBrowserView(glanceView); glanceView.webContents.destroy(); } catch {}
+  stopPoll();
+  if (glanceView) {
+    const view = glanceView;
     glanceView = null;
+    try { if (glanceWin && !glanceWin.isDestroyed()) glanceWin.removeBrowserView(view); } catch {}
+    try { view.webContents.destroy(); } catch {}
   }
   glanceOpen = false;
+  glanceShown = false;
   if (glanceWin && !glanceWin.isDestroyed()) glanceWin.webContents.send('glance-closed');
 }
 

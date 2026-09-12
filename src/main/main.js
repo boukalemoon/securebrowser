@@ -4,7 +4,7 @@
 
 'use strict';
 
-const { app, BrowserWindow, BrowserView, ipcMain, session, dialog, safeStorage } = require('electron');
+const { app, BrowserWindow, BrowserView, ipcMain, session, dialog, safeStorage, webContents } = require('electron');
 const path = require('path');
 const fs   = require('fs');
 
@@ -21,7 +21,6 @@ const { setupDiagnostics, log: diag, logError } = require('./diagnostics');
 let incognitoWindow = null;
 
 const USER_DATA = app.getPath('userData');
-const DB_PATH   = path.join(USER_DATA, 'logs.db');
 const CFG_PATH  = path.join(USER_DATA, 'config.json');
 
 // ─── Oturum ayrımı — TEMİZLEME İŞLEMLERİ İÇİN KRİTİK ─────────────────────────
@@ -134,65 +133,15 @@ function buildUserAgent() {
 }
 const CLEAN_UA = buildUserAgent();
 
-const BLOCKED_DOMAINS = [
-  'doubleclick.net', 'googleadservices.com', 'googlesyndication.com',
-  'adnxs.com', 'advertising.com', 'amazon-adsystem.com',
-  'connect.facebook.net', 'analytics.google.com', 'google-analytics.com',
-  'googletagmanager.com', 'hotjar.com', 'mixpanel.com', 'segment.io',
-  'amplitude.com', 'fullstory.com', 'mouseflow.com', 'crazyegg.com',
-  'newrelic.com', 'nr-data.net', 'scorecardresearch.com', 'quantserve.com',
-  'taboola.com', 'outbrain.com',
-];
-
-function isBlocked(url) {
-  try {
-    const host = new URL(url).hostname;
-    return BLOCKED_DOMAINS.some(d => host.includes(d));
-  } catch { return false; }
-}
-
-let db = null;
-
-function saveDBtoDisk() {
-  if (!db) return;
-  try {
-    const data = db.export();
-    fs.writeFileSync(DB_PATH, Buffer.from(data));
-  } catch (e) { console.error('[DB] Diske yazılamadı:', e); }
-}
-
-function initDB() {
-  try {
-    const initSqlJs = require('sql.js');
-    initSqlJs().then(SqlJs => {
-      if (fs.existsSync(DB_PATH)) {
-        db = new SqlJs.Database(fs.readFileSync(DB_PATH));
-      } else {
-        db = new SqlJs.Database();
-      }
-      db.run(`
-        CREATE TABLE IF NOT EXISTS visits (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          timestamp INTEGER NOT NULL,
-          url TEXT, domain TEXT, title TEXT,
-          vpn_active INTEGER DEFAULT 0,
-          vpn_profile TEXT,
-          duration_ms INTEGER DEFAULT 0,
-          blocked_reqs INTEGER DEFAULT 0
-        );
-        CREATE TABLE IF NOT EXISTS blocked_requests (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          timestamp INTEGER NOT NULL,
-          url TEXT, domain TEXT
-        );
-      `);
-      setInterval(saveDBtoDisk, 30000);
-      console.log('[DB] Veritabanı başlatıldı');
-    });
-  } catch (e) {
-    console.warn('[DB] sql.js yüklenemedi:', e.message);
-  }
-}
+// NOT (denetim O-01): Burada eskiden iki ölü/hatalı parça vardı ve kaldırıldı.
+//  1) BLOCKED_DOMAINS + isBlocked(): `host.includes(d)` ALT DİZE eşleşmesiyle
+//     çalışıyordu (notdoubleclick.net.example.com gibi adresleri de engelliyordu)
+//     ve blocker-main.js listelerinin eksik bir kopyasıydı.
+//  2) sql.js "logs.db": tablolar oluşturuluyor ama projede tek bir INSERT yoktu.
+//     get-logs hep [], get-blocked-stats hep 0 dönüyordu (Koruma Durumu paneli
+//     "Bugün 0 istek engellendi" bunu gösteriyordu) ve 30 sn'de bir boş
+//     veritabanı diske yazılıyordu. Ziyaret geçmişi secure-log-manager.js'te,
+//     engelleme sayaçları blocker-main.js'te tutuluyor.
 
 function logVisit(data) {
   if (!config.logEnabled || !secureLog) return;
@@ -266,8 +215,109 @@ function setupPermissionHandler(ses) {
   });
 }
 
+// ─── İndirmeler (denetim O-07) ────────────────────────────────────────────────
+// Eskiden hiçbir will-download işleyicisi yoktu: "İndirme klasörü" ve "Konum
+// sor" ayarları kaydediliyor ama HİÇ kullanılmıyordu; indirmeler Chromium'un
+// varsayılan davranışına bırakılıyor, ilerleme/iptal/tamamlanma bildirimi yoktu.
+// Ayarlar burada uygulanır ve durum arayüze 'download-updated' ile bildirilir.
+const downloads = new Map(); // id → { id, filename, state, received, total, savePath, startedAt, incognito, item }
+let downloadSeq = 0;
+
+function safeFileName(name) {
+  // Sunucunun önerdiği ad: Windows'ta geçersiz karakterler, yol ayırıcıları
+  // (dizin dışına yazma denemesi) ve ayrılmış aygıt adları temizlenir.
+  let n = String(name || 'indirme').replace(/[\\/:*?"<>|\u0000-\u001f]/g, '_').trim();
+  n = n.replace(/^\.+/, '_');
+  if (/^(con|prn|aux|nul|com\d|lpt\d)(\..*)?$/i.test(n)) n = '_' + n;
+  return n.slice(0, 180) || 'indirme';
+}
+
+function uniquePath(dir, filename) {
+  const ext  = path.extname(filename);
+  const base = path.basename(filename, ext);
+  let candidate = path.join(dir, filename);
+  for (let i = 1; fs.existsSync(candidate) && i < 1000; i++) {
+    candidate = path.join(dir, `${base} (${i})${ext}`);
+  }
+  return candidate;
+}
+
+function broadcastDownload(entry) {
+  const { item, ...payload } = entry;   // DownloadItem serileştirilemez
+  for (const w of [mainWindow, incognitoWindow]) {
+    if (w && !w.isDestroyed()) w.webContents.send('download-updated', payload);
+  }
+}
+
+function setupDownloads(ses) {
+  ses.on('will-download', (_event, item) => {
+    const id = ++downloadSeq;
+    const filename = safeFileName(item.getFilename());
+    const incognito = ses !== browsingSession() && ses !== session.defaultSession;
+
+    // "Konum sor" kapalıysa yolu biz belirleriz; açıksa Electron kendi
+    // "Farklı kaydet" diyaloğunu gösterir.
+    if (!config.askDownloadLocation) {
+      const dir = (config.downloadFolder && fs.existsSync(config.downloadFolder))
+        ? config.downloadFolder
+        : app.getPath('downloads');
+      try { item.setSavePath(uniquePath(dir, filename)); } catch {}
+    }
+
+    const entry = {
+      id, filename, state: 'progressing',
+      received: 0, total: item.getTotalBytes() || 0,
+      savePath: '', startedAt: Date.now(), incognito, item,
+    };
+    downloads.set(id, entry);
+    diag.info('download', 'İndirme başladı', { total: entry.total, incognito });
+    broadcastDownload(entry);
+
+    let lastSent = 0;
+    item.on('updated', (_e, state) => {
+      entry.state    = state === 'interrupted' ? 'interrupted' : (item.isPaused() ? 'paused' : 'progressing');
+      entry.received = item.getReceivedBytes();
+      entry.total    = item.getTotalBytes() || entry.total;
+      entry.savePath = item.getSavePath() || entry.savePath;
+      const now = Date.now();
+      if (now - lastSent > 500) { lastSent = now; broadcastDownload(entry); }
+    });
+
+    item.once('done', (_e, state) => {
+      entry.state    = state;            // completed | cancelled | interrupted
+      entry.received = item.getReceivedBytes();
+      entry.savePath = item.getSavePath() || entry.savePath;
+      entry.item     = null;
+      broadcastDownload(entry);
+      if (state === 'completed') {
+        diag.info('download', 'İndirme tamamlandı', { bytes: entry.received });
+        if (config.notifications !== false) {
+          try {
+            const { Notification } = require('electron');
+            if (Notification.isSupported()) new Notification({ title: 'İndirme tamamlandı', body: filename }).show();
+          } catch {}
+        }
+      } else if (state === 'interrupted') {
+        diag.warn('download', 'İndirme yarıda kaldı');
+      }
+      // Gizli pencere indirmeleri listede kalmaz — geçmiş bırakmamak için.
+      if (incognito) setTimeout(() => downloads.delete(id), 60000).unref?.();
+    });
+  });
+}
+
+// configureSession her sekme için çağrılıyor. webRequest ve izin işleyicileri
+// "değiştir" semantiğindedir, ama `ses.on(...)` olay dinleyicileri BİRİKİR —
+// bunlar aynı oturuma yalnızca bir kez bağlanmalı.
+const configuredSessions = new WeakSet();
+
 function configureSession(ses) {
   setupPermissionHandler(ses);
+
+  if (!configuredSessions.has(ses)) {
+    configuredSessions.add(ses);
+    setupDownloads(ses);
+  }
 
   // Temiz, tutarlı UA — hem başlık hem navigator.userAgent buradan gelir.
   // fingerprintProtection'dan bağımsız her zaman uygulanır (Google girişi vb.).
@@ -285,10 +335,21 @@ function configureSession(ses) {
   });
 
   ses.webRequest.onBeforeRequest({ urls: ['*://*/*'] }, (details, callback) => {
-    // Faz 6 engelleyici (seviye/whitelist ayarlı) + temel liste
-    if (shouldBlockUrl(details.url)) return callback({ cancel: true });
-    if ((config.blockTrackers || config.blockAds) && isBlocked(details.url)) {
-      return callback({ cancel: true });
+    // Engelleyici. Ayarlar'daki reklam ve izleyici anahtarlarının ikisi de
+    // kapalıysa devre dışı. Sayfa URL'si isteği yapan sekmeden alınır — "full"
+    // seviyesindeki üçüncü taraf engellemesi ve "bu siteye izin ver" (sayfanın
+    // yüklediği tüm kaynaklar için) buna ihtiyaç duyar.
+    if (config.blockTrackers !== false || config.blockAds !== false) {
+      let pageUrl = '';
+      try {
+        const wc = details.webContentsId != null ? webContents.fromId(details.webContentsId) : null;
+        pageUrl = wc && !wc.isDestroyed() ? wc.getURL() : '';
+      } catch {}
+      if (shouldBlockUrl(details.url, {
+        resourceType: details.resourceType,
+        referrer:     details.referrer,
+        pageUrl,
+      })) return callback({ cancel: true });
     }
     // HTTPS-Only: ana çerçeve http isteklerini https'e yükselt
     if (config.httpsOnly && details.resourceType === 'mainFrame' && details.url.startsWith('http://')) {
@@ -437,6 +498,9 @@ function createTab(win, state, url = config.homepage) {
     // ── Şifre otomatik doldurma ──
     // Bu origin için kasada TEK eşleşen kimlik varsa login formunu doldur.
     // Yalnızca doldurur (asla göndermez); gizli modda ve incognito'da devre dışı.
+    // getForOrigin: HTTPS kimliği HTTP sayfasına asla verilmez, port eşleşmeli (Y-11).
+    // Kullanıcı adı alanı için genel `input[type=text]` yedeği kaldırıldı: arama
+    // kutusu gibi alakasız bir alana kullanıcı adı yazılıyordu.
     if (!isIncognito) {
       try {
         const creds = getForOrigin(tab.url);
@@ -448,7 +512,7 @@ function createTab(win, state, url = config.homepage) {
               var pw = document.querySelector('input[type=password]:not([disabled]):not([readonly])');
               if(!pw || pw.offsetParent===null) return;
               var scope = pw.closest('form') || document;
-              var user = scope.querySelector('input[type=email],input[autocomplete=username],input[name*=user i],input[name*=email i],input[id*=user i],input[id*=email i],input[type=text]');
+              var user = scope.querySelector('input[type=email],input[autocomplete=username],input[name*=user i],input[name*=email i],input[id*=user i],input[id*=email i]');
               if(user && ${u}){ user.value=${u}; user.dispatchEvent(new Event('input',{bubbles:true})); user.dispatchEvent(new Event('change',{bubbles:true})); }
               pw.value=${p}; pw.dispatchEvent(new Event('input',{bubbles:true})); pw.dispatchEvent(new Event('change',{bubbles:true}));
             } catch(e){}
@@ -483,7 +547,14 @@ function createTab(win, state, url = config.homepage) {
   });
 
   view.webContents.setWindowOpenHandler(({ url: openUrl }) => {
-    createTab(win, state, openUrl);
+    // Sayfalar yalnızca web adreslerini yeni sekmede açtırabilir. Eskiden
+    // window.open('file:///C:/…') yerel dosyayı sekmede açıyordu (denetim D-18).
+    const target = String(openUrl || '');
+    if (/^https?:\/\//i.test(target) || target === 'about:blank') {
+      createTab(win, state, target);
+    } else {
+      diag.info('navigation', 'Pencere açma isteği reddedildi', { scheme: target.split(':')[0].slice(0, 16) });
+    }
     return { action: 'deny' };
   });
 
@@ -651,33 +722,6 @@ ipcMain.handle('save-config', (e, newCfg) => {
   return config;
 });
 
-// DB logları (eski, uyumluluk için)
-ipcMain.handle('get-logs', (e, limit = 100) => {
-  if (!db) return [];
-  try {
-    const rows = db.exec('SELECT * FROM visits ORDER BY timestamp DESC LIMIT ' + parseInt(limit));
-    if (!rows.length) return [];
-    const cols = rows[0].columns;
-    return rows[0].values.map(row => {
-      const obj = {};
-      cols.forEach((c, i) => { obj[c] = row[i]; });
-      return obj;
-    });
-  } catch { return []; }
-});
-
-ipcMain.handle('get-blocked-stats', () => {
-  if (!db) return { total: 0, today: 0 };
-  try {
-    const totalRes = db.exec('SELECT COUNT(*) as c FROM blocked_requests');
-    const todayRes = db.exec('SELECT COUNT(*) as c FROM blocked_requests WHERE timestamp > ' + (Date.now() - 86400000));
-    return {
-      total: totalRes[0]?.values[0][0] || 0,
-      today: todayRes[0]?.values[0][0] || 0,
-    };
-  } catch { return { total: 0, today: 0 }; }
-});
-
 // VPN
 ipcMain.handle('vpn-get-profiles',   ()           => vpnManager?.getProfiles() || []);
 // Doğrulama hatası kullanıcıya gösterilecek bir mesaj — ham Electron IPC
@@ -813,6 +857,22 @@ ipcMain.handle('show-notification', (e, { title, body }) => {
   }
 });
 
+// İndirmeler
+ipcMain.handle('downloads-list', () => [...downloads.values()].map(({ item, ...rest }) => rest));
+ipcMain.handle('downloads-show', (e, id) => {
+  const d = downloads.get(id);
+  if (d && d.savePath && fs.existsSync(d.savePath)) {
+    require('electron').shell.showItemInFolder(d.savePath);
+    return { ok: true };
+  }
+  return { ok: false };
+});
+ipcMain.handle('downloads-cancel', (e, id) => {
+  const d = downloads.get(id);
+  try { if (d && d.item) { d.item.cancel(); return { ok: true }; } } catch {}
+  return { ok: false };
+});
+
 ipcMain.handle('blocker-get-stats', () => getBlockStats());
 
 ipcMain.handle('blocker-update-config', (event, blockerCfg) => {
@@ -894,6 +954,8 @@ ipcMain.handle('bookmark-popup-close', () => {
 });
 
 ipcMain.handle('bookmark-popup-save', (e, result) => {
+  // Yalnızca popup penceresinin kendisi (denetim D-17)
+  if (!bookmarkPopupWin || bookmarkPopupWin.isDestroyed() || e.sender !== bookmarkPopupWin.webContents) return { ok: false };
   const owner = bookmarkPopupWin?.__owner;
   if (owner && !owner.isDestroyed()) {
     owner.webContents.send('bookmark-popup-result', { action: 'save', ...result });
@@ -905,7 +967,8 @@ ipcMain.handle('bookmark-popup-save', (e, result) => {
   return { ok: true };
 });
 
-ipcMain.handle('bookmark-popup-delete', () => {
+ipcMain.handle('bookmark-popup-delete', (e) => {
+  if (!bookmarkPopupWin || bookmarkPopupWin.isDestroyed() || e.sender !== bookmarkPopupWin.webContents) return { ok: false };
   const owner = bookmarkPopupWin?.__owner;
   if (owner && !owner.isDestroyed()) {
     owner.webContents.send('bookmark-popup-result', { action: 'delete' });
@@ -962,7 +1025,8 @@ app.whenReady().then(() => {
     getMainWindow: () => mainWindow,
   });
 
-  initDB();
+  // Eski ölü sql.js veritabanının diskte kalan dosyası (hiç veri içermedi).
+  try { fs.unlinkSync(path.join(USER_DATA, 'logs.db')); } catch {}
   vpnManager = new VpnManager(USER_DATA);
   // Önceki oturumdan açık kalmış tüneli bul — yoksa arayüz "bağlı değil" derken
   // trafik tünelden geçmeye devam eder ve kullanıcı kapatamaz.

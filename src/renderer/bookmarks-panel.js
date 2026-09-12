@@ -13,7 +13,9 @@ function bmInjectStyles() {
   const s = document.createElement('style');
   s.id = 'ilgezdi-bm-style';
   s.textContent = `
-    #panel-bookmarks { width:360px; position:relative; }
+    /* Genişlik .side-panel'den (--panel-w = 420px = main.js PANEL_WIDTH). Eskiden
+       360px'e zorlanıyordu ve sayfa ile panel arasında 60px boş şerit kalıyordu (D-03). */
+    #panel-bookmarks { position:relative; }
 
     .bm-import-menu {
       position:absolute; z-index:60; min-width:210px;

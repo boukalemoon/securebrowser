@@ -222,7 +222,9 @@ function renderLogStats(stats) {
   set('stat-today',    stats.todayVisits   || 0);
   set('stat-domains',  stats.uniqueDomains || 0);
   set('stat-vpn',      stats.vpnVisits     || 0);
-  set('stat-blocked',  stats.blockedToday  || 0);
+  // Engelleme sayısı engelleyicinin kendisinden — eskiden hiç yazılmayan bir
+  // sayaçtan okunuyor ve hep 0 gösteriyordu (denetim D-11).
+  sb.blocker?.getStats?.().then((b) => set('stat-blocked', Number(b?.today) || 0)).catch(() => {});
   // safeStorage yoksa günlük şifresiz tutulur — "şifreli" diye göstermeyelim.
   set('log-size-info', `${stats.logSizeKb || 0} KB ${stats.encrypted === false ? 'şifresiz' : 'şifreli'} dosya`);
 }

@@ -60,8 +60,24 @@ function geoOf(req) {
   return {
     country: String(h['x-vercel-ip-country'] || '').slice(0, 4),
     city: dec(h['x-vercel-ip-city']).slice(0, 60),
-    ip: ipRaw.slice(0, 45),
+    ip: anonymizeIp(ipRaw),
   };
+}
+
+// KVKK / GDPR (denetim O-15): ham IP kişisel veridir ve sitede açık rıza
+// alınmıyor. Ülke/şehir zaten x-vercel-ip-* başlıklarından geliyor, ham IP'ye
+// ihtiyaç yok. Google Analytics'in IP anonimleştirmesiyle aynı yöntem: IPv4'te
+// son oktet, IPv6'da ilk 3 grup dışı sıfırlanır. Ağ düzeyinde kaba konum kalır,
+// kişi tanımlanamaz. Alan adı (`ip`) değişmedi → Nexus paneli bozulmaz.
+function anonymizeIp(ip) {
+  const s = String(ip || '').trim();
+  const v4 = s.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.\d{1,3}$/);
+  if (v4) return `${v4[1]}.${v4[2]}.${v4[3]}.0`;
+  if (s.includes(':')) {
+    const groups = s.split(':').filter(Boolean).slice(0, 3);
+    return groups.length ? groups.join(':') + '::' : '';
+  }
+  return '';
 }
 function isFromSite(req) {
   const origin = req.headers.origin;

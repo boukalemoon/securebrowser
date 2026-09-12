@@ -35,7 +35,10 @@ jobs:
           cache: npm
 
       - name: Bağımlılıklar
-        run: npm ci || npm install
+        # Yalnızca npm ci: lockfile ile birebir aynı sürümler. Eskiden "|| npm install"
+        # yedeği vardı; npm ci başarısız olunca lockfile yok sayılıp farklı sürümler
+        # kurulabiliyor, yayınlanan kurulum dosyasının içeriği belirsizleşiyordu.
+        run: npm ci
 
       - name: Build (${{ matrix.platform }})
         run: npm run dist:${{ matrix.platform }}

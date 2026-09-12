@@ -43,9 +43,15 @@ contextBridge.exposeInMainWorld('secureBrowser', {
   getConfig:  ()    => ipcRenderer.invoke('get-config'),
   saveConfig: (cfg) => ipcRenderer.invoke('save-config', cfg),
 
-  // ── Eski Log API (Faz 1-2 uyumu) ────────────────────────────────────────────
-  getLogs:         (limit) => ipcRenderer.invoke('get-logs', limit),
-  getBlockedStats: ()      => ipcRenderer.invoke('get-blocked-stats'),
+  // ── İndirmeler ──────────────────────────────────────────────────────────────
+  // (Eski getLogs / getBlockedStats kaldırıldı: hiç yazılmayan ölü bir sql.js
+  //  tablosundan okuyor, hep boş/0 dönüyordu — denetim O-01.)
+  downloads: {
+    list:         ()   => ipcRenderer.invoke('downloads-list'),
+    showInFolder: (id) => ipcRenderer.invoke('downloads-show', id),
+    cancel:       (id) => ipcRenderer.invoke('downloads-cancel', id),
+    onUpdated:    (cb) => ipcRenderer.on('download-updated', (_, d) => cb(d)),
+  },
 
   // ── VPN (Faz 2) ──────────────────────────────────────────────────────────────
   vpn: {

@@ -24,9 +24,7 @@
     "firebase-admin": "^12.7.0"
   },
   "dependencies": {
-    "@vercel/analytics": "^2.0.1",
     "electron-updater": "^6.8.9",
-    "node-fetch": "^3.3.2",
     "qrcode": "^1.5.4",
     "sql.js": "^1.12.0"
   },

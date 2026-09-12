@@ -185,17 +185,6 @@ class SecureLogManager {
     return entry;
   }
 
-  addBlocked(data) {
-    // Engellenen istekler ayrı sayaç olarak tutulur (log şişirmeyelim)
-    const today = new Date().toDateString();
-    const existing = this.logs.find(l => l.type === 'blocked_summary' && l.date === today);
-    if (existing) {
-      existing.count = (existing.count || 0) + 1;
-    } else {
-      this.logs.unshift({ type: 'blocked_summary', date: today, count: 1, timestamp: Date.now() });
-    }
-  }
-
   // ── Arama ve Filtreleme ──────────────────────────────────────────────────────
 
   search(query = {}) {
@@ -251,14 +240,12 @@ class SecureLogManager {
     const visits  = this.logs.filter(l => l.url);
     const today   = Date.now() - 86400000;
     const domains = [...new Set(visits.map(l => l.domain))];
-    const blocked = this.logs.find(l => l.type === 'blocked_summary' && l.date === new Date().toDateString());
 
     return {
       totalVisits:    visits.length,
       todayVisits:    visits.filter(l => l.timestamp > today).length,
       uniqueDomains:  domains.length,
       vpnVisits:      visits.filter(l => l.vpnActive).length,
-      blockedToday:   blocked?.count || 0,
       logSizeKb:      fs.existsSync(this.logsPath)
                         ? Math.round(fs.statSync(this.logsPath).size / 1024)
                         : 0,
@@ -277,9 +264,25 @@ class SecureLogManager {
 
   // ── CSV Dışa Aktarma ──────────────────────────────────────────────────────────
 
+  /**
+   * CSV hücresi (RFC 4180 + formül enjeksiyonu koruması) — denetim O-11.
+   *
+   * Eskiden alanlar tırnaklanmadan virgülle birleştiriliyordu: virgül içeren
+   * her URL (çok yaygın) satırı kaydırıyordu. Daha önemlisi, =, +, -, @ ile
+   * başlayan hücreler Excel/LibreOffice'te FORMÜL olarak çalışır — sayfa
+   * başlığını `=HYPERLINK(...)` ya da DDE yükü yapan bir site, kullanıcı CSV'yi
+   * açtığında makinesinde işlem tetikleyebilirdi. Başına ' eklenerek metne çevrilir.
+   */
+  static csvCell(value) {
+    let s = String(value == null ? '' : value);
+    if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
+    return '"' + s.replace(/"/g, '""') + '"';
+  }
+
   exportCSV(query = {}) {
     const { items } = this.search({ ...query, limit: 99999 });
-    const headers = ['Tarih', 'Saat', 'Domain', 'URL', 'Başlık', 'VPN', 'VPN Profil', 'Süre(ms)', 'Engellenen'];
+    const cell = SecureLogManager.csvCell;
+    const headers = ['Tarih', 'Saat', 'Alan adı', 'URL', 'Başlık', 'VPN', 'VPN Profil', 'Süre(ms)'];
     const rows = items.map(l => {
       const d = new Date(l.timestamp);
       return [
@@ -287,14 +290,14 @@ class SecureLogManager {
         d.toLocaleTimeString('tr-TR'),
         l.domain || '',
         l.url    || '',
-        (l.title || '').replace(/,/g, ' '),
+        l.title  || '',
         l.vpnActive ? 'Evet' : 'Hayır',
         l.vpnProfile || '',
-        l.duration   || 0,
-        l.blockedReqs || 0,
-      ].join(',');
+        Number(l.duration) || 0,
+      ].map(cell).join(',');
     });
-    return [headers.join(','), ...rows].join('\n');
+    // CRLF: Excel'in beklediği satır sonu (RFC 4180)
+    return [headers.map(cell).join(','), ...rows].join('\r\n');
   }
 
   // ── Oracle Senkronizasyon ─────────────────────────────────────────────────────

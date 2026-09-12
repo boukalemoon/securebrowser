@@ -155,7 +155,7 @@ function injectSettingsPanelStyles() {
   const s = document.createElement('style');
   s.id = 'ilgezdi-settings-style';
   s.textContent = `
-    #panel-settings { width:400px !important; min-width:400px !important; max-width:400px !important; }
+    /* Genişlik .side-panel'den (--panel-w = 420px, main.js PANEL_WIDTH ile aynı) gelir — D-03 */
     .settings-tabs { display:flex; background:var(--bg-surface); border-bottom:1px solid var(--border-color); padding:0 12px; flex-shrink:0; }
     .settings-tab { padding:10px 10px; font-size:10px; font-weight:600; color:var(--text-muted); cursor:pointer; border:none; border-bottom:2px solid transparent; background:none; white-space:nowrap; transition:all .15s; }
     .settings-tab.active { color:var(--accent); border-bottom-color:var(--accent); }
@@ -614,8 +614,14 @@ async function pwImportFromBrowser() {
   if (!pick) return;
   showSettingsToast(`${pick.name} içe aktarılıyor…`);
   const r = await pw.importBrowser(pick.id);
-  if (r?.error) showSettingsToast('İçe aktarma başarısız: ' + r.error, 'error');
-  else { showSettingsToast(`${r.imported} şifre içe aktarıldı`); populatePwdList(); }
+  if (!r) return;
+  // Hata mesajı ana süreçten kullanıcıya yönelik metin olarak gelir (ham kod değil).
+  if (r.ok === false) { showSettingsToast(r.error || 'İçe aktarma başarısız', 'error'); return; }
+  let msg = `${r.imported} şifre içe aktarıldı`;
+  if (r.appBound) msg += ` · ${r.appBound} kayıt tarayıcının ek koruması nedeniyle alınamadı; bunlar için CSV ile içe aktarın`;
+  if (r.failed)   msg += ` · ${r.failed} kayıt çözülemedi`;
+  showSettingsToast(msg, r.imported ? 'success' : 'error');
+  if (r.imported) populatePwdList();
 }
 
 // ─── Şifre ────────────────────────────────────────────────────────────────────
@@ -627,7 +633,8 @@ function showSettingsToast(msg,type='success') {
   el.className='settings-toast';
   el.style.cssText=`background:${type==='success'?'var(--success)':'var(--danger)'};color:var(--bg-base);`;
   el.textContent=msg; document.body.appendChild(el);
-  setTimeout(()=>el.remove(),2500);
+  // Uzun açıklamalar (ör. içe aktarma nedeni) okunabilsin: süre metin uzunluğuna göre.
+  setTimeout(()=>el.remove(), Math.min(9000, Math.max(2500, String(msg).length * 55)));
 }
 
 // ─── Render ───────────────────────────────────────────────────────────────────
@@ -863,7 +870,9 @@ function bindPasswordEvents() {
     const user=document.getElementById('pwd-new-user')?.value.trim();
     const pass=document.getElementById('pwd-new-pass')?.value;
     if(!site||!pass){showSettingsToast('Site ve şifre zorunlu','error');return;}
-    await window.secureBrowser?.passwords?.add({ url: site, username: user, password: pass });
+    // Ana süreç reddedebilir (geçersiz adres, okunamayan kasa) — sonucu kontrol et.
+    const addRes = await window.secureBrowser?.passwords?.add({ url: site, username: user, password: pass });
+    if (addRes && addRes.ok === false) { showSettingsToast(addRes.error || 'Şifre kaydedilemedi', 'error'); return; }
     ['pwd-new-site','pwd-new-user','pwd-new-pass'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
     showSettingsToast('Şifre güvenli kasaya kaydedildi!');
     populatePwdList();
@@ -871,8 +880,10 @@ function bindPasswordEvents() {
   document.getElementById('btn-pwd-import-browser')?.addEventListener('click', pwImportFromBrowser);
   document.getElementById('btn-pwd-import-csv')?.addEventListener('click', async ()=>{
     const r = await window.secureBrowser?.passwords?.importCsv();
-    if (r?.error) showSettingsToast('İçe aktarma başarısız: '+r.error,'error');
-    else if (r) { showSettingsToast(`${r.imported} şifre içe aktarıldı`); populatePwdList(); }
+    if (!r || r.canceled) return;
+    if (r.ok === false) { showSettingsToast(r.error || 'İçe aktarma başarısız', 'error'); return; }
+    showSettingsToast(r.imported ? `${r.imported} şifre içe aktarıldı` : 'Yeni şifre bulunamadı — hepsi zaten kasada olabilir');
+    if (r.imported) populatePwdList();
   });
   // Listeyi güvenli kasadan doldur. (Eskiden bir sessionStorage "kilit" bayrağına
   // bağlıydı; bayrak kaldırıldığı için artık koşulsuz yüklenir. Liste maskeli
