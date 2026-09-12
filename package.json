@@ -6,6 +6,7 @@
   "license": "MIT",
   "main": "src/main/main.js",
   "scripts": {
+    "test": "node test/run.js",
     "start": "electron .",
     "dev": "electron . --dev",
     "pack": "electron-builder --dir",
@@ -128,7 +129,6 @@
       "maintainer": "İlgezdi <destek@ilgezdi.com>",
       "synopsis": "Güvenli, gizlilik odaklı web tarayıcısı",
       "description": "İlgezdi — Göktürk temalı, reklam/izleyici engelleyici ve VPN destekli güvenli web tarayıcısı."
-    },
-    "publish": null
+    }
   }
 }

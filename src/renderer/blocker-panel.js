@@ -26,6 +26,21 @@ function blockerSave() {
     localStorage.setItem('ilgezdi-whitelist', JSON.stringify(blockerWhitelist));
     localStorage.setItem('ilgezdi-block-level', blockerLevel);
   } catch {}
+  blockerPushToMain();
+}
+
+// KRİTİK: Ayarı ana sürece BİLDİR. Eskiden yalnızca localStorage ve config.json'a
+// yazılıyordu; engelleyicinin gerçek durumunu tutan updateBlockerConfig() hiç
+// çağrılmadığı için seviye ve beyaz liste hiçbir etki yapmıyordu — "bu siteye
+// izin ver" düğmesi sessizce hiçbir şey yapmıyordu.
+function blockerPushToMain() {
+  window.secureBrowser?.blocker?.updateConfig?.({
+    level:     blockerLevel,
+    whitelist: blockerWhitelist,
+    enabled:   true,
+  });
+  // Ayrıca config.json'a yaz: yeniden başlatmada ana süreç buradan okuyup uygular.
+  window.secureBrowser?.saveConfig({ whitelist: blockerWhitelist, blockLevel: blockerLevel });
 }
 
 // ─── Whitelist CRUD ───────────────────────────────────────────────────────────
@@ -34,14 +49,12 @@ function blockerAddWhitelist(domain) {
   if (!domain || blockerWhitelist.includes(domain)) return;
   blockerWhitelist.push(domain);
   blockerSave();
-  window.secureBrowser?.saveConfig({ whitelist: blockerWhitelist, blockLevel: blockerLevel });
   window.ilgezdiSync?.schedulePush();
 }
 
 function blockerRemoveWhitelist(domain) {
   blockerWhitelist = blockerWhitelist.filter(d => d !== domain);
   blockerSave();
-  window.secureBrowser?.saveConfig({ whitelist: blockerWhitelist, blockLevel: blockerLevel });
   window.ilgezdiSync?.schedulePush();
 }
 
@@ -277,7 +290,7 @@ function blockerInitPanelEvents() {
     btn.addEventListener('click', () => {
       blockerLevel = btn.dataset.level;
       blockerSave();
-      window.secureBrowser?.saveConfig({ blockLevel: blockerLevel, whitelist: blockerWhitelist });
+      window.ilgezdiSync?.schedulePush();
       blockerRenderStats();
       updateLevelDesc();
     });
@@ -357,10 +370,18 @@ function blockerOpenPanel() {
   blockerRenderStats();
   blockerRenderWhitelist();
   blockerRenderTopBlocked();
+  // Canlı istatistikleri ana süreçten çek. Yalnızca olay akışına güvenmek,
+  // panel açılışında her zaman 0 göstermeye yol açıyordu.
+  window.secureBrowser?.blocker?.getStats?.().then((s) => {
+    if (s) blockerUpdateStats(s);
+  }).catch(() => {});
 }
 
 function blockerInit() {
   blockerLoad();
+  // Kaydedilmiş seviye/beyaz listeyi açılışta ana sürece uygula — yoksa
+  // engelleyici her açılışta kodda gömülü 'medium' ve boş listeyle başlıyordu.
+  blockerPushToMain();
 
   const sb = window.secureBrowser;
 
@@ -370,7 +391,10 @@ function blockerInit() {
   });
 
   // Ana process'ten engelleme istatistikleri
-  sb?.onBlockStats?.((data) => blockerUpdateStats(data));
+  // preload bunu secureBrowser.blocker.onStats olarak açıyor. Eskiden
+  // sb.onBlockStats deniyordu; öyle bir anahtar olmadığı için `?.` sessizce
+  // kısa devre yapıyor ve istatistikler panele hiç ulaşmıyordu.
+  sb?.blocker?.onStats?.((data) => blockerUpdateStats(data));
 
   // Panel butonu
   document.getElementById('btn-blocker')?.addEventListener('click', () => {

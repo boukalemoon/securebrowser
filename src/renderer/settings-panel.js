@@ -512,20 +512,19 @@ function renderPrivacyTab(cfg) {
 }
 
 function renderPasswordsTab() {
-  const masterSet = !!localStorage.getItem('ilgezdi-master-hash');
-  const unlocked  = sessionStorage.getItem('ilgezdi-pwd-unlocked') === '1';
-  if (!masterSet) return `<div class="settings-section"><h3>Ana Şifre Kur</h3>
-    <p style="font-size:11px;color:var(--text-muted);margin-bottom:12px;line-height:1.5">Şifrelerinizi korumak için bir ana şifre belirleyin.<br><strong style="color:var(--warning)">Unutursanız kurtarılamaz!</strong></p>
-    <div class="s-input-row"><label>Ana Şifre</label><input type="password" id="master-new" placeholder="En az 6 karakter"/></div>
-    <div class="s-input-row"><label>Tekrar Gir</label><input type="password" id="master-confirm" placeholder="••••••••"/></div>
-    <button class="btn-save-settings" id="btn-master-set" style="margin-top:8px">🔐 Ana Şifreyi Kaydet</button></div>`;
-  if (!unlocked) return `<div class="settings-section" style="text-align:center;padding:28px 0">
-    <div style="font-size:44px;margin-bottom:12px">🔒</div>
-    <p style="font-size:12px;color:var(--text-muted);margin-bottom:16px;line-height:1.5">Şifre yöneticisi kilitli.<br>Ana şifrenizi girin.</p>
-    <div class="s-input-row"><input type="password" id="master-unlock-input" placeholder="Ana şifre" style="text-align:center"/></div>
-    <button class="btn-save-settings" id="btn-master-unlock" style="margin-top:8px">🔓 Kilidi Aç</button>
-    <div id="unlock-error" style="color:var(--danger);font-size:11px;margin-top:8px;min-height:16px"></div></div>`;
+  // NOT: Buradaki eski "ana şifre" ekranı KALDIRILDI. İki nedenle:
+  //   1) Şifre btoa() ile saklanıyordu — bu bir özet değil, geri çevrilebilir
+  //      Base64; localStorage'ı okuyan biri parolayı düz metin elde ediyordu.
+  //   2) Kasa o şifreyle şifrelenmiyordu. Kilit yalnızca bu paneli gizliyordu;
+  //      pw-list / pw-reveal IPC'leri kilitten habersizdi, yani koruma yoktu.
+  // Kasa gerçekte safeStorage (Windows DPAPI / macOS Keychain / Linux Secret
+  // Service) ile korunuyor — Chrome, Edge, Brave ve Opera'nın modeli de bu.
+  // Durum kullanıcıya #pwd-protection-note içinde dürüstçe bildirilir.
   return `
+    <div class="settings-section">
+      <h3>Kasa Koruması</h3>
+      <div id="pwd-protection-note" class="s-hint" style="margin-top:0">Denetleniyor…</div>
+    </div>
     <div class="settings-section"><h3>Diğer Tarayıcıdan İçe Aktar</h3>
       <p class="s-hint" style="margin-top:0">Chrome/Edge/Brave kayıtlı şifrelerinizi ya da tarayıcıdan dışa aktardığınız CSV dosyasını güvenli kasaya aktarın.</p>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
@@ -542,7 +541,6 @@ function renderPasswordsTab() {
     <div class="settings-section">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
         <h3 style="margin:0;border:none;padding:0">Kayıtlı (<span id="pwd-count">…</span>)</h3>
-        <button class="pwd-btn" id="btn-lock-passwords">🔒 Kilitle</button>
       </div>
       <div id="pwd-list-container"><p style="color:var(--text-muted);font-size:12px;text-align:center;padding:16px">Yükleniyor…</p></div>
     </div>`;
@@ -789,10 +787,16 @@ function bindGeneralEvents() {
     if (folder) { document.getElementById('download-folder').value=folder; settingsConfig.downloadFolder=folder; }
   });
   const st=(msg)=>{const el=document.getElementById('clear-status');if(el){el.textContent=msg;setTimeout(()=>el.textContent='',3000);}};
-  document.getElementById('btn-clear-cache')?.addEventListener('click',   async()=>{await window.secureBrowser?.clearCache?.();        st('Önbellek temizlendi ✓');});
-  document.getElementById('btn-clear-history')?.addEventListener('click', async()=>{await window.secureBrowser?.logs?.clearLogs?.();   st('Geçmiş temizlendi ✓');});
-  document.getElementById('btn-clear-cookies')?.addEventListener('click', async()=>{await window.secureBrowser?.clearCookies?.();      st('Çerezler temizlendi ✓');});
-  document.getElementById('btn-clear-all')?.addEventListener('click',     async()=>{await window.secureBrowser?.clearAll?.();         st('Tüm veriler temizlendi ✓');});
+  // Sonucu kontrol et — başarısız ya da iptal edilmiş işlemi "temizlendi" diye bildirmeyelim.
+  const report = (r, okMsg) => {
+    if (r?.canceled)      st('İşlem iptal edildi');
+    else if (r?.success)   st(okMsg);
+    else                   st('Temizlenemedi: ' + (r?.error || 'bilinmeyen hata'));
+  };
+  document.getElementById('btn-clear-cache')?.addEventListener('click',   async()=>{report(await window.secureBrowser?.clearCache?.(),   'Önbellek temizlendi ✓');});
+  document.getElementById('btn-clear-cookies')?.addEventListener('click', async()=>{report(await window.secureBrowser?.clearCookies?.(), 'Çerezler temizlendi ✓');});
+  document.getElementById('btn-clear-all')?.addEventListener('click',     async()=>{report(await window.secureBrowser?.clearAll?.(),     'Tüm tarama verileri temizlendi ✓');});
+  document.getElementById('btn-clear-history')?.addEventListener('click', async()=>{await window.secureBrowser?.logs?.clearLogs?.();     st('Geçmiş temizlendi ✓');});
 
   // ── Uygulama güncellemesi ────────────────────────────────────────────────────
   const up = window.secureBrowser?.updater;
@@ -814,26 +818,43 @@ function bindGeneralEvents() {
   });
 }
 
+// Eski sahte ana şifre düzeneğinin diskte bıraktığı izleri temizler.
+// 'ilgezdi-master-hash' Base64 olduğu için kullanıcının parolasını GERİ
+// ÇEVRİLEBİLİR biçimde tutuyordu — bu yüzden sadece kullanmayı bırakmak yetmez,
+// kaydın kendisi silinmelidir.
+function purgeLegacyMasterPassword() {
+  try {
+    localStorage.removeItem('ilgezdi-master-hash');
+    sessionStorage.removeItem('ilgezdi-pwd-unlocked');
+  } catch {}
+}
+
+// Kasanın gerçek koruma durumunu ana süreçten sorup dürüstçe bildirir.
+async function showVaultProtectionState() {
+  const el = document.getElementById('pwd-protection-note');
+  if (!el) return;
+  let available = false;
+  try { available = await window.secureBrowser?.passwords?.encryptionAvailable?.(); } catch {}
+
+  const osName = navigator.userAgent.includes('Mac')   ? 'macOS Anahtar Zinciri'
+               : navigator.userAgent.includes('Linux') ? 'sistem anahtar kasası'
+               :                                         'Windows DPAPI';
+  if (available) {
+    el.innerHTML = `<span style="color:var(--success)">🔐 Kasa şifreli.</span> Parolalar diskte
+      ${osName} ile, işletim sistemi hesabınıza bağlı olarak şifrelenir. Chrome, Edge ve
+      Brave de aynı modeli kullanır. Bilgisayarınızda oturumunuz açıkken bu hesapla çalışan
+      programlar kasaya erişebilir — bu yüzden cihaz parolanızı güçlü tutun.`;
+  } else {
+    el.innerHTML = `<span style="color:var(--danger)">⚠ Kasa şifrelenemiyor.</span> İşletim
+      sisteminin anahtar kasası bu makinede kullanılamıyor, bu yüzden parolalar
+      <strong>kaydedilmez</strong>. Linux kullanıyorsanız bir anahtar kasası
+      (gnome-keyring / kwallet) kurmanız gerekir.`;
+  }
+}
+
 function bindPasswordEvents() {
-  document.getElementById('btn-master-set')?.addEventListener('click',()=>{
-    const p1=document.getElementById('master-new')?.value;
-    const p2=document.getElementById('master-confirm')?.value;
-    if(!p1||p1.length<6){showSettingsToast('En az 6 karakter girin','error');return;}
-    if(p1!==p2){showSettingsToast('Şifreler eşleşmiyor','error');return;}
-    localStorage.setItem('ilgezdi-master-hash',btoa('ilgezdi:'+p1));
-    sessionStorage.setItem('ilgezdi-pwd-unlocked','1');
-    renderSettingsTab('passwords',settingsConfig);
-    showSettingsToast('Ana şifre kaydedildi!');
-  });
-  document.getElementById('btn-master-unlock')?.addEventListener('click',()=>{
-    const inp=document.getElementById('master-unlock-input')?.value;
-    const hash=localStorage.getItem('ilgezdi-master-hash');
-    const err=document.getElementById('unlock-error');
-    if(btoa('ilgezdi:'+inp)===hash){sessionStorage.setItem('ilgezdi-pwd-unlocked','1');renderSettingsTab('passwords',settingsConfig);}
-    else if(err){err.textContent='Yanlış şifre!';setTimeout(()=>err.textContent='',2000);}
-  });
-  document.getElementById('master-unlock-input')?.addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('btn-master-unlock')?.click();});
-  document.getElementById('btn-lock-passwords')?.addEventListener('click',()=>{sessionStorage.removeItem('ilgezdi-pwd-unlocked');renderSettingsTab('passwords',settingsConfig);});
+  purgeLegacyMasterPassword();
+  showVaultProtectionState();
   document.getElementById('btn-pwd-add')?.addEventListener('click',async ()=>{
     const site=document.getElementById('pwd-new-site')?.value.trim();
     const user=document.getElementById('pwd-new-user')?.value.trim();
@@ -850,8 +871,10 @@ function bindPasswordEvents() {
     if (r?.error) showSettingsToast('İçe aktarma başarısız: '+r.error,'error');
     else if (r) { showSettingsToast(`${r.imported} şifre içe aktarıldı`); populatePwdList(); }
   });
-  // Kilit açıksa listeyi güvenli kasadan doldur
-  if (sessionStorage.getItem('ilgezdi-pwd-unlocked') === '1') populatePwdList();
+  // Listeyi güvenli kasadan doldur. (Eskiden bir sessionStorage "kilit" bayrağına
+  // bağlıydı; bayrak kaldırıldığı için artık koşulsuz yüklenir. Liste maskeli
+  // gelir — tam parola yalnızca ayrı bir "göster" isteğiyle alınır.)
+  populatePwdList();
 }
 
 // ─── Panel events ─────────────────────────────────────────────────────────────

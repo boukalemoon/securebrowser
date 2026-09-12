@@ -8,17 +8,21 @@
 const crypto = require('crypto');
 const fs     = require('fs');
 const path   = require('path');
+const { safeStorage } = require('electron');
 
-const ALGO      = 'aes-256-gcm';
-const KEY_FILE  = 'ilgezdi.key';
+const ALGO         = 'aes-256-gcm';
+const KEY_FILE     = 'ilgezdi.key';     // ESKİ: düz metin anahtar (taşınıp silinir)
+const KEY_FILE_ENC = 'ilgezdi.key.enc'; // YENİ: safeStorage ile şifreli anahtar
 
 class SecureLogManager {
   constructor(userDataPath) {
     this.userDataPath = userDataPath;
     this.keyPath      = path.join(userDataPath, KEY_FILE);
+    this.keyPathEnc   = path.join(userDataPath, KEY_FILE_ENC);
     this.logsPath     = path.join(userDataPath, 'ilgezdi-logs.enc');
     this.syncPath     = path.join(userDataPath, 'sync-queue.json');
-    this.key          = this._loadOrCreateKey();
+    this.canEncrypt   = this._encryptionAvailable();
+    this.key          = this.canEncrypt ? this._loadOrCreateKey() : null;
     this.logs         = [];
     this.syncQueue    = [];
     this._loadLogs();
@@ -26,18 +30,60 @@ class SecureLogManager {
   }
 
   // ── Anahtar Yönetimi ─────────────────────────────────────────────────────────
+  // AES anahtarı diske DÜZ METİN yazılmaz. safeStorage (Windows DPAPI / macOS
+  // Keychain / Linux Secret Service) ile sarmalanır — aksi halde şifreleme,
+  // korumayı iddia ettiği tehdide (userData'yı okuyabilen biri) karşı hiçbir şey
+  // yapmaz: anahtar şifreli dosyanın yanında durur.
+  //
+  // safeStorage kullanılamıyorsa (nadir, ör. keyring'siz Linux) loglar ŞİFRESİZ
+  // saklanır ve getStats() bunu `encrypted:false` olarak bildirir. Korunmadığı
+  // hâlde korunuyormuş gibi göstermek yerine durumu dürüstçe söylemek daha iyi.
+
+  _encryptionAvailable() {
+    try { return safeStorage.isEncryptionAvailable(); } catch { return false; }
+  }
 
   _loadOrCreateKey() {
+    // 1) Şifreli anahtar varsa onu kullan
+    try {
+      if (fs.existsSync(this.keyPathEnc)) {
+        const b64 = safeStorage.decryptString(fs.readFileSync(this.keyPathEnc));
+        const key = Buffer.from(b64, 'base64');
+        if (key.length === 32) return key;
+        console.warn('[SecureLog] Şifreli anahtar bozuk, yeniden oluşturulacak');
+      }
+    } catch (e) {
+      console.warn('[SecureLog] Şifreli anahtar okunamadı:', e.message);
+    }
+
+    // 2) Eski düz metin anahtar varsa AYNI anahtarı koru (yoksa mevcut loglar
+    //    çözülemez hâle gelir), şifreli formata taşı ve düz metin kopyayı sil.
     try {
       if (fs.existsSync(this.keyPath)) {
-        return fs.readFileSync(this.keyPath);
+        const key = fs.readFileSync(this.keyPath);
+        if (key.length === 32) {
+          this._writeKey(key);
+          try { fs.unlinkSync(this.keyPath); } catch {}
+          console.log('[SecureLog] Düz metin anahtar şifreli formata taşındı');
+          return key;
+        }
       }
-    } catch {}
-    // Yeni 256-bit anahtar oluştur
+    } catch (e) {
+      console.warn('[SecureLog] Eski anahtar taşınamadı:', e.message);
+    }
+
+    // 3) Yeni anahtar
     const key = crypto.randomBytes(32);
-    fs.writeFileSync(this.keyPath, key, { mode: 0o600 });
-    console.log('[SecureLog] Yeni AES-256 anahtarı oluşturuldu');
+    this._writeKey(key);
+    console.log('[SecureLog] Yeni AES-256 anahtarı oluşturuldu (safeStorage ile korunuyor)');
     return key;
+  }
+
+  _writeKey(key) {
+    const blob = safeStorage.encryptString(key.toString('base64'));
+    const tmp  = this.keyPathEnc + '.tmp';
+    fs.writeFileSync(tmp, blob, { mode: 0o600 });
+    fs.renameSync(tmp, this.keyPathEnc);
   }
 
   // ── Şifreleme / Çözme ────────────────────────────────────────────────────────
@@ -64,13 +110,25 @@ class SecureLogManager {
 
   // ── Log Yükleme / Kaydetme ───────────────────────────────────────────────────
 
+  // Yarım yazılmış dosya = kayıp geçmiş. Geçici dosyaya yaz, sonra atomik taşı.
+  _atomicWrite(target, data) {
+    const tmp = target + '.tmp';
+    fs.writeFileSync(tmp, data, { mode: 0o600 });
+    fs.renameSync(tmp, target);
+  }
+
   _loadLogs() {
     try {
-      if (fs.existsSync(this.logsPath)) {
-        const buffer = fs.readFileSync(this.logsPath);
-        this.logs    = this._decrypt(buffer);
-        console.log(`[SecureLog] ${this.logs.length} şifreli log yüklendi`);
-      }
+      if (!fs.existsSync(this.logsPath)) return;
+      const buffer = fs.readFileSync(this.logsPath);
+      if (!buffer.length) return;
+      // Şifreli format iv(16)+tag(16)+ct ile başlar; şifresiz format JSON'dur.
+      const isJson = buffer[0] === 0x5b /* [ */ || buffer[0] === 0x7b /* { */;
+      this.logs = isJson
+        ? JSON.parse(buffer.toString('utf8'))
+        : this._decrypt(buffer);
+      if (!Array.isArray(this.logs)) this.logs = [];
+      console.log(`[SecureLog] ${this.logs.length} log yüklendi (şifreli: ${!isJson})`);
     } catch (e) {
       console.warn('[SecureLog] Log yüklenemedi, sıfırlanıyor:', e.message);
       this.logs = [];
@@ -79,8 +137,10 @@ class SecureLogManager {
 
   saveLogs() {
     try {
-      const encrypted = this._encrypt(this.logs);
-      fs.writeFileSync(this.logsPath, encrypted);
+      this._atomicWrite(
+        this.logsPath,
+        this.canEncrypt ? this._encrypt(this.logs) : Buffer.from(JSON.stringify(this.logs), 'utf8')
+      );
     } catch (e) {
       console.error('[SecureLog] Kayıt hatası:', e.message);
     }
@@ -89,13 +149,18 @@ class SecureLogManager {
   _loadSyncQueue() {
     try {
       if (fs.existsSync(this.syncPath)) {
-        this.syncQueue = JSON.parse(fs.readFileSync(this.syncPath, 'utf-8'));
+        const q = JSON.parse(fs.readFileSync(this.syncPath, 'utf-8'));
+        this.syncQueue = Array.isArray(q) ? q : [];
       }
     } catch { this.syncQueue = []; }
   }
 
   _saveSyncQueue() {
-    fs.writeFileSync(this.syncPath, JSON.stringify(this.syncQueue, null, 2));
+    try {
+      this._atomicWrite(this.syncPath, Buffer.from(JSON.stringify(this.syncQueue, null, 2), 'utf8'));
+    } catch (e) {
+      console.error('[SecureLog] Sync kuyruğu yazılamadı:', e.message);
+    }
   }
 
   // ── Log Ekleme ───────────────────────────────────────────────────────────────
@@ -197,8 +262,9 @@ class SecureLogManager {
       logSizeKb:      fs.existsSync(this.logsPath)
                         ? Math.round(fs.statSync(this.logsPath).size / 1024)
                         : 0,
-      encrypted:      true,
-      keyExists:      fs.existsSync(this.keyPath),
+      // Gerçek durumu bildir — safeStorage yoksa şifreleme de yoktur.
+      encrypted:      this.canEncrypt,
+      keyExists:      fs.existsSync(this.keyPathEnc),
     };
   }
 
@@ -236,6 +302,8 @@ class SecureLogManager {
 
   async syncToServer(serverUrl, apiKey) {
     if (!serverUrl || !this.syncQueue.length) return { synced: 0 };
+    // Şifreleme yoksa logları düz metin göndermeyiz.
+    if (!this.canEncrypt) return { synced: 0, success: false, error: 'encryption_unavailable' };
 
     const pendingIds  = [...this.syncQueue];
     const pendingLogs = this.logs.filter(l => pendingIds.includes(l.id));

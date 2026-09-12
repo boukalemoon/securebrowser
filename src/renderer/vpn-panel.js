@@ -291,7 +291,12 @@ function renderVpnProfiles(profiles, pings = {}) {
       } else if (action === 'disconnect') {
         await vpnDisconnect();
       } else if (action === 'delete') {
-        await sb.vpn.removeProfile(id);
+        // Aktif profil silinemez — ana süreç bunu reddediyor, nedenini göster.
+        const res = await sb.vpn.removeProfile(id);
+        if (res && res.ok === false) {
+          alert('Profil silinemedi:\n\n' + (res.error || 'Bilinmeyen hata'));
+          return;
+        }
         await loadVpnPanel();
       }
     });
@@ -387,7 +392,13 @@ function initVpnPanelEvents() {
       return;
     }
 
-    await sb.vpn.addProfile({ name, location, endpoint, publicKey, privateKey, clientIp, dns });
+    // Ana süreç profili güvenlik şemasından geçirir (endpoint/anahtar/IP/DNS).
+    // Reddedilirse formu TEMİZLEMEDEN hatayı göster, kullanıcı düzeltebilsin.
+    const res = await sb.vpn.addProfile({ name, location, endpoint, publicKey, privateKey, clientIp, dns });
+    if (res && res.ok === false) {
+      alert('Profil eklenemedi:\n\n' + (res.error || 'Bilinmeyen hata'));
+      return;
+    }
 
     // Formu temizle
     ['vpn-new-name','vpn-new-location','vpn-new-endpoint','vpn-new-pubkey','vpn-new-privkey']

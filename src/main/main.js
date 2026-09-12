@@ -23,6 +23,17 @@ const USER_DATA = app.getPath('userData');
 const DB_PATH   = path.join(USER_DATA, 'logs.db');
 const CFG_PATH  = path.join(USER_DATA, 'config.json');
 
+// ─── Oturum ayrımı — TEMİZLEME İŞLEMLERİ İÇİN KRİTİK ─────────────────────────
+// Sekmeler (gerçek gezinme) bu bölümü kullanır. Arayüz penceresi ise
+// defaultSession'da kalır ve uygulama verisini (yer imleri, tema, engelleyici
+// beyaz listesi) kendi localStorage'ında tutar.
+//
+// Bu yüzden "çerezleri/tüm verileri temizle" çağrıları SADECE aşağıdaki tarama
+// oturumunu hedeflemek zorundadır. defaultSession'ı temizlemek iki yönlü hataya
+// yol açar: gerçek çerezler hiç silinmez ve kullanıcının tüm yer imleri gider.
+const BROWSING_PARTITION = 'persist:securebrowser';
+function browsingSession() { return session.fromPartition(BROWSING_PARTITION); }
+
 const DEFAULT_CONFIG = {
   homepage:              '',           // boş = İlgezdi başlangıç sayfası; URL = o sayfa açılır
   searchEngine:          'duckduckgo', // varsayılan; kullanıcı ayarlardan değiştirebilir
@@ -32,6 +43,8 @@ const DEFAULT_CONFIG = {
   killSwitchEnabled:     true,
   blockTrackers:         true,
   blockAds:              true,
+  blockLevel:            'medium',   // low | medium | high | full
+  whitelist:             [],         // engellemenin kapatıldığı alan adları
   fingerprintProtection: true,
   dnsServer:             '1.1.1.1',
   userAgentRotation:     true,
@@ -369,7 +382,7 @@ function createTab(win, state, url = config.homepage) {
       allowRunningInsecureContent: false,
       partition: isIncognito
         ? 'incognito-' + (win ? win.id : Date.now())
-        : 'persist:securebrowser',
+        : BROWSING_PARTITION,
     }
   });
 
@@ -662,8 +675,24 @@ ipcMain.handle('get-blocked-stats', () => {
 
 // VPN
 ipcMain.handle('vpn-get-profiles',   ()           => vpnManager?.getProfiles() || []);
-ipcMain.handle('vpn-add-profile',    (e, profile) => vpnManager?.addProfile(profile));
-ipcMain.handle('vpn-remove-profile', (e, id)      => { vpnManager?.removeProfile(id); });
+// Doğrulama hatası kullanıcıya gösterilecek bir mesaj — ham Electron IPC
+// istisnası olarak sızdırmak yerine düzgün bir sonuç nesnesi döndürülür.
+ipcMain.handle('vpn-add-profile',    (e, profile) => {
+  try {
+    const p = vpnManager?.addProfile(profile);
+    return { ok: true, profile: p };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+});
+ipcMain.handle('vpn-remove-profile', (e, id) => {
+  try {
+    vpnManager?.removeProfile(id);
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+});
 ipcMain.handle('vpn-connect',        async (e, profileId) => {
   try {
     return await vpnManager?.connect(profileId);
@@ -706,9 +735,10 @@ ipcMain.handle('pick-download-folder', async () => {
   return null;
 });
 
+// Temizleme çağrıları tarama oturumunu hedefler — bkz. BROWSING_PARTITION notu.
 ipcMain.handle('clear-cache', async () => {
   try {
-    await session.defaultSession.clearCache();
+    await browsingSession().clearCache();
     for (const [, tab] of mainState.tabs) {
       await tab.view.webContents.session.clearCache().catch(() => {});
     }
@@ -720,19 +750,41 @@ ipcMain.handle('clear-cache', async () => {
 
 ipcMain.handle('clear-cookies', async () => {
   try {
-    await session.defaultSession.clearStorageData({ storages: ['cookies'] });
+    await browsingSession().clearStorageData({ storages: ['cookies'] });
     return { success: true };
   } catch (e) {
     return { success: false, error: e.message };
   }
 });
 
-ipcMain.handle('clear-all', async () => {
+ipcMain.handle('clear-all', async (event) => {
+  // Geri alınamaz işlem → açık onay al ve NEYİN silinmediğini de söyle.
+  const parent = BrowserWindow.fromWebContents(event.sender) || mainWindow;
+  let confirmed = false;
   try {
-    await session.defaultSession.clearCache();
-    await session.defaultSession.clearStorageData({
-      storages: ['cookies', 'localstorage', 'sessionstorage', 'shadercache', 'indexdb', 'websql'],
+    const r = await dialog.showMessageBox(parent, {
+      type:      'warning',
+      buttons:   ['Vazgeç', 'Tümünü Temizle'],
+      defaultId: 0,
+      cancelId:  0,
+      title:     'Tüm Tarama Verilerini Temizle',
+      message:   'Tarama verilerinin tümü silinecek',
+      detail:
+        'Silinecek: çerezler, site verileri, önbellek, ziyaret günlüğü ve site izin kararları.\n\n' +
+        'Silinmeyecek: yer imleri, kayıtlı şifreler, ayarlar ve VPN profilleri.\n\n' +
+        'Bu işlem geri alınamaz.',
     });
+    confirmed = r.response === 1;
+  } catch { confirmed = false; }
+  if (!confirmed) return { success: false, canceled: true };
+
+  try {
+    const ses = browsingSession();
+    await ses.clearCache();
+    // storages verilmezse tüm depo türleri temizlenir (çerez, localStorage,
+    // IndexedDB, service worker, cache storage…) — tür listesini elle saymaktan
+    // güvenli, Electron sürümleri arasında da uyumlu.
+    await ses.clearStorageData();
     secureLog?.clearLogs();
     // Site izin kararlarını da sıfırla — siteler yeniden sorabilir
     if (config.permissionDecisions) {
@@ -901,6 +953,15 @@ app.whenReady().then(() => {
     if (incognitoWindow && !incognitoWindow.isDestroyed()) {
       incognitoWindow.webContents.send('vpn-status', vpnManager.getStatus());
     }
+  });
+
+  // Kaydedilmiş engelleyici ayarını İLK SEKMEDEN ÖNCE uygula. Ayar yalnızca
+  // renderer açılışında bildirilirse, ilk sayfa yüklenene kadar engelleyici
+  // kodda gömülü 'medium' + boş beyaz listeyle çalışır.
+  updateBlockerConfig({
+    level:     config.blockLevel || 'medium',
+    whitelist: Array.isArray(config.whitelist) ? config.whitelist : [],
+    enabled:   config.blockAds !== false || config.blockTrackers !== false,
   });
 
   configureSession(session.defaultSession);
