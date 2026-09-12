@@ -103,12 +103,23 @@ function loadConfig() {
     if (fs.existsSync(CFG_PATH)) {
       return { ...DEFAULT_CONFIG, ...JSON.parse(fs.readFileSync(CFG_PATH, 'utf-8')) };
     }
-  } catch (e) { console.error('Config yüklenemedi:', e); }
+  } catch (e) {
+    console.error('Config yüklenemedi:', e);
+    // Bozuk dosyayı sakla: bir sonraki saveConfig varsayılanlarla üzerine yazar
+    // ve ayarlar geri dönüşsüz gider. Kopya elle kurtarma imkânı bırakır.
+    try { fs.copyFileSync(CFG_PATH, CFG_PATH + '.bozuk-' + Date.now()); } catch {}
+  }
   return { ...DEFAULT_CONFIG };
 }
 
 function saveConfig(cfg) {
-  fs.writeFileSync(CFG_PATH, JSON.stringify(cfg, null, 2));
+  // Atomik yazma (denetim O-02): yarım yazılmış config.json, loadConfig'in
+  // catch'ine düşüp TÜM ayarları — şifreli oturum, site izin kararları, ana sayfa,
+  // engelleyici beyaz listesi — sessizce varsayılana döndürüyordu. Loglar, VPN
+  // profilleri ve kasa zaten atomikti; config.json bu listeden kalmıştı.
+  const tmp = CFG_PATH + '.tmp';
+  fs.writeFileSync(tmp, JSON.stringify(cfg, null, 2));
+  fs.renameSync(tmp, CFG_PATH);
 }
 
 let config = loadConfig();
