@@ -15,7 +15,7 @@
 
 'use strict';
 
-const { BrowserView, BrowserWindow } = require('electron');
+const { WebContentsView, BrowserWindow } = require('electron');
 
 let glanceView = null;
 let glanceWin  = null;
@@ -106,7 +106,8 @@ function setupGlance(mainWindow, ipcMain) {
     if (py + PH > winBounds.height - 20) py = CHROME_H + 10;
     if (py < CHROME_H + 10) py = CHROME_H + 10;
 
-    glanceView = new BrowserView({
+    // WebContentsView (BrowserView Electron 30'dan beri kullanımdan kaldırılmış)
+    glanceView = new WebContentsView({
       webPreferences: {
         nodeIntegration: false,
         contextIsolation: true,
@@ -119,9 +120,8 @@ function setupGlance(mainWindow, ipcMain) {
     glanceShown = false;
 
     view.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
-    win.addBrowserView(view);
+    win.contentView.addChildView(view);
     view.setBounds({ x: px, y: py, width: PW, height: PH });
-    view.setAutoResize({ width: false, height: false });
     view.webContents.loadURL(url).catch(() => {});
     glanceOpen = true;
 
@@ -193,16 +193,19 @@ function setupGlance(mainWindow, ipcMain) {
 }
 
 function closeGlance() {
+  // Açık bir glance yoksa sessizce çık (sekme değişiminde her seferinde çağrılıyor;
+  // arayüze gereksiz 'glance-closed' olayı gönderilmesin).
+  if (!glanceView && !glanceOpen) return;
   stopPoll();
   if (glanceView) {
     const view = glanceView;
     glanceView = null;
-    try { if (glanceWin && !glanceWin.isDestroyed()) glanceWin.removeBrowserView(view); } catch {}
-    try { view.webContents.destroy(); } catch {}
+    try { if (glanceWin && !glanceWin.isDestroyed()) glanceWin.contentView.removeChildView(view); } catch {}
+    try { if (!view.webContents.isDestroyed()) view.webContents.close(); } catch {}
   }
   glanceOpen = false;
   glanceShown = false;
   if (glanceWin && !glanceWin.isDestroyed()) glanceWin.webContents.send('glance-closed');
 }
 
-module.exports = { setupGlance };
+module.exports = { setupGlance, closeGlance };

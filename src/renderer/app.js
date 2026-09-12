@@ -127,7 +127,7 @@ async function showScreen(name, renderFn) {
   document.querySelectorAll('.sidebar-btn[data-screen]').forEach(b => b.classList.remove('active'));
   document.querySelector(`.sidebar-btn[data-screen="${name}"]`)?.classList.add('active');
 
-  // BrowserView'ı gizle
+  // WebContentsView'ı gizle
   try { await sb.hideActiveTab?.(); } catch(_) {}
 
   const overlay = document.getElementById('screen-overlay');
@@ -149,7 +149,7 @@ function hideScreen() {
     setTimeout(() => overlay.classList.add('hidden'), 200);
   }
 
-  // BrowserView'ı geri göster
+  // WebContentsView'ı geri göster
   try { sb.showActiveTab?.(); } catch(_) {}
 
   // Sidebar'da home butonunu aktif yap
@@ -531,7 +531,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         requestAnimationFrame(initNewTabEvents);
       } else {
         // Zaten newtab ekranındayız ama main süreci setActiveTab ile boş
-        // BrowserView'ı yeniden göstermiş olabilir → tekrar gizle (aksi halde
+        // WebContentsView'ı yeniden göstermiş olabilir → tekrar gizle (aksi halde
         // ~1sn sonra boş beyaz ekran overlay'in üstünü kapatıyor).
         sb.hideActiveTab?.();
       }

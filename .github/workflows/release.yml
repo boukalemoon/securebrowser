@@ -31,7 +31,10 @@ jobs:
       - name: Node kurulumu
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          # Electron 44 + electron-builder 26: paketleme sırasında çalışan
+          # @electron/rebuild 4.x ve @electron/get 5.x Node >= 22.12 ister.
+          # Node 20 ile yayın derlemesi kırılır. Yerel doğrulama Node 24 ile yapıldı.
+          node-version: 24
           cache: npm
 
       - name: Bağımlılıklar

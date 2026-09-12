@@ -226,7 +226,7 @@ function setQrStatus(msg, cls) {
 function showAuthScreen() {
   const el = authEl('auth-screen');
   if (!el) return;
-  // BrowserView native layer olduğu için DOM overlay'in üstünde render eder.
+  // WebContentsView native layer olduğu için DOM overlay'in üstünde render eder.
   // Auth ekranı gösterilirken aktif sekmeyi gizle, yoksa overlay çalışmaz.
   window.secureBrowser?.hideActiveTab?.().catch?.(() => {});
   el.classList.remove('hidden');
@@ -238,7 +238,7 @@ function hideAuthScreen() {
   if (!el) return;
   el.classList.remove('visible');
   setTimeout(() => el.classList.add('hidden'), 300);
-  // Sekme içeriğini (BrowserView) geri getir — showAuthScreen gizlemişti.
+  // Sekme içeriğini (WebContentsView) geri getir — showAuthScreen gizlemişti.
   // Yeni sekme gibi bir ekran overlay'i hâlâ açıksa view gizli kalmalı.
   const overlayVisible = document.getElementById('screen-overlay')?.classList.contains('visible');
   if (!overlayVisible) window.secureBrowser?.showActiveTab?.().catch?.(() => {});

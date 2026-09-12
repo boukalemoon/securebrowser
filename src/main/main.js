@@ -4,14 +4,14 @@
 
 'use strict';
 
-const { app, BrowserWindow, BrowserView, ipcMain, session, dialog, safeStorage, webContents } = require('electron');
+const { app, BrowserWindow, WebContentsView, ipcMain, session, dialog, safeStorage, webContents } = require('electron');
 const path = require('path');
 const fs   = require('fs');
 
 const { SecureLogManager } = require('./secure-log-manager');
 const { VpnManager } = require('./vpn-manager');
 const { attachBlocker, shouldBlockUrl, updateBlockerConfig, getBlockStats } = require('./blocker-main');
-const { setupGlance } = require('./glance-main');
+const { setupGlance, closeGlance } = require('./glance-main');
 const { setupArku } = require('./arku-manager');
 const { setupBookmarkImport } = require('./bookmark-import');
 const { setupPasswordManager, getForOrigin } = require('./password-manager');
@@ -154,10 +154,11 @@ function logVisit(data) {
 // Site izin istekleri (kamera, mikrofon, konum...) — Electron varsayılanı
 // İZİN VERMEKTİR; burada hassas izinler kullanıcı onayına bağlanır.
 const QUIET_ALLOW = new Set(['fullscreen', 'clipboard-sanitized-write', 'pointerLock']);
-const ASK_USER    = new Set(['media', 'geolocation', 'notifications', 'midi', 'midiSysex']);
+const ASK_USER    = new Set(['media', 'display-capture', 'geolocation', 'notifications', 'midi', 'midiSysex']);
 const PERMISSION_TR = {
   media: 'Kamera / Mikrofon', geolocation: 'Konum',
   notifications: 'Bildirim', midi: 'MIDI cihazları', midiSysex: 'MIDI cihazları',
+  'display-capture': 'Ekran paylaşımı',
 };
 
 // İzin kararları site (origin) + izin türü bazında hatırlanır ve config'e
@@ -428,10 +429,20 @@ function createWindow() {
   }
 
   mainWindow.on('closed', async () => {
+    // Sekme görünümlerinin webContents'ini ve yoklama zamanlayıcılarını AÇIKÇA
+    // kapat. Eskiden ana pencere kapanışında hiçbir sekme temizlenmiyordu;
+    // WebContentsView'da pencereye bağlı otomatik temizliğe güvenmek yerine
+    // yaşam döngüsünü kendimiz yönetiyoruz (gizli pencere zaten böyle yapıyordu).
+    for (const [, tab] of mainState.tabs) {
+      if (tab.__glancePoll) clearInterval(tab.__glancePoll);
+      try { if (!tab.view.webContents.isDestroyed()) tab.view.webContents.close(); } catch {}
+    }
+    mainState.tabs.clear();
+    mainState.activeTabId = null;
+    mainWindow = null;
     if (vpnManager?.activeProfile) {
       await vpnManager.disconnect().catch(() => {});
     }
-    mainWindow = null;
   });
 }
 
@@ -439,7 +450,8 @@ function createTab(win, state, url = config.homepage) {
   const tabId = ++state.tabCounter;
   const isIncognito = state === incognitoState;
 
-  const view = new BrowserView({
+  // WebContentsView: BrowserView Electron 30'dan beri kullanımdan kaldırılmış durumda.
+  const view = new WebContentsView({
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
@@ -601,9 +613,10 @@ function resizeActiveView(win, state) {
   // Renderer view'ı bilerek gizlediyse (ekran overlay açık) gizli tut —
   // panel-opened / pencere resize olayları gizliliği bozmasın.
   if (state.viewHidden) {
-    tab.view.setBounds({ x: 0, y: 0, width: 0, height: 0 });
+    tab.view.setVisible(false);
     return;
   }
+  tab.view.setVisible(true);
   const bounds = win.getContentBounds();
   const usableWidth = bounds.width - SIDEBAR_WIDTH;
   tab.view.setBounds({
@@ -618,14 +631,21 @@ function setActiveTab(win, state, tabId) {
   const tab = state.tabs.get(tabId);
   if (!tab || !win || win.isDestroyed()) return;
 
-  const views = win.getBrowserViews();
-  views.forEach(v => win.removeBrowserView(v));
-
-  win.addBrowserView(tab.view);
+  // Yalnızca bu penceredeki DİĞER sekmelerin görünümleri ağaçtan çıkarılır (yok
+  // edilmez — sekmeye dönüldüğünde yeniden eklenir). Hedefli çıkarma, contentView'e
+  // eklenmiş başka görünümlere dokunmaz. removeChildView, çocuk olmayan görünüm için
+  // işlem yapmaz. (Not: BrowserWindow'un kendi arayüz webContents'i children içinde
+  // LİSTELENMEZ — Electron 44 uçtan uca sondasıyla doğrulandı.)
+  const content = win.contentView;
+  for (const [id, t] of state.tabs) {
+    if (id !== tabId) content.removeChildView(t.view);
+  }
+  // Açık bir glance yeni sekmenin altında kalıp görünmez hâle gelmesin.
+  closeGlance();
+  content.addChildView(tab.view);   // zaten çocuksa en üste taşınır
   state.activeTabId = tabId;
 
   resizeActiveView(win, state);
-  tab.view.setAutoResize({ width: false, height: false });
 
   sendTabsUpdate(win, state);
 }
@@ -636,8 +656,10 @@ function closeTab(win, state, tabId) {
 
   if (tab.__glancePoll) clearInterval(tab.__glancePoll);
 
-  if (win && !win.isDestroyed()) win.removeBrowserView(tab.view);
-  tab.view.webContents.destroy();
+  if (win && !win.isDestroyed()) win.contentView.removeChildView(tab.view);
+  // webContents.destroy() belgelenmiş bir API değildi; close() sayfayı kapatıp
+  // WebContents'i yok eder ('destroyed' olayı yayılır).
+  try { if (!tab.view.webContents.isDestroyed()) tab.view.webContents.close(); } catch {}
   state.tabs.delete(tabId);
 
   if (state.tabs.size === 0) {
@@ -700,13 +722,15 @@ ipcMain.handle('navigate', (event, url) => {
 ipcMain.handle('go-back', (event) => {
   const { state } = getContextFromEvent(event);
   const t = state.tabs.get(state.activeTabId);
-  if (t?.view.webContents.canGoBack()) t.view.webContents.goBack();
+  const h = t?.view.webContents.navigationHistory;
+  if (h?.canGoBack()) h.goBack();
 });
 
 ipcMain.handle('go-forward', (event) => {
   const { state } = getContextFromEvent(event);
   const t = state.tabs.get(state.activeTabId);
-  if (t?.view.webContents.canGoForward()) t.view.webContents.goForward();
+  const h = t?.view.webContents.navigationHistory;
+  if (h?.canGoForward()) h.goForward();
 });
 
 ipcMain.handle('reload', (event) => {
@@ -984,7 +1008,7 @@ ipcMain.handle('hide-active-tab', (event) => {
   const { state } = getContextFromEvent(event);
   state.viewHidden = true;
   const tab = state.tabs.get(state.activeTabId);
-  if (tab) tab.view.setBounds({ x: 0, y: 0, width: 0, height: 0 });
+  if (tab) tab.view.setVisible(false);
 });
 
 ipcMain.handle('show-active-tab', (event) => {
@@ -1157,7 +1181,7 @@ function createIncognitoWindow() {
     // Tüm incognito sekmelerini ve polling'leri temizle
     for (const [, tab] of incognitoState.tabs) {
       if (tab.__glancePoll) clearInterval(tab.__glancePoll);
-      try { tab.view.webContents.destroy(); } catch {}
+      try { if (!tab.view.webContents.isDestroyed()) tab.view.webContents.close(); } catch {}
     }
     incognitoState.tabs.clear();
     incognitoState.activeTabId = null;

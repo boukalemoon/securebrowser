@@ -55,7 +55,7 @@ function glanceShowUI(data) {
     glanceCleanupUI();
   });
 
-  // Kenarlık kutusu (BrowserView'ın etrafına)
+  // Kenarlık kutusu (WebContentsView'ın etrafına)
   const border = document.createElement('div');
   border.id = 'glance-border';
   border.style.left   = (data.x - 2) + 'px';
@@ -88,9 +88,9 @@ function glanceClose() {
 
 // ─── Alt + Tıklama yakalama ───────────────────────────────────────────────────
 function glanceSetupLinkCapture() {
-  // BrowserView içindeki linkleri yakalayamayız (cross-process)
+  // WebContentsView içindeki linkleri yakalayamayız (cross-process)
   // Ama adres çubuğundaki URL'ye Alt+Enter veya toolbar'daki linklere Alt+tıklama yapılabilir.
-  // Ana yöntem: main process'ten gelen 'open-glance' eventi (BrowserView'da Alt+tıklama)
+  // Ana yöntem: main process'ten gelen 'open-glance' eventi (WebContentsView'da Alt+tıklama)
 
   // Renderer içindeki linkler (panel içi, bookmark listesi vb.)
   document.addEventListener('click', (e) => {
@@ -144,7 +144,7 @@ function glanceInitEvents() {
   const sb = window.secureBrowser;
   if (!sb) return;
 
-  // BrowserView'dan gelen Alt+tıklama (main process iletir)
+  // WebContentsView'dan gelen Alt+tıklama (main process iletir)
   sb.glance?.onOpenRequest?.((data) => {
     glanceOpenUrl(data.url, data.x, data.y);
   });

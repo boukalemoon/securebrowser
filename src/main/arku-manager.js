@@ -115,7 +115,7 @@ function applyUpdate() {
  * @param {Electron.IpcMain} ipcMain
  * @param {object} options
  * @param {() => Electron.BrowserWindow|null} options.getMainWindow
- * @param {(cb: (view: Electron.BrowserView) => void) => void} options.forEachTabView
+ * @param {(cb: (view: Electron.WebContentsView) => void) => void} options.forEachTabView
  * @param {string} options.userDataPath
  */
 function setupArku(ipcMain, options) {
