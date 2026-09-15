@@ -22,8 +22,12 @@ const { createFaviconCache, hostKey: faviconHost } = require('./favicon-cache');
 // Site simgesi önbelleği: app.whenReady içinde, şifreleme anahtarı hazır olunca kurulur.
 let faviconCache = null;
 const { setupDiscover } = require('./discover-feed');
+const { setupCommunity } = require('./community');
 // Keşfet kartları (TrendTech yazılımları): uygulamadaki liste + ilgezdi.com.tr'den günlük tazeleme.
 setupDiscover(ipcMain, session);
+// Keşfet yorumları ve Öneri sayfası (community.js). Paketlenmemiş geliştirme kopyasında
+// sonda sahte sunucuya yönlendirebilir; kurulu uygulamada adres sabittir.
+setupCommunity({ ipcMain, session, app, apiBase: !app.isPackaged ? process.env.ILGEZDI_API_BASE : undefined });
 const {
   normalizeWebrtcPolicy, DEFAULT_WEBRTC_POLICY, UI_COMMANDS, commandForInput, buildContextMenuModel,
   nextZoomFactor, zoomKeyForUrl, createZoomStore, snapshotHistory, pushClosedTab, isWebUrl,

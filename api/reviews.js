@@ -2,15 +2,16 @@
  * İlgezdi web sitesi — Yorum API'si (Vercel serverless, Node).
  *
  * GET  /api/reviews  → onaylanmış yorumlar + özet (sayı, ort. puan)
+ *      Authorization: Bearer <Qrtım erişim anahtarı> ile ayrıca { mine }: kişinin
+ *      uygulamadan yazdığı yorum ve onay durumu (önbelleğe alınmaz).
  * POST /api/reviews  → yeni yorum (status: 'pending') — moderasyon Nexus CRM'de
+ *      • Web sitesi formu: anonim; IP başına saatlik sınır (değişmedi).
+ *      • İlgezdi uygulaması (Keşfet): Qrtım hesabı ZORUNLU, anahtar sunucuda doğrulanır.
+ *        Hesap başına tek yorum: yeniden gönderilen yorum öncekinin yerine geçer ve
+ *        yayındaysa bile yeniden onaya düşer. Nexus'ta "Uygulama · Qrtım" olarak görünür.
  *
- * Yorumlar Nexus'un Firestore veritabanında (ilgezdi_reviews) tutulur.
- * Buraya erişim yalnızca Firebase Admin SDK ile (service account) yapılır;
- * public'in Firestore'a doğrudan erişimi yoktur (kurallar owner-only).
- *
- * Gerekli ortam değişkenleri (Vercel → Settings → Environment Variables):
- *   FIREBASE_SERVICE_ACCOUNT = <service account JSON'unun tamamı>
- *   RATE_LIMIT_SALT          = <rastgele uzun metin>  (isteğe bağlı ama önerilir)
+ * Yorumlar Nexus'un Firestore veritabanında (ilgezdi_reviews) tutulur; ortak
+ * yardımcılar ve ortam değişkenleri için bkz. api/_lib/community.js.
  *
  * Denetim düzeltmeleri (O-14):
  *   • Hata yanıtı iç hata mesajını (`detail`) halka açık döndürüyordu — kaldırıldı.
@@ -23,38 +24,18 @@
 
 'use strict';
 
-const crypto = require('crypto');
-const { initializeApp, getApps, cert } = require('firebase-admin/app');
-const { getFirestore, FieldValue } = require('firebase-admin/firestore');
+const {
+  db, clientIp, plainText, hashKey, rateSalt, rateLimited, bearerToken, verifyQrtimUser, readBody,
+} = require('./_lib/community');
 
-const DATABASE_ID   = 'ai-studio-01b23ae1-726c-4e78-8f1b-3f0cefc7a2eb';
 const COLLECTION    = 'ilgezdi_reviews';
 const RL_COLLECTION = 'ilgezdi_review_ratelimit';
-const RL_MAX_PER_HOUR = 3;
+const RL_MAX_PER_HOUR     = 3;   // site formu, IP başına
+const RL_APP_MAX_PER_HOUR = 6;   // uygulama, hesap başına (düzenlemeler dahil)
+const STATUSES = ['pending', 'approved', 'rejected'];
 
-let _db = null;
-function db() {
-  if (_db) return _db;
-  if (!getApps().length) {
-    const raw = process.env.FIREBASE_SERVICE_ACCOUNT;
-    if (!raw) throw new Error('FIREBASE_SERVICE_ACCOUNT tanımlı değil');
-    initializeApp({ credential: cert(JSON.parse(raw)) });
-  }
-  _db = getFirestore(DATABASE_ID);
-  return _db;
-}
-
-function clientIp(req) {
-  const h = req.headers;
-  return String(h['x-forwarded-for'] || h['x-real-ip'] || h['x-vercel-forwarded-for'] || '')
-    .split(',')[0].trim();
-}
-
-// HTML etiketlerini sök: yorumlar sitede gösteriliyor. Gösterim tarafı da
-// kaçışlamalı; bu, oradaki bir hataya karşı ikinci savunma hattı.
-function plainText(s, max) {
-  return String(s || '').replace(/[<>]/g, '').replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, '').trim().slice(0, max);
-}
+// Uygulama yorumlarının belge kimliği hesaptan türetilir (tek yorum); kimliğin kendisi görünmez.
+const appDocId = (userId) => 'app_' + hashKey('ilgezdi-review-user', userId).slice(0, 24);
 
 async function loadApproved(col) {
   try {
@@ -76,42 +57,43 @@ async function loadApproved(col) {
   }
 }
 
-/** true → sınır aşıldı. Sayaç dokümanı saatlik anahtarla tutulur. */
-async function rateLimited(req) {
-  const ip = clientIp(req);
-  if (!ip) return false;
-  const salt = process.env.RATE_LIMIT_SALT || 'ilgezdi-reviews';
-  const hour = new Date().toISOString().slice(0, 13); // YYYY-MM-DDTHH
-  const key  = crypto.createHash('sha256').update(salt + '|' + ip).digest('hex').slice(0, 32);
-  const ref  = db().collection(RL_COLLECTION).doc(key + '_' + hour.replace(/[^0-9]/g, ''));
-
-  return db().runTransaction(async (t) => {
-    const snap  = await t.get(ref);
-    const count = snap.exists ? Number(snap.data().count) || 0 : 0;
-    if (count >= RL_MAX_PER_HOUR) return true;
-    t.set(ref, {
-      count: count + 1,
-      hour,
-      // Firestore TTL politikası bu alana bağlanırsa eski sayaçlar otomatik silinir.
-      expiresAt: new Date(Date.now() + 2 * 3600 * 1000),
-      updatedAt: FieldValue.serverTimestamp(),
-    }, { merge: true });
-    return false;
-  });
+function parseRating(v) {
+  const n = v != null ? parseInt(v, 10) : NaN;
+  return n >= 1 && n <= 5 ? n : null;
 }
 
 module.exports = async (req, res) => {
   try {
     const col = db().collection(COLLECTION);
 
-    // ── Onaylı yorumları listele + özet ──
+    // ── Onaylı yorumları listele + özet (+ oturumla: kişinin kendi yorumu) ──
     if (req.method === 'GET') {
       const items = (await loadApproved(col)).map((x) => ({
         name: x.name, rating: x.rating || null,
         comment: x.comment, createdAt: x.createdAt || 0,
+        verified: x.source === 'app',
       }));
       const ratings = items.map((i) => i.rating).filter((r) => r >= 1 && r <= 5);
       const avg = ratings.length ? ratings.reduce((a, b) => a + b, 0) / ratings.length : null;
+
+      const token = bearerToken(req);
+      if (token) {
+        const user = await verifyQrtimUser(token);
+        if (!user) return res.status(401).json({ error: 'unauthorized' });
+        const snap = await col.doc(appDocId(user.id)).get();
+        const m = snap.exists ? snap.data() : null;
+        res.setHeader('Cache-Control', 'private, no-store');
+        return res.status(200).json({
+          items, count: items.length, avgRating: avg,
+          displayName: user.displayName,
+          mine: m ? {
+            name: m.name, rating: m.rating || null, comment: m.comment,
+            status: STATUSES.includes(m.status) ? m.status : 'pending',
+            updatedAt: m.updatedAt || m.createdAt || 0,
+          } : null,
+        });
+      }
+
       // Kısa cache: Nexus'ta onaylanan yorum sitede hızlı yayınlansın.
       res.setHeader('Cache-Control', 's-maxage=15, stale-while-revalidate=30');
       return res.status(200).json({ items, count: items.length, avgRating: avg });
@@ -119,25 +101,54 @@ module.exports = async (req, res) => {
 
     // ── Yeni yorum (pending) ──
     if (req.method === 'POST') {
-      let body = req.body;
-      if (typeof body === 'string') {
-        if (body.length > 16 * 1024) return res.status(413).json({ error: 'too_large' });
-        try { body = JSON.parse(body); } catch { return res.status(400).json({ error: 'invalid_json' }); }
-      }
-      body = body || {};
+      const { body, error } = readBody(req, 16 * 1024);
+      if (error) return res.status(error === 'too_large' ? 413 : 400).json({ error });
 
       // Honeypot: gizli 'website' alanı botlar tarafından doldurulur → sessizce yut
       if (body.website) return res.status(201).json({ ok: true });
 
       const name    = plainText(body.name, 60);
       const comment = plainText(body.comment, 1000);
-      let rating = body.rating != null ? parseInt(body.rating, 10) : null;
-      if (!(rating >= 1 && rating <= 5)) rating = null;
+      const rating  = parseRating(body.rating);
+      const token   = bearerToken(req);
 
+      // Uygulamadan gelen yorum: Qrtım hesabı zorunlu.
+      if (token || body.source === 'app') {
+        const user = await verifyQrtimUser(token);
+        if (!user) return res.status(401).json({ error: 'unauthorized' });
+        if (!rating) return res.status(400).json({ error: 'invalid_rating' });
+        const shownName = name || user.displayName;
+        if (shownName.length < 2) return res.status(400).json({ error: 'invalid_name' });
+        if (comment.length < 10) return res.status(400).json({ error: 'invalid_comment' });
+
+        if (await rateLimited(RL_COLLECTION, 'app_' + hashKey(rateSalt(), user.id), RL_APP_MAX_PER_HOUR)) {
+          res.setHeader('Retry-After', '3600');
+          return res.status(429).json({ error: 'rate_limited' });
+        }
+
+        const ref  = col.doc(appDocId(user.id));
+        const prev = await ref.get();
+        const now  = Date.now();
+        await ref.set({
+          name: shownName, comment, rating,
+          status: 'pending',
+          source: 'app',
+          userId: user.id,
+          email: user.email,           // yalnızca Nexus'ta (owner) görünür; sitede yayınlanmaz
+          appVersion: plainText(body.appVersion, 20),
+          edited: prev.exists,
+          createdAt: prev.exists ? (prev.data().createdAt || now) : now,
+          updatedAt: now,
+        });
+        return res.status(prev.exists ? 200 : 201).json({ ok: true, updated: prev.exists, status: 'pending' });
+      }
+
+      // Web sitesi formu (anonim)
       if (name.length < 1)    return res.status(400).json({ error: 'invalid_name' });
       if (comment.length < 3) return res.status(400).json({ error: 'invalid_comment' });
 
-      if (await rateLimited(req)) {
+      const ip = clientIp(req);
+      if (ip && await rateLimited(RL_COLLECTION, hashKey(rateSalt(), ip), RL_MAX_PER_HOUR)) {
         res.setHeader('Retry-After', '3600');
         return res.status(429).json({ error: 'rate_limited' });
       }
@@ -154,3 +165,5 @@ module.exports = async (req, res) => {
     return res.status(500).json({ error: 'server_error' });
   }
 };
+
+module.exports.appDocId = appDocId;

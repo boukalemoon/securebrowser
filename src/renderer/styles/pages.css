@@ -364,7 +364,8 @@
   height: 32px; padding: 0 14px; border-radius: 8px; border: 1px solid var(--line);
   background: var(--bg-elev); color: var(--ink-soft); font-size: 12.5px; cursor: pointer; font-family: var(--font-ui);
 }
-.page-btn:hover { color: var(--gold); border-color: var(--gold); }
+/* Altın zeminli birincil düğme hariç: üzerine gelince yazı altın olup zeminde kayboluyordu. */
+.page-btn:not(.primary):hover { color: var(--gold); border-color: var(--gold); }
 .page-btn.danger:hover { color: var(--danger); border-color: var(--danger); }
 .page-btn.sm { height: 26px; padding: 0 10px; font-size: 12px; }
 .page-btn.ghost { background: transparent; }
@@ -432,3 +433,83 @@
   font-size: 9.5px; font-weight: 700; line-height: 1; display: flex; align-items: center; justify-content: center;
 }
 #downloads-badge[hidden] { display: none; }
+
+/* ═══════════════════════════════════════
+   TOPLULUK: Keşfet'te yorumlar · Öneri sayfası
+   ═══════════════════════════════════════ */
+.community { margin: 8px 14px 28px; padding: 20px; border: 1px solid var(--line); border-radius: 14px; background: color-mix(in srgb, var(--bg-elev) 60%, transparent); }
+.community-head h2, .feedback-mine h2 { font-family: var(--font-display); font-size: 18px; letter-spacing: 1px; margin: 0; color: var(--ink); }
+.community-body { margin-top: 14px; display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
+.community-note { font-size: 13px; color: var(--ink-soft); margin: 0; line-height: 1.55; max-width: 640px; }
+.page-btn.primary { background: var(--gold); border-color: var(--gold); color: var(--bg); font-weight: 600; }
+/* :not(:disabled) özgüllük için: log-panel.js çalışırken `.page-btn:hover:not(:disabled)`
+   (yazı rengi vurgu) ekliyor; eşit özgüllükte sonra geldiği için yazı altın zeminde kayboluyordu. */
+.page-btn.primary:hover:not(:disabled) { color: var(--bg); filter: brightness(1.08); }
+.page-btn:disabled { opacity: .55; cursor: default; filter: none; }
+.page-btn:focus-visible, .link-btn:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.link-btn { border: none; background: none; padding: 0; color: var(--gold); cursor: pointer; font: inherit; text-decoration: underline; text-underline-offset: 2px; }
+
+.review-form, .feedback-form { display: flex; flex-direction: column; gap: 6px; width: 100%; max-width: 640px; }
+.field-label { font-size: 12px; color: var(--ink-mute); margin-top: 8px; }
+.review-form input[type="text"], .review-form textarea,
+.feedback-form input[type="text"], .feedback-form select, .feedback-form textarea {
+  width: 100%; box-sizing: border-box; background: var(--bg-elev); border: 1px solid var(--line); border-radius: 8px;
+  color: var(--ink); font: 13px/1.5 var(--font-ui); padding: 8px 10px;
+}
+.review-form textarea, .feedback-form textarea { resize: vertical; min-height: 96px; }
+.review-form input[type="text"]:focus, .review-form textarea:focus,
+.feedback-form input[type="text"]:focus, .feedback-form select:focus, .feedback-form textarea:focus { outline: none; border-color: var(--gold); }
+
+.review-stars { border: none; padding: 0; margin: 0; }
+.review-stars legend { font-size: 12px; color: var(--ink-mute); padding: 0; margin-bottom: 2px; }
+.stars-row { position: relative; display: inline-flex; flex-direction: row-reverse; gap: 2px; }
+.stars-row input { position: absolute; opacity: 0; width: 1px; height: 1px; pointer-events: none; }
+.stars-row label { font-size: 26px; line-height: 1; color: color-mix(in srgb, var(--ink-mute) 45%, transparent); cursor: pointer; padding: 0 2px; transition: color .1s; }
+.stars-row input:checked ~ label, .stars-row label:hover, .stars-row label:hover ~ label { color: var(--gold); }
+.stars-row input:focus-visible + label { outline: 2px solid var(--gold); outline-offset: 2px; border-radius: 4px; }
+
+.review-status { font-size: 12.5px; color: var(--ink-mute); }
+.review-status.ok { color: var(--success, #4ade80); }
+.review-status.err { color: var(--danger, #e05a4a); }
+.review-mine { font-size: 12.5px; margin: 0 0 4px; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line); color: var(--ink-soft); }
+.review-mine.approved { border-color: color-mix(in srgb, var(--success, #4ade80) 45%, transparent); }
+.review-mine.rejected { border-color: color-mix(in srgb, var(--danger, #e05a4a) 45%, transparent); }
+.review-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; margin-top: 18px; }
+.review-list:empty { display: none; }
+.review-card { padding: 12px 14px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg-elev); }
+.review-card-head { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; font-size: 12.5px; }
+.review-name { font-weight: 600; color: var(--ink); }
+.review-rating { color: var(--gold); letter-spacing: 1px; }
+.review-verified { font-size: 10.5px; color: var(--ink-mute); border: 1px solid var(--line); border-radius: 5px; padding: 0 5px; }
+.review-text { margin: 6px 0 0; font-size: 12.5px; color: var(--ink-soft); line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
+
+.feedback-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(240px, 320px); gap: 28px; padding: 0 14px 28px; align-items: start; }
+@media (max-width: 900px) { .feedback-layout { grid-template-columns: 1fr; } }
+.feedback-types { border: none; padding: 0; margin: 0 0 4px; }
+.feedback-types legend { font-size: 13px; font-weight: 600; color: var(--ink); margin-bottom: 8px; padding: 0; }
+.feedback-type-grid { position: relative; display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 8px; }
+.feedback-type-grid input { position: absolute; opacity: 0; width: 1px; height: 1px; pointer-events: none; }
+.feedback-type { display: flex; flex-direction: column; gap: 3px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg-elev); cursor: pointer; transition: border-color .15s, background .15s; }
+.feedback-type:hover { border-color: color-mix(in srgb, var(--gold) 50%, var(--line)); }
+.feedback-type-grid input:checked + .feedback-type { border-color: var(--gold); background: color-mix(in srgb, var(--gold) 10%, var(--bg-elev)); }
+.feedback-type-grid input:focus-visible + .feedback-type { outline: 2px solid var(--gold); outline-offset: 2px; }
+.feedback-type-name { font-size: 13px; font-weight: 600; color: var(--ink); }
+.feedback-type-hint { font-size: 11.5px; color: var(--ink-mute); line-height: 1.4; }
+.feedback-count { font-size: 11px; color: var(--ink-mute); text-align: right; min-height: 14px; }
+.check-row { display: flex; gap: 8px; align-items: flex-start; font-size: 12.5px; color: var(--ink-soft); cursor: pointer; margin-top: 2px; }
+.check-row input { margin-top: 2px; accent-color: var(--gold); }
+.check-row small { color: var(--ink-mute); }
+.check-row[hidden] { display: none; }
+.feedback-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 8px; }
+.feedback-mine { display: flex; flex-direction: column; gap: 10px; }
+.feedback-item { padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg-elev); display: flex; flex-direction: column; gap: 4px; }
+.feedback-item-head { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.feedback-chip { font-size: 10.5px; font-weight: 700; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--ink-soft); }
+.feedback-chip.inceleniyor { color: var(--gold); border-color: color-mix(in srgb, var(--gold) 50%, transparent); }
+.feedback-chip.planlandi { color: #7aa7e0; border-color: color-mix(in srgb, #7aa7e0 50%, transparent); }
+.feedback-chip.tamamlandi { color: var(--success, #4ade80); border-color: color-mix(in srgb, var(--success, #4ade80) 50%, transparent); }
+.feedback-chip.reddedildi { color: var(--ink-mute); }
+.feedback-item-type { font-size: 11px; color: var(--ink-mute); }
+.feedback-item-title { font-size: 13px; color: var(--ink); font-weight: 600; overflow-wrap: anywhere; }
+.feedback-reply { margin: 2px 0 0; font-size: 12.5px; color: var(--ink-soft); line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
+.feedback-item-date { font-size: 11px; color: var(--ink-mute); }

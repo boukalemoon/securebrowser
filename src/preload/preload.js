@@ -49,6 +49,13 @@ contextBridge.exposeInMainWorld('secureBrowser', {
   discover: {
     list: () => ipcRenderer.invoke('discover-list'),
   },
+  // Keşfet yorumları ve Öneri sayfası: yalnızca İlgezdi sunucusu (main/community.js)
+  community: {
+    reviews:      (token) => ipcRenderer.invoke('community-reviews', token || ''),
+    sendReview:   (payload) => ipcRenderer.invoke('community-review-send', payload),
+    sendFeedback: (payload) => ipcRenderer.invoke('community-feedback-send', payload),
+    myFeedback:   (token) => ipcRenderer.invoke('community-feedback-mine', token || ''),
+  },
 
   // ── Ayarlar ─────────────────────────────────────────────────────────────────
   getConfig:  ()    => ipcRenderer.invoke('get-config'),

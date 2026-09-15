@@ -548,6 +548,12 @@ window.ilgezdiAuth = {
       return _accessToken;
     } catch { return null; }
   },
+  // Topluluk (Keşfet yorumu, Öneri): sunucu Qrtım oturumunu bu anahtarla doğrular.
+  // Bellekte yoksa ya da { refresh: true } istenirse yenilenir; oturum yoksa null.
+  getAccessToken: async ({ refresh = false } = {}) => {
+    if (_accessToken && !refresh) return _accessToken;
+    return window.ilgezdiAuth.refreshAccessToken();
+  },
   // Ayarlar → Hesap: ekranı göster VE event'leri bağla (otomatik-giriş
   // durumunda initAuth bindAuthEvents'i çağırmamış olabiliyor → butonlar ölü kalır).
   open: () => {

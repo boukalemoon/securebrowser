@@ -1403,6 +1403,66 @@ suite('Keşfet — TrendTech yazılımları');
     check('Geçmiş\'teki "Yalnızca HTTPS’i aç" düğmesi de senkrona değişiklik bildiriyor',
       /httpsOnly: true \}\);\s*window\.ilgezdiSync\?\.schedulePush\(\);/.test(read('renderer/app.js')));
   }
+
+  suite('Topluluk — Keşfet yorumları ve Öneri (Qrtım doğrulaması, Nexus onayı)');
+  {
+    let api = {};
+    try {
+      api = JSON.parse(require('child_process').execFileSync(process.execPath, [path.join(__dirname, 'helpers', 'community-api-check.js')], { encoding: 'utf8', timeout: 30000 }));
+    } catch (e) { api = { error: e.message }; }
+    const brief = JSON.stringify(api).slice(0, 400);
+    check('uygulama yorumu Qrtım hesabı olmadan reddediliyor (anahtarsız ve geçersiz anahtar → 401)', api.appNoToken?.status === 401 && api.appBadToken?.status === 401, brief);
+    check('uygulama yorumu puansız kabul edilmiyor', api.appNoRating?.status === 400 && api.appNoRating.body.error === 'invalid_rating');
+    check('hesaplı yorum "onay bekliyor" yazılıyor; HTML sökülüyor; kimlik ve e-posta yalnızca kayıtta',
+      api.appFirst?.status === 201 && api.appDoc?.status === 'pending' && !/[<>]/.test(api.appDoc.comment) && api.appDoc.email === 'bir@example.com' && /^app_[0-9a-f]{24}$/.test(api.appDoc.id), JSON.stringify(api.appDoc));
+    check('hesap başına tek yorum: düzenleme aynı kaydın yerine geçiyor, yayındaysa yeniden onaya düşüyor',
+      api.appDocCount2 === 1 && api.appEdit?.body?.updated === true && api.appEdited?.status === 'pending' && api.appEdited.edited === true && api.appEdited.createdKept === true, JSON.stringify(api.appEdited));
+    check('web sitesi formu değişmedi: anonim, onay bekliyor, IP başına saatte 3', api.sitePost?.status === 201 && api.siteDoc?.status === 'pending' && api.siteRate?.status === 429);
+    check('herkese açık liste e-posta ve kimlik içermiyor; uygulama yorumu "Qrtım hesabı" işaretli',
+      api.publicList?.status === 200 && !/@|userId|email/.test(JSON.stringify(api.publicList.body)) && api.publicList.body.items[0]?.verified === true && /s-maxage/.test(api.publicList.cache));
+    check('oturumla kişi yalnızca kendi yorumunu ve durumunu görüyor; yanıt önbelleğe alınmıyor',
+      api.mineList?.body?.mine?.status === 'approved' && api.otherMine?.body?.mine === null && api.mineList.cache === 'private, no-store');
+    const fbDocs = api.fbDocs || [];
+    check('öneri anonim gönderilebiliyor; anonimde e-posta ve iletişim izni saklanmıyor', api.fbAnon?.status === 201 && fbDocs[0]?.userId === null && fbDocs[0]?.email === '' && fbDocs[0]?.contactOk === false);
+    check('tanılama yalnızca izinli alanlar (sürüm, Electron, işletim sistemi, mimari, dil); adres alanı atılıyor',
+      JSON.stringify(fbDocs[0]?.diagKeys) === JSON.stringify(['appVersion', 'arch', 'electron', 'locale', 'os']));
+    check('hesaplı öneride e-posta yalnızca "bana ulaşılabilir" işaretliyse saklanıyor', fbDocs[1]?.email === '' && fbDocs[2]?.email === 'bir@example.com' && fbDocs[2]?.contactOk === true);
+    check('öneri doğrulaması: geçersiz tür, kısa başlık, geçersiz anahtar reddediliyor; bilinmeyen bölüm "genel"',
+      api.fbBadType?.status === 400 && api.fbShort?.body?.error === 'invalid_title' && api.fbBadToken?.status === 401 && fbDocs[2]?.area === 'genel');
+    check('anonim öneri IP başına saatte 3 ile sınırlı', api.fbRate?.status === 429);
+    check('"Önerilerim" yalnızca oturumla ve yalnızca kişinin kendi kayıtları; Nexus durumu ve yanıtı geliyor',
+      api.fbMineNoToken?.status === 401 && api.fbMine?.body?.items?.length === 2
+      && api.fbMine.body.items.some((i) => i.status === 'planlandi' && /sürümde/.test(i.reply)) && api.fbMineOther?.body?.items?.length === 0);
+    check('Qrtım doğrulaması Qrtım projesinin /auth/v1/user uç noktasına, anon anahtarla', api.verifyCalls?.allApikey === true && /kfpnsxoxfrxepxezatsr\.supabase\.co\/auth\/v1\/user$/.test(api.verifyCalls?.url || ''));
+
+    const cm = require('../src/main/community.js');
+    const tok = 'tok_' + 'a'.repeat(30);
+    check('ana süreç doğrulaması: yorum için oturum anahtarı, puan, ad ve en az 10 karakter şart',
+      cm.validateReview({ rating: 5, name: 'Ad', comment: 'yeterince uzun' }).error === 'unauthorized'
+      && cm.validateReview({ token: tok, rating: 0, name: 'Ad', comment: 'yeterince uzun' }).error === 'invalid_rating'
+      && cm.validateReview({ token: tok, rating: 5, name: 'A', comment: 'yeterince uzun' }).error === 'invalid_name'
+      && cm.validateReview({ token: tok, rating: 5, name: 'Ad', comment: 'kısa' }).error === 'invalid_comment'
+      && !!cm.validateReview({ token: tok, rating: 5, name: 'Ad', comment: 'yeterince uzun' }).value);
+    const fv = cm.validateFeedback({ type: 'hata', area: 'yok', title: 'Başlık metni', message: 'Açıklama metni uzun', contactOk: true });
+    check('ana süreç doğrulaması: öneride oturumsuz iletişim izni verilmiyor; tanılama yalnızca işaretlenince',
+      fv.value && fv.value.contactOk === false && fv.value.area === 'genel' && fv.includeDiag === false);
+    eq('öneri türleri ve bölümleri sunucuyla aynı', [cm.FEEDBACK_TYPES, cm.FEEDBACK_AREAS, cm.FEEDBACK_STATUSES],
+      (() => { const f = read('../api/feedback.js'); const list = (name) => JSON.parse((f.match(new RegExp(`const ${name} = (\\[[\\s\\S]*?\\]);`)) || [, '[]'])[1].replace(/'/g, '"').replace(/,\s*\]/, ']')); return [list('TYPES'), list('AREAS'), list('STATUSES')]; })());
+    const cmJs = read('main/community.js');
+    check('topluluk istekleri yalnızca İlgezdi sunucusuna, bellek içi oturumla ve çerezsiz',
+      cmJs.includes("API_BASE = 'https://www.ilgezdi.com.tr/api'") && cmJs.includes("PARTITION = 'ilgezdi-community'") && cmJs.includes("credentials: 'omit'"));
+    check('sunucu adresi yalnızca paketlenmemiş geliştirme kopyasında değiştirilebiliyor', /apiBase: !app\.isPackaged \? process\.env\.ILGEZDI_API_BASE : undefined/.test(read('main/main.js')));
+    const appSrc = read('renderer/app.js');
+    const communityCode = appSrc.slice(appSrc.indexOf('// ─── Topluluk:'), appSrc.indexOf('const QUICK_LINKS'));
+    check('yorum ve öneri arayüzü sunucu metnini innerHTML ile basmıyor', communityCode.length > 2000 && !communityCode.includes('innerHTML'));
+    check('sol menüde Öneri düğmesi var ve sayfaya yönleniyor',
+      /id="sb-feedback"[\s\S]{0,80}data-screen="feedback"/.test(read('renderer/index.html')) && appSrc.includes("showScreen('feedback', renderFeedbackPage).then(initFeedbackPage)"));
+    check('yorum bölümü Keşfet sayfasında; oturum yoksa Qrtım girişine yönlendiriyor',
+      appSrc.includes('initReviewSection();') && /review-login[\s\S]{0,120}ilgezdiAuth\?\.open\?\.\(\)/.test(appSrc));
+    check('hesapla gönderilen öneride oturum yenilenemezse sessizce anonime düşülmüyor', /session && !token\s*\?\s*Promise\.resolve\(SESSION_LOST\)/.test(appSrc));
+    check('preload topluluk köprüsü ve oturum anahtarı yenileme',
+      read('preload/preload.js').includes("ipcRenderer.invoke('community-feedback-send', payload)") && read('renderer/auth-screen.js').includes('getAccessToken: async ({ refresh = false } = {})'));
+  }
   const cardsJs = read('renderer/info-cards.js');
   let cards = null;
   try { const w = {}; new Function('window', cardsJs)(w); cards = w.ILGEZDI_INFO_CARDS; } catch (e) { cards = e.message; }

@@ -870,12 +870,21 @@ function renderDiscoverPage() {
         </div>
       </div>
       <div class="discover-grid" id="discover-grid" aria-live="polite"><p class="page-empty">Yükleniyor…</p></div>
+      <section class="community" id="review-section" aria-labelledby="review-title">
+        <div class="community-head">
+          <h2 id="review-title">İlgezdi’yi değerlendirin</h2>
+          <p class="page-sub" id="review-summary">Yorumlar ekip onayından sonra ilgezdi.com.tr’de yayınlanır.</p>
+        </div>
+        <div class="community-body" id="review-body"><p class="page-empty">Yükleniyor…</p></div>
+        <div class="review-list" id="review-list" aria-live="polite"></div>
+      </section>
     </div>`;
 }
 
 async function initDiscoverPage() {
   const grid = document.getElementById('discover-grid');
   if (!grid) return;
+  initReviewSection();
   let items = [];
   try { items = await sb.discover.list(); } catch {}
   grid.replaceChildren();
@@ -904,6 +913,347 @@ async function initDiscoverPage() {
     grid.appendChild(card);
   }
 }
+
+// ─── Topluluk: Keşfet'te yorumlar, Öneri sayfası ─────────────────────────────
+// İstekler ana süreçte (main/community.js) yalnızca İlgezdi sunucusuna gider. Yorum
+// yazmak Qrtım hesabı ister (kullanıcı kararı); öneri anonim de gönderilebilir, hesapla
+// gönderilince durumu ve ekibin yanıtı burada izlenir. Sunucudan ve kullanıcıdan gelen
+// tüm metinler DOM'a textContent ile yazılır.
+const REVIEW_STATUS_UI = { pending: 'onay bekliyor', approved: 'yayında', rejected: 'yayınlanmadı' };
+const FEEDBACK_TYPES_UI = [
+  ['hata',         'Hata bildir',         'Çalışmayan ya da yanlış çalışan bir şey', 'Ne yaptınız, ne olmasını beklediniz, ne oldu? Her seferinde oluyor mu?'],
+  ['eksik',        'Eksik özellik',       'Başka tarayıcılarda olup İlgezdi’de olmayan', 'Hangi özelliği nasıl kullanmak istersiniz? Başka bir tarayıcıda gördüyseniz hangisinde?'],
+  ['ozellestirme', 'Özelleştirme isteği', 'Görünüm, düzen, kısayol, varsayılan ayar', 'Neyi nasıl değiştirmek istersiniz? Bu, işinizi nasıl kolaylaştırır?'],
+  ['elestiri',     'Eleştiri',            'Beğenmediğiniz ya da zorlandığınız bir yer', 'Sizi ne rahatsız etti? Nasıl olsa daha iyi olurdu?'],
+  ['diger',        'Diğer',               'Aklınızdaki başka bir şey', 'Düşüncenizi yazın.'],
+];
+const FEEDBACK_AREAS_UI = [
+  ['genel', 'Genel'], ['sekmeler', 'Sekmeler'], ['adres-arama', 'Adres çubuğu ve arama'],
+  ['yer-imleri', 'Yer imleri'], ['gecmis-indirmeler', 'Geçmiş ve indirmeler'],
+  ['gizlilik-guvenlik', 'Gizlilik ve güvenlik'], ['reklam-engelleme', 'Reklam ve izleyici engelleme'],
+  ['vpn', 'VPN'], ['sifreler', 'Şifreler'], ['ayarlar', 'Ayarlar'], ['yeni-sekme', 'Yeni sekme sayfası'],
+  ['kesfet', 'Keşfet'], ['arku', 'Arku uzak masaüstü'], ['senkron-hesap', 'Qrtım hesabı ve senkron'],
+  ['performans', 'Hız ve performans'], ['gorunum', 'Görünüm ve tema'], ['diger', 'Diğer'],
+];
+const FEEDBACK_STATUS_UI = { yeni: 'Alındı', inceleniyor: 'İnceleniyor', planlandi: 'Planlandı', tamamlandi: 'Tamamlandı', reddedildi: 'Şimdilik planlanmadı' };
+
+function communityEl(tag, cls, text) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text != null) e.textContent = String(text);
+  return e;
+}
+
+async function communitySession() {
+  try {
+    const s = await window.ilgezdiAuth?.getSession?.();
+    return s && (s.userId || s.email) ? s : null;
+  } catch { return null; }
+}
+
+// Sunucu "oturum doğrulanamadı" derse erişim anahtarı bir kez yenilenip yeniden denenir.
+async function withCommunityToken(fn) {
+  const get = async (refresh) => {
+    try { return (await window.ilgezdiAuth?.getAccessToken?.({ refresh })) || ''; } catch { return ''; }
+  };
+  const token = await get(false);
+  let r = await fn(token);
+  if (token && r && r.code === 'unauthorized') {
+    const fresh = await get(true);
+    if (fresh) r = await fn(fresh);
+  }
+  return r;
+}
+
+const SESSION_LOST = { ok: false, code: 'unauthorized', error: 'Qrtım oturumunuz yenilenemedi. Ayarlar › Hesap’tan yeniden giriş yapın.' };
+
+let _reviewRenderSeq = 0;
+async function initReviewSection() {
+  const body = document.getElementById('review-body');
+  if (!body) return;
+  const seq = ++_reviewRenderSeq;
+  const session = await communitySession();
+  const r = await withCommunityToken((token) => sb.community.reviews(session ? token : ''));
+  if (seq !== _reviewRenderSeq || !body.isConnected) return;
+  renderReviewList(r);
+  body.replaceChildren();
+  if (!session) {
+    body.append(communityEl('p', 'community-note', 'Yorum yazmak için Qrtım hesabınızla giriş yapın. Hesap, yorumların gerçek kullanıcılardan geldiğini doğrulamak için gerekir; e-posta adresiniz yorumda gösterilmez.'));
+    const login = communityEl('button', 'page-btn primary', 'Qrtım ile giriş yap');
+    login.type = 'button';
+    login.id = 'review-login';
+    login.addEventListener('click', () => window.ilgezdiAuth?.open?.());
+    body.append(login);
+    return;
+  }
+  body.append(buildReviewForm(r && r.ok ? r.mine : null, (r && r.ok && r.displayName) || session.displayName || ''));
+}
+
+function renderReviewList(r) {
+  const list = document.getElementById('review-list');
+  const summary = document.getElementById('review-summary');
+  if (!list || !summary) return;
+  list.replaceChildren();
+  const tail = 'Yorumlar ekip onayından sonra ilgezdi.com.tr’de yayınlanır.';
+  if (!r || !r.ok) {
+    summary.textContent = `${tail} ${(r && r.error) || ''}`.trim();
+    return;
+  }
+  summary.textContent = r.count && r.avgRating
+    ? `Ortalama ${r.avgRating.toLocaleString('tr-TR', { maximumFractionDigits: 1 })} / 5 · ${r.count} yorum. ${tail}`
+    : tail;
+  for (const it of r.items.slice(0, 6)) {
+    const card = communityEl('article', 'review-card');
+    const head = communityEl('div', 'review-card-head');
+    head.append(communityEl('span', 'review-name', it.name || 'İlgezdi kullanıcısı'));
+    if (it.rating) {
+      const stars = communityEl('span', 'review-rating', '★'.repeat(it.rating) + '☆'.repeat(5 - it.rating));
+      stars.setAttribute('aria-label', `${it.rating} / 5`);
+      head.append(stars);
+    }
+    if (it.verified) head.append(communityEl('span', 'review-verified', 'Qrtım hesabı'));
+    card.append(head, communityEl('p', 'review-text', it.comment));
+    list.append(card);
+  }
+}
+
+function buildReviewForm(mine, defaultName) {
+  const form = communityEl('form', 'review-form');
+  form.id = 'review-form';
+  form.noValidate = true;
+  if (mine) {
+    form.append(communityEl('p', 'review-mine ' + mine.status,
+      `Yorumunuz ${REVIEW_STATUS_UI[mine.status] || 'onay bekliyor'}. Düzenlerseniz yeniden onaya gönderilir.`));
+  }
+
+  const stars = communityEl('fieldset', 'review-stars');
+  stars.append(communityEl('legend', '', 'Puanınız'));
+  const row = communityEl('div', 'stars-row');
+  // Sağdan sola dizilir (row-reverse): seçilen yıldız ve solundakiler CSS ile boyanır.
+  for (let i = 5; i >= 1; i--) {
+    const input = communityEl('input');
+    input.type = 'radio';
+    input.name = 'review-rating';
+    input.value = String(i);
+    input.id = 'review-star-' + i;
+    if (mine && mine.rating === i) input.checked = true;
+    const label = communityEl('label', '', '★');
+    label.htmlFor = input.id;
+    label.title = `${i} / 5`;
+    label.setAttribute('aria-label', `${i} yıldız`);
+    row.append(input, label);
+  }
+  stars.append(row);
+
+  const nameLabel = communityEl('label', 'field-label', 'Yorumda görünecek ad');
+  nameLabel.htmlFor = 'review-name';
+  const name = communityEl('input');
+  name.type = 'text';
+  name.id = 'review-name';
+  name.maxLength = 60;
+  name.value = (mine && mine.name) || defaultName || '';
+  const commentLabel = communityEl('label', 'field-label', 'Yorumunuz');
+  commentLabel.htmlFor = 'review-comment';
+  const comment = communityEl('textarea');
+  comment.id = 'review-comment';
+  comment.rows = 4;
+  comment.maxLength = 1000;
+  comment.placeholder = 'İlgezdi’de neyi beğendiniz, neyi geliştirmemizi istersiniz?';
+  comment.value = (mine && mine.comment) || '';
+
+  const actions = communityEl('div', 'feedback-actions');
+  const submit = communityEl('button', 'page-btn primary', mine ? 'Yorumu güncelle' : 'Yorumu gönder');
+  submit.type = 'submit';
+  submit.id = 'review-submit';
+  const status = communityEl('span', 'review-status');
+  status.id = 'review-status';
+  status.setAttribute('role', 'status');
+  actions.append(submit, status);
+  form.append(stars, nameLabel, name, commentLabel, comment, actions);
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const rating = Number(form.querySelector('input[name="review-rating"]:checked')?.value || 0);
+    submit.disabled = true;
+    status.className = 'review-status';
+    status.textContent = 'Gönderiliyor…';
+    const r = await withCommunityToken((token) => sb.community.sendReview({ token, rating, name: name.value, comment: comment.value }));
+    submit.disabled = false;
+    if (r && r.ok) {
+      status.className = 'review-status ok';
+      status.textContent = r.updated
+        ? 'Yorumunuz güncellendi; onaydan sonra yeniden yayınlanır.'
+        : 'Teşekkürler! Yorumunuz onaydan sonra ilgezdi.com.tr’de yayınlanır.';
+      submit.textContent = 'Yorumu güncelle';
+    } else {
+      status.className = 'review-status err';
+      status.textContent = (r && r.error) || 'Yorum gönderilemedi.';
+    }
+  });
+  return form;
+}
+
+function renderFeedbackPage() {
+  return `
+    <div class="page fade-up" id="feedback-page">
+      <div class="page-head">
+        <div>
+          <h1>Öneri</h1>
+          <p class="page-sub">İlgezdi’yi birlikte geliştirelim: hata, eksik özellik, özelleştirme isteği ya da eleştiri. Her öneriyi ekip okur.</p>
+        </div>
+      </div>
+      <div class="feedback-layout">
+        <form class="feedback-form" id="feedback-form" novalidate>
+          <fieldset class="feedback-types">
+            <legend>Ne paylaşmak istiyorsunuz?</legend>
+            <div class="feedback-type-grid" id="feedback-types"></div>
+          </fieldset>
+          <label class="field-label" for="feedback-area">İlgili bölüm</label>
+          <select id="feedback-area"></select>
+          <label class="field-label" for="feedback-title">Kısa başlık</label>
+          <input id="feedback-title" type="text" maxlength="120" autocomplete="off">
+          <label class="field-label" for="feedback-message">Açıklama</label>
+          <textarea id="feedback-message" rows="7" maxlength="4000"></textarea>
+          <div class="feedback-count" id="feedback-count" aria-live="polite"></div>
+          <label class="check-row"><input type="checkbox" id="feedback-diag" checked> <span>Sürüm ve işletim sistemi bilgisini ekle <small>(ziyaret ettiğiniz adresler ve geçmiş eklenmez)</small></span></label>
+          <label class="check-row" id="feedback-contact-row" hidden><input type="checkbox" id="feedback-contact"> <span>Yanıt için Qrtım e-posta adresimden bana ulaşılabilir</span></label>
+          <p class="community-note" id="feedback-account-note"></p>
+          <div class="feedback-actions">
+            <button type="submit" class="page-btn primary" id="feedback-submit">Gönder</button>
+            <span class="review-status" id="feedback-status" role="status"></span>
+          </div>
+        </form>
+        <aside class="feedback-mine" aria-labelledby="feedback-mine-title">
+          <h2 id="feedback-mine-title">Önerilerim</h2>
+          <div id="feedback-mine"><p class="page-empty">Yükleniyor…</p></div>
+        </aside>
+      </div>
+    </div>`;
+}
+
+let _feedbackSession = null;
+
+function initFeedbackPage() {
+  const form = document.getElementById('feedback-form');
+  if (!form) return;
+  const types = document.getElementById('feedback-types');
+  for (const [value, label, hint] of FEEDBACK_TYPES_UI) {
+    const input = communityEl('input');
+    input.type = 'radio';
+    input.name = 'feedback-type';
+    input.value = value;
+    input.id = 'feedback-type-' + value;
+    const lab = communityEl('label', 'feedback-type');
+    lab.htmlFor = input.id;
+    lab.append(communityEl('span', 'feedback-type-name', label), communityEl('span', 'feedback-type-hint', hint));
+    types.append(input, lab);
+  }
+  const area = document.getElementById('feedback-area');
+  for (const [value, label] of FEEDBACK_AREAS_UI) {
+    const o = communityEl('option', '', label);
+    o.value = value;
+    area.append(o);
+  }
+  const title = document.getElementById('feedback-title');
+  const message = document.getElementById('feedback-message');
+  const count = document.getElementById('feedback-count');
+  const status = document.getElementById('feedback-status');
+  const submit = document.getElementById('feedback-submit');
+
+  // Türe göre açıklama kutusu neyin yazılacağını sorar (iyi hata raporu için yol gösterir).
+  types.addEventListener('change', (e) => {
+    const t = FEEDBACK_TYPES_UI.find(([v]) => v === e.target.value);
+    if (t) message.placeholder = t[3];
+  });
+  message.addEventListener('input', () => { count.textContent = message.value ? `${message.value.length} / 4000` : ''; });
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const session = _feedbackSession;
+    const payload = {
+      type: form.querySelector('input[name="feedback-type"]:checked')?.value || '',
+      area: area.value,
+      title: title.value,
+      message: message.value,
+      includeDiag: document.getElementById('feedback-diag').checked,
+      contactOk: !!session && document.getElementById('feedback-contact').checked,
+    };
+    submit.disabled = true;
+    status.className = 'review-status';
+    status.textContent = 'Gönderiliyor…';
+    // Hesapla gönderiliyorsa oturum anahtarı zorunlu: yenilenemezse sessizce anonime düşülmez.
+    const r = await withCommunityToken((token) => (session && !token
+      ? Promise.resolve(SESSION_LOST)
+      : sb.community.sendFeedback({ ...payload, token: session ? token : '' })));
+    submit.disabled = false;
+    if (r && r.ok) {
+      status.className = 'review-status ok';
+      status.textContent = session
+        ? 'Teşekkürler! Öneriniz ekibe ulaştı; durumunu yandaki listeden izleyebilirsiniz.'
+        : 'Teşekkürler! Öneriniz ekibe ulaştı.';
+      form.reset();
+      count.textContent = '';
+      message.placeholder = '';
+      if (session) loadMyFeedback();
+    } else {
+      status.className = 'review-status err';
+      status.textContent = (r && r.error) || 'Öneri gönderilemedi.';
+    }
+  });
+  refreshFeedbackAccount();
+}
+
+async function refreshFeedbackAccount() {
+  const note = document.getElementById('feedback-account-note');
+  if (!note) return;
+  _feedbackSession = await communitySession();
+  if (!note.isConnected) return;
+  document.getElementById('feedback-contact-row').hidden = !_feedbackSession;
+  note.replaceChildren();
+  if (_feedbackSession) {
+    note.textContent = 'Qrtım hesabınızla gönderilir; önerinizin durumunu ve ekibin yanıtını bu sayfada görürsünüz.';
+    loadMyFeedback();
+    return;
+  }
+  const login = communityEl('button', 'link-btn', 'Qrtım ile giriş yapın');
+  login.type = 'button';
+  login.addEventListener('click', () => window.ilgezdiAuth?.open?.());
+  note.append('Anonim gönderilir. Durumunu izlemek ve yanıt almak için ', login, '.');
+  document.getElementById('feedback-mine')?.replaceChildren(
+    communityEl('p', 'page-empty', 'Giriş yaptığınızda gönderdiğiniz önerilerin durumu ve ekibin yanıtı burada görünür.'));
+}
+
+async function loadMyFeedback() {
+  const box = document.getElementById('feedback-mine');
+  if (!box) return;
+  const r = await withCommunityToken((token) => (token ? sb.community.myFeedback(token) : Promise.resolve(SESSION_LOST)));
+  if (!box.isConnected) return;
+  box.replaceChildren();
+  if (!r || !r.ok) { box.append(communityEl('p', 'page-empty', (r && r.error) || 'Liste yüklenemedi.')); return; }
+  if (!r.items.length) { box.append(communityEl('p', 'page-empty', 'Henüz öneri göndermediniz.')); return; }
+  for (const it of r.items) {
+    const card = communityEl('article', 'feedback-item');
+    const head = communityEl('div', 'feedback-item-head');
+    head.append(
+      communityEl('span', 'feedback-chip ' + it.status, FEEDBACK_STATUS_UI[it.status] || 'Alındı'),
+      communityEl('span', 'feedback-item-type', (FEEDBACK_TYPES_UI.find(([v]) => v === it.type) || [])[1] || ''));
+    card.append(head, communityEl('div', 'feedback-item-title', it.title));
+    if (it.reply) {
+      const reply = communityEl('p', 'feedback-reply');
+      reply.append(communityEl('strong', '', 'Ekibin yanıtı: '), it.reply);
+      card.append(reply);
+    }
+    const when = it.updatedAt || it.createdAt;
+    if (when) card.append(communityEl('div', 'feedback-item-date', new Date(when).toLocaleDateString('tr-TR', { dateStyle: 'medium' })));
+    box.append(card);
+  }
+}
+
+// Giriş/çıkış olunca açık topluluk sayfası yerinde güncellenir (yazılan öneri kaybolmaz).
+window.addEventListener('ilgezdi-auth-changed', () => {
+  if (currentScreen === 'discover') initReviewSection();
+  else if (currentScreen === 'feedback') refreshFeedbackAccount();
+});
 
 const QUICK_LINKS = [
   { name: 'Atlas',  url: 'https://maps.google.com',        color: '#3a6db5', letter: 'A' },
@@ -1138,6 +1488,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         showScreen('downloads', renderDownloadsPage).then(initDownloadsPage);
       } else if (screen === 'discover') {
         showScreen('discover', renderDiscoverPage).then(initDiscoverPage);
+      } else if (screen === 'feedback') {
+        showScreen('feedback', renderFeedbackPage).then(initFeedbackPage);
       } else {
         const titles = {
           bookmarks: 'Yer İşaretleri',
