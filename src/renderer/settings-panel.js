@@ -543,6 +543,12 @@ function renderPrivacyTab(cfg) {
       <label class="switch"><input type="checkbox" id="${id}" ${chk?'checked':''}/><span class="slider"></span></label>
     </div>`;
   return `
+    <div class="settings-section"><h3>Zararlı Site Koruması</h3>
+      ${row('cfg-threat','Tehlikeli siteleri engelle','Kimlik avı ve zararlı yazılım adresleri açık tehdit listeleriyle cihazınızda denetlenir. Ziyaret ettiğiniz adresler Google dahil hiçbir sunucuya gönderilmez.',cfg.threatProtection!==false)}
+      <div id="threat-status" aria-live="polite"><p class="s-hint" style="margin-top:0">Yükleniyor…</p></div>
+      <button class="clear-btn" id="btn-threat-update" style="margin-top:8px">Listeleri şimdi güncelle</button>
+      <p class="s-hint">Liste indirilirken liste sunucusu yalnızca IP adresinizi görür (VPN açıksa VPN adresini). Bir site hatalı engellenirse uyarı sayfasından o oturum için devam edebilirsiniz.</p>
+    </div>
     <div class="settings-section"><h3>Tracker & Reklam</h3>
       ${row('cfg-tracker','İzleyici Engelleme','Bilinen izleyici alan adlarına istekler engellenir',cfg.blockTrackers!==false)}
       ${row('cfg-ads','Reklam Engelleme','Reklam sunucuları bloke',cfg.blockAds!==false)}
@@ -891,11 +897,62 @@ async function populateSitePermissions() {
 
 function bindPrivacyEvents() {
   populateSitePermissions();
+  populateThreatStatus();
   document.getElementById('btn-site-perm-reset')?.addEventListener('click', async () => {
     const r = await window.secureBrowser?.site?.resetPermissions?.();
     if (r?.ok) showSettingsToast('Tüm site izinleri sıfırlandı');
     populateSitePermissions();
   });
+  document.getElementById('btn-threat-update')?.addEventListener('click', async (e) => {
+    const btn = e.currentTarget;
+    const old = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'Güncelleniyor…';
+    let st = null;
+    try { st = await window.secureBrowser?.threats?.updateNow?.(); } catch {}
+    btn.disabled = false;
+    btn.textContent = old;
+    renderThreatStatus(st);
+    if (st && !st.enabled) showSettingsToast('Koruma kapalıyken listeler güncellenmez');
+  });
+}
+
+// Zararlı site koruması durumu: kaynak başına kayıt sayısı, son güncelleme ve hata.
+// DOM textContent ile kurulur (hata metni ağdan gelebilir).
+async function populateThreatStatus() {
+  let st = null;
+  try { st = await window.secureBrowser?.threats?.status?.(); } catch {}
+  renderThreatStatus(st);
+}
+
+function renderThreatStatus(st) {
+  const box = document.getElementById('threat-status');
+  if (!box) return;
+  box.replaceChildren();
+  const line = (cls, text, color) => {
+    const d = document.createElement('div');
+    d.className = cls;
+    if (color) d.style.color = color;
+    d.textContent = text;
+    return d;
+  };
+  if (!st) { box.appendChild(line('s-hint', 'Koruma durumu alınamadı.', 'var(--danger)')); return; }
+  const fmt = new Intl.NumberFormat('tr-TR');
+  for (const s of st.sources || []) {
+    const item = document.createElement('div');
+    item.style.cssText = 'padding:8px 0;border-bottom:1px solid var(--border-color)';
+    item.appendChild(line('s-toggle-label', s.name));
+    const when = s.updatedAt ? new Date(s.updatedAt).toLocaleString('tr-TR', { dateStyle: 'medium', timeStyle: 'short' }) : '';
+    item.appendChild(line('s-toggle-sub', s.entries
+      ? `${fmt.format(s.entries)} kayıt · son güncelleme ${when}${s.stale ? ' · güncel değil' : ''}`
+      : (st.updating ? 'Liste indiriliyor…' : 'Liste henüz indirilmedi')));
+    if (s.covers) item.appendChild(line('s-toggle-sub', s.covers + (s.license ? ' · lisans ' + s.license : '')));
+    if (s.lastError) item.appendChild(line('s-toggle-sub', 'Son deneme başarısız: ' + s.lastError, 'var(--danger)'));
+    box.appendChild(item);
+  }
+  if (st.blockedPages || st.blockedResources) {
+    box.appendChild(line('s-hint', `Bu açılışta ${fmt.format(st.blockedPages)} sayfa ve ${fmt.format(st.blockedResources)} kaynak engellendi.`));
+  }
 }
 
 function bindGeneralEvents() {
@@ -1056,6 +1113,7 @@ function initSettingsPanelEvents() {
       webrtcPolicy:          document.getElementById('cfg-webrtc')?.value            || settingsConfig.webrtcPolicy,
       secureDns:             document.getElementById('cfg-secure-dns')?.value        || settingsConfig.secureDns,
       blockThirdPartyCookies: document.getElementById('cfg-3pc')?.checked            ?? settingsConfig.blockThirdPartyCookies ?? true,
+      threatProtection:      document.getElementById('cfg-threat')?.checked         ?? settingsConfig.threatProtection ?? true,
       logEnabled:            document.getElementById('cfg-log')?.checked             ?? true,
     };
     await window.secureBrowser?.saveConfig(finalCfg);

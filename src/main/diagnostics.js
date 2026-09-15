@@ -261,6 +261,7 @@ function featureFlags() {
     blockLevel:     c.blockLevel || 'medium',
     whitelistCount: Array.isArray(c.whitelist) ? c.whitelist.length : 0,
     httpsOnly:      !!c.httpsOnly,
+    threatProtection: c.threatProtection !== false,
     doNotTrack:     !!c.doNotTrack,
     logEnabled:     c.logEnabled !== false,
     theme:          c.theme || 'otuken',

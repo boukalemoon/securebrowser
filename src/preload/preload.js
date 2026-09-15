@@ -197,6 +197,12 @@ contextBridge.exposeInMainWorld('secureBrowser', {
     onPopupState:     (cb)      => ipcRenderer.on('popup-state', (_, d) => cb(d)),
   },
 
+  // ── Zararlı site koruması (yerel tehdit listeleri) ────────────────────────────
+  threats: {
+    status:    () => ipcRenderer.invoke('threats-status'),
+    updateNow: () => ipcRenderer.invoke('threats-update-now'),
+  },
+
   // ── Sekme işlemleri (sabitle, sessize al, taşı, sağ tık menüsü) ───────────────
   tabs: {
     action:      (id, action, toIndex) => ipcRenderer.invoke('tab-action', { tabId: id, action, toIndex }),

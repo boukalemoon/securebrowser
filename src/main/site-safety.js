@@ -293,15 +293,18 @@ function errorPageScript(model) {
     '  var css = el("style");\n' +
     '  css.textContent = ' + JSON.stringify(ERROR_PAGE_CSS) + ';\n' +
     '  var main = el("main", "w " + m.kind);\n' +
-    '  main.appendChild(el("div", "mark", m.kind === "certificate" ? "!" : "·"));\n' +
+    '  main.appendChild(el("div", "mark", (m.kind === "certificate" || m.kind === "threat") ? "!" : "·"));\n' +
     '  main.appendChild(el("h1", null, m.heading));\n' +
     '  main.appendChild(el("p", "msg", m.message));\n' +
     '  if (m.reason) main.appendChild(el("p", "reason", m.reason));\n' +
     '  if (m.tips && m.tips.length) { var ul = el("ul"); m.tips.forEach(function (t) { ul.appendChild(el("li", null, t)); }); main.appendChild(ul); }\n' +
     '  var row = el("div", "row");\n' +
     '  if (m.canRetry) { var r = el("button", "primary", "Yeniden dene"); r.type = "button"; r.onclick = function () { location.replace(m.url); }; row.appendChild(r); }\n' +
-    '  if (history.length > 1) { var b = el("button", null, "Geri dön"); b.type = "button"; b.onclick = function () { history.back(); }; row.appendChild(b); }\n' +
+    '  if (history.length > 1) { var b = el("button", m.kind === "threat" ? "primary" : null, "Geri dön"); b.type = "button"; b.onclick = function () { history.back(); }; row.appendChild(b); }\n' +
     '  main.appendChild(row);\n' +
+    // Zararlı site uyarısı: "devam et" isteği ana sürece belirteçli konsol mesajıyla
+    // gider (threat-lists.js PROCEED_PREFIX); belirteç yalnızca bu betikte bulunur.
+    '  if (m.proceedMessage) { var p = el("button", "proceed", "Riski anlıyorum, bu siteye devam et"); p.type = "button"; p.onclick = function () { p.disabled = true; console.info(m.proceedMessage); }; main.appendChild(p); }\n' +
     '  main.appendChild(el("p", "code", m.codeName));\n' +
     '  document.head.appendChild(css);\n' +
     '  document.body.replaceChildren(main);\n' +
@@ -315,7 +318,10 @@ const ERROR_PAGE_CSS = [
   'html,body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.6 "Segoe UI",system-ui,-apple-system,sans-serif}',
   '.w{max-width:600px;margin:12vh auto;padding:0 24px}',
   '.mark{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;font:700 22px/1 system-ui;border:2px solid var(--mute);color:var(--mute);margin-bottom:18px}',
-  '.certificate .mark{border-color:var(--warn);color:var(--warn)}',
+  '.certificate .mark,.threat .mark{border-color:var(--warn);color:var(--warn)}',
+  '.threat h1{color:var(--warn)}',
+  '.proceed{display:block;margin-top:22px;padding:4px 0;border:0;background:none;color:var(--mute);font-size:13px;text-decoration:underline;cursor:pointer}',
+  '.proceed:hover{color:var(--ink)}.proceed:disabled{opacity:.6;cursor:default}',
   'h1{font-size:24px;line-height:1.25;margin:0 0 10px;font-weight:600}',
   '.msg{margin:0 0 8px;color:var(--soft)}',
   '.reason{margin:0 0 8px;color:var(--warn);font-weight:600}',

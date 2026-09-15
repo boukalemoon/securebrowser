@@ -1009,6 +1009,127 @@ suite('Ayarlar paneli');
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
+// Zararlı site koruması — yerel tehdit listeleri (Google Safe Browsing yok)
+// ══════════════════════════════════════════════════════════════════════════════
+suite('Zararlı site koruması — liste ayrıştırma ve eşleşme');
+{
+  const tl = require('../src/main/threat-lists.js');
+  eq('satır biçimleri',
+    ['# yorum', '', '0.0.0.0 kotu.example', '127.0.0.1 localhost', '||oltalama.example^', 'https://www.kotu2.example/',
+     'http://kotu3.example/giris.php?id=1', 'kotu4.example/panel/', '*.joker.example', '203.0.113.7', 'http://192.168.1.1/x',
+     'drive.google.com', 'https://drive.google.com/file/d/abc', 'başlık,sütun iki', '0.0.0.0 kotu5.example # not']
+      .map((l) => { const e = tl.parseListLine(l); return e && e.key; }),
+    [null, null, 'h|kotu.example', null, 'h|oltalama.example', 'h|kotu2.example',
+     'u|kotu3.example/giris.php?id=1', 'u|kotu4.example/panel', 'h|joker.example', 'h|203.0.113.7', null,
+     null, 'u|drive.google.com/file/d/abc', null, 'h|kotu5.example']);
+
+  const list = ['kotu.example', 'http://paylasim.example/zararli/dosya.exe', 'https://sorgulu.example/a?x=1',
+    'raw.githubusercontent.com', 'https://raw.githubusercontent.com/kotu/repo/main/yuk.ps1', 'secure-login.com.tr', 'kotu.example'].join('\r\n');
+  const c = tl.compileList(list);
+  eq('derleme sayıları (tekrar tek sayılır, paylaşımlı alan adı atlanır)', [c.index.length, c.hosts, c.urls, c.skipped], [5, 3, 3, 1]);
+  const inc = tl.createListCompiler();
+  list.split('\n').forEach((l) => inc.add(l));
+  eq('satır satır derleme tek seferlikle aynı', Array.from(inc.finish().index), Array.from(c.index));
+
+  const m = tl.createMatcher();
+  m.set('test', c.index);
+  eq('alan adı girdisi alt alan adlarını da kapsar, benzer adları kapsamaz',
+    ['https://kotu.example/', 'http://a.b.kotu.example/x?y', 'https://kotu.example.org/', 'https://iyikotu.example/'].map((u) => (m.match(u) || {}).kind || null),
+    ['host', 'host', null, null]);
+  eq('adres girdisi yalnızca o yol; sorgusuz girdi her sorgu dizesiyle',
+    ['https://paylasim.example/zararli/dosya.exe', 'https://paylasim.example/zararli/dosya.exe?dl=1#x', 'https://paylasim.example/', 'https://paylasim.example/zararli/baska.exe'].map((u) => (m.match(u) || {}).kind || null),
+    ['url', 'url', null, null]);
+  eq('sorgulu girdi yalnızca aynı sorguyla', ['https://sorgulu.example/a?x=1', 'https://sorgulu.example/a?x=2', 'https://sorgulu.example/a'].map((u) => !!m.match(u)), [true, false, false]);
+  eq('paylaşımlı barındırma: alan adının tamamı engellenmez, listelenen dosya engellenir',
+    [!!m.match('https://raw.githubusercontent.com/iyi/repo/x.js'), !!m.match('https://raw.githubusercontent.com/kotu/repo/main/yuk.ps1')], [false, true]);
+  eq('iki parçalı uzantının (com.tr) üstüne çıkılmaz', tl.hostCandidates('a.secure-login.com.tr'), ['a.secure-login.com.tr', 'secure-login.com.tr']);
+  check('www ve büyük harf farkı eşleşmeyi bozmaz', !!m.match('HTTPS://WWW.KOTU.EXAMPLE/'));
+  eq('web dışı ve yerel adresler denetlenmez', [m.match('file:///C:/kotu.example'), m.match('http://localhost/'), m.match('chrome-error://chromewebdata/'), m.match('çöp')], [null, null, null, null]);
+  eq('kaynak kaldırılınca eşleşme yok', (() => { const k = tl.createMatcher(); k.set('a', c.index); k.remove('a'); return k.match('https://kotu.example/'); })(), null);
+
+  const bytes = tl.indexToBytes(c.index);
+  const shifted = Buffer.alloc(bytes.byteLength + 3);
+  shifted.set(bytes, 3);
+  eq('dizin diske yazılıp hizasız tampondan geri okunur', Array.from(tl.indexFromBytes(shifted.subarray(3), c.index.length) || []), Array.from(c.index));
+  eq('bozuk dizin reddedilir (boyut, sayı, sıra)', [tl.indexFromBytes(new Uint8Array(12)), tl.indexFromBytes(bytes, c.index.length + 1), tl.indexFromBytes(new Uint8Array(16))], [null, null, null]);
+
+  // Büyük liste: bellek girdi başına 8 bayt, arama hızlı
+  const big = tl.createListCompiler();
+  for (let i = 0; i < 200000; i++) big.add('kotu' + i + '.example');
+  const bigIndex = big.finish().index;
+  const bm = tl.createMatcher();
+  bm.set('big', bigIndex);
+  const t0 = Date.now();
+  let hits = 0;
+  for (let i = 0; i < 20000; i++) if (bm.match('https://cdn.site' + i + '.example/a/b.js?v=' + i)) hits++;
+  const ms = Date.now() - t0;
+  check('200 bin girdi 1,6 MB; 20 bin arama 1 sn altında ve yanlış eşleşme yok', bigIndex.byteLength === 1600000 && hits === 0 && ms < 1000, ms + ' ms, ' + hits + ' eşleşme');
+  check('listedeki alan adı büyük dizinde bulunuyor', !!bm.match('https://www.kotu199999.example/giris'));
+}
+
+suite('Zararlı site koruması — güncelleme ve uyarı sayfası');
+{
+  const tl = require('../src/main/threat-lists.js');
+  const H = 3600 * 1000;
+  const src = { intervalHours: 12 };
+  eq('hiç indirilmediyse hemen', tl.nextUpdateAt(src, undefined), 0);
+  eq('başarılıysa aralık kadar sonra', tl.nextUpdateAt(src, { fetchedAt: 1000 }), 1000 + 12 * H);
+  eq('hatada 15 dk, 30 dk, 1 sa… en fazla kaynak aralığı',
+    [1, 2, 3, 9].map((f) => tl.nextUpdateAt(src, { fetchedAt: 1, lastAttemptAt: 5000, failures: f }) - 5000),
+    [15 * 60 * 1000, 30 * 60 * 1000, 60 * 60 * 1000, 12 * H]);
+  eq('7 günden eski liste güncel sayılmaz', [tl.isStale({ fetchedAt: 10 }, 10 + 6 * 24 * H), tl.isStale({ fetchedAt: 10 }, 10 + 8 * 24 * H), tl.isStale(undefined, 0)], [false, true, true]);
+
+  const pm = tl.threatPageModel({ url: 'https://kotu.example/giris', sourceName: 'Deneme listesi', kind: 'host', token: 'abc' });
+  eq('uyarı sayfası modeli', [pm.kind, pm.host, pm.canRetry, pm.proceedMessage], ['threat', 'kotu.example', false, tl.PROCEED_PREFIX + 'abc']);
+  check('uyarıda adresin hiçbir sunucuya gönderilmediği yazıyor', pm.tips.some((t) => t.includes('hiçbir sunucuya gönderilmedi')));
+  eq('web dışı adres modele girmez', tl.threatPageModel({ url: 'javascript:alert(1)', sourceName: 'x', kind: 'url' }).url, '');
+  const script = ss.errorPageScript(pm);
+  check('uyarı betiği "devam et" isteğini belirteçli konsol mesajıyla gönderiyor',
+    script.includes('console.info(m.proceedMessage)') && script.includes('"proceedMessage":"ilgezdi-threat-proceed:abc"'));
+  check('belirteçsiz hata sayfalarında "devam et" düğmesi yok', !JSON.stringify(ss.errorPageModel({ code: -105, url: 'https://a.com' })).includes('proceedMessage'));
+}
+
+suite('Zararlı site koruması — kaynak politikası');
+{
+  const tl = require('../src/main/threat-lists.js');
+  check('en az bir kaynak var', tl.SOURCES.length >= 1);
+  for (const s of tl.SOURCES) {
+    const urls = s.urls || [s.url];
+    check(s.id + ': tüm adresler https', urls.length > 0 && urls.every((u) => /^https:\/\//.test(u)));
+    check(s.id + ': Google ya da koşulları uygun olmayan kaynak yok (Safe Browsing, OpenPhish, PhishTank, abuse.ch, Spamhaus)',
+      urls.every((u) => !/google|safebrowsing|openphish|phishtank|abuse\.ch|spamhaus/i.test(u)));
+    check(s.id + ': adreste anahtar ya da kimlik bilgisi yok', urls.every((u) => !/[?&](key|token|auth|apikey)=|auth-key/i.test(u)));
+    check(s.id + ': en sık 6 saatte bir güncelleme, boyut üst sınırı ve kayıt alt sınırı tanımlı', s.intervalHours >= 6 && s.maxBytes > 0 && s.minEntries > 0);
+    check(s.id + ': ad, kapsam, lisans ve kaynak sayfası ayarlarda gösterilebilir', !!(s.name && s.covers && s.license && /^https:\/\//.test(s.homepage)));
+  }
+  const status = tl.statusSummary(tl.SOURCES, {}, Date.now());
+  check('durum özeti liste içeriği ya da adres taşımıyor', status.every((x) => Object.keys(x).sort().join() === 'covers,entries,homepage,id,lastError,license,name,stale,updatedAt'));
+  const mainAll = fs.readdirSync(path.join(SRC, 'main')).filter((f) => f.endsWith('.js')).map((f) => read('main/' + f)).join('\n');
+  check('ana süreçte Google Safe Browsing kullanımı yok', !/safebrowsing\.googleapis|safeBrowsing|safe-browsing/i.test(mainAll));
+}
+
+suite('Zararlı site koruması — ana süreç bağlantıları');
+{
+  const mainJs = read('main/main.js');
+  const beforeBlocker = mainJs.slice(mainJs.indexOf('ses.webRequest.onBeforeRequest('), mainJs.indexOf('shouldBlockUrl(details.url'));
+  check('istek denetimi engelleyiciden önce ve ana çerçeve dahil', beforeBlocker.includes('threats.check(details.url, ses)') && !beforeBlocker.includes("'mainFrame') return"));
+  check('engellenen ana çerçevede hata sayfası yerine uyarı sayfası', /errorCode === -20 && threats \? threats\.takeBlock\(view\.webContents\)/.test(mainJs));
+  check('"devam et" konsol mesajı işleniyor, sekme kapanınca kayıt siliniyor',
+    mainJs.includes('threats.handleConsoleMessage(view.webContents, message)') && mainJs.includes('threats.forget(viewWcId)'));
+  check('açılışta kuruluyor, varsayılan açık, ayar doğrulanıyor',
+    mainJs.includes('threats.start();') && /threatProtection:\s+true,/.test(mainJs) && mainJs.includes('incoming.threatProtection = incoming.threatProtection !== false'));
+  const tp = read('main/threat-protection.js');
+  check('listeler bellek içi ayrı oturumla, çerezsiz ve önbelleksiz indiriliyor',
+    tp.includes("FETCH_PARTITION = 'ilgezdi-threat-lists'") && tp.includes("credentials: 'omit'") && tp.includes("cache: 'no-store'"));
+  check('engel günlüğüne adres yazılmıyor', tp.includes("info('Zararlı site engellendi', { source: hit.sourceId, kind: hit.kind })"));
+  check('küçük ya da bozuk indirme mevcut listenin yerine geçmiyor', tp.includes('MIN_KEEP_RATIO') && tp.includes('compiled.index.length < floor'));
+  check('"devam et" izni diske yazılmıyor, oturuma bağlı', tp.includes('const bypass = new WeakMap()') && !/bypass[\s\S]{0,80}writeFile/.test(tp));
+  const setJs = read('renderer/settings-panel.js');
+  check('ayarlarda anahtar, durum kutusu ve elle güncelleme var; ayar kaydediliyor',
+    setJs.includes("row('cfg-threat'") && setJs.includes('populateThreatStatus();') && setJs.includes("getElementById('cfg-threat')?.checked"));
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
 // Kaynak dosyalar — görünmez ham kontrol karakteri olmamalı
 // Neden: regex aralıkları ([NUL-boşluk] gibi) ham baytla yazılınca git dosyayı
 // ikili sanıyor ve bir düzenleyici bu baytları sessizce silerse güvenlik amaçlı

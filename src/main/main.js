@@ -17,6 +17,7 @@ const { setupBookmarkImport } = require('./bookmark-import');
 const { setupPasswordManager, getForOrigin } = require('./password-manager');
 const { setupAutoUpdater } = require('./auto-updater');
 const { setupDiagnostics, log: diag, logError } = require('./diagnostics');
+const { setupThreatProtection } = require('./threat-protection');
 const {
   normalizeWebrtcPolicy, DEFAULT_WEBRTC_POLICY, UI_COMMANDS, commandForInput, buildContextMenuModel,
   nextZoomFactor, zoomKeyForUrl, createZoomStore, snapshotHistory, pushClosedTab, isWebUrl,
@@ -69,6 +70,9 @@ const DEFAULT_CONFIG = {
   secureDns:             DEFAULT_SECURE_DNS,
   // HTTP başlıklarındaki üçüncü taraf çerezler (site bazında izin verilebilir).
   blockThirdPartyCookies: true,
+  // Zararlı site koruması: açık tehdit listeleri cihaza indirilir, eşleşme yerelde
+  // yapılır (threat-lists.js). Google Safe Browsing yok; adresler gönderilmez.
+  threatProtection:      true,
   userAgentRotation:     true,
   logEnabled:            true,
   logSyncServer:         '',
@@ -448,6 +452,14 @@ function configureSession(ses) {
   });
 
   ses.webRequest.onBeforeRequest({ urls: ['*://*/*'] }, (details, callback) => {
+    // Zararlı site koruması (yerel listeler): engelleyiciden ÖNCE ve ana çerçeve
+    // dahil her istekte. Ana çerçevede sayfa yerine uyarı gösterilir (did-fail-load →
+    // threats.takeBlock). Adres hiçbir sunucuya gönderilmez.
+    const threat = threats ? threats.check(details.url, ses) : null;
+    if (threat) {
+      threats.noteBlocked(details, threat);
+      return callback({ cancel: true });
+    }
     // Engelleyici. Ayarlar'daki reklam ve izleyici anahtarlarının ikisi de
     // kapalıysa devre dışı. Sayfa URL'si isteği yapan sekmeden alınır — "full"
     // seviyesindeki üçüncü taraf engellemesi ve "bu siteye izin ver" (sayfanın
@@ -473,6 +485,9 @@ function configureSession(ses) {
     callback({ responseHeaders });
   });
 }
+
+// Zararlı site koruması: app.whenReady içinde kurulur (öncesinde sekme isteği olmaz).
+let threats = null;
 
 // İsteği yapan sekmenin sayfa adresi (engelleyici ve çerez kararı için).
 function pageUrlOf(details) {
@@ -636,13 +651,24 @@ function createTab(win, state, url = config.homepage, opts = {}) {
   // belgesi sekmenin kendisinde kalır: adres, geçmiş ve Yenile doğru çalışır.
   view.webContents.on('did-fail-load', (e, errorCode, errorDescription, validatedURL, isMainFrame) => {
     if (!isMainFrame || errorCode === -3) return;   // -3: iptal ya da yönlendirme, hata değil
-    const model = errorPageModel({ code: errorCode, description: errorDescription, url: validatedURL, httpsOnly: !!config.httpsOnly });
+    // -20 (ERR_BLOCKED_BY_CLIENT): az önce zararlı site listesiyle engellendiyse hata
+    // sayfası yerine "devam et" belirteçli uyarı sayfası.
+    const threatModel = errorCode === -20 && threats ? threats.takeBlock(view.webContents) : null;
+    const model = threatModel || errorPageModel({ code: errorCode, description: errorDescription, url: validatedURL, httpsOnly: !!config.httpsOnly });
     const tab = state.tabs.get(tabId);
     // Sekme başlığı hata belgesinin başlığıyla aynı (Chrome gibi: DNS hatasında alan adı).
     if (tab) { tab.title = model.title; sendTabsUpdate(win, state); }
     injectErrorPage(view.webContents, model);
     diag.info('navigation', 'Sayfa yüklenemedi', { code: errorCode, kind: model.kind });
   });
+
+  // Uyarı sayfasındaki "Riski anlıyorum, devam et" (belirteç threat-protection.js'te doğrulanır).
+  const viewWcId = view.webContents.id;
+  view.webContents.on('console-message', (ev, ...legacy) => {
+    const message = ev && typeof ev.message === 'string' ? ev.message : legacy[1];
+    if (threats) threats.handleConsoleMessage(view.webContents, message);
+  });
+  view.webContents.once('destroyed', () => { if (threats) threats.forget(viewWcId); });
 
   // Ses göstergesi (sekmede hoparlör simgesi)
   view.webContents.on('audio-state-changed', (event) => {
@@ -1682,11 +1708,14 @@ ipcMain.handle('save-config', (e, newCfg) => {
   if ('secureDns' in incoming) incoming.secureDns = normalizeSecureDns(incoming.secureDns);
   if ('blockThirdPartyCookies' in incoming) incoming.blockThirdPartyCookies = incoming.blockThirdPartyCookies !== false;
   if ('startupMode' in incoming) incoming.startupMode = normalizeStartupMode(incoming.startupMode);
-  const previous = { webrtcPolicy: config.webrtcPolicy, secureDns: config.secureDns, startupMode: config.startupMode };
+  if ('threatProtection' in incoming) incoming.threatProtection = incoming.threatProtection !== false;
+  const previous = { webrtcPolicy: config.webrtcPolicy, secureDns: config.secureDns, startupMode: config.startupMode, threatProtection: config.threatProtection !== false };
   config = { ...config, ...incoming };
   saveConfig(config);
   if (config.webrtcPolicy !== previous.webrtcPolicy) applyWebrtcPolicyToAllTabs();
   if (config.secureDns !== previous.secureDns) applySecureDns();
+  // Koruma yeniden açıldıysa, zamanı gelmiş listeler hemen indirilir.
+  if ((config.threatProtection !== false) !== previous.threatProtection && threats) threats.onConfigChanged();
   if (config.startupMode !== previous.startupMode) {
     if (normalizeStartupMode(config.startupMode) === 'restore') scheduleSessionSave();
     else deleteSessionFiles();   // kapatılınca açık sekmelerin kaydı diskte tutulmaz
@@ -2057,6 +2086,13 @@ app.whenReady().then(() => {
 
   // Güvenli DNS ilk istekten önce ayarlanır.
   applySecureDns();
+
+  // Zararlı site koruması: diskteki derlenmiş listeler hemen yüklenir; güncelleme
+  // açılıştan sonra arka planda yapılır (threat-protection.js).
+  threats = setupThreatProtection({
+    ipcMain, session, userDataPath: USER_DATA, getConfig: () => config, userAgent: CLEAN_UA, log: diag,
+  });
+  threats.start();
 
   // Eski ölü sql.js veritabanının diskte kalan dosyası (hiç veri içermedi).
   try { fs.unlinkSync(path.join(USER_DATA, 'logs.db')); } catch {}
