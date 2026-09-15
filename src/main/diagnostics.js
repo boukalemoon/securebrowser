@@ -266,6 +266,7 @@ function featureFlags() {
     theme:          c.theme || 'otuken',
     searchEngine:   c.searchEngine || 'duckduckgo',
     hasHomepage:    !!(c.homepage || '').trim(),
+    webrtcPolicy:   c.webrtcPolicy || 'default_public_interface_only',
   };
 }
 

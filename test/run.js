@@ -527,6 +527,196 @@ suite('Yayın hattı — CI Node sürümü araç gereksinimlerini karşılıyor'
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
+// Tarayıcı komutları — kısayollar, sağ tık menüsü, yakınlaştırma, kapatılan sekmeler
+// (karşılaştırma raporu P0 maddeleri)
+// ══════════════════════════════════════════════════════════════════════════════
+const bc = require('../src/main/browser-commands.js');
+
+suite('Kısayollar — odak sayfadayken de çalışır');
+{
+  const key = (k, mods = {}, extra = {}) => ({
+    type: 'keyDown', key: k, code: extra.code || '', control: !!mods.ctrl, shift: !!mods.shift,
+    alt: !!mods.alt, meta: !!mods.meta, isAutoRepeat: !!extra.repeat, isComposing: false,
+  });
+  const win = (input, surface = 'page') => bc.commandForInput(input, { platform: 'win32', surface });
+
+  eq('Ctrl+T → yeni sekme', win(key('t', { ctrl: true })), 'new-tab');
+  eq('Caps Lock açıkken Ctrl+T', win(key('T', { ctrl: true })), 'new-tab');
+  eq('Ctrl+Shift+T → kapatılan sekmeyi aç', win(key('T', { ctrl: true, shift: true })), 'reopen-closed-tab');
+  eq('Ctrl+W', win(key('w', { ctrl: true })), 'close-tab');
+  eq('Ctrl+Tab / Ctrl+Shift+Tab', [win(key('Tab', { ctrl: true })), win(key('Tab', { ctrl: true, shift: true }))], ['next-tab', 'prev-tab']);
+  eq('Ctrl+3 ve Ctrl+9', [win(key('3', { ctrl: true }, { code: 'Digit3' })), win(key('9', { ctrl: true }, { code: 'Digit9' }))], ['tab-3', 'last-tab']);
+  eq('AZERTY: Ctrl+1 tuşu "&" üretse de 1. sekme', win(key('&', { ctrl: true }, { code: 'Digit1' })), 'tab-1');
+  eq('Türkçe Q: Ctrl+Shift+3 ("^") sekme değiştirmez', win(key('^', { ctrl: true, shift: true }, { code: 'Digit3' })), null);
+  eq('F5, Ctrl+R, Ctrl+F5', [win(key('F5')), win(key('r', { ctrl: true })), win(key('F5', { ctrl: true }))], ['reload', 'reload', 'hard-reload']);
+  eq('Alt+Sol / Alt+Sağ', [win(key('ArrowLeft', { alt: true })), win(key('ArrowRight', { alt: true }))], ['back', 'forward']);
+  eq('Ctrl+F, F3, Shift+F3', [win(key('f', { ctrl: true })), win(key('F3')), win(key('F3', { shift: true }))], ['find', 'find-next', 'find-prev']);
+  eq('Ctrl+L, Alt+D, F6', [win(key('l', { ctrl: true })), win(key('d', { alt: true })), win(key('F6'))], ['focus-address', 'focus-address', 'focus-address']);
+  eq('Yakınlaştır: Ctrl+=, ABD Ctrl+Shift+=, Türkçe Q Ctrl+Shift+4, sayısal takım',
+    [win(key('=', { ctrl: true })), win(key('+', { ctrl: true, shift: true })),
+     win(key('+', { ctrl: true, shift: true }, { code: 'Digit4' })), win(key('+', { ctrl: true }, { code: 'NumpadAdd' }))],
+    ['zoom-in', 'zoom-in', 'zoom-in', 'zoom-in']);
+  eq('Ctrl+- ve Ctrl+0', [win(key('-', { ctrl: true })), win(key('0', { ctrl: true }, { code: 'Digit0' }))], ['zoom-out', 'zoom-reset']);
+  eq('Ctrl+P ve Ctrl+D', [win(key('p', { ctrl: true })), win(key('d', { ctrl: true }))], ['print', 'bookmark-page']);
+
+  eq('AltGr (Ctrl+Alt) ile yazılan karakter yakalanmaz — Türkçe klavyede @', win(key('q', { ctrl: true, alt: true })), null);
+  eq('AltGr+T bile yakalanmaz', win(key('t', { ctrl: true, alt: true })), null);
+  eq('Shift+T (büyük harf yazmak) kısayol değil', win(key('T', { shift: true })), null);
+  eq('Düz harf kısayol değil', win(key('f')), null);
+  eq('Tuş bırakma yok sayılır', bc.commandForInput({ ...key('t', { ctrl: true }), type: 'keyUp' }, { platform: 'win32' }), null);
+  eq('IME birleştirmesi sırasında yakalanmaz', bc.commandForInput({ ...key('t', { ctrl: true }), isComposing: true }, { platform: 'win32' }), null);
+  eq('Basılı tutulan Ctrl+T art arda sekme açmaz', win(key('t', { ctrl: true }, { repeat: true })), null);
+  eq('Basılı tutulan Ctrl+Tab sekmeler arasında dolaşır', win(key('Tab', { ctrl: true }, { repeat: true })), 'next-tab');
+  eq('Sayfada Ctrl+B (kalın), Ctrl+Shift+L (hizala), Ctrl+Shift+V (düz yapıştır) sayfaya bırakılır',
+    [win(key('b', { ctrl: true })), win(key('L', { ctrl: true, shift: true })), win(key('V', { ctrl: true, shift: true }))], [null, null, null]);
+  eq('Aynı birleşimler arayüz odaktayken panel açar',
+    [win(key('b', { ctrl: true }), 'ui'), win(key('L', { ctrl: true, shift: true }), 'ui'), win(key('V', { ctrl: true, shift: true }), 'ui')],
+    ['toggle-bookmarks', 'logs', 'vpn-panel']);
+  eq('macOS: Cmd+T sekme açar, Ctrl+T açmaz',
+    [bc.commandForInput(key('t', { meta: true }), { platform: 'darwin' }), bc.commandForInput(key('t', { ctrl: true }), { platform: 'darwin' })],
+    ['new-tab', null]);
+  eq('macOS: Ctrl+Tab sekme değiştirir', bc.commandForInput(key('Tab', { ctrl: true }), { platform: 'darwin' }), 'next-tab');
+
+  let dupError = null;
+  try { bc._internals.buildShortcutIndex([{ keys: ['Mod+T'], cmd: 'a' }, { keys: ['Mod+T'], cmd: 'b' }]); } catch (e) { dupError = e; }
+  check('yinelenen kısayol tanımı yükleme anında hata verir', !!dupError);
+  eq('"Mod++" ayrıştırması', bc._internals.parseShortcut('Mod++'), { mod: true, alt: false, shift: false, name: '+' });
+
+  const appSrc = read('renderer/app.js');
+  const uiCmds = [...new Set(bc.SHORTCUTS.map((s) => s.cmd).filter((c) => bc.UI_COMMANDS.has(c)))];
+  const unhandledUi = uiCmds.filter((c) => !appSrc.includes("case '" + c + "'"));
+  check("arayüze iletilen her komutun app.js'te karşılığı var", unhandledUi.length === 0, unhandledUi.join(', '));
+
+  const mainJs = read('main/main.js');
+  const mainCmds = [...new Set(bc.SHORTCUTS.map((s) => s.cmd).filter((c) => !bc.UI_COMMANDS.has(c) && !/^tab-\d$/.test(c)))];
+  const unhandledMain = mainCmds.filter((c) => !mainJs.includes("case '" + c + "'"));
+  check("ana süreçte yürütülen her komutun main.js'te karşılığı var", unhandledMain.length === 0, unhandledMain.join(', '));
+
+  // Tek kaynak: renderer'da belge düzeyinde Ctrl kısayolu dinleyicisi kalmamalı.
+  const rendererCtrl = fs.readdirSync(path.join(SRC, 'renderer')).filter((f) => f.endsWith('.js'))
+    .filter((f) => /document\.addEventListener\(\s*['"]keydown['"][\s\S]{0,400}?(ctrlKey|metaKey)/.test(read('renderer/' + f)));
+  check("renderer'da belge düzeyinde Ctrl kısayol dinleyicisi yok", rendererCtrl.length === 0, rendererCtrl.join(', '));
+  check('sekmeler, önizleme, ana ve gizli pencere before-input-event ile bağlı',
+    (mainJs.match(/bindBrowserInput\(/g) || []).length >= 5 && mainJs.includes("'before-input-event'"));
+}
+
+suite('Sağ tık menüsü');
+{
+  const ids = (model) => model.filter((i) => !i.type).map((i) => i.id);
+  const page = (p, ctx = {}) => bc.buildContextMenuModel(p, { platform: 'win32', ...ctx });
+
+  const linkMenu = page({ linkURL: 'https://ornek.com/a', pageURL: 'https://ornek.com/' });
+  eq('bağlantı menüsü', ids(linkMenu), ['open-link-tab', 'open-link-incognito', 'glance-link', 'save-link', 'copy-text']);
+  check('gizli pencerede "gizli pencerede aç" gösterilmez',
+    !ids(page({ linkURL: 'https://ornek.com/' }, { incognito: true })).includes('open-link-incognito'));
+  eq('javascript: bağlantısında menü açılmaz', ids(page({ linkURL: 'javascript:alert(1)', pageURL: 'https://ornek.com/' })), []);
+  eq('file: bağlantısında menü açılmaz', ids(page({ linkURL: 'file:///C:/Windows/win.ini', pageURL: 'https://ornek.com/' })), []);
+  eq('mailto: yalnızca adresi kopyalar',
+    page({ linkURL: 'mailto:ali%40ornek.com?subject=x' }).filter((i) => !i.type).map((i) => [i.id, i.arg]), [['copy-text', 'ali@ornek.com']]);
+
+  const img = page({ mediaType: 'image', srcURL: 'https://ornek.com/r.png', x: 10, y: 20, pageURL: 'https://ornek.com/' });
+  eq('resim menüsü', ids(img), ['open-tab', 'save-media', 'copy-image', 'copy-text']);
+  eq('data: resim kaydedilir ama yeni sekmede açılmaz', ids(page({ mediaType: 'image', srcURL: 'data:image/png;base64,AAAA' })), ['save-media', 'copy-image']);
+  eq('data:text/html resim sayılmaz', ids(page({ mediaType: 'image', srcURL: 'data:text/html,<b>x</b>' })), []);
+
+  const sel = page({ selectionText: '  İlgezdi   tarayıcı  ', pageURL: 'https://ornek.com/' });
+  eq('seçim menüsü', ids(sel), ['copy', 'search-selection']);
+  eq('arama etiketi sadeleşir', sel.find((i) => i.id === 'search-selection').label, '“İlgezdi tarayıcı” için ara');
+  eq('sayfa menüsü', ids(page({ pageURL: 'https://ornek.com/' })), ['back', 'forward', 'reload', 'print', 'view-source']);
+  eq('geri/ileri etkinliği geçmişe göre',
+    page({ pageURL: 'https://ornek.com/' }, { canGoBack: true }).filter((i) => i.id === 'back' || i.id === 'forward').map((i) => i.enabled), [true, false]);
+
+  const edit = page({ isEditable: true, misspelledWord: 'tarayci', dictionarySuggestions: ['tarayıcı', 'tarayıcıyı'], editFlags: { canCopy: true, canPaste: true } });
+  eq('yazım önerileri en üstte', ids(edit).slice(0, 3), ['replace-misspelling', 'replace-misspelling', 'add-to-dictionary']);
+  eq('düzenleme bayrakları', edit.filter((i) => ['undo', 'cut', 'copy', 'paste'].includes(i.id)).map((i) => i.enabled), [false, false, true, true]);
+  eq('sayfa metnindeki & Windows menüsünde && olur', page({ selectionText: 'A & B' }).find((i) => i.id === 'search-selection').label, '“A && B” için ara');
+  eq('macOS menüsünde & olduğu gibi kalır',
+    bc.buildContextMenuModel({ selectionText: 'A & B' }, { platform: 'darwin' }).find((i) => i.id === 'search-selection').label, '“A & B” için ara');
+  eq('arayüzde yalnızca kopyala', ids(bc.buildContextMenuModel({ selectionText: 'x', linkURL: 'https://a.com' }, { surface: 'ui', platform: 'win32' })), ['copy']);
+  check('menü ayraçla başlamaz ve bitmez', [linkMenu, img, sel, edit].every((m) => !m[0].type && !m[m.length - 1].type));
+  check("sağ tık eylemleri adresleri yeniden süzüyor (main.js)",
+    /case 'open-link-tab':[\s\S]{0,120}isWebUrl\(arg\)/.test(read('main/main.js')));
+}
+
+suite('Yakınlaştırma ve kapatılan sekmeler');
+{
+  eq('büyütme adımları', [bc.nextZoomFactor(1, 1), bc.nextZoomFactor(1.1, 1), bc.nextZoomFactor(5, 1)], [1.1, 1.25, 5]);
+  eq('küçültme adımları', [bc.nextZoomFactor(1, -1), bc.nextZoomFactor(0.25, -1)], [0.9, 0.25]);
+  eq('sıfırla', bc.nextZoomFactor(2.5, 0), 1);
+  eq('adım dışı değerden sonraki adım', bc.nextZoomFactor(1.17, 1), 1.25);
+  eq('site anahtarı', [bc.zoomKeyForUrl('https://WWW.Ornek.com:8443/a?b'), bc.zoomKeyForUrl('file:///C:/x.html'), bc.zoomKeyForUrl('about:blank')],
+    ['www.ornek.com', '', '']);
+
+  let written = null;
+  const store = bc.createZoomStore({
+    read: () => ({ 'a.com': 1.5, 'bozuk.com': 'x', 'dev.com': 99, 'bir.com': 1 }),
+    write: (o) => { written = o; },
+    delayMs: 5,
+  });
+  eq('bozuk ve sınır dışı değerler yüklenmez', [store.get('a.com'), store.get('bozuk.com'), store.get('dev.com'), store.size()], [1.5, 1, 1, 1]);
+  store.set('b.com', 2);
+  store.set('a.com', 1);
+  check('yazma gecikmeli (her tekerlek adımında diske yazılmaz)', written === null && store.pending());
+  store.flush();
+  eq('%100 kaydedilmez, değişen yazılır', written, { 'b.com': 2 });
+  for (let i = 0; i < 520; i++) store.set('s' + i + '.com', 1.25);
+  store.flush();
+  eq('en fazla 500 site tutulur, en eskisi düşer', [Object.keys(written).length, 'b.com' in written, 's519.com' in written], [500, false, true]);
+
+  const E = (u) => ({ url: u, title: u });
+  eq('geçmiş: web dışı girdiler atılır, etkin konum korunur',
+    bc.snapshotHistory([E('about:blank'), E('https://a.com/'), E('https://b.com/'), E('chrome-error://x')], 2),
+    { entries: [E('https://a.com/'), E('https://b.com/')], index: 1 });
+  eq('geçmiş: etkin girdi atıldıysa son web girdisi', bc.snapshotHistory([E('https://a.com/'), E('about:blank')], 1).index, 0);
+  const snap = bc.snapshotHistory(Array.from({ length: 60 }, (_, i) => E('https://s.com/' + i)), 59);
+  eq('geçmiş en fazla 50 girdi, etkin konum kayar', [snap.entries.length, snap.index, snap.entries[snap.index].url], [50, 49, 'https://s.com/59']);
+
+  const stack = [];
+  check('boş sekme yığına girmez', bc.pushClosedTab(stack, { url: 'about:blank' }) === false && stack.length === 0);
+  for (let i = 0; i < 30; i++) bc.pushClosedTab(stack, { url: 'https://s.com/' + i });
+  eq('yığın en fazla 25 sekme', [stack.length, stack[0].url, stack[24].url], [25, 'https://s.com/5', 'https://s.com/29']);
+  check('site yakınlaştırması config.json yerine ayrı dosyada', read('main/main.js').includes("path.join(USER_DATA, 'zoom-levels.json')"));
+}
+
+suite('WebRTC IP koruması ve gizli pencere önizlemesi');
+{
+  eq('geçerli politikalar olduğu gibi kalır', bc.WEBRTC_POLICIES.map(bc.normalizeWebrtcPolicy), [...bc.WEBRTC_POLICIES]);
+  eq('geçersiz değer varsayılana döner', [bc.normalizeWebrtcPolicy('herkese-ac'), bc.normalizeWebrtcPolicy(undefined)],
+    ['default_public_interface_only', 'default_public_interface_only']);
+  const mainJs = read('main/main.js');
+  check('varsayılan yapılandırmada politika tanımlı', /webrtcPolicy:\s*DEFAULT_WEBRTC_POLICY/.test(mainJs));
+  const createTabBody = mainJs.slice(mainJs.indexOf('function createTab('), mainJs.indexOf('function resizeActiveView('));
+  check('her sekme oluşturulurken politika uygulanıyor', createTabBody.includes('applyWebrtcPolicy(view.webContents)'));
+  check('ayar kaydında politika doğrulanıyor ve açık sekmelere uygulanıyor',
+    /incoming\.webrtcPolicy\s*=\s*normalizeWebrtcPolicy/.test(mainJs) && mainJs.includes('applyWebrtcPolicyToAllTabs()'));
+  check('önizleme görünümüne de politika uygulanıyor', /onViewCreated[\s\S]{0,400}applyWebrtcPolicy\(view\.webContents\)/.test(mainJs));
+  check('önizleme bölümü sabit değil, pencereye göre seçiliyor (gizli pencere → gizli oturum)',
+    read('main/glance-main.js').includes('hooks.partitionFor') && /partitionFor:[\s\S]{0,200}incognito-/.test(mainJs));
+  // Önizleme açıkken pencere kapanınca korumasız send() ana süreci düşürüyordu (P0 sondası buldu).
+  const glanceJs = read('main/glance-main.js');
+  check('önizleme pencereye yalnızca güvenli yardımcıyla mesaj gönderiyor',
+    glanceJs.split('.webContents.send(').length - 1 === 1 && glanceJs.includes('win.webContents.isDestroyed()'));
+  check('önizlemenin penceresi kapanınca önizleme durumu sıfırlanıyor', glanceJs.includes("win.on('closed'"));
+  check('ayarlarda WebRTC seçimi var ve kaydediliyor', read('renderer/settings-panel.js').includes("getElementById('cfg-webrtc')?.value"));
+}
+
+suite('Erişilebilirlik tabanı');
+{
+  const html = read('renderer/index.html');
+  check('a11y.js arayüzde yükleniyor', /<script src="a11y\.js"><\/script>/.test(html));
+  check('sekme şeridi tablist, sekmeler tab rolünde', html.includes('role="tablist"') && read('renderer/app.js').includes("setAttribute('role', 'tab')"));
+  check('adres çubuğunun erişilebilir adı var', /id="address-bar"[\s\S]{0,200}aria-label=/.test(html));
+  check('klavye odak göstergesi tanımlı (:focus-visible)', /:focus-visible\s*\{[^}]*outline:\s*2px/.test(read('renderer/styles/main.css')));
+  const unnamed = [...html.matchAll(/<button\b([^>]*)>([\s\S]*?)<\/button>/g)].filter(([, attrs, inner]) => {
+    if (/\b(aria-label|title)=/.test(attrs)) return false;
+    const text = inner.replace(/<[^>]+>/g, '').replace(/\s+/g, '');
+    return !/[\p{L}\p{N}]/u.test(text);
+  }).map(([, attrs]) => (attrs.match(/id="([^"]+)"/) || [])[1] || attrs.trim().slice(0, 40));
+  check('index.html içindeki her düğmenin erişilebilir adı var', unnamed.length === 0, unnamed.join(', '));
+  check('dekoratif runik şerit ekran okuyucudan gizli', /id="status-runes"[^>]*aria-hidden="true"/.test(html));
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
 // Kaynak dosyalar — görünmez ham kontrol karakteri olmamalı
 // Neden: regex aralıkları ([NUL-boşluk] gibi) ham baytla yazılınca git dosyayı
 // ikili sanıyor ve bir düzenleyici bu baytları sessizce silerse güvenlik amaçlı

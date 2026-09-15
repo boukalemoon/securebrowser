@@ -23,6 +23,15 @@ let glanceOpen = false;
 let glancePoll = null;    // glance başına TEK buton yoklaması
 let glanceShown = false;  // arayüze glance-loaded yalnızca bir kez
 
+// Pencere kapanırken BrowserWindow henüz yok edilmemiş ama arayüz webContents'i
+// yok edilmiş olabilir. Eskiden bu anda gelen did-finish-load / did-fail-load
+// send() çağrısı ana süreçte yakalanmamış hata fırlatıyordu.
+function sendToWindow(win, channel, payload) {
+  try {
+    if (win && !win.isDestroyed() && !win.webContents.isDestroyed()) win.webContents.send(channel, payload);
+  } catch {}
+}
+
 function stopPoll() {
   if (glancePoll) { clearInterval(glancePoll); glancePoll = null; }
 }
@@ -74,7 +83,9 @@ const TOOLBAR_SCRIPT = `
 `;
 
 // Glance'i tetikleyen pencerede (ana ya da incognito) açılmalı — sabit mainWindow değil.
-function setupGlance(mainWindow, ipcMain) {
+// hooks.partitionFor(win): önizlemenin açılacağı oturum bölümü (gizli pencere → gizli oturum)
+// hooks.onViewCreated(view, win): kısayol, sağ tık menüsü ve WebRTC politikası bağlantısı
+function setupGlance(mainWindow, ipcMain, hooks = {}) {
   // Bir pencere için resize/move olduğunda glance'i kapat. Aynı pencereye
   // birden fazla kez bağlanmayı önlemek için işaretliyoruz.
   const bindAutoClose = (win) => {
@@ -82,6 +93,8 @@ function setupGlance(mainWindow, ipcMain) {
     win.__glanceBound = true;
     win.on('resize', () => { if (glanceOpen) closeGlance(); });
     win.on('move',   () => { if (glanceOpen) closeGlance(); });
+    // Önizleme açıkken pencere kapanırsa durum sıfırlanır; ölü görünüm referansı kalmaz.
+    win.on('closed', () => { if (glanceWin === win) { closeGlance(); glanceWin = null; } });
   };
   bindAutoClose(mainWindow);
 
@@ -112,11 +125,14 @@ function setupGlance(mainWindow, ipcMain) {
         nodeIntegration: false,
         contextIsolation: true,
         sandbox: true,
-        // Sekmelerle aynı session: engelleyici + izin yöneticisi burada da geçerli
-        partition: 'persist:securebrowser',
+        // Tetikleyen pencerenin sekmeleriyle aynı oturum: engelleyici ve izin yöneticisi
+        // burada da geçerli. Eskiden sabit 'persist:securebrowser' idi; gizli pencerede
+        // önizlenen sitenin çerezleri kalıcı profile yazılıyordu.
+        partition: hooks.partitionFor ? hooks.partitionFor(win) : 'persist:securebrowser',
       },
     });
     const view = glanceView;       // bu glance'e ait referans (kapanış yarışlarına karşı)
+    try { if (hooks.onViewCreated) hooks.onViewCreated(view, win); } catch (e) { console.error('[Glance] görünüm kancası:', e); }
     glanceShown = false;
 
     view.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
@@ -135,7 +151,7 @@ function setupGlance(mainWindow, ipcMain) {
       // tekrar göndermek üst üste binen kaplamalar oluşturuyordu.
       if (!glanceShown) {
         glanceShown = true;
-        win.webContents.send('glance-loaded', {
+        sendToWindow(win, 'glance-loaded', {
           url: view.webContents.getURL(),
           title: view.webContents.getTitle(),
           x: px, y: py, width: PW, height: PH,
@@ -156,7 +172,7 @@ function setupGlance(mainWindow, ipcMain) {
             } else if (r && r.o) {
               const tabUrl = view.webContents.getURL();
               closeGlance();
-              if (win && !win.isDestroyed()) win.webContents.send('glance-new-tab', { url: tabUrl });
+              sendToWindow(win, 'glance-new-tab', { url: tabUrl });
             }
           } catch {
             // Sayfa gezinme ortasındaysa executeJavaScript başarısız olabilir — geçici,
@@ -172,7 +188,7 @@ function setupGlance(mainWindow, ipcMain) {
       // Alt çerçeve hataları da glance'in kendisinin yüklenemediği anlamına gelmez.
       if (!isMainFrame || errorCode === -3) return;
       if (glanceView !== view) return;
-      if (win && !win.isDestroyed()) win.webContents.send('glance-error');
+      sendToWindow(win, 'glance-error');
     });
 
     return { ok: true, x: px, y: py, width: PW, height: PH };
@@ -185,7 +201,7 @@ function setupGlance(mainWindow, ipcMain) {
     const url = glanceView.webContents.getURL();
     const target = glanceWin || BrowserWindow.fromWebContents(event.sender) || mainWindow;
     closeGlance();
-    if (target && !target.isDestroyed()) target.webContents.send('glance-new-tab', { url });
+    sendToWindow(target, 'glance-new-tab', { url });
     return { ok: true };
   });
 
@@ -205,7 +221,7 @@ function closeGlance() {
   }
   glanceOpen = false;
   glanceShown = false;
-  if (glanceWin && !glanceWin.isDestroyed()) glanceWin.webContents.send('glance-closed');
+  sendToWindow(glanceWin, 'glance-closed');
 }
 
 module.exports = { setupGlance, closeGlance };

@@ -37,7 +37,7 @@
 
     <!-- Sekmeler (flex:1 → soldan sağa dolar) -->
     <div class="tab-strip">
-      <div id="tabs-container"></div>
+      <div id="tabs-container" role="tablist" aria-label="Sekmeler"></div>
       <button class="tab-add" id="btn-new-tab" title="Yeni Sekme (Ctrl+T)">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
       </button>
@@ -45,7 +45,7 @@
 
     <!-- Sağ: VPN durumu + Windows pencere kontrolleri -->
     <div class="window-actions" id="titlebar-right">
-      <div id="vpn-indicator" class="vpn-off">
+      <div id="vpn-indicator" class="vpn-off" role="status">
         <span class="vpn-dot"></span>
         <span id="vpn-label">VPN Kapalı</span>
       </div>
@@ -72,7 +72,7 @@
     </div>
 
     <!-- Navigasyon -->
-    <div id="nav-buttons">
+    <div id="nav-buttons" role="navigation" aria-label="Sayfa gezinmesi">
       <button class="nav-btn" id="btn-back"    title="Geri (Alt+Sol)">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
       </button>
@@ -88,15 +88,18 @@
     </div>
 
     <!-- Adres çubuğu -->
-    <form id="address-bar-form" style="flex:1;display:flex;">
+    <form id="address-bar-form" style="flex:1;display:flex;" role="search">
       <div id="address-bar-wrapper">
         <span id="security-icon" title="">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
         </span>
         <input type="text" id="address-bar"
                placeholder="Bir adres yaz veya İlgezdi ile ara…"
+               aria-label="Adres veya arama"
                spellcheck="false" autocomplete="off" />
         <div class="addr-actions">
+          <!-- Yakınlaştırma %100 değilken görünür; tıklayınca sıfırlar (Ctrl+0) -->
+          <button type="button" id="zoom-indicator" title="Yakınlaştırmayı sıfırla (Ctrl+0)" hidden>%100</button>
           <button type="button" id="btn-bookmark-star" title="Yer imine ekle (Ctrl+D)">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l2.7 6 6.3.5-4.8 4.2 1.5 6.3L12 16.8 6.3 20l1.5-6.3L3 9.5 9.3 9z"/></svg>
           </button>
@@ -121,10 +124,29 @@
   <!-- ══════════════════════════════════════════════════════
        YER İŞARETLERİ ÇUBUĞU
        ══════════════════════════════════════════════════════ -->
-  <div id="bookmarks-bar">
+  <div id="bookmarks-bar" role="navigation" aria-label="Yer imleri çubuğu">
     <div id="bookmarks-bar-items">
       <!-- bookmarks-panel.js / app.js tarafından doldurulur -->
     </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════
+       SAYFADA BUL (Ctrl+F) — yer imleri satırının sağına biner.
+       Sekme görünümü bu satırın altında başladığı için sayfa kaymaz.
+       ══════════════════════════════════════════════════════ -->
+  <div id="find-bar" role="search" aria-label="Sayfada bul" hidden>
+    <input type="text" id="find-input" placeholder="Sayfada bul" aria-label="Sayfada aranacak metin"
+           spellcheck="false" autocomplete="off" maxlength="500" />
+    <span id="find-count" aria-live="polite"></span>
+    <button type="button" id="find-prev" title="Önceki eşleşme (Shift+Enter)">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 15l-6-6-6 6"/></svg>
+    </button>
+    <button type="button" id="find-next" title="Sonraki eşleşme (Enter)">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+    </button>
+    <button type="button" id="find-close" title="Kapat (Esc)">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+    </button>
   </div>
 
   <!-- ══════════════════════════════════════════════════════
@@ -133,7 +155,7 @@
   <div id="main">
 
     <!-- ── Kenar Çubuğu (Tasarım: sidebar) ──────────────── -->
-    <aside class="sidebar" id="sidebar">
+    <aside class="sidebar" id="sidebar" aria-label="Kenar çubuğu">
 
       <!-- Sayfa geçişi butonları -->
       <button class="sidebar-btn active" id="sb-home"
@@ -187,7 +209,7 @@
     </aside>
 
     <!-- ── İçerik + Paneller ──────────────────────────────── -->
-    <div id="content-area">
+    <div id="content-area" role="main">
 
       <!-- Özel sayfa ekranı (WebContentsView'ın üstüne overlay) -->
       <div id="screen-overlay" class="hidden">
@@ -210,7 +232,7 @@
       <div id="panel-shield" class="side-panel hidden">
         <div class="panel-header">
           <h2>Koruma Durumu</h2>
-          <button class="panel-close">✕</button>
+          <button class="panel-close" aria-label="Paneli kapat">✕</button>
         </div>
         <div class="panel-body">
           <div id="shield-stats"></div>
@@ -226,11 +248,11 @@
   <!-- ══════════════════════════════════════════════════════
        DURUM ÇUBUĞU
        ══════════════════════════════════════════════════════ -->
-  <div class="statusbar" id="statusbar">
+  <div class="statusbar" id="statusbar" role="contentinfo" aria-label="Durum çubuğu">
     <span id="status-security"></span>
     <span>·</span>
     <span id="status-url"></span>
-    <span class="rune-stripe" id="status-runes" title="Göktürk Runik Yazısı">𐱅𐰢 𐰉 𐰽 𐱆 𐰚𐰢 𐱅𐰉𐰍</span>
+    <span class="rune-stripe" id="status-runes" title="Göktürk Runik Yazısı" aria-hidden="true">𐱅𐰢 𐰉 𐰽 𐱆 𐰚𐰢 𐱅𐰉𐰍</span>
     <span id="status-version">İlgezdi</span>
   </div>
 
@@ -239,7 +261,7 @@
        (auth-screen.js tarafından yönetilir)
        ══════════════════════════════════════════════════════ -->
   <div id="auth-screen" class="hidden">
-    <div class="auth-modal">
+    <div class="auth-modal" role="dialog" aria-modal="true" aria-label="İlgezdi hesabı">
       <button class="auth-skip" id="auth-skip" title="Misafir olarak devam et">✕</button>
 
       <div class="auth-brand">
@@ -322,6 +344,8 @@
 <script src="diag-client.js"></script>
 <!-- html-safe: panellerin ortak kaçış yardımcısı — panellerden ÖNCE yüklenmeli -->
 <script src="html-safe.js"></script>
+<!-- a11y: panellerin sonradan ürettiği simge düğmelerine de erişilebilir ad verir -->
+<script src="a11y.js"></script>
 <script src="app.js"></script>
 <script src="vpn-panel.js"></script>
 <script src="log-panel.js"></script>

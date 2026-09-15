@@ -469,13 +469,24 @@ function renderGeneralTab(cfg) {
       <div id="clear-status" style="font-size:11px;color:var(--success);margin-top:8px;min-height:14px"></div>
     </div>
     <div class="settings-section"><h3>Kısayollar</h3>
+      <p class="s-hint" style="margin-top:0">Odak sayfadayken de çalışır. Ctrl+B, Ctrl+Shift+L ve Ctrl+Shift+V yalnızca İlgezdi arayüzü odaktayken çalışır; sayfalarda kalın yazı, hizalama ve düz metin yapıştırma için kullanılırlar.</p>
       <table class="shortcut-table">
-        <tr><td>Yeni Sekme</td><td><span class="kbd">Ctrl</span>+<span class="kbd">T</span></td></tr>
-        <tr><td>Sekmeyi Kapat</td><td><span class="kbd">Ctrl</span>+<span class="kbd">W</span></td></tr>
-        <tr><td>Adres Çubuğu</td><td><span class="kbd">Ctrl</span>+<span class="kbd">L</span></td></tr>
-        <tr><td>Yenile</td><td><span class="kbd">F5</span></td></tr>
+        <tr><td>Yeni sekme</td><td><span class="kbd">Ctrl</span>+<span class="kbd">T</span></td></tr>
+        <tr><td>Sekmeyi kapat</td><td><span class="kbd">Ctrl</span>+<span class="kbd">W</span></td></tr>
+        <tr><td>Kapatılan sekmeyi yeniden aç</td><td><span class="kbd">Ctrl</span>+<span class="kbd">Shift</span>+<span class="kbd">T</span></td></tr>
+        <tr><td>Sonraki / önceki sekme</td><td><span class="kbd">Ctrl</span>+<span class="kbd">Tab</span> · <span class="kbd">Ctrl</span>+<span class="kbd">Shift</span>+<span class="kbd">Tab</span></td></tr>
+        <tr><td>1.–8. sekme / son sekme</td><td><span class="kbd">Ctrl</span>+<span class="kbd">1</span>…<span class="kbd">8</span> · <span class="kbd">Ctrl</span>+<span class="kbd">9</span></td></tr>
+        <tr><td>Adres çubuğu</td><td><span class="kbd">Ctrl</span>+<span class="kbd">L</span> · <span class="kbd">Alt</span>+<span class="kbd">D</span> · <span class="kbd">F6</span></td></tr>
+        <tr><td>Yenile / önbelleği atlayarak yenile</td><td><span class="kbd">F5</span> · <span class="kbd">Ctrl</span>+<span class="kbd">F5</span></td></tr>
+        <tr><td>Geri / ileri</td><td><span class="kbd">Alt</span>+<span class="kbd">←</span> · <span class="kbd">Alt</span>+<span class="kbd">→</span></td></tr>
+        <tr><td>Sayfada bul / sonraki eşleşme</td><td><span class="kbd">Ctrl</span>+<span class="kbd">F</span> · <span class="kbd">F3</span></td></tr>
+        <tr><td>Yakınlaştır / uzaklaştır / sıfırla</td><td><span class="kbd">Ctrl</span>+<span class="kbd">+</span> · <span class="kbd">Ctrl</span>+<span class="kbd">-</span> · <span class="kbd">Ctrl</span>+<span class="kbd">0</span></td></tr>
+        <tr><td>Yazdır</td><td><span class="kbd">Ctrl</span>+<span class="kbd">P</span></td></tr>
+        <tr><td>Yer imine ekle</td><td><span class="kbd">Ctrl</span>+<span class="kbd">D</span></td></tr>
+        <tr><td>Yer imleri paneli</td><td><span class="kbd">Ctrl</span>+<span class="kbd">Shift</span>+<span class="kbd">O</span> · <span class="kbd">Ctrl</span>+<span class="kbd">B</span></td></tr>
+        <tr><td>Gizli pencere</td><td><span class="kbd">Ctrl</span>+<span class="kbd">Shift</span>+<span class="kbd">N</span></td></tr>
         <tr><td>Ayarlar</td><td><span class="kbd">Ctrl</span>+<span class="kbd">,</span></td></tr>
-        <tr><td>Yer İmleri</td><td><span class="kbd">Ctrl</span>+<span class="kbd">B</span></td></tr>
+        <tr><td>Ziyaret günlüğü</td><td><span class="kbd">Ctrl</span>+<span class="kbd">Shift</span>+<span class="kbd">L</span></td></tr>
       </table>
     </div>
     <div class="settings-section"><h3>Uygulama Güncellemesi</h3>
@@ -489,6 +500,14 @@ function renderGeneralTab(cfg) {
       <div id="update-check-status" style="font-size:11.5px;color:var(--text-muted);margin-top:8px;min-height:15px"></div>
     </div>`;
 }
+
+// Değerler ana süreçte ayrıca doğrulanır (browser-commands.js → normalizeWebrtcPolicy).
+const WEBRTC_OPTIONS = [
+  ['default_public_interface_only',         'Yalnızca varsayılan genel arayüz (önerilir)'],
+  ['default_public_and_private_interfaces', 'Varsayılan genel ve özel arayüzler'],
+  ['default',                               'Tüm arayüzler (en uyumlu, IP sızabilir)'],
+  ['disable_non_proxied_udp',               'Proxy dışı UDP kapalı (en katı)'],
+];
 
 function renderPrivacyTab(cfg) {
   const row = (id,lbl,sub,chk) => `
@@ -505,6 +524,15 @@ function renderPrivacyTab(cfg) {
       ${row('cfg-fp','IP Başlıklarını Gizle','Proxy/IP başlıkları (X-Forwarded-For, Via) gönderilmez',cfg.fingerprintProtection!==false)}
       ${row('cfg-https-only','Yalnızca HTTPS','HTTP sitelere güvenli bağlan',cfg.httpsOnly)}
       ${row('cfg-dnt','Do Not Track','Takip etme sinyali gönder',cfg.doNotTrack)}
+    </div>
+    <div class="settings-section"><h3>WebRTC IP Koruması</h3>
+      <div class="s-input-row">
+        <label for="cfg-webrtc">Görüntülü görüşme ve eşler arası bağlantılarda kullanılacak ağ arayüzü</label>
+        <select id="cfg-webrtc">
+          ${WEBRTC_OPTIONS.map(([v, t]) => `<option value="${v}" ${(cfg.webrtcPolicy || 'default_public_interface_only') === v ? 'selected' : ''}>${t}</option>`).join('')}
+        </select>
+      </div>
+      <p class="s-hint">VPN açıkken sitelerin WebRTC üzerinden gerçek IP adresinizi görmesini engeller. En katı seçenek bazı görüntülü görüşme sitelerini bozabilir.</p>
     </div>
     <div class="settings-section"><h3>Log</h3>
       ${row('cfg-log','Ziyaret Logları','AES-256 şifreli saklanır',cfg.logEnabled!==false)}
@@ -926,6 +954,7 @@ function initSettingsPanelEvents() {
       fingerprintProtection: document.getElementById('cfg-fp')?.checked              ?? true,
       httpsOnly:             document.getElementById('cfg-https-only')?.checked      ?? false,
       doNotTrack:            document.getElementById('cfg-dnt')?.checked             ?? false,
+      webrtcPolicy:          document.getElementById('cfg-webrtc')?.value            || settingsConfig.webrtcPolicy,
       logEnabled:            document.getElementById('cfg-log')?.checked             ?? true,
     };
     await window.secureBrowser?.saveConfig(finalCfg);
@@ -987,23 +1016,15 @@ function upgradeSettingsButton() {
   });
 }
 
-function initKeyboardShortcuts() {
-  document.addEventListener('keydown',(e)=>{
-    const ctrl=e.ctrlKey||e.metaKey;
-    if(!ctrl) return;
-    if(e.key===',')               {e.preventDefault();document.getElementById('btn-settings')?.click();}
-    if(e.shiftKey&&e.key==='V')   {e.preventDefault();document.getElementById('btn-vpn-panel')?.click();}
-    if(e.shiftKey&&e.key==='L')   {e.preventDefault();document.getElementById('btn-logs')?.click();}
-    if(e.key==='b'||e.key==='B')  {e.preventDefault();document.getElementById('btn-bookmarks')?.click();}
-  });
-}
+// Kısayollar (Ctrl+, · Ctrl+B · Ctrl+Shift+L · Ctrl+Shift+V) ana süreçte yakalanır
+// ve app.js'e 'browser-command' olarak gelir. Buradaki keydown dinleyicisi odak
+// sayfadayken çalışmıyordu.
 
 async function initFaz4() {
   await loadSavedTheme();
   injectSettingsPanelStyles();
   injectSettingsPanelHTML();
   upgradeSettingsButton();
-  initKeyboardShortcuts();
   console.log('[İlgezdi Faz4] Ayarlar hazır — önizleme modu aktif');
 }
 

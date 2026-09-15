@@ -4,7 +4,7 @@
 
 'use strict';
 
-const { app, BrowserWindow, WebContentsView, ipcMain, session, dialog, safeStorage, webContents } = require('electron');
+const { app, BrowserWindow, WebContentsView, Menu, clipboard, ipcMain, session, dialog, safeStorage, webContents } = require('electron');
 const path = require('path');
 const fs   = require('fs');
 
@@ -17,11 +17,17 @@ const { setupBookmarkImport } = require('./bookmark-import');
 const { setupPasswordManager, getForOrigin } = require('./password-manager');
 const { setupAutoUpdater } = require('./auto-updater');
 const { setupDiagnostics, log: diag, logError } = require('./diagnostics');
+const {
+  normalizeWebrtcPolicy, DEFAULT_WEBRTC_POLICY, UI_COMMANDS, commandForInput, buildContextMenuModel,
+  nextZoomFactor, zoomKeyForUrl, createZoomStore, snapshotHistory, pushClosedTab, isWebUrl,
+} = require('./browser-commands');
 
 let incognitoWindow = null;
+let incognitoPendingUrl = null;   // "Bağlantıyı gizli pencerede aç": pencere yüklenince ilk sekme
 
 const USER_DATA = app.getPath('userData');
 const CFG_PATH  = path.join(USER_DATA, 'config.json');
+const ZOOM_PATH = path.join(USER_DATA, 'zoom-levels.json');
 
 // ─── Oturum ayrımı — TEMİZLEME İŞLEMLERİ İÇİN KRİTİK ─────────────────────────
 // Sekmeler (gerçek gezinme) bu bölümü kullanır. Arayüz penceresi ise
@@ -65,6 +71,9 @@ const DEFAULT_CONFIG = {
   vpnNotify:             true,
   httpsOnly:             false,
   doNotTrack:            false,
+  // WebRTC IP politikası (bkz. browser-commands.js): VPN açıkken gerçek IP'nin
+  // WebRTC üzerinden sızmasını önler, görüntülü görüşmeleri bozmaz.
+  webrtcPolicy:          DEFAULT_WEBRTC_POLICY,
   newTabMode:            'blank',
   customNewTabUrl:       '',
   fontSize:              13,
@@ -386,8 +395,9 @@ function hardenChromeWindow(win) {
 // viewHidden: renderer ekran overlay'i (yeni sekme, auth) gösterirken true olur.
 // resize/panel olayları bu bayrağa saygı duymalı — yoksa gizli boş view
 // yanlışlıkla geri gösterilip overlay'in üstünü örtüyor (boş ekran hatası).
-const mainState = { tabs: new Map(), activeTabId: null, tabCounter: 0, panelIsOpen: false, viewHidden: false };
-const incognitoState = { tabs: new Map(), activeTabId: null, tabCounter: 0, panelIsOpen: false, viewHidden: false };
+// closedTabs: Ctrl+Shift+T yığını — yalnızca bellekte, pencereyle birlikte gider.
+const mainState = { tabs: new Map(), activeTabId: null, tabCounter: 0, panelIsOpen: false, viewHidden: false, closedTabs: [] };
+const incognitoState = { tabs: new Map(), activeTabId: null, tabCounter: 0, panelIsOpen: false, viewHidden: false, closedTabs: [] };
 
 const PANEL_WIDTH      = 420;
 const SIDEBAR_WIDTH    = 56;
@@ -420,6 +430,7 @@ function createWindow() {
   });
 
   hardenChromeWindow(mainWindow);
+  bindBrowserInput(mainWindow.webContents, mainWindow, mainState, 'ui');
   mainWindow.on('resize', () => resizeActiveView(mainWindow, mainState));
 
   mainWindow.on('minimize', () => {
@@ -430,7 +441,7 @@ function createWindow() {
   });
 
   attachBlocker(mainWindow);
-  setupGlance(mainWindow, ipcMain);
+  setupGlance(mainWindow, ipcMain, GLANCE_HOOKS);
 
   mainWindow.once('ready-to-show', () => mainWindow.show());
   mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
@@ -457,7 +468,7 @@ function createWindow() {
   });
 }
 
-function createTab(win, state, url = config.homepage) {
+function createTab(win, state, url = config.homepage, opts = {}) {
   const tabId = ++state.tabCounter;
   const isIncognito = state === incognitoState;
 
@@ -476,6 +487,20 @@ function createTab(win, state, url = config.homepage) {
   });
 
   configureSession(view.webContents.session);
+  applyWebrtcPolicy(view.webContents);
+  bindBrowserInput(view.webContents, win, state, 'page');
+
+  view.webContents.on('found-in-page', (e, result) => {
+    if (state.activeTabId !== tabId || !win || win.isDestroyed()) return;
+    win.webContents.send('find-result', {
+      active: result.activeMatchOrdinal, matches: result.matches, final: result.finalUpdate,
+    });
+  });
+
+  // Ctrl + fare tekerleği ya da dokunmatik yüzeyde kıstırma
+  view.webContents.on('zoom-changed', (e, direction) => {
+    changeZoom(win, state, view.webContents, direction === 'in' ? 1 : -1);
+  });
 
   view.webContents.on('page-title-updated', (e, title) => {
     const tab = state.tabs.get(tabId);
@@ -486,6 +511,15 @@ function createTab(win, state, url = config.homepage) {
   view.webContents.on('did-navigate', (e, navUrl) => {
     const tab = state.tabs.get(tabId);
     if (tab) tab.url = navUrl;
+    // Kaydedilmiş site yakınlaştırması. Gizli pencerede kalıcı değer kullanılmaz.
+    if (!isIncognito) {
+      const saved = zoomStore.get(zoomKeyForUrl(navUrl));
+      if (Math.abs(view.webContents.getZoomFactor() - saved) > 0.001) view.webContents.setZoomFactor(saved);
+    }
+    if (state.activeTabId === tabId && win && !win.isDestroyed()) {
+      win.webContents.send('find-reset');   // yeni belgede eski eşleşme sayısı anlamsız
+      sendZoomState(win, state);
+    }
     sendTabsUpdate(win, state);
   });
 
@@ -594,7 +628,15 @@ function createTab(win, state, url = config.homepage) {
     blockedCount: 0,
   });
 
-  view.webContents.loadURL(url).catch(() => {});
+  if (opts.restore && opts.restore.entries) {
+    // Kapatılan sekme geri/ileri geçmişiyle birlikte geri yüklenir.
+    view.webContents.navigationHistory.restore(opts.restore).catch((err) => {
+      diag.warn('tabs', 'Sekme geçmişi geri yüklenemedi, yalnızca adres açılıyor', { error: String((err && err.message) || err).slice(0, 120) });
+      if (!view.webContents.isDestroyed()) view.webContents.loadURL(url).catch(() => {});
+    });
+  } else {
+    view.webContents.loadURL(url).catch(() => {});
+  }
 
   // ── Glance polling ──
   const glancePoll = setInterval(async () => {
@@ -647,6 +689,13 @@ function setActiveTab(win, state, tabId) {
   // eklenmiş başka görünümlere dokunmaz. removeChildView, çocuk olmayan görünüm için
   // işlem yapmaz. (Not: BrowserWindow'un kendi arayüz webContents'i children içinde
   // LİSTELENMEZ — Electron 44 uçtan uca sondasıyla doğrulandı.)
+  // Sekme değişince önceki sekmedeki bulma vurgusu temizlenir, bul çubuğu kapanır.
+  const previous = state.tabs.get(state.activeTabId);
+  if (previous && state.activeTabId !== tabId) {
+    try { if (!previous.view.webContents.isDestroyed()) previous.view.webContents.stopFindInPage('clearSelection'); } catch {}
+    win.webContents.send('find-reset');
+  }
+
   const content = win.contentView;
   for (const [id, t] of state.tabs) {
     if (id !== tabId) content.removeChildView(t.view);
@@ -659,6 +708,7 @@ function setActiveTab(win, state, tabId) {
   resizeActiveView(win, state);
 
   sendTabsUpdate(win, state);
+  sendZoomState(win, state);
 }
 
 function closeTab(win, state, tabId) {
@@ -666,6 +716,15 @@ function closeTab(win, state, tabId) {
   if (!tab) return;
 
   if (tab.__glancePoll) clearInterval(tab.__glancePoll);
+
+  // Ctrl+Shift+T için geri/ileri geçmişiyle birlikte hatırla (yalnızca bellekte).
+  try {
+    const wc = tab.view.webContents;
+    if (!wc.isDestroyed() && isWebUrl(tab.url)) {
+      const h = wc.navigationHistory;
+      pushClosedTab(state.closedTabs, { url: tab.url, title: tab.title, ...snapshotHistory(h.getAllEntries(), h.getActiveIndex()) });
+    }
+  } catch {}
 
   if (win && !win.isDestroyed()) win.contentView.removeChildView(tab.view);
   // webContents.destroy() belgelenmiş bir API değildi; close() sayfayı kapatıp
@@ -695,6 +754,249 @@ function sendTabsUpdate(win, state) {
     win.webContents.send('vpn-status', vpnManager.getStatus());
   }
 }
+
+// ─── Tarayıcı komutları: kısayollar, sağ tık menüsü, bul, yakınlaştırma ──────
+// Karar mantığı browser-commands.js'te (saf, testli); burada yalnızca Electron'a bağlanır.
+
+// Site başına yakınlaştırma config.json'da değil ayrı dosyada: ayarlar paneli
+// kaydederken tüm yapılandırmayı geri yazıyor ve yeni değeri ezerdi.
+const zoomStore = createZoomStore({
+  read: () => (fs.existsSync(ZOOM_PATH) ? JSON.parse(fs.readFileSync(ZOOM_PATH, 'utf-8')) : {}),
+  write: (obj) => {
+    const tmp = ZOOM_PATH + '.tmp';
+    fs.writeFileSync(tmp, JSON.stringify(obj));
+    fs.renameSync(tmp, ZOOM_PATH);
+  },
+});
+app.on('will-quit', () => { if (zoomStore.pending()) zoomStore.flush(); });
+
+function activeTabContents(state) {
+  const tab = state.tabs.get(state.activeTabId);
+  const wc = tab && tab.view.webContents;
+  return wc && !wc.isDestroyed() ? wc : null;
+}
+
+function applyWebrtcPolicy(wc) {
+  try {
+    if (wc && !wc.isDestroyed()) wc.setWebRTCIPHandlingPolicy(normalizeWebrtcPolicy(config.webrtcPolicy));
+  } catch (e) {
+    logError('webrtc', e);
+  }
+}
+
+function applyWebrtcPolicyToAllTabs() {
+  for (const st of [mainState, incognitoState]) {
+    for (const [, tab] of st.tabs) applyWebrtcPolicy(tab.view.webContents);
+  }
+}
+
+function sendZoomState(win, state) {
+  if (!win || win.isDestroyed()) return;
+  const wc = activeTabContents(state);
+  win.webContents.send('zoom-changed', { factor: wc ? wc.getZoomFactor() : 1 });
+}
+
+function changeZoom(win, state, wc, direction) {
+  if (!wc || wc.isDestroyed()) return;
+  const factor = nextZoomFactor(wc.getZoomFactor(), direction);
+  wc.setZoomFactor(factor);
+  // Chromium yakınlaştırmayı alan adı başına uygular; aynı sitedeki diğer
+  // sekmeler de değişir. Kalıcı değer yalnızca normal pencerede yazılır.
+  if (state !== incognitoState) zoomStore.set(zoomKeyForUrl(wc.getURL()), factor);
+  if (win && !win.isDestroyed() && activeTabContents(state) === wc) {
+    win.webContents.send('zoom-changed', { factor });
+  }
+}
+
+function reopenClosedTab(win, state) {
+  const entry = state.closedTabs.pop();
+  if (!entry || !win || win.isDestroyed()) return;
+  const restore = entry.entries ? { entries: entry.entries, index: entry.index } : null;
+  setActiveTab(win, state, createTab(win, state, entry.url, { restore }));
+}
+
+function openInIncognito(url) {
+  if (incognitoWindow && !incognitoWindow.isDestroyed() && incognitoState.tabs.size) {
+    setActiveTab(incognitoWindow, incognitoState, createTab(incognitoWindow, incognitoState, url));
+    incognitoWindow.focus();
+    return;
+  }
+  incognitoPendingUrl = url;
+  createIncognitoWindow();
+}
+
+function runBrowserCommand(win, state, cmd) {
+  if (!cmd || !win || win.isDestroyed()) return;
+
+  if (UI_COMMANDS.has(cmd)) {
+    // Odak sayfadaysa arayüze taşınmalı; yoksa adres çubuğu ve bul kutusu yazı almaz.
+    if (cmd === 'focus-address' || cmd === 'find') win.webContents.focus();
+    win.webContents.send('browser-command', cmd);
+    return;
+  }
+
+  const wc = activeTabContents(state);
+  const ids = [...state.tabs.keys()];
+  const pos = ids.indexOf(state.activeTabId);
+
+  switch (cmd) {
+    case 'close-tab':
+      if (state.activeTabId != null) closeTab(win, state, state.activeTabId);
+      break;
+    case 'reopen-closed-tab': reopenClosedTab(win, state); break;
+    case 'next-tab': if (ids.length > 1) setActiveTab(win, state, ids[(pos + 1) % ids.length]); break;
+    case 'prev-tab': if (ids.length > 1) setActiveTab(win, state, ids[(pos - 1 + ids.length) % ids.length]); break;
+    case 'last-tab': if (ids.length) setActiveTab(win, state, ids[ids.length - 1]); break;
+    case 'reload':      if (wc) wc.reload(); break;
+    case 'hard-reload': if (wc) wc.reloadIgnoringCache(); break;
+    case 'back':    if (wc && wc.navigationHistory.canGoBack()) wc.navigationHistory.goBack(); break;
+    case 'forward': if (wc && wc.navigationHistory.canGoForward()) wc.navigationHistory.goForward(); break;
+    case 'zoom-in':    changeZoom(win, state, wc, 1); break;
+    case 'zoom-out':   changeZoom(win, state, wc, -1); break;
+    case 'zoom-reset': changeZoom(win, state, wc, 0); break;
+    case 'print':
+      if (wc && isWebUrl(wc.getURL())) {
+        wc.print({}, (ok, reason) => {
+          if (!ok && reason && !/cancel/i.test(reason)) diag.warn('print', 'Yazdırma başarısız', { reason: String(reason).slice(0, 80) });
+        });
+      }
+      break;
+    case 'incognito': createIncognitoWindow(); break;
+    default: {
+      const m = /^tab-([1-8])$/.exec(cmd);
+      if (m && ids[Number(m[1]) - 1] != null) setActiveTab(win, state, ids[Number(m[1]) - 1]);
+    }
+  }
+}
+
+// Kısayollar ve sağ tık menüsü. surface: 'page' (sekme ve önizleme içeriği) ya da
+// 'ui' (İlgezdi arayüzü). Aynı komut tablosu ikisine de uygulanır; editörlerin
+// kullandığı birleşimler sayfada yakalanmaz (bkz. browser-commands.js).
+function bindBrowserInput(wc, win, state, surface) {
+  wc.on('before-input-event', (event, input) => {
+    const cmd = commandForInput(input, { platform: process.platform, surface });
+    if (!cmd) return;
+    event.preventDefault();
+    try { runBrowserCommand(win, state, cmd); } catch (e) { logError('shortcut', e, { cmd }); }
+  });
+
+  wc.on('context-menu', (event, params) => {
+    if (!win || win.isDestroyed()) return;
+    const history = surface === 'page' ? wc.navigationHistory : null;
+    const model = buildContextMenuModel(params, {
+      surface,
+      platform: process.platform,
+      incognito: state === incognitoState,
+      canGoBack: !!(history && history.canGoBack()),
+      canGoForward: !!(history && history.canGoForward()),
+    });
+    if (!model.length) return;
+    const template = model.map((item) => (item.type ? { type: 'separator' } : {
+      label: item.label,
+      enabled: item.enabled,
+      click: () => {
+        try { runContextAction(win, state, wc, item, params); } catch (e) { logError('context-menu', e, { id: item.id }); }
+      },
+    }));
+    Menu.buildFromTemplate(template).popup({ window: win });
+  });
+}
+
+function runContextAction(win, state, wc, item, params) {
+  if (wc.isDestroyed()) return;
+  const arg = item.arg;
+  switch (item.id) {
+    case 'open-link-tab':
+    case 'open-tab':
+      if (isWebUrl(arg)) createTab(win, state, arg);        // Chrome gibi arka planda açılır
+      break;
+    case 'open-link-incognito':
+      if (isWebUrl(arg)) openInIncognito(arg);
+      break;
+    case 'glance-link':
+      if (isWebUrl(arg)) win.webContents.send('glance-request', { url: arg, x: params.x, y: params.y });
+      break;
+    case 'save-link':
+    case 'save-media':
+      // İndirme will-download işleyicisinden geçer: güvenli dosya adı, konum sorma.
+      if (isWebUrl(arg) || String(arg).toLowerCase().startsWith('data:image/')) wc.downloadURL(arg);
+      break;
+    case 'copy-text':  clipboard.writeText(String(arg || '').slice(0, 8192)); break;
+    case 'copy-image': wc.copyImageAt(arg.x, arg.y); break;
+    case 'search-selection':
+      setActiveTab(win, state, createTab(win, state, searchUrl(String(arg || '').trim().slice(0, 1000))));
+      break;
+    case 'view-source':
+      if (String(arg).startsWith('view-source:') && isWebUrl(String(arg).slice('view-source:'.length))) {
+        setActiveTab(win, state, createTab(win, state, arg));
+      }
+      break;
+    case 'replace-misspelling': wc.replaceMisspelling(String(arg)); break;
+    case 'add-to-dictionary':   wc.session.addWordToSpellCheckerDictionary(String(arg)); break;
+    case 'undo':        wc.undo(); break;
+    case 'redo':        wc.redo(); break;
+    case 'cut':         wc.cut(); break;
+    case 'copy':        wc.copy(); break;
+    case 'paste':       wc.paste(); break;
+    case 'paste-plain': wc.pasteAndMatchStyle(); break;
+    case 'select-all':  wc.selectAll(); break;
+    case 'back':    if (wc.navigationHistory.canGoBack()) wc.navigationHistory.goBack(); break;
+    case 'forward': if (wc.navigationHistory.canGoForward()) wc.navigationHistory.goForward(); break;
+    case 'reload':  wc.reload(); break;
+    case 'print':   runBrowserCommand(win, state, 'print'); break;
+  }
+}
+
+// Önizleme (glance) görünümü tetikleyen pencerenin oturumunda açılır. Eskiden
+// bölüm sabit 'persist:securebrowser' idi; gizli pencerede önizlenen sitenin
+// çerezleri ve önbelleği kalıcı profile yazılıyordu.
+const isIncognitoWin = (win) =>
+  !!(win && incognitoWindow && !incognitoWindow.isDestroyed() && win.id === incognitoWindow.id);
+
+const GLANCE_HOOKS = {
+  partitionFor: (win) => (isIncognitoWin(win) ? 'incognito-' + win.id : BROWSING_PARTITION),
+  onViewCreated: (view, win) => {
+    const state = isIncognitoWin(win) ? incognitoState : mainState;
+    configureSession(view.webContents.session);
+    applyWebrtcPolicy(view.webContents);
+    view.webContents.on('before-input-event', (event, input) => {
+      if (input.type === 'keyDown' && input.key === 'Escape') {
+        event.preventDefault();
+        closeGlance();
+      }
+    });
+    bindBrowserInput(view.webContents, win, state, 'page');
+  },
+};
+
+ipcMain.handle('find-in-page', (event, payload) => {
+  const { state } = getContextFromEvent(event);
+  const wc = activeTabContents(state);
+  const url = wc ? wc.getURL() : '';
+  if (!wc || !url || url === 'about:blank') return { ok: false };
+  const text = typeof payload?.text === 'string' ? payload.text.slice(0, 500) : '';
+  if (!text) {
+    wc.stopFindInPage('clearSelection');
+    return { ok: true, requestId: 0 };
+  }
+  // findNext: true yeni arama oturumu başlatır, false sonraki/önceki eşleşmeye geçer.
+  const requestId = wc.findInPage(text, { forward: payload.forward !== false, findNext: !!payload.newSession });
+  return { ok: true, requestId };
+});
+
+ipcMain.handle('stop-find-in-page', (event, payload) => {
+  const { state } = getContextFromEvent(event);
+  const wc = activeTabContents(state);
+  if (!wc) return { ok: false };
+  wc.stopFindInPage('keepSelection');
+  if (payload?.focusPage) wc.focus();
+  return { ok: true };
+});
+
+ipcMain.handle('zoom-reset', (event) => {
+  const { win, state } = getContextFromEvent(event);
+  changeZoom(win, state, activeTabContents(state), 0);
+});
 
 // ─── IPC Handlers ─────────────────────────────────────────────────────────────
 
@@ -752,8 +1054,13 @@ ipcMain.handle('reload', (event) => {
 // Config
 ipcMain.handle('get-config',  ()          => config);
 ipcMain.handle('save-config', (e, newCfg) => {
-  config = { ...config, ...newCfg };
+  const incoming = newCfg && typeof newCfg === 'object' ? { ...newCfg } : {};
+  // Arayüzden gelen değer doğrulanır: geçersiz politika Chromium'a verilmez.
+  if ('webrtcPolicy' in incoming) incoming.webrtcPolicy = normalizeWebrtcPolicy(incoming.webrtcPolicy);
+  const previousPolicy = config.webrtcPolicy;
+  config = { ...config, ...incoming };
   saveConfig(config);
+  if (config.webrtcPolicy !== previousPolicy) applyWebrtcPolicyToAllTabs();
   return config;
 });
 
@@ -1158,6 +1465,7 @@ function createIncognitoWindow() {
   incognitoState.tabCounter = 0;
   incognitoState.panelIsOpen = false;
   incognitoState.viewHidden = false;
+  incognitoState.closedTabs = [];
 
   incognitoWindow = new BrowserWindow({
     width: 1200, height: 800,
@@ -1175,6 +1483,7 @@ function createIncognitoWindow() {
   });
 
   hardenChromeWindow(incognitoWindow);
+  bindBrowserInput(incognitoWindow.webContents, incognitoWindow, incognitoState, 'ui');
   incognitoWindow.on('resize', () => resizeActiveView(incognitoWindow, incognitoState));
 
   incognitoWindow.once('ready-to-show', () => incognitoWindow.show());
@@ -1183,7 +1492,10 @@ function createIncognitoWindow() {
   // Renderer yüklenince ilk sekmeyi oluştur
   incognitoWindow.webContents.on('did-finish-load', () => {
     if (incognitoWindow && !incognitoWindow.isDestroyed() && incognitoState.tabs.size === 0) {
-      const id = createTab(incognitoWindow, incognitoState, 'about:blank');
+      // Sağ tık → "Bağlantıyı gizli pencerede aç" ile açıldıysa ilk sekme o adres.
+      const first = incognitoPendingUrl || 'about:blank';
+      incognitoPendingUrl = null;
+      const id = createTab(incognitoWindow, incognitoState, first);
       setActiveTab(incognitoWindow, incognitoState, id);
     }
   });

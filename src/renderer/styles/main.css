@@ -498,3 +498,57 @@ input, select, textarea { font-family: var(--font-ui); }
   to   { opacity: 1; transform: translateY(0); }
 }
 .fade-up { animation: fadeUp 0.4s ease-out both; }
+
+/* ══════════════════════════════════════════════════════════
+   KLAVYE ODAĞI — fareyle tıklamada görünmez, klavyeyle gezinmede
+   her zaman görünür (WCAG 2.4.7). Eskiden hiçbir odak göstergesi yoktu.
+   ══════════════════════════════════════════════════════════ */
+:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+.tab:focus-visible { outline-offset: -2px; }
+
+/* ══════════════════════════════════════════════════════════
+   SAYFADA BUL — yer imleri satırının sağına biner (sayfa kaymaz)
+   ══════════════════════════════════════════════════════════ */
+#find-bar {
+  position: fixed; z-index: 90;
+  top: calc(var(--titlebar-h) + var(--toolbar-h) + 3px);
+  right: 14px;
+  height: calc(var(--bookmarks-h) - 6px);
+  display: flex; align-items: center; gap: 2px;
+  padding: 0 4px 0 10px;
+  background: var(--bg-elev); border: 1px solid var(--line); border-radius: 8px;
+  box-shadow: 0 8px 22px -12px rgba(0, 0, 0, .55);
+}
+#find-bar[hidden] { display: none; }
+#find-bar:focus-within { border-color: var(--gold); }
+#find-input {
+  width: 220px; height: 100%;
+  border: none; background: transparent; outline: none;
+  color: var(--ink); font-size: 12.5px; font-family: var(--font-ui);
+}
+#find-input::placeholder { color: var(--ink-mute); }
+#find-count {
+  min-width: 44px; padding-right: 6px; text-align: right;
+  font-family: var(--font-mono); font-size: 11px; color: var(--ink-mute);
+  font-variant-numeric: tabular-nums;
+}
+#find-count.none { color: var(--danger); }
+#find-bar button {
+  width: 26px; height: 24px; display: grid; place-items: center;
+  border: none; background: transparent; color: var(--ink-soft);
+  border-radius: 5px; cursor: pointer;
+}
+#find-bar button:hover { background: var(--bg-soft); color: var(--ink); }
+
+/* Yakınlaştırma göstergesi — adres çubuğunda, %100 değilken görünür */
+#zoom-indicator {
+  height: 22px; padding: 0 8px; border-radius: 11px;
+  border: 1px solid var(--line); background: var(--bg-elev);
+  color: var(--ink-soft); font-size: 11px; font-family: var(--font-mono);
+  cursor: pointer; flex-shrink: 0;
+}
+#zoom-indicator[hidden] { display: none; }
+#zoom-indicator:hover { color: var(--gold); border-color: var(--gold); }

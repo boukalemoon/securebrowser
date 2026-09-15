@@ -166,6 +166,24 @@ contextBridge.exposeInMainWorld('secureBrowser', {
     resetIdentity:   ()      => ipcRenderer.invoke('diag-reset-identity'),
   },
 
+  // ── Sayfada bul (Ctrl+F) ─────────────────────────────────────────────────────
+  // newSession: yazılan metin değişti (yeni arama); false: sonraki/önceki eşleşme.
+  find: {
+    start:    (text, opts) => ipcRenderer.invoke('find-in-page', { text, forward: opts?.forward !== false, newSession: !!opts?.newSession }),
+    stop:     (opts)       => ipcRenderer.invoke('stop-find-in-page', { focusPage: !!opts?.focusPage }),
+    onResult: (cb)         => ipcRenderer.on('find-result', (_, d) => cb(d)),
+    onReset:  (cb)         => ipcRenderer.on('find-reset',  ()     => cb()),
+  },
+
+  // ── Yakınlaştırma (etkin sekme) ──────────────────────────────────────────────
+  zoom: {
+    reset:     ()   => ipcRenderer.invoke('zoom-reset'),
+    onChanged: (cb) => ipcRenderer.on('zoom-changed', (_, d) => cb(d)),
+  },
+
+  // Ana süreçteki kısayollardan arayüze iletilen komutlar (bkz. browser-commands.js)
+  onBrowserCommand:   (cb) => ipcRenderer.on('browser-command', (_, cmd) => cb(cmd)),
+
   // ── Event Dinleyiciler ───────────────────────────────────────────────────────
   onTabsUpdate:       (cb) => ipcRenderer.on('tabs-update', (e, data) => cb(data)),
   onActiveUrl:        (cb) => ipcRenderer.on('active-url',  (e, url)  => cb(url)),

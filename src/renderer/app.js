@@ -171,21 +171,31 @@ function renderTabs(tabs) {
   currentTabs = tabs;
   const container = document.getElementById('tabs-container');
   if (!container) return;
+  // Klavye odağı bir sekmedeyse yeniden çizimden sonra aynı sekmeye geri verilir.
+  const focusedId = document.activeElement?.closest?.('.tab')?.dataset.id;
   container.innerHTML = '';
 
   tabs.forEach(tab => {
+    const label = tab.title || tab.url || 'Yeni Sekme';
     const el = document.createElement('div');
     el.className = 'tab' + (tab.isActive ? ' active' : '');
     el.dataset.id = tab.id;
+    // Erişilebilirlik: sekme şeridi bir tablist. Yalnızca etkin sekme Tab ile
+    // odak alır; diğerlerine ok tuşlarıyla geçilir, Enter/Boşluk ile açılır.
+    el.setAttribute('role', 'tab');
+    el.setAttribute('aria-selected', tab.isActive ? 'true' : 'false');
+    el.tabIndex = tab.isActive ? 0 : -1;
 
     const title = document.createElement('span');
     title.className = 'tab-title';
-    title.textContent = tab.title || tab.url || 'Yeni Sekme';
+    title.textContent = label;
     title.title = tab.url || '';
 
     const closeBtn = document.createElement('button');
     closeBtn.className = 'tab-close';
     closeBtn.textContent = '×';
+    closeBtn.tabIndex = -1;                                   // klavyede Ctrl+W
+    closeBtn.setAttribute('aria-label', 'Sekmeyi kapat: ' + label);
     closeBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       sb.closeTab(tab.id);
@@ -197,7 +207,22 @@ function renderTabs(tabs) {
       sb.switchTab(tab.id);
       if (currentScreen) hideScreen();
     });
+    el.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        el.click();
+      } else if (['ArrowRight', 'ArrowLeft', 'Home', 'End'].includes(e.key)) {
+        e.preventDefault();
+        const all = [...container.querySelectorAll('.tab')];
+        const i = all.indexOf(el);
+        const target = e.key === 'Home' ? all[0]
+          : e.key === 'End' ? all[all.length - 1]
+          : all[(i + (e.key === 'ArrowRight' ? 1 : -1) + all.length) % all.length];
+        target?.focus();
+      }
+    });
     container.appendChild(el);
+    if (focusedId && String(tab.id) === focusedId) el.focus();
   });
 }
 
@@ -549,32 +574,110 @@ document.addEventListener('DOMContentLoaded', async () => {
   // başlık çubuğundaki gösterge bu yüzden hiç yanmıyordu (denetim D-01).
   sb.onVpnStatus?.((data) => updateVpnIndicator(data?.status === 'connected'));
 
+  // ── Sayfada bul (Ctrl+F) ──────────────────────────────────────────────────
+  const findBar   = document.getElementById('find-bar');
+  const findInput = document.getElementById('find-input');
+  const findCount = document.getElementById('find-count');
+  let findTimer   = null;
+  let findSession = '';     // son yeni arama oturumunun metni
+
+  function renderFindCount(result) {
+    if (!findInput.value) {
+      findCount.textContent = '';
+      findCount.classList.remove('none');
+      return;
+    }
+    if (!result) return;
+    findCount.textContent = result.matches ? result.active + '/' + result.matches : '0/0';
+    findCount.classList.toggle('none', !result.matches);
+  }
+
+  function runFind(forward, newSession) {
+    clearTimeout(findTimer);
+    if (!findInput.value) {
+      findSession = '';
+      sb.find?.stop();
+      renderFindCount(null);
+      return;
+    }
+    if (newSession) findSession = findInput.value;
+    sb.find?.start(findInput.value, { forward, newSession });
+  }
+
+  function openFindBar() {
+    // Yeni sekme ya da bir İlgezdi sayfası açıkken aranacak web sayfası yok.
+    if (currentScreen) return;
+    findBar.hidden = false;
+    findInput.focus();
+    findInput.select();
+    if (findInput.value) runFind(true, true);
+  }
+
+  function closeFindBar(focusPage) {
+    if (findBar.hidden) return;
+    clearTimeout(findTimer);
+    findBar.hidden = true;
+    findSession = '';
+    findCount.textContent = '';
+    sb.find?.stop({ focusPage: !!focusPage });
+  }
+
+  function findStep(forward) {
+    if (findBar.hidden || !findInput.value) { openFindBar(); return; }
+    // Metin değiştiyse ve gecikmeli arama henüz gitmediyse yeni oturum başlat.
+    runFind(forward, findInput.value !== findSession);
+  }
+
+  findInput?.addEventListener('input', () => {
+    clearTimeout(findTimer);
+    findTimer = setTimeout(() => runFind(true, true), 120);
+  });
+  findInput?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); findStep(!e.shiftKey); }
+    else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closeFindBar(true); }
+  });
+  document.getElementById('find-prev')?.addEventListener('click', () => findStep(false));
+  document.getElementById('find-next')?.addEventListener('click', () => findStep(true));
+  document.getElementById('find-close')?.addEventListener('click', () => closeFindBar(true));
+  sb.find?.onResult((r) => { if (!findBar.hidden) renderFindCount(r); });
+  sb.find?.onReset(() => closeFindBar(false));
+
+  // ── Yakınlaştırma göstergesi ──────────────────────────────────────────────
+  const zoomBtn = document.getElementById('zoom-indicator');
+  zoomBtn?.addEventListener('click', () => sb.zoom?.reset());
+  sb.zoom?.onChanged((data) => {
+    if (!zoomBtn) return;
+    const pct = Math.round((Number(data?.factor) || 1) * 100);
+    zoomBtn.hidden = pct === 100;
+    zoomBtn.textContent = '%' + pct;
+    zoomBtn.setAttribute('aria-label', 'Yakınlaştırma yüzde ' + pct + ', sıfırlamak için tıklayın');
+  });
+
   // ── Klavye kısayolları ────────────────────────────────────────────────────
+  // Kısayolların tamamı ana süreçte (browser-commands.js) yakalanır. Eskiden
+  // buradaydı ve odak sayfadayken hiçbiri çalışmıyordu. Arayüze ait olanlar
+  // 'browser-command' olarak buraya gelir.
+  sb.onBrowserCommand?.((cmd) => {
+    switch (cmd) {
+      case 'new-tab':          openNewTab(); break;
+      case 'focus-address':    addressBar?.focus(); break;
+      case 'find':             openFindBar(); break;
+      case 'find-next':        findStep(true); break;
+      case 'find-prev':        findStep(false); break;
+      case 'bookmark-page':    if (!isIncognito) document.getElementById('btn-bookmark-star')?.click(); break;
+      case 'settings':         document.getElementById('btn-settings')?.click(); break;
+      case 'toggle-bookmarks': document.getElementById('btn-bookmarks')?.click(); break;
+      case 'logs':             document.getElementById('btn-logs')?.click(); break;
+      case 'vpn-panel':        document.getElementById('btn-vpn-panel')?.click(); break;
+    }
+  });
+
+  // Esc ana süreçte yakalanmaz: önce bul çubuğu, sonra ekran, sonra paneller kapanır.
   document.addEventListener('keydown', (e) => {
-    // e.key CapsLock/Shift ile büyük harf gelir — küçük harfe indirerek karşılaştır.
-    // Shift'li varyantlar (Ctrl+Shift+L = günlük, Ctrl+Shift+N = gizli) ayrı işlenir.
-    const k = String(e.key || '').toLowerCase();
-    if (e.ctrlKey && !e.shiftKey && k === 't') { e.preventDefault(); openNewTab(); }
-    if (e.ctrlKey && !e.shiftKey && k === 'd') {
-      e.preventDefault();
-      document.getElementById('btn-bookmark-star')?.click();
-    }
-    if (e.ctrlKey && !e.shiftKey && k === 'w') {
-      e.preventDefault();
-      const active = currentTabs.find(t => t.isActive);
-      if (active) sb.closeTab(active.id);
-    }
-    if (e.ctrlKey && e.shiftKey && (e.key === 'N' || e.key === 'n')) {
-      e.preventDefault(); sb.openIncognito();
-    }
-    if (e.ctrlKey && !e.shiftKey && k === 'l') { e.preventDefault(); addressBar?.focus(); }
-    if (e.key === 'F5')              { e.preventDefault(); sb.reload(); }
-    if (e.altKey && e.key === 'ArrowLeft')  { e.preventDefault(); sb.goBack(); }
-    if (e.altKey && e.key === 'ArrowRight') { e.preventDefault(); sb.goForward(); }
-    if (e.key === 'Escape') {
-      if (currentScreen) hideScreen();
-      else closeAllPanels();
-    }
+    if (e.key !== 'Escape') return;
+    if (!findBar.hidden) closeFindBar(true);
+    else if (currentScreen) hideScreen();
+    else closeAllPanels();
   });
 
   // Marka logolarını enjekte et (toolbar + auth)
