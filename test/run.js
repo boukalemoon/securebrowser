@@ -1198,7 +1198,10 @@ suite('Site — sürüm notları');
   if (Array.isArray(releases)) {
     const versions = releases.map((r) => r.version);
     check('sürümler yeniden eskiye ve tekrarsız', versions.join() === [...new Set(versions)].join() && versions[0] === '0.8.0');
-    check('yayınlanmamış 0.8.0 "En son" sayılmıyor; en son yayınlanan 0.7.3', releases[0].upcoming === true && releases.find((r) => !r.upcoming).version === '0.7.3');
+    check('0.8.0 yayınlandı ve "En son" etiketi onda', !releases[0].upcoming && releases.find((r) => !r.upcoming).version === '0.8.0');
+    const indexHtml = fs.readFileSync(path.join(__dirname, '..', 'site', 'index.html'), 'utf8');
+    const pkgVersion = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8')).version;
+    check('ana sayfadaki sürüm rozeti paket sürümüyle ve sürüm notlarıyla aynı', indexHtml.includes(`const VERSION = '${pkgVersion}';`) && releases[0].version === pkgVersion);
     check('her değişikliğin türü tanımlı ve metni dolu', releases.every((r) => r.changes.every((c) => ['new', 'fix', 'sec', 'imp'].includes(c.t) && c.d.length > 20)));
     check('0.8.0 güncellemeleri tek tek listelenmiş (zararlı site koruması ve USOM dahil)', releases[0].changes.length >= 25 && releases[0].changes.some((c) => c.d.includes('USOM')));
   }
