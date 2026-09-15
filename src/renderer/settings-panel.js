@@ -156,8 +156,13 @@ function injectSettingsPanelStyles() {
   s.id = 'ilgezdi-settings-style';
   s.textContent = `
     /* Genişlik .side-panel'den (--panel-w = 420px, main.js PANEL_WIDTH ile aynı) gelir — D-03 */
-    .settings-tabs { display:flex; background:var(--bg-surface); border-bottom:1px solid var(--border-color); padding:0 12px; flex-shrink:0; }
-    .settings-tab { padding:10px 10px; font-size:10px; font-weight:600; color:var(--text-muted); cursor:pointer; border:none; border-bottom:2px solid transparent; background:none; white-space:nowrap; transition:all .15s; }
+    /* İkon üstte, ad altta, eşit sütunlar: 6 sekme 420 px panele sığar. Yan yana
+       metinle 434 px tutuyordu, "Tanılama" sağda kesiliyordu (kullanıcı bildirdi). */
+    .settings-tabs { display:grid; grid-template-columns:repeat(6, minmax(0, 1fr)); gap:2px; background:var(--bg-surface); border-bottom:1px solid var(--border-color); padding:0 8px; flex-shrink:0; }
+    .settings-tab { display:flex; flex-direction:column; align-items:center; gap:3px; min-width:0; padding:8px 2px 7px; font-size:10px; font-weight:600; color:var(--text-muted); cursor:pointer; border:none; border-bottom:2px solid transparent; background:none; white-space:nowrap; transition:all .15s; }
+    .settings-tab-icon { font-size:14px; line-height:1; }
+    .settings-tab-label { max-width:100%; overflow:hidden; text-overflow:ellipsis; }
+    .settings-tab:focus-visible { outline:2px solid var(--accent); outline-offset:-2px; border-radius:4px; }
     .settings-tab.active { color:var(--accent); border-bottom-color:var(--accent); }
     .settings-tab:hover { color:var(--text-main); }
     .settings-content { flex:1; overflow-y:auto; padding:14px; background:var(--bg-surface); }
@@ -260,13 +265,13 @@ function injectSettingsPanelHTML() {
   if (!panel) return;
   panel.innerHTML = `
     <div class="panel-header"><h2>⚙ Ayarlar</h2><button class="panel-close" data-panel="settings">✕</button></div>
-    <div class="settings-tabs">
-      <button class="settings-tab active" data-tab="customization">🎨 Özelleştir</button>
-      <button class="settings-tab" data-tab="account">👤 Hesap</button>
-      <button class="settings-tab" data-tab="general">⚙ Genel</button>
-      <button class="settings-tab" data-tab="privacy">🛡 Gizlilik</button>
-      <button class="settings-tab" data-tab="passwords">🔑 Şifreler</button>
-      <button class="settings-tab" data-tab="diag">🩺 Tanılama</button>
+    <div class="settings-tabs" role="tablist" aria-label="Ayar bölümleri">
+      <button class="settings-tab active" data-tab="customization" role="tab" aria-selected="true"><span class="settings-tab-icon" aria-hidden="true">🎨</span><span class="settings-tab-label">Özelleştir</span></button>
+      <button class="settings-tab" data-tab="account" role="tab" aria-selected="false"><span class="settings-tab-icon" aria-hidden="true">👤</span><span class="settings-tab-label">Hesap</span></button>
+      <button class="settings-tab" data-tab="general" role="tab" aria-selected="false"><span class="settings-tab-icon" aria-hidden="true">⚙</span><span class="settings-tab-label">Genel</span></button>
+      <button class="settings-tab" data-tab="privacy" role="tab" aria-selected="false"><span class="settings-tab-icon" aria-hidden="true">🛡</span><span class="settings-tab-label">Gizlilik</span></button>
+      <button class="settings-tab" data-tab="passwords" role="tab" aria-selected="false"><span class="settings-tab-icon" aria-hidden="true">🔑</span><span class="settings-tab-label">Şifreler</span></button>
+      <button class="settings-tab" data-tab="diag" role="tab" aria-selected="false"><span class="settings-tab-icon" aria-hidden="true">🩺</span><span class="settings-tab-label">Tanılama</span></button>
     </div>
     <div class="settings-unsaved-bar" id="settings-unsaved-bar">
       <span>⚠ Kaydedilmemiş değişiklikler var</span>
@@ -756,14 +761,15 @@ async function bindAccountEvents() {
       </div>`;
     actions.innerHTML = `<button class="btn-ghost" id="acc-logout">Çıkış Yap</button>`;
     document.getElementById('acc-logout')?.addEventListener('click', async () => {
-      window.ilgezdiCloseAllPanels?.();
+      // Panel kapatılmaz; çıkış 'ilgezdi-auth-changed' ile bu sekmeyi yeniler.
       await window.ilgezdiAuth?.logout?.();
     });
   } else {
     info.innerHTML = `<span style="color:var(--text-muted)">Henüz giriş yapılmadı.</span>`;
     actions.innerHTML = `<button class="btn-primary" id="acc-open">Giriş Yap / Kayıt Ol</button>`;
     document.getElementById('acc-open')?.addEventListener('click', () => {
-      window.ilgezdiCloseAllPanels?.();
+      // Ayarlar açık kalır: giriş penceresi üstte açılır, kapanınca Hesap sekmesine
+      // dönülür. Eskiden önce tüm paneller kapatılıyordu (kullanıcı bildirdi).
       window.ilgezdiAuth?.open?.();
     });
   }
@@ -993,13 +999,32 @@ function bindPasswordEvents() {
 }
 
 // ─── Panel events ─────────────────────────────────────────────────────────────
+// Sekmeyi seç: vurgu, aria-selected ve içerik birlikte (panel her açılışta da çağırır;
+// eskiden içerik Özelleştir'e dönerken vurgu önceki sekmede kalıyordu).
+function selectSettingsTab(tabId) {
+  document.querySelectorAll('.settings-tab').forEach((t) => {
+    const on = t.dataset.tab === tabId;
+    t.classList.toggle('active', on);
+    t.setAttribute('aria-selected', on ? 'true' : 'false');
+  });
+  renderSettingsTab(tabId, settingsConfig);
+}
+
+// Panel HTML'i bir kez eklenir (initFaz4); olaylar da bir kez bağlanmalı. Eskiden
+// her açılışta yeniden bağlanıyordu: N. açılışta Kaydet N kez kaydediyordu.
+let _settingsEventsBound = false;
 function initSettingsPanelEvents() {
+  if (_settingsEventsBound) return;
+  _settingsEventsBound = true;
   document.querySelectorAll('.settings-tab').forEach(tab=>{
-    tab.addEventListener('click',()=>{
-      document.querySelectorAll('.settings-tab').forEach(t=>t.classList.remove('active'));
-      tab.classList.add('active');
-      renderSettingsTab(tab.dataset.tab,settingsConfig);
-    });
+    tab.addEventListener('click',()=>selectSettingsTab(tab.dataset.tab));
+  });
+
+  // Giriş/çıkış sonrası Hesap sekmesi açıksa yerinde yenilenir (panel kapanmaz).
+  window.addEventListener('ilgezdi-auth-changed', () => {
+    const panel = document.getElementById('panel-settings');
+    const active = document.querySelector('.settings-tab.active')?.dataset.tab;
+    if (panel?.classList.contains('visible') && active === 'account') bindAccountEvents();
   });
 
   // KAYDET — pending değerleri commit et, sonra API'ye yaz
@@ -1085,8 +1110,8 @@ function upgradeSettingsButton() {
       requestAnimationFrame(()=>panel.classList.add('visible'));
       newBtn.classList.add('active');
       window.secureBrowser?.panelOpened(true);
-      renderSettingsTab('customization', settingsConfig);
       initSettingsPanelEvents();
+      selectSettingsTab('customization');
       updateUnsavedBar();
     }
   });

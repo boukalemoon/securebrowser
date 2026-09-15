@@ -979,6 +979,33 @@ suite('Giriş ekranı');
   check('ekran kapanınca giriş ekranı açıksa sayfa görünümü gösterilmiyor', hideBody.includes('if (!isAuthScreenOpen()) {'));
   check('sekme adres güncellemesinde de aynı koruma', appJs.split('isAuthScreenOpen()').length - 1 >= 3);
   check('koruma animasyon sırasında da geçerli (hidden sınıfına bakıyor)', appJs.includes("return !!el && !el.classList.contains('hidden');"));
+  // Kullanıcı bildirdi: Ayarlar › Hesap › "Giriş Yap" Ayarlar panelini kapatıyordu.
+  const setJs = read('renderer/settings-panel.js');
+  const accBody = setJs.slice(setJs.indexOf('async function bindAccountEvents('), setJs.indexOf('// ─── Özelleştirme eventleri'));
+  check('Hesap sekmesindeki giriş/çıkış düğmeleri Ayarlar panelini kapatmıyor', accBody.length > 100 && !accBody.includes('ilgezdiCloseAllPanels'));
+  check('giriş, kayıt, QR girişi ve çıkış sonrası Hesap sekmesi yenileniyor',
+    (authJs.match(/notifyAuthChanged\(\);/g) || []).length >= 4 && setJs.includes("addEventListener('ilgezdi-auth-changed'"));
+  check('Esc önce giriş penceresini kapatıyor',
+    /if \(isAuthScreenOpen\(\)\) window\.ilgezdiAuth\?\.close\?\.\(\);\s*else if \(!findBar\.hidden\)/.test(appJs) && authJs.includes('close: hideAuthScreen'));
+  check('giriş penceresi kapanınca odak onu açan düğmeye dönüyor', authJs.includes('back?.isConnected'));
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Ayarlar paneli — sekme çubuğu 420 px panele sığmalı, olaylar birikmemeli
+// ══════════════════════════════════════════════════════════════════════════════
+suite('Ayarlar paneli');
+{
+  const setJs = read('renderer/settings-panel.js');
+  const tabs = [...setJs.matchAll(/<button class="settings-tab[^"]*" data-tab="(\w+)" role="tab" aria-selected="(?:true|false)">/g)].map((m) => m[1]);
+  eq('6 sekme, sekme rolüyle işaretli', tabs, ['customization', 'account', 'general', 'privacy', 'passwords', 'diag']);
+  check('sekme çubuğu eşit sütunlu ızgara (yan yana metin 434 px tutup taşıyordu)',
+    /\.settings-tabs \{[^}]*grid-template-columns:repeat\(6, minmax\(0, 1fr\)\)/.test(setJs));
+  check('sekme adı sütuna sığmazsa kesilmek yerine üç nokta', /\.settings-tab-label \{[^}]*text-overflow:ellipsis/.test(setJs));
+  check('panel olayları yalnızca bir kez bağlanıyor (her açılışta Kaydet dinleyicisi birikiyordu)',
+    /function initSettingsPanelEvents\(\) \{\s*if \(_settingsEventsBound\) return;\s*_settingsEventsBound = true;/.test(setJs));
+  check('sekme seçimi vurguyu ve aria-selected değerini birlikte güncelliyor',
+    /function selectSettingsTab\([^)]*\) \{[\s\S]{0,400}aria-selected[\s\S]{0,200}renderSettingsTab\(/.test(setJs));
+  check('panel her açılışta Özelleştir sekmesi vurgulu açılıyor', setJs.includes("selectSettingsTab('customization');"));
 }
 
 // ══════════════════════════════════════════════════════════════════════════════

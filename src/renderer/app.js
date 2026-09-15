@@ -1150,7 +1150,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Esc ana süreçte yakalanmaz: önce bul çubuğu, sonra ekran, sonra paneller kapanır.
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
-    if (!findBar.hidden) closeFindBar(true);
+    // Giriş penceresi en üstte: Esc önce onu kapatır, altındaki Ayarlar açık kalır.
+    if (isAuthScreenOpen()) window.ilgezdiAuth?.close?.();
+    else if (!findBar.hidden) closeFindBar(true);
     else if (currentScreen) hideScreen();
     else closeAllPanels();
   });

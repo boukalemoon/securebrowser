@@ -184,6 +184,7 @@ async function finishQrLogin(tokenHash) {
     });
     setAuthContext(userId, data.access_token);
     updateAccountBadge(profile.email || data.user?.email || 'Kullanıcı');
+    notifyAuthChanged();
     setTimeout(hideAuthScreen, 700);
   } catch (e) {
     setQrStatus('Giriş tamamlanamadı: ' + e.message, 'error');
@@ -223,9 +224,16 @@ function setQrStatus(msg, cls) {
 }
 
 // ─── Auth overlay göster / gizle ─────────────────────────────────────────────
+// Açılmadan önce odaktaki öğe (ör. Ayarlar › Hesap'taki düğme); kapanınca oraya dönülür.
+let _authReturnFocus = null;
+function isAuthScreenVisible() {
+  const el = authEl('auth-screen');
+  return !!el && !el.classList.contains('hidden');
+}
 function showAuthScreen() {
   const el = authEl('auth-screen');
   if (!el) return;
+  if (!isAuthScreenVisible()) _authReturnFocus = document.activeElement;
   // WebContentsView native layer olduğu için DOM overlay'in üstünde render eder.
   // Auth ekranı gösterilirken aktif sekmeyi gizle, yoksa overlay çalışmaz.
   window.secureBrowser?.hideActiveTab?.().catch?.(() => {});
@@ -239,9 +247,17 @@ function hideAuthScreen() {
   el.classList.remove('visible');
   setTimeout(() => el.classList.add('hidden'), 300);
   // Sekme içeriğini (WebContentsView) geri getir — showAuthScreen gizlemişti.
-  // Yeni sekme gibi bir ekran overlay'i hâlâ açıksa view gizli kalmalı.
+  // Yeni sekme gibi bir ekran overlay'i hâlâ açıksa view gizli kalmalı. Açık bir
+  // yan panel (Ayarlar) kapatılmaz; main süreç görünümü panel genişliğine göre boyutlar.
   const overlayVisible = document.getElementById('screen-overlay')?.classList.contains('visible');
   if (!overlayVisible) window.secureBrowser?.showActiveTab?.().catch?.(() => {});
+  const back = _authReturnFocus;
+  _authReturnFocus = null;
+  if (back?.isConnected) { try { back.focus(); } catch {} }
+}
+// Oturum değişti (giriş, kayıt, QR, çıkış): açık Ayarlar › Hesap sekmesi yenilensin.
+function notifyAuthChanged() {
+  window.dispatchEvent(new CustomEvent('ilgezdi-auth-changed'));
 }
 
 // ─── Tab geçişi ───────────────────────────────────────────────────────────────
@@ -312,6 +328,7 @@ function bindAuthEvents() {
       setAuthContext(data.user?.id, data.access_token);
       setStatus('✓ Giriş başarılı! Ayarların senkronize ediliyor...', 'success');
       updateAccountBadge(email);
+      notifyAuthChanged();
       setTimeout(hideAuthScreen, 600);
     } catch (err) {
       setStatus(err.message, 'error');
@@ -342,6 +359,7 @@ function bindAuthEvents() {
       setAuthContext(data.user?.id, data.access_token);
       setStatus('✓ Hesabınız oluşturuldu! Hoş geldiniz.', 'success');
       updateAccountBadge(email);
+      notifyAuthChanged();
       setTimeout(hideAuthScreen, 700);
     } catch (err) {
       setStatus(err.message, 'error');
@@ -508,9 +526,13 @@ window.ilgezdiAuth = {
     window.ilgezdiSync?.onLogout();
     // Çıkışta giriş ekranı dayatılmaz; yeniden giriş Ayarlar › Hesap'tan.
     document.getElementById('auth-account-badge')?.remove();
+    notifyAuthChanged();
   },
   getSession: loadSession,
   showScreen: showAuthScreen,
+  // Esc (app.js) giriş penceresini kapatır; altındaki Ayarlar paneli açık kalır.
+  close: hideAuthScreen,
+  isOpen: isAuthScreenVisible,
   // Sync modülü için: bellekteki access token / kimlik bağlamı
   getSyncContext: () => (_authUserId && _accessToken
     ? { userId: _authUserId, accessToken: _accessToken } : null),
