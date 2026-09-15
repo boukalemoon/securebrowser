@@ -501,6 +501,16 @@ function renderGeneralTab(cfg) {
     </div>`;
 }
 
+// Değerler ana süreçte ayrıca doğrulanır (site-safety.js → normalizeSecureDns).
+const SECURE_DNS_CHOICES = [
+  ['automatic',  'Otomatik (önerilir)'],
+  ['cloudflare', 'Cloudflare (1.1.1.1)'],
+  ['quad9',      'Quad9 (9.9.9.9)'],
+  ['adguard',    'AdGuard DNS'],
+  ['google',     'Google Public DNS'],
+  ['off',        'Kapalı'],
+];
+
 // Değerler ana süreçte ayrıca doğrulanır (browser-commands.js → normalizeWebrtcPolicy).
 const WEBRTC_OPTIONS = [
   ['default_public_interface_only',         'Yalnızca varsayılan genel arayüz (önerilir)'],
@@ -519,6 +529,7 @@ function renderPrivacyTab(cfg) {
     <div class="settings-section"><h3>Tracker & Reklam</h3>
       ${row('cfg-tracker','İzleyici Engelleme','Bilinen izleyici alan adlarına istekler engellenir',cfg.blockTrackers!==false)}
       ${row('cfg-ads','Reklam Engelleme','Reklam sunucuları bloke',cfg.blockAds!==false)}
+      ${row('cfg-3pc','Üçüncü Taraf Çerezleri Engelle','Başka sitelerin sizi siteler arasında çerezle izlemesini engeller. Sorun çıkan sitede kilit simgesinden izin verebilirsiniz.',cfg.blockThirdPartyCookies!==false)}
     </div>
     <div class="settings-section"><h3>Fingerprint & Kimlik</h3>
       ${row('cfg-fp','IP Başlıklarını Gizle','Proxy/IP başlıkları (X-Forwarded-For, Via) gönderilmez',cfg.fingerprintProtection!==false)}
@@ -533,6 +544,19 @@ function renderPrivacyTab(cfg) {
         </select>
       </div>
       <p class="s-hint">VPN açıkken sitelerin WebRTC üzerinden gerçek IP adresinizi görmesini engeller. En katı seçenek bazı görüntülü görüşme sitelerini bozabilir.</p>
+    </div>
+    <div class="settings-section"><h3>Güvenli DNS</h3>
+      <div class="s-input-row">
+        <label for="cfg-secure-dns">Alan adı sorgularını şifrele (DNS-over-HTTPS)</label>
+        <select id="cfg-secure-dns">
+          ${SECURE_DNS_CHOICES.map(([v, t]) => `<option value="${v}" ${(cfg.secureDns || 'automatic') === v ? 'selected' : ''}>${t}</option>`).join('')}
+        </select>
+      </div>
+      <p class="s-hint">Belirli bir sağlayıcı seçerseniz kurum içi ağlardaki adresler çözümlenemeyebilir; öyle bir durumda Otomatik seçin.</p>
+    </div>
+    <div class="settings-section"><h3>Site İzinleri</h3>
+      <div id="site-perm-list"><p class="s-hint" style="margin-top:0">Yükleniyor…</p></div>
+      <button class="clear-btn" id="btn-site-perm-reset" style="margin-top:8px">Tüm site izinlerini sıfırla</button>
     </div>
     <div class="settings-section"><h3>Log</h3>
       ${row('cfg-log','Ziyaret Logları','AES-256 şifreli saklanır',cfg.logEnabled!==false)}
@@ -679,6 +703,7 @@ function renderSettingsTab(tabId, cfg) {
   if (tabId==='customization') { bindCustomizationEvents(); updatePreviewBox(); }
   if (tabId==='account')       bindAccountEvents();
   if (tabId==='general')       bindGeneralEvents();
+  if (tabId==='privacy')       bindPrivacyEvents();
   if (tabId==='passwords')     bindPasswordEvents();
   if (tabId==='diag')          window.ilgezdiDiagPanel?.bind?.();
 }
@@ -819,6 +844,42 @@ function bindCustomizationEvents() {
   });
 }
 
+// ─── Gizlilik sekmesi: site izinleri listesi ──────────────────────────────────
+async function populateSitePermissions() {
+  const box = document.getElementById('site-perm-list');
+  if (!box) return;
+  const H = window.ilgezdiHtml;
+  let list = [];
+  try { list = (await window.secureBrowser?.site?.listPermissions?.()) || []; } catch {}
+  if (!list.length) {
+    box.innerHTML = '<p class="s-hint" style="margin-top:0">Henüz bir site için izin kararı verilmedi.</p>';
+    return;
+  }
+  box.innerHTML = list.map((p, i) => `
+    <div class="s-toggle-row">
+      <div><div class="s-toggle-label">${H.esc(p.origin.replace(/^https?:\/\//, ''))}</div>
+      <div class="s-toggle-sub">${H.esc(p.label)} · ${p.decision === 'allow' ? 'İzin verildi' : 'Engellendi'}</div></div>
+      <button class="folder-btn" data-perm-index="${i}">Kaldır</button>
+    </div>`).join('');
+  box.querySelectorAll('[data-perm-index]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const p = list[Number(btn.dataset.permIndex)];
+      const r = await window.secureBrowser?.site?.setPermission?.(p.origin, p.permission, 'ask');
+      if (r && r.ok === false) showSettingsToast(r.error || 'Kaldırılamadı', 'error');
+      populateSitePermissions();
+    });
+  });
+}
+
+function bindPrivacyEvents() {
+  populateSitePermissions();
+  document.getElementById('btn-site-perm-reset')?.addEventListener('click', async () => {
+    const r = await window.secureBrowser?.site?.resetPermissions?.();
+    if (r?.ok) showSettingsToast('Tüm site izinleri sıfırlandı');
+    populateSitePermissions();
+  });
+}
+
 function bindGeneralEvents() {
   document.getElementById('btn-pick-folder')?.addEventListener('click', async () => {
     const folder = await window.secureBrowser?.pickDownloadFolder?.();
@@ -955,6 +1016,8 @@ function initSettingsPanelEvents() {
       httpsOnly:             document.getElementById('cfg-https-only')?.checked      ?? false,
       doNotTrack:            document.getElementById('cfg-dnt')?.checked             ?? false,
       webrtcPolicy:          document.getElementById('cfg-webrtc')?.value            || settingsConfig.webrtcPolicy,
+      secureDns:             document.getElementById('cfg-secure-dns')?.value        || settingsConfig.secureDns,
+      blockThirdPartyCookies: document.getElementById('cfg-3pc')?.checked            ?? settingsConfig.blockThirdPartyCookies ?? true,
       logEnabled:            document.getElementById('cfg-log')?.checked             ?? true,
     };
     await window.secureBrowser?.saveConfig(finalCfg);

@@ -181,6 +181,17 @@ contextBridge.exposeInMainWorld('secureBrowser', {
     onChanged: (cb) => ipcRenderer.on('zoom-changed', (_, d) => cb(d)),
   },
 
+  // ── Site bilgisi ve izinler (kilit simgesi) ──────────────────────────────────
+  site: {
+    info:             ()        => ipcRenderer.invoke('site-info'),
+    setPermission:    (o, p, d) => ipcRenderer.invoke('site-permission-set', { origin: o, permission: p, decision: d }),
+    listPermissions:  ()        => ipcRenderer.invoke('site-permissions-list'),
+    resetPermissions: ()        => ipcRenderer.invoke('site-permissions-reset'),
+    clearData:        (o)       => ipcRenderer.invoke('site-data-clear', { origin: o }),
+    openBlockedPopup: (i)       => ipcRenderer.invoke('popup-open-blocked', i),
+    onPopupState:     (cb)      => ipcRenderer.on('popup-state', (_, d) => cb(d)),
+  },
+
   // Ana süreçteki kısayollardan arayüze iletilen komutlar (bkz. browser-commands.js)
   onBrowserCommand:   (cb) => ipcRenderer.on('browser-command', (_, cmd) => cb(cmd)),
 

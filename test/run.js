@@ -717,6 +717,122 @@ suite('Erişilebilirlik tabanı');
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
+// Site güvenliği — açılır pencere, izinler, üçüncü taraf çerez, güvenli DNS,
+// hata sayfası ve sertifika (karşılaştırma raporu P1-A)
+// ══════════════════════════════════════════════════════════════════════════════
+const ss = require('../src/main/site-safety.js');
+
+suite('Açılır pencere engelleme');
+{
+  const now = 1000000;
+  eq('etkileşimsiz pencere engellenir', ss.popupVerdict({ now }), 'block');
+  eq('tıklamadan hemen sonra izin', ss.popupVerdict({ now, lastActivation: now - 20 }), 'allow');
+  eq('5 saniye sınırı dahil', ss.popupVerdict({ now, lastActivation: now - 5000 }), 'allow');
+  eq('5 saniyeden eski etkileşim yetmez', ss.popupVerdict({ now, lastActivation: now - 5001 }), 'block');
+  eq('gelecekteki zaman damgası kabul edilmez', ss.popupVerdict({ now, lastActivation: now + 100 }), 'block');
+  eq('site için izin verildiyse etkileşimsiz de açılır', ss.popupVerdict({ now, siteDecision: true }), 'allow');
+  eq('site engellendiyse tıklamayla da açılmaz', ss.popupVerdict({ now, lastActivation: now, siteDecision: false }), 'block');
+  check('fare hareketi ve tekerlek etkileşim sayılmaz',
+    !ss.ACTIVATION_EVENTS.has('mouseMove') && !ss.ACTIVATION_EVENTS.has('mouseWheel') && ss.ACTIVATION_EVENTS.has('mouseDown'));
+  const mainJs = read('main/main.js');
+  check('etkileşim bir kez kullanılıyor (tek tıklama = tek pencere)', mainJs.includes('tab.lastActivation = 0'));
+  check('target=_blank ve window.open yeni sekmeye geçiyor, Ctrl/orta tık arka planda',
+    mainJs.includes("if (disposition !== 'background-tab') setActiveTab(win, state, newId);"));
+}
+
+suite('Site izinleri');
+{
+  eq('geçerli origin', ss.normalizeOrigin('https://ornek.com:8443'), 'https://ornek.com:8443');
+  eq('yol ya da sondaki eğik çizgi origin değildir', [ss.normalizeOrigin('https://ornek.com/'), ss.normalizeOrigin('https://ornek.com/a')], [null, null]);
+  eq('file: ve javascript: reddedilir', [ss.normalizeOrigin('file:///C:/'), ss.normalizeOrigin('javascript:alert(1)')], [null, null]);
+  eq('izin verme', ss.validatePermissionChange({ origin: 'https://a.com', permission: 'geolocation', decision: 'allow' }),
+    { ok: true, origin: 'https://a.com', permission: 'geolocation', value: true });
+  eq('"sor" kaydı siler', ss.validatePermissionChange({ origin: 'https://a.com', permission: 'popups', decision: 'ask' }).value, null);
+  check('bilinmeyen izin reddedilir', ss.validatePermissionChange({ origin: 'https://a.com', permission: 'usb', decision: 'allow' }).ok === false);
+  check('geçersiz karar reddedilir', ss.validatePermissionChange({ origin: 'https://a.com', permission: 'media', decision: true }).ok === false);
+  check('prototip anahtarı reddedilir', ss.validatePermissionChange({ origin: 'https://a.com', permission: '__proto__', decision: 'allow' }).ok === false);
+  const decisions = {
+    'https://b.com|media': false, 'https://a.com|popups': true, 'https://a.com|geolocation': true,
+    'bozuk': true, 'https://c.com|usb': true, 'https://d.com|media': 'evet',
+  };
+  eq('liste: bozuk ve bilinmeyen kayıtlar atlanır, site ve izin sırasına göre',
+    ss.listDecisions(decisions).map((d) => [d.origin, d.permission, d.decision]),
+    [['https://a.com', 'geolocation', 'allow'], ['https://a.com', 'popups', 'allow'], ['https://b.com', 'media', 'block']]);
+  const forA = Object.fromEntries(ss.decisionsForOrigin(decisions, 'https://a.com').map((p) => [p.permission, p.decision]));
+  eq('site görünümü: kayıt yoksa sor, çerezde varsayılan',
+    [forA.geolocation, forA.media, forA.popups, forA['third-party-cookies']], ['allow', 'ask', 'allow', 'default']);
+  const mainJs = read('main/main.js');
+  check('arayüz izin kararlarını ve oturumu göremez, geri yazamaz',
+    mainJs.includes("const MAIN_OWNED_KEYS = ['permissionDecisions', 'authSessionEnc'];")
+    && mainJs.includes("ipcMain.handle('get-config',  ()          => publicConfig());")
+    && mainJs.includes('for (const k of MAIN_OWNED_KEYS) delete incoming[k];'));
+  check('site verisi silme ve toplu sıfırlama kullanıcı onayı istiyor',
+    /'site-data-clear'[\s\S]{0,700}showMessageBox/.test(mainJs) && /'site-permissions-reset'[\s\S]{0,400}showMessageBox/.test(mainJs));
+}
+
+suite('Üçüncü taraf çerezler');
+{
+  const base = { enabled: true, resourceType: 'image', thirdParty: true, siteAllowed: undefined, whitelisted: false };
+  eq('üçüncü taraf istekte çerez ayıklanır', ss.shouldStripThirdPartyCookies(base), true);
+  eq('ayar kapalıyken dokunulmaz', ss.shouldStripThirdPartyCookies({ ...base, enabled: false }), false);
+  eq('kullanıcının gittiği sayfa (ana çerçeve) birinci taraftır', ss.shouldStripThirdPartyCookies({ ...base, resourceType: 'mainFrame' }), false);
+  eq('aynı site istekleri etkilenmez', ss.shouldStripThirdPartyCookies({ ...base, thirdParty: false }), false);
+  eq('site için izin verildiyse etkilenmez', ss.shouldStripThirdPartyCookies({ ...base, siteAllowed: true }), false);
+  eq('engelleyici beyaz listesindeki sitede etkilenmez', ss.shouldStripThirdPartyCookies({ ...base, whitelisted: true }), false);
+  const blockerMod = require('../src/main/blocker-main.js');
+  check('engelleyicinin site tanımı dışa açık (tek tanım)', typeof blockerMod.isThirdParty === 'function' && typeof blockerMod.isWhitelisted === 'function');
+  eq('alt alan adı aynı sitedir, başka alan adı üçüncü taraftır',
+    [blockerMod.isThirdParty('https://cdn.ornek.com.tr/a.js', 'https://www.ornek.com.tr/'), blockerMod.isThirdParty('https://izleyici.net/p', 'https://ornek.com/')],
+    [false, true]);
+  const mainJs = read('main/main.js');
+  check('hem istek (Cookie) hem yanıt (Set-Cookie) başlığı ayıklanıyor',
+    mainJs.includes("k.toLowerCase() === 'cookie'") && mainJs.includes("k.toLowerCase() === 'set-cookie'") && mainJs.includes('onHeadersReceived'));
+}
+
+suite('Güvenli DNS');
+{
+  eq('otomatik', ss.hostResolverOptions('automatic'), { secureDnsMode: 'automatic' });
+  eq('kapalı', ss.hostResolverOptions('off'), { secureDnsMode: 'off' });
+  eq('sağlayıcı seçilince yalnızca o sunucu', ss.hostResolverOptions('quad9'), { secureDnsMode: 'secure', secureDnsServers: ['https://dns.quad9.net/dns-query'] });
+  eq('geçersiz değer otomatiğe döner', [ss.normalizeSecureDns('http://kotu.example/dns'), ss.hostResolverOptions('x')], ['automatic', { secureDnsMode: 'automatic' }]);
+  check('tüm sağlayıcı adresleri https', ss.SECURE_DNS_OPTIONS.filter((o) => o.server).every((o) => o.server.startsWith('https://')));
+  const mainJs = read('main/main.js');
+  check('varsayılan yapılandırmada kullanılmayan dnsServer yerine secureDns', !mainJs.includes('dnsServer:') && /secureDns:\s*DEFAULT_SECURE_DNS/.test(mainJs));
+  check('açılışta ve ayar değişince uygulanıyor', (mainJs.match(/applySecureDns\(\);/g) || []).length >= 2);
+  check('ayarlarda seçim var ve kaydediliyor', read('renderer/settings-panel.js').includes("getElementById('cfg-secure-dns')?.value"));
+}
+
+suite('Hata sayfası ve sertifika');
+{
+  const m = (code, extra = {}) => ss.errorPageModel({ code, description: 'ERR_X', url: 'https://ornek.com/a', ...extra });
+  eq('türler', [m(-105).kind, m(-106).kind, m(-102).kind, m(-201).kind, m(-107).kind, m(-310).kind, m(-20).kind, m(-999).kind],
+    ['dns', 'offline', 'unreachable', 'certificate', 'certificate', 'redirects', 'blocked', 'generic']);
+  eq('sertifika hatasında neden açıklanır', m(-201).reason, 'Sertifikanın süresi dolmuş ya da henüz geçerli değil.');
+  check('sertifika hatasında "yine de devam et" seçeneği yok', !/yine de/i.test(JSON.stringify(m(-202))));
+  check('Yalnızca HTTPS açıkken ilgili hatada ipucu başta', m(-102, { httpsOnly: true }).tips[0].startsWith('Yalnızca HTTPS açık'));
+  check('DNS hatasında HTTPS ipucu yok', !m(-105, { httpsOnly: true }).tips.some((t) => t.startsWith('Yalnızca HTTPS')));
+  eq('hata adı yalnızca büyük harf, rakam ve alt çizgi', ss.errorPageModel({ code: -105, description: 'ERR_NAME<script>', url: 'https://a.com' }).codeName, 'ERR_NAME');
+  eq('web dışı adreste "yeniden dene" yok', ss.errorPageModel({ code: -105, url: 'javascript:alert(1)' }).canRetry, false);
+
+  const evil = ss.errorPageModel({ code: -105, description: 'ERR_NAME_NOT_RESOLVED', url: 'https://a.com/"</script><img src=x onerror=alert(1)>\u2028\'' });
+  const script = ss.errorPageScript(evil);
+  let compiled = true;
+  try { new Function(script); } catch { compiled = false; }
+  check('kötü niyetli adres içeren hata betiği geçerli JavaScript olarak kalıyor', compiled);
+  check("hata betiği DOM'a innerHTML ile yazmıyor", !script.includes('innerHTML'));
+  check('hata betiği yalnızca Chromium hata belgesine dokunuyor', script.includes("indexOf('chrome-error://') !== 0"));
+
+  const cert = ss.certificateSummary({ subjectName: 'ornek.com', issuerName: 'R3', issuer: { organizations: ["Let's Encrypt"] }, validStart: 1700000000, validExpiry: 1710000000, fingerprint: 'sha256/abc' }, 'net::OK', 0);
+  eq('sertifika özeti', [cert.subject, cert.issuerOrg, cert.validFrom, cert.ok, cert.error], ['ornek.com', "Let's Encrypt", 1700000000000, true, '']);
+  eq('doğrulama hatası özette görünür', ss.certificateSummary({}, 'net::ERR_CERT_AUTHORITY_INVALID', -202).error, 'Sertifika güvenilen bir kuruluş tarafından verilmemiş.');
+  const mainJs = read('main/main.js');
+  check('sertifika kancası kararı değiştirmiyor ve her durumda geri çağırıyor', mainJs.includes('finally { callback(-3); }'));
+  check('hata sayfası yalnızca ana çerçevede ve iptal olmayan hatalarda', mainJs.includes('if (!isMainFrame || errorCode === -3) return;'));
+  const html = read('renderer/index.html');
+  check('site bilgisi paneli ve kilit düğmesi arayüzde', html.includes('id="panel-siteinfo"') && html.includes('<button type="button" id="security-icon"'));
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
 // Kaynak dosyalar — görünmez ham kontrol karakteri olmamalı
 // Neden: regex aralıkları ([NUL-boşluk] gibi) ham baytla yazılınca git dosyayı
 // ikili sanıyor ve bir düzenleyici bu baytları sessizce silerse güvenlik amaçlı

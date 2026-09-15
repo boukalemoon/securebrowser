@@ -90,14 +90,20 @@
     <!-- Adres çubuğu -->
     <form id="address-bar-form" style="flex:1;display:flex;" role="search">
       <div id="address-bar-wrapper">
-        <span id="security-icon" title="">
+        <!-- Site bilgisi: bağlantı, sertifika, site izinleri (app.js → panel-siteinfo) -->
+        <button type="button" id="security-icon" title="Site bilgisi">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
-        </span>
+        </button>
         <input type="text" id="address-bar"
                placeholder="Bir adres yaz veya İlgezdi ile ara…"
                aria-label="Adres veya arama"
                spellcheck="false" autocomplete="off" />
         <div class="addr-actions">
+          <!-- Engellenen açılır pencere varsa görünür; tıklayınca Site Bilgisi paneli açılır -->
+          <button type="button" id="popup-blocked-indicator" title="Açılır pencere engellendi" hidden>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="14" height="12" rx="2"/><path d="M21 9v10a2 2 0 0 1-2 2H9"/><path d="M5 5l12 12"/></svg>
+            <span id="popup-blocked-count">1</span>
+          </button>
           <!-- Yakınlaştırma %100 değilken görünür; tıklayınca sıfırlar (Ctrl+0) -->
           <button type="button" id="zoom-indicator" title="Yakınlaştırmayı sıfırla (Ctrl+0)" hidden>%100</button>
           <button type="button" id="btn-bookmark-star" title="Yer imine ekle (Ctrl+D)">
@@ -227,6 +233,15 @@
       <!-- id="btn-arku" → arku-panel.js -->
       <div id="panel-arku" class="side-panel hidden"></div>
       <div id="panel-blocker"   class="side-panel hidden"></div>
+
+      <!-- Site bilgisi paneli: kilit simgesi (app.js tarafından yönetilir) -->
+      <div id="panel-siteinfo" class="side-panel hidden" role="region" aria-label="Site bilgisi">
+        <div class="panel-header">
+          <h2>Site Bilgisi</h2>
+          <button class="panel-close" aria-label="Paneli kapat">✕</button>
+        </div>
+        <div class="panel-body" id="siteinfo-body"></div>
+      </div>
 
       <!-- Koruma durumu paneli (app.js tarafından yönetilir) -->
       <div id="panel-shield" class="side-panel hidden">

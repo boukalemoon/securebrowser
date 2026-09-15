@@ -10,7 +10,7 @@ const fs   = require('fs');
 
 const { SecureLogManager } = require('./secure-log-manager');
 const { VpnManager } = require('./vpn-manager');
-const { attachBlocker, shouldBlockUrl, updateBlockerConfig, getBlockStats } = require('./blocker-main');
+const { attachBlocker, shouldBlockUrl, updateBlockerConfig, getBlockStats, isThirdParty, isWhitelisted } = require('./blocker-main');
 const { setupGlance, closeGlance } = require('./glance-main');
 const { setupArku } = require('./arku-manager');
 const { setupBookmarkImport } = require('./bookmark-import');
@@ -21,6 +21,11 @@ const {
   normalizeWebrtcPolicy, DEFAULT_WEBRTC_POLICY, UI_COMMANDS, commandForInput, buildContextMenuModel,
   nextZoomFactor, zoomKeyForUrl, createZoomStore, snapshotHistory, pushClosedTab, isWebUrl,
 } = require('./browser-commands');
+const {
+  ACTIVATION_EVENTS, popupVerdict, validatePermissionChange, listDecisions, decisionsForOrigin, permissionLabel,
+  shouldStripThirdPartyCookies, normalizeSecureDns, hostResolverOptions, DEFAULT_SECURE_DNS,
+  certificateSummary, errorPageModel, errorPageScript, normalizeOrigin,
+} = require('./site-safety');
 
 let incognitoWindow = null;
 let incognitoPendingUrl = null;   // "Bağlantıyı gizli pencerede aç": pencere yüklenince ilk sekme
@@ -56,7 +61,11 @@ const DEFAULT_CONFIG = {
   diagnosticsConsent:    undefined,
   diagnosticsEndpoint:   'https://ilgezdi.vercel.app/api/diag',
   fingerprintProtection: true,
-  dnsServer:             '1.1.1.1',
+  // Güvenli DNS (DNS-over-HTTPS): automatic | cloudflare | quad9 | adguard | google | off.
+  // Eskiden burada hiçbir yerde okunmayan bir DNS sunucusu alanı vardı; kaldırıldı.
+  secureDns:             DEFAULT_SECURE_DNS,
+  // HTTP başlıklarındaki üçüncü taraf çerezler (site bazında izin verilebilir).
+  blockThirdPartyCookies: true,
   userAgentRotation:     true,
   logEnabled:            true,
   logSyncServer:         '',
@@ -175,23 +184,21 @@ function logVisit(data) {
 // İZİN VERMEKTİR; burada hassas izinler kullanıcı onayına bağlanır.
 const QUIET_ALLOW = new Set(['fullscreen', 'clipboard-sanitized-write', 'pointerLock']);
 const ASK_USER    = new Set(['media', 'display-capture', 'geolocation', 'notifications', 'midi', 'midiSysex']);
-const PERMISSION_TR = {
-  media: 'Kamera / Mikrofon', geolocation: 'Konum',
-  notifications: 'Bildirim', midi: 'MIDI cihazları', midiSysex: 'MIDI cihazları',
-  'display-capture': 'Ekran paylaşımı',
-};
+// İzin adları site-safety.js'teki SITE_PERMISSIONS listesinden gelir (Site Bilgisi paneliyle aynı).
 
 // İzin kararları site (origin) + izin türü bazında hatırlanır ve config'e
 // yazılır. Böylece bir siteyi reddedince tekrar tekrar sorulmaz — Google gibi
-// konumu periyodik isteyen siteler için kritik. Kararları sıfırlamak için
-// "Tüm verileri temizle" (clear-all) kullanılır.
+// konumu periyodik isteyen siteler için kritik. Kararlar kilit simgesindeki Site
+// Bilgisi panelinden ve Ayarlar › Gizlilik › Site İzinleri listesinden değiştirilir.
 function permKey(origin, permission) { return `${origin}|${permission}`; }
 function getPermDecision(origin, permission) {
   return config.permissionDecisions ? config.permissionDecisions[permKey(origin, permission)] : undefined;
 }
 function setPermDecision(origin, permission, granted) {
   if (!config.permissionDecisions) config.permissionDecisions = {};
-  config.permissionDecisions[permKey(origin, permission)] = granted;
+  const key = permKey(origin, permission);
+  if (granted === null) delete config.permissionDecisions[key];   // 'Sor': site yeniden sorar
+  else config.permissionDecisions[key] = granted;
   saveConfig(config);
 }
 
@@ -219,7 +226,7 @@ function setupPermissionHandler(ses) {
       cancelId:  0,
       title:     'İzin İsteği',
       message:   `${origin}`,
-      detail:    `Bu site şu izni istiyor: ${PERMISSION_TR[permission] || permission}\n\nKararınız bu site için hatırlanır.`,
+      detail:    `Bu site şu izni istiyor: ${permissionLabel(permission)}\n\nKararınız bu site için hatırlanır. Kilit simgesindeki Site Bilgisi panelinden değiştirebilirsiniz.`,
     }).then(r => {
       const granted = r.response === 1;
       setPermDecision(origin, permission, granted);
@@ -344,8 +351,18 @@ function configureSession(ses) {
   // fingerprintProtection'dan bağımsız her zaman uygulanır (Google girişi vb.).
   try { ses.setUserAgent(CLEAN_UA); } catch {}
 
+  // Sertifika ayrıntısı Site Bilgisi paneli için hatırlanır. Karar DEĞİŞTİRİLMEZ:
+  // -3, Chromium'un kendi doğrulama sonucunun kullanılması demektir. Kanca hata
+  // fırlatsa bile geri çağırma mutlaka yapılır; yoksa bağlantı asılı kalırdı.
+  ses.setCertificateVerifyProc((request, callback) => {
+    try { rememberCertificate(ses, request); } catch {} finally { callback(-3); }
+  });
+
   ses.webRequest.onBeforeSendHeaders((details, callback) => {
     const headers = { ...details.requestHeaders };
+    if (stripsThirdPartyCookies(details)) {
+      for (const k of Object.keys(headers)) if (k.toLowerCase() === 'cookie') delete headers[k];
+    }
     if (config.fingerprintProtection) {
       delete headers['X-Forwarded-For'];
       delete headers['Via'];
@@ -361,15 +378,10 @@ function configureSession(ses) {
     // seviyesindeki üçüncü taraf engellemesi ve "bu siteye izin ver" (sayfanın
     // yüklediği tüm kaynaklar için) buna ihtiyaç duyar.
     if (config.blockTrackers !== false || config.blockAds !== false) {
-      let pageUrl = '';
-      try {
-        const wc = details.webContentsId != null ? webContents.fromId(details.webContentsId) : null;
-        pageUrl = wc && !wc.isDestroyed() ? wc.getURL() : '';
-      } catch {}
       if (shouldBlockUrl(details.url, {
         resourceType: details.resourceType,
         referrer:     details.referrer,
-        pageUrl,
+        pageUrl:      pageUrlOf(details),
       })) return callback({ cancel: true });
     }
     // HTTPS-Only: ana çerçeve http isteklerini https'e yükselt
@@ -378,6 +390,51 @@ function configureSession(ses) {
     }
     callback({});
   });
+
+  ses.webRequest.onHeadersReceived((details, callback) => {
+    if (!stripsThirdPartyCookies(details)) return callback({});
+    const responseHeaders = { ...details.responseHeaders };
+    for (const k of Object.keys(responseHeaders)) if (k.toLowerCase() === 'set-cookie') delete responseHeaders[k];
+    callback({ responseHeaders });
+  });
+}
+
+// İsteği yapan sekmenin sayfa adresi (engelleyici ve çerez kararı için).
+function pageUrlOf(details) {
+  try {
+    const wc = details.webContentsId != null ? webContents.fromId(details.webContentsId) : null;
+    return wc && !wc.isDestroyed() ? wc.getURL() : '';
+  } catch { return ''; }
+}
+
+// Üçüncü taraf çerez: yalnızca HTTP başlıkları (Cookie / Set-Cookie). Karar
+// site-safety.js'te; site tanımı ve beyaz liste engelleyiciyle ortak.
+function stripsThirdPartyCookies(details) {
+  if (config.blockThirdPartyCookies === false) return false;
+  const pageUrl = pageUrlOf(details);
+  if (!pageUrl) return false;
+  const pageOrigin = originOf(pageUrl);
+  return shouldStripThirdPartyCookies({
+    enabled:      true,
+    resourceType: details.resourceType,
+    thirdParty:   isThirdParty(details.url, pageUrl),
+    siteAllowed:  pageOrigin ? getPermDecision(pageOrigin, 'third-party-cookies') : undefined,
+    whitelisted:  isWhitelisted(details.url, pageUrl),
+  });
+}
+
+// Oturum başına sertifika özeti (alan adı → özet). Gizli pencerenin oturumu ayrı
+// tutulur ve pencereyle birlikte bellekten düşer. Boyut sınırlı.
+const certCaches = new WeakMap();
+const CERT_CACHE_MAX = 300;
+function rememberCertificate(ses, request) {
+  const host = String(request.hostname || '').toLowerCase();
+  if (!host) return;
+  let cache = certCaches.get(ses);
+  if (!cache) { cache = new Map(); certCaches.set(ses, cache); }
+  cache.delete(host);
+  cache.set(host, certificateSummary(request.certificate, request.verificationResult, request.errorCode));
+  while (cache.size > CERT_CACHE_MAX) cache.delete(cache.keys().next().value);
 }
 
 let mainWindow = null;
@@ -490,6 +547,25 @@ function createTab(win, state, url = config.homepage, opts = {}) {
   applyWebrtcPolicy(view.webContents);
   bindBrowserInput(view.webContents, win, state, 'page');
 
+  // Açılır pencere kararı için son kullanıcı etkileşimi (sayfa taklit edemez).
+  view.webContents.on('input-event', (e, ev) => {
+    if (!ACTIVATION_EVENTS.has(ev.type)) return;
+    const tab = state.tabs.get(tabId);
+    if (tab) tab.lastActivation = Date.now();
+  });
+
+  // Yükleme hatasında boş beyaz sayfa yerine anlaşılır bir hata sayfası. Hata
+  // belgesi sekmenin kendisinde kalır: adres, geçmiş ve Yenile doğru çalışır.
+  view.webContents.on('did-fail-load', (e, errorCode, errorDescription, validatedURL, isMainFrame) => {
+    if (!isMainFrame || errorCode === -3) return;   // -3: iptal ya da yönlendirme, hata değil
+    const model = errorPageModel({ code: errorCode, description: errorDescription, url: validatedURL, httpsOnly: !!config.httpsOnly });
+    const tab = state.tabs.get(tabId);
+    // Sekme başlığı hata belgesinin başlığıyla aynı (Chrome gibi: DNS hatasında alan adı).
+    if (tab) { tab.title = model.title; sendTabsUpdate(win, state); }
+    injectErrorPage(view.webContents, model);
+    diag.info('navigation', 'Sayfa yüklenemedi', { code: errorCode, kind: model.kind });
+  });
+
   view.webContents.on('found-in-page', (e, result) => {
     if (state.activeTabId !== tabId || !win || win.isDestroyed()) return;
     win.webContents.send('find-result', {
@@ -510,7 +586,7 @@ function createTab(win, state, url = config.homepage, opts = {}) {
 
   view.webContents.on('did-navigate', (e, navUrl) => {
     const tab = state.tabs.get(tabId);
-    if (tab) tab.url = navUrl;
+    if (tab) { tab.url = navUrl; tab.blockedPopups = []; }
     // Kaydedilmiş site yakınlaştırması. Gizli pencerede kalıcı değer kullanılmaz.
     if (!isIncognito) {
       const saved = zoomStore.get(zoomKeyForUrl(navUrl));
@@ -519,6 +595,7 @@ function createTab(win, state, url = config.homepage, opts = {}) {
     if (state.activeTabId === tabId && win && !win.isDestroyed()) {
       win.webContents.send('find-reset');   // yeni belgede eski eşleşme sayısı anlamsız
       sendZoomState(win, state);
+      sendPopupState(win, state);
     }
     sendTabsUpdate(win, state);
   });
@@ -603,15 +680,33 @@ function createTab(win, state, url = config.homepage, opts = {}) {
     `).catch(() => {});
   });
 
-  view.webContents.setWindowOpenHandler(({ url: openUrl }) => {
+  view.webContents.setWindowOpenHandler(({ url: openUrl, disposition }) => {
     // Sayfalar yalnızca web adreslerini yeni sekmede açtırabilir. Eskiden
     // window.open('file:///C:/…') yerel dosyayı sekmede açıyordu (denetim D-18).
     const target = String(openUrl || '');
-    if (/^https?:\/\//i.test(target) || target === 'about:blank') {
-      createTab(win, state, target);
-    } else {
+    if (!isWebUrl(target) && target !== 'about:blank') {
       diag.info('navigation', 'Pencere açma isteği reddedildi', { scheme: target.split(':')[0].slice(0, 16) });
+      return { action: 'deny' };
     }
+    // Açılır pencere engelleme: Electron'da Chromium'un engelleyicisi yok, her
+    // window.open buraya ulaşır. Kullanıcı etkileşimi olmadan açılanlar engellenir.
+    const tab = state.tabs.get(tabId);
+    const pageOrigin = originOf(view.webContents.getURL());
+    const siteDecision = pageOrigin ? getPermDecision(pageOrigin, 'popups') : undefined;
+    const verdict = popupVerdict({ now: Date.now(), lastActivation: tab && tab.lastActivation, siteDecision });
+    if (verdict === 'block') {
+      if (tab) {
+        tab.blockedPopups = [...(tab.blockedPopups || []), target].slice(-10);
+        if (state.activeTabId === tabId) sendPopupState(win, state);
+      }
+      return { action: 'deny' };
+    }
+    // Etkileşim bir kez kullanılır: tek tıklama art arda pencere açtıramaz.
+    if (tab && siteDecision !== true) tab.lastActivation = 0;
+    const newId = createTab(win, state, target);
+    // Ctrl ya da orta tıklama arka planda açar; target=_blank ve window.open yeni
+    // sekmeye geçer. Eskiden hepsi arka planda açılıyor, tıklama boşa gitmiş görünüyordu.
+    if (disposition !== 'background-tab') setActiveTab(win, state, newId);
     return { action: 'deny' };
   });
 
@@ -709,6 +804,7 @@ function setActiveTab(win, state, tabId) {
 
   sendTabsUpdate(win, state);
   sendZoomState(win, state);
+  sendPopupState(win, state);
 }
 
 function closeTab(win, state, tabId) {
@@ -969,6 +1065,120 @@ const GLANCE_HOOKS = {
   },
 };
 
+// ─── Site bilgisi, izinler, açılır pencereler, güvenli DNS ────────────────────
+function sendPopupState(win, state) {
+  if (!win || win.isDestroyed()) return;
+  const tab = state.tabs.get(state.activeTabId);
+  win.webContents.send('popup-state', { count: tab && tab.blockedPopups ? tab.blockedPopups.length : 0 });
+}
+
+// Hata belgesi did-fail-load anında henüz yerleşmemiş olabilir; betik belge
+// hata belgesi değilse dokunmaz, birkaç kez kısa aralıkla yeniden denenir.
+function injectErrorPage(wc, model, attempt = 0) {
+  if (wc.isDestroyed()) return;
+  const retry = () => {
+    if (attempt < 4 && !wc.isDestroyed()) setTimeout(() => injectErrorPage(wc, model, attempt + 1), 120);
+  };
+  wc.executeJavaScript(errorPageScript(model)).then((done) => { if (!done) retry(); }).catch(retry);
+}
+
+function applySecureDns() {
+  try {
+    app.configureHostResolver(hostResolverOptions(config.secureDns));
+  } catch (e) {
+    logError('secure-dns', e, { mode: normalizeSecureDns(config.secureDns) });
+  }
+}
+
+ipcMain.handle('site-info', (event) => {
+  const { state } = getContextFromEvent(event);
+  const tab = state.tabs.get(state.activeTabId);
+  const wc = activeTabContents(state);
+  const url = wc ? wc.getURL() : '';
+  const origin = normalizeOrigin(originOf(url));
+  let host = '';
+  try { host = new URL(url).hostname.toLowerCase(); } catch {}
+  const cache = wc ? certCaches.get(wc.session) : null;
+  return {
+    url:          isWebUrl(url) ? url : '',
+    origin,
+    host,
+    scheme:       url.startsWith('https://') ? 'https' : url.startsWith('http://') ? 'http' : 'other',
+    certificate:  url.startsWith('https://') && cache ? (cache.get(host) || null) : null,
+    permissions:  origin ? decisionsForOrigin(config.permissionDecisions, origin) : [],
+    blockedPopups: tab && tab.blockedPopups ? tab.blockedPopups.slice() : [],
+    zoom:         wc ? wc.getZoomFactor() : 1,
+    incognito:    state === incognitoState,
+    thirdPartyCookiesBlocked: config.blockThirdPartyCookies !== false,
+  };
+});
+
+ipcMain.handle('site-permission-set', (event, input) => {
+  const v = validatePermissionChange(input);
+  if (!v.ok) return v;
+  setPermDecision(v.origin, v.permission, v.value);
+  diag.info('permissions', 'Site izni değiştirildi', { permission: v.permission, decision: input.decision });
+  return { ok: true };
+});
+
+ipcMain.handle('site-permissions-list', () => listDecisions(config.permissionDecisions));
+
+ipcMain.handle('site-permissions-reset', async (event) => {
+  const parent = BrowserWindow.fromWebContents(event.sender) || mainWindow;
+  const r = await dialog.showMessageBox(parent, {
+    type: 'warning', buttons: ['Vazgeç', 'Sıfırla'], defaultId: 0, cancelId: 0,
+    title: 'Site izinlerini sıfırla',
+    message: 'Tüm site izin kararları silinecek',
+    detail: 'Konum, kamera, bildirim, açılır pencere ve üçüncü taraf çerez kararlarının hepsi silinir. Siteler izin istediğinde yeniden sorulursunuz.',
+  }).catch(() => ({ response: 0 }));
+  if (r.response !== 1) return { ok: false, canceled: true };
+  config.permissionDecisions = {};
+  saveConfig(config);
+  return { ok: true };
+});
+
+ipcMain.handle('site-data-clear', async (event, input) => {
+  const { state } = getContextFromEvent(event);
+  const origin = normalizeOrigin(input && input.origin);
+  const wc = activeTabContents(state);
+  if (!origin || !wc) return { ok: false, error: 'Geçersiz site' };
+  const host = new URL(origin).hostname;
+  const parent = BrowserWindow.fromWebContents(event.sender) || mainWindow;
+  const r = await dialog.showMessageBox(parent, {
+    type: 'warning', buttons: ['Vazgeç', 'Sil'], defaultId: 0, cancelId: 0,
+    title: 'Site verilerini sil',
+    message: host + ' için çerezler ve site verileri silinsin mi?',
+    detail: 'Bu sitedeki oturumunuz kapanabilir. Yer imleri, şifreler ve ziyaret günlüğü etkilenmez.',
+  }).catch(() => ({ response: 0 }));
+  if (r.response !== 1) return { ok: false, canceled: true };
+  const ses = wc.session;   // gizli penceredeyse gizli oturum
+  try {
+    await ses.clearStorageData({ origin });
+    // Çerezler alan adına bağlıdır; aynı siteye (kayıtlı alan adı) ait tüm çerezler silinir.
+    const cookies = await ses.cookies.get({});
+    const removals = cookies
+      .filter((c) => c.domain && !isThirdParty('https://' + String(c.domain).replace(/^\./, '') + '/', origin))
+      .map((c) => ses.cookies.remove((c.secure ? 'https://' : 'http://') + String(c.domain).replace(/^\./, '') + (c.path || '/'), c.name).catch(() => {}));
+    await Promise.all(removals);
+    return { ok: true, removedCookies: removals.length };
+  } catch (e) {
+    logError('site-data', e);
+    return { ok: false, error: 'Silinemedi' };
+  }
+});
+
+ipcMain.handle('popup-open-blocked', (event, index) => {
+  const { win, state } = getContextFromEvent(event);
+  const tab = state.tabs.get(state.activeTabId);
+  const i = Number(index);
+  const list = tab && tab.blockedPopups;
+  if (!list || !Number.isInteger(i) || i < 0 || i >= list.length) return { ok: false };
+  const [target] = list.splice(i, 1);
+  if (!isWebUrl(target)) { sendPopupState(win, state); return { ok: false }; }
+  setActiveTab(win, state, createTab(win, state, target));
+  return { ok: true };
+});
+
 ipcMain.handle('find-in-page', (event, payload) => {
   const { state } = getContextFromEvent(event);
   const wc = activeTabContents(state);
@@ -1052,16 +1262,30 @@ ipcMain.handle('reload', (event) => {
 });
 
 // Config
-ipcMain.handle('get-config',  ()          => config);
+// Ana sürecin yazdığı alanlar arayüze gönderilmez ve arayüzden yazılamaz. Ayarlar
+// paneli kaydederken tüm yapılandırmayı geri gönderiyor; panel açıkken verilen
+// bir site izni ya da yenilenen oturum eski değerle eziliyordu.
+const MAIN_OWNED_KEYS = ['permissionDecisions', 'authSessionEnc'];
+function publicConfig() {
+  const c = { ...config };
+  for (const k of MAIN_OWNED_KEYS) delete c[k];
+  return c;
+}
+
+ipcMain.handle('get-config',  ()          => publicConfig());
 ipcMain.handle('save-config', (e, newCfg) => {
   const incoming = newCfg && typeof newCfg === 'object' ? { ...newCfg } : {};
-  // Arayüzden gelen değer doğrulanır: geçersiz politika Chromium'a verilmez.
+  for (const k of MAIN_OWNED_KEYS) delete incoming[k];
+  // Arayüzden gelen değerler doğrulanır: geçersiz politika Chromium'a verilmez.
   if ('webrtcPolicy' in incoming) incoming.webrtcPolicy = normalizeWebrtcPolicy(incoming.webrtcPolicy);
-  const previousPolicy = config.webrtcPolicy;
+  if ('secureDns' in incoming) incoming.secureDns = normalizeSecureDns(incoming.secureDns);
+  if ('blockThirdPartyCookies' in incoming) incoming.blockThirdPartyCookies = incoming.blockThirdPartyCookies !== false;
+  const previous = { webrtcPolicy: config.webrtcPolicy, secureDns: config.secureDns };
   config = { ...config, ...incoming };
   saveConfig(config);
-  if (config.webrtcPolicy !== previousPolicy) applyWebrtcPolicyToAllTabs();
-  return config;
+  if (config.webrtcPolicy !== previous.webrtcPolicy) applyWebrtcPolicyToAllTabs();
+  if (config.secureDns !== previous.secureDns) applySecureDns();
+  return publicConfig();
 });
 
 // VPN
@@ -1366,6 +1590,9 @@ app.whenReady().then(() => {
     saveConfig:    (cfg) => { config = cfg; saveConfig(config); },
     getMainWindow: () => mainWindow,
   });
+
+  // Güvenli DNS ilk istekten önce ayarlanır.
+  applySecureDns();
 
   // Eski ölü sql.js veritabanının diskte kalan dosyası (hiç veri içermedi).
   try { fs.unlinkSync(path.join(USER_DATA, 'logs.db')); } catch {}

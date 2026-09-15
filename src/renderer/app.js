@@ -82,7 +82,7 @@ function truncateUrl(url, maxLen = 80) {
 }
 
 // ─── Panel Yönetimi ────────────────────────────────────────────────────────────
-const ALL_PANELS = ['settings', 'logs', 'bookmarks', 'blocker', 'shield', 'vpn', 'arku'];
+const ALL_PANELS = ['settings', 'logs', 'bookmarks', 'blocker', 'shield', 'vpn', 'arku', 'siteinfo'];
 
 function closeAllPanels() {
   ALL_PANELS.forEach(name => {
@@ -92,7 +92,7 @@ function closeAllPanels() {
     panel.classList.add('hidden');
   });
   // Panel butonlarının aktif stilini kaldır (data-screen butonlarına dokunma)
-  ['btn-shield', 'btn-bookmarks', 'btn-logs', 'btn-blocker', 'btn-settings', 'btn-arku'].forEach(id => {
+  ['btn-shield', 'btn-bookmarks', 'btn-logs', 'btn-blocker', 'btn-settings', 'btn-arku', 'security-icon'].forEach(id => {
     document.getElementById(id)?.classList.remove('active');
   });
   sb.panelOpened(false);
@@ -235,14 +235,14 @@ function updateAddressBar(url) {
   if (icon) {
     if (url?.startsWith('https://')) {
       icon.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>';
-      icon.title = 'Güvenli bağlantı (HTTPS)';
+      icon.title = 'Site bilgisi · Bağlantı güvenli (HTTPS)';
       icon.style.color = 'var(--gold)';
     } else if (url?.startsWith('http://')) {
-      icon.innerHTML = '⚠️'; icon.title = 'Güvensiz bağlantı (HTTP)';
+      icon.innerHTML = '⚠️'; icon.title = 'Site bilgisi · Bağlantı güvenli değil (HTTP)';
       icon.style.color = 'var(--warning)';
     } else {
       icon.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg>';
-      icon.title = '';
+      icon.title = 'Site bilgisi';
       icon.style.color = 'var(--ink-mute)';
     }
   }
@@ -252,6 +252,114 @@ function updateAddressBar(url) {
 }
 
 // ─── Koruma Durumu ────────────────────────────────────────────────────────────
+// ─── Site Bilgisi (kilit simgesi) ─────────────────────────────────────────────
+// Bağlantı ve sertifika, bu sitenin izinleri, engellenen açılır pencereler,
+// yakınlaştırma ve site verisini silme. Kararlar ana süreçte doğrulanır.
+const SITE_DECISION_OPTIONS = {
+  ask:     [['ask', 'Sor (varsayılan)'], ['allow', 'İzin ver'], ['block', 'Engelle']],
+  popups:  [['default', 'Yalnızca tıklayınca (varsayılan)'], ['allow', 'Her zaman izin ver'], ['block', 'Her zaman engelle']],
+  cookies: [['default', 'Genel ayarı kullan'], ['allow', 'Bu sitede izin ver']],
+};
+
+function formatTrDate(ms) {
+  if (!ms) return '—';
+  try { return new Date(ms).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' }); } catch { return '—'; }
+}
+
+async function loadSiteInfo() {
+  const body = document.getElementById('siteinfo-body');
+  if (!body) return;
+  const H = window.ilgezdiHtml;
+  let info = null;
+  try { info = await sb.site?.info?.(); } catch {}
+  if (!info || !info.origin) {
+    body.innerHTML = '<p class="si-empty">Bu sekmede bir web sitesi açık değil.</p>';
+    return;
+  }
+
+  const secure = info.scheme === 'https';
+  const cert = info.certificate;
+  const certBad = !!(cert && !cert.ok);
+  const statusText = !secure ? 'Bağlantı güvenli değil' : certBad ? 'Sertifika sorunlu' : 'Bağlantı güvenli';
+
+  const certHtml = !secure
+    ? '<p class="si-note">Bu site şifrelenmemiş HTTP kullanıyor. Parola ya da kart bilgisi girmeyin.</p>'
+    : cert
+      ? `<dl class="si-dl">
+          <dt>Kime verildi</dt><dd>${H.esc(cert.subject || '—')}</dd>
+          <dt>Veren</dt><dd>${H.esc(cert.issuer || '—')}${cert.issuerOrg ? ' · ' + H.esc(cert.issuerOrg) : ''}</dd>
+          <dt>Geçerlilik</dt><dd>${H.esc(formatTrDate(cert.validFrom))} – ${H.esc(formatTrDate(cert.validTo))}</dd>
+          <dt>Parmak izi</dt><dd class="si-mono">${H.esc(cert.fingerprint || '—')}</dd>
+          ${cert.error ? `<dt>Sorun</dt><dd class="si-bad">${H.esc(cert.error)}</dd>` : ''}
+        </dl>`
+      : '<p class="si-note">Sertifika ayrıntısı bu oturumda henüz alınmadı; sayfayı yenileyince görünür.</p>';
+
+  const permRows = (info.permissions || []).map((p) => {
+    const kind = p.permission === 'popups' ? 'popups' : p.permission === 'third-party-cookies' ? 'cookies' : 'ask';
+    let opts = SITE_DECISION_OPTIONS[kind];
+    if (!opts.some(([v]) => v === p.decision)) opts = [...opts, [p.decision, p.decision === 'block' ? 'Engelle' : p.decision]];
+    const id = 'si-perm-' + p.permission;
+    const options = opts.map(([v, t]) => `<option value="${H.esc(v)}" ${p.decision === v ? 'selected' : ''}>${H.esc(t)}</option>`).join('');
+    return `<div class="si-perm"><label for="${H.esc(id)}">${H.esc(p.label)}</label><select id="${H.esc(id)}" data-permission="${H.esc(p.permission)}">${options}</select></div>`;
+  }).join('');
+
+  const popupsHtml = (info.blockedPopups || []).length
+    ? `<div class="si-sec"><h3>Engellenen açılır pencereler</h3>${info.blockedPopups.map((u, i) => `
+        <div class="si-popup"><span class="si-mono" title="${H.esc(u)}">${H.esc(truncateUrl(u, 46))}</span>
+        <button type="button" class="si-btn" data-open-popup="${i}">Aç</button></div>`).join('')}</div>`
+    : '';
+
+  const pct = Math.round((Number(info.zoom) || 1) * 100);
+  const zoomHtml = pct !== 100
+    ? `<div class="si-sec si-row"><span>Yakınlaştırma %${pct}</span><button type="button" class="si-btn" id="si-zoom-reset">Sıfırla</button></div>`
+    : '';
+
+  body.innerHTML = `
+    <div class="si-head">
+      <div class="si-host">${H.esc(info.host)}</div>
+      <div class="si-status ${secure && !certBad ? 'ok' : 'bad'}">${H.esc(statusText)}</div>
+    </div>
+    <div class="si-sec"><h3>Bağlantı ve sertifika</h3>${certHtml}</div>
+    ${popupsHtml}
+    <div class="si-sec"><h3>Bu site için izinler</h3>${permRows}
+      <p class="si-note">Değişiklik hemen kaydedilir. Kamera ve konum gibi izinler sitenin bir sonraki isteğinde geçerli olur.</p>
+    </div>
+    ${zoomHtml}
+    <div class="si-sec">
+      <button type="button" class="si-btn danger" id="si-clear-data">Çerezleri ve site verilerini sil</button>
+      <div class="si-result" id="si-result" role="status" aria-live="polite"></div>
+    </div>`;
+
+  const result = (msg, bad) => {
+    const el = document.getElementById('si-result');
+    if (!el) return;
+    el.textContent = msg;
+    el.classList.toggle('bad', !!bad);
+  };
+  body.querySelectorAll('select[data-permission]').forEach((sel) => {
+    sel.addEventListener('change', async () => {
+      const decision = sel.value === 'default' ? 'ask' : sel.value;
+      const r = await sb.site.setPermission(info.origin, sel.dataset.permission, decision);
+      result(r && r.ok ? 'Kaydedildi' : (r && r.error) || 'Kaydedilemedi', !(r && r.ok));
+    });
+  });
+  body.querySelectorAll('[data-open-popup]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      await sb.site.openBlockedPopup(Number(btn.dataset.openPopup));
+      loadSiteInfo();
+    });
+  });
+  document.getElementById('si-zoom-reset')?.addEventListener('click', async () => {
+    await sb.zoom?.reset();
+    loadSiteInfo();
+  });
+  document.getElementById('si-clear-data')?.addEventListener('click', async () => {
+    const r = await sb.site.clearData(info.origin);
+    if (r && r.canceled) return;
+    result(r && r.ok ? 'Bu sitenin çerezleri ve verileri silindi' : (r && r.error) || 'Silinemedi', !(r && r.ok));
+  });
+}
+
 async function loadShield() {
   // GERÇEK DURUM (denetim O-06). Eskiden bu panel yapılandırma BAYRAKLARINI koruma
   // gibi gösteriyordu: kaldırılmış UA rotasyonu "✓ Aktif", VPN bağlantısı yerine
@@ -274,6 +382,7 @@ async function loadShield() {
     { name: 'İzleyici Engelleme', on: cfg.blockTrackers !== false },
     { name: 'Reklam Engelleme',   on: cfg.blockAds !== false },
     { name: 'Yalnızca HTTPS',     on: !!cfg.httpsOnly },
+    { name: 'Üçüncü Taraf Çerez Engeli', on: cfg.blockThirdPartyCookies !== false },
     { name: 'Şifreli Ziyaret Günlüğü',
       on: cfg.logEnabled !== false && logStats?.encrypted !== false,
       note: cfg.logEnabled === false ? 'kapalı' : (logStats?.encrypted === false ? 'şifreleme kullanılamıyor' : '') },
@@ -548,6 +657,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   sb.onTabsUpdate((tabs) => renderTabs(tabs));
   sb.onActiveUrl((url) => {
     updateAddressBar(url);
+    if (document.getElementById('panel-siteinfo')?.classList.contains('visible')) loadSiteInfo();
     // Boş sekme → İlgezdi yeni sekme sayfasını göster; gerçek URL → gizle
     const blank = !url || url === 'about:blank' || url === 'ilgezdi://newtab';
     if (blank) {
@@ -651,6 +761,25 @@ document.addEventListener('DOMContentLoaded', async () => {
     zoomBtn.hidden = pct === 100;
     zoomBtn.textContent = '%' + pct;
     zoomBtn.setAttribute('aria-label', 'Yakınlaştırma yüzde ' + pct + ', sıfırlamak için tıklayın');
+  });
+
+  // ── Site bilgisi (kilit simgesi) ve engellenen açılır pencereler ───────────
+  const siteBtn  = document.getElementById('security-icon');
+  const popupBtn = document.getElementById('popup-blocked-indicator');
+  const siteInfoOpen = () => document.getElementById('panel-siteinfo')?.classList.contains('visible');
+  siteBtn?.addEventListener('click', () => togglePanel('siteinfo', siteBtn, loadSiteInfo));
+  popupBtn?.addEventListener('click', () => {
+    if (siteInfoOpen()) loadSiteInfo();
+    else togglePanel('siteinfo', siteBtn, loadSiteInfo);
+  });
+  sb.site?.onPopupState((data) => {
+    const n = Number(data?.count) || 0;
+    if (!popupBtn) return;
+    popupBtn.hidden = n === 0;
+    const c = document.getElementById('popup-blocked-count');
+    if (c) c.textContent = String(n);
+    popupBtn.setAttribute('aria-label', n + ' açılır pencere engellendi, ayrıntı için tıklayın');
+    if (n && siteInfoOpen()) loadSiteInfo();
   });
 
   // ── Klavye kısayolları ────────────────────────────────────────────────────
