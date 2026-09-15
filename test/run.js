@@ -964,6 +964,24 @@ suite('İndirme güvenliği ve indirme geçmişi');
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
+// Giriş ekranı — isteğe bağlı, sayfa görünümünün altında kalmamalı
+// ══════════════════════════════════════════════════════════════════════════════
+suite('Giriş ekranı');
+{
+  const authJs = read('renderer/auth-screen.js');
+  const initBody = authJs.slice(authJs.indexOf('async function initAuth('), authJs.indexOf('window.ilgezdiAuth = {'));
+  check('açılışta giriş ekranı kendiliğinden gösterilmiyor', initBody.length > 50 && !initBody.includes('showAuthScreen('));
+  const logoutBody = authJs.slice(authJs.indexOf('logout: async'), authJs.indexOf('getSession: loadSession'));
+  check('çıkışta giriş ekranı dayatılmıyor', logoutBody.length > 20 && !logoutBody.includes('showAuthScreen('));
+  check('giriş Ayarlar › Hesap üzerinden açılabiliyor', read('renderer/settings-panel.js').includes('window.ilgezdiAuth?.open?.()') && authJs.includes('open: () => {'));
+  const appJs = read('renderer/app.js');
+  const hideBody = appJs.slice(appJs.indexOf('function hideScreen('), appJs.indexOf('// ─── VPN Göstergesi'));
+  check('ekran kapanınca giriş ekranı açıksa sayfa görünümü gösterilmiyor', hideBody.includes('if (!isAuthScreenOpen()) {'));
+  check('sekme adres güncellemesinde de aynı koruma', appJs.split('isAuthScreenOpen()').length - 1 >= 3);
+  check('koruma animasyon sırasında da geçerli (hidden sınıfına bakıyor)', appJs.includes("return !!el && !el.classList.contains('hidden');"));
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
 // Kaynak dosyalar — görünmez ham kontrol karakteri olmamalı
 // Neden: regex aralıkları ([NUL-boşluk] gibi) ham baytla yazılınca git dosyayı
 // ikili sanıyor ve bir düzenleyici bu baytları sessizce silerse güvenlik amaçlı

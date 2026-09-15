@@ -139,6 +139,13 @@ async function showScreen(name, renderFn) {
   if (sc && renderFn) sc.innerHTML = renderFn();
 }
 
+// Giriş ekranı açık mı? 'visible' sınıfı bir kare sonra eklendiği için 'hidden'
+// sınıfına bakılır; açılış animasyonu sırasında da açık sayılır.
+function isAuthScreenOpen() {
+  const el = document.getElementById('auth-screen');
+  return !!el && !el.classList.contains('hidden');
+}
+
 function hideScreen() {
   if (!currentScreen) return;
   currentScreen = null;
@@ -149,8 +156,10 @@ function hideScreen() {
     setTimeout(() => overlay.classList.add('hidden'), 200);
   }
 
-  // WebContentsView'ı geri göster
-  try { sb.showActiveTab?.(); } catch(_) {}
+  // WebContentsView'ı geri göster. Giriş ekranı açıksa gösterme: sayfa görünümü
+  // DOM'un üstünde çizildiği için giriş penceresini örtüyor, arayüzün geri kalanı
+  // karartılmış kalıyordu (kullanıcı ekran görüntüsüyle bildirdi).
+  if (!isAuthScreenOpen()) { try { sb.showActiveTab?.(); } catch(_) {} }
 
   // Sidebar'da home butonunu aktif yap
   document.querySelectorAll('.sidebar-btn[data-screen]').forEach(b => b.classList.remove('active'));
@@ -1000,8 +1009,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       // Güvenlik ağı: gerçek sayfa + ekran overlay'i yok → view görünür olmalı.
       // (Auth ekranı gibi bir modal açıkken dokunma — o kapanırken kendisi
       // showActiveTab çağırır.) Sekme geçişinde takılı-gizli durumu kurtarır.
-      const authVisible = document.getElementById('auth-screen')?.classList.contains('visible');
-      if (!authVisible) sb.showActiveTab?.();
+      if (!isAuthScreenOpen()) sb.showActiveTab?.();
     }
   });
   // getStatus() { status, … } döndürür; `connected` diye bir alan YOKTU —

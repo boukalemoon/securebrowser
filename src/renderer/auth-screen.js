@@ -486,7 +486,7 @@ async function initAuth() {
         updateAccountBadge(stored.email || stored.displayName);
         return; // Auth screen gösterme
       } catch {
-        // Refresh başarısız → eski oturumu temizle, auth screen göster
+        // Yenileme başarısız → eski oturumu temizle (giriş Ayarlar › Hesap'tan yapılır)
         await clearSession().catch(() => {});
       }
     }
@@ -494,9 +494,10 @@ async function initAuth() {
     // QR girişi de artık gerçek refresh token üretir (Edge Function akışı).
   } catch {}
 
-  await window.secureBrowser?.hideActiveTab?.().catch?.(() => {});
-  showAuthScreen();
-  bindAuthEvents();
+  // Giriş isteğe bağlı: açılışta ekran gösterilmez. Kullanıcı geri bildirimi —
+  // göze batıyordu; ayrıca ana sayfa ya da geri yüklenen oturum açılınca sayfa
+  // görünümü giriş penceresini örtüyor, arayüz kararmış görünüyordu.
+  // Giriş Ayarlar › Hesap › "Giriş Yap / Kayıt Ol" ile açılır (window.ilgezdiAuth.open).
 }
 
 // Dışarıya aç (settings paneli için logout, vb.)
@@ -505,9 +506,8 @@ window.ilgezdiAuth = {
     await clearSession();
     setAuthContext(null, null);
     window.ilgezdiSync?.onLogout();
-    _eventsReady = false;
-    showAuthScreen();
-    bindAuthEvents();
+    // Çıkışta giriş ekranı dayatılmaz; yeniden giriş Ayarlar › Hesap'tan.
+    document.getElementById('auth-account-badge')?.remove();
   },
   getSession: loadSession,
   showScreen: showAuthScreen,
