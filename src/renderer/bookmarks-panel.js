@@ -15,7 +15,10 @@ function bmInjectStyles() {
   s.textContent = `
     /* Genişlik .side-panel'den (--panel-w = 420px = main.js PANEL_WIDTH). Eskiden
        360px'e zorlanıyordu ve sayfa ile panel arasında 60px boş şerit kalıyordu (D-03). */
-    #panel-bookmarks { position:relative; }
+    /* #panel-bookmarks'a burada position VERİLMEZ: .side-panel (main.css) paneli sağa
+       sabitler (position:absolute; right:0). 0.8.0'da burada position:relative vardı;
+       panel sola, sayfa görünümünün ALTINA düşüyor, sağda boş şerit kalıyordu
+       (kullanıcı: "yer imleri boş geliyor, tekrar açılmıyor, site gelmiyor"). */
 
     .bm-import-menu {
       position:absolute; z-index:60; min-width:210px;
@@ -370,10 +373,7 @@ function bmRenderPanel() {
   // Önbellekteki site simgeleri (ziyaret edilen siteler) — gelince yeniden çizilir.
   bmLoadFavicons();
 
-  // Navigasyon click
-  container.querySelectorAll('.bm-item-info').forEach(el => {
-    el.addEventListener('click', () => window.secureBrowser?.navigate(el.dataset.url));
-  });
+  // Satır tıklaması bmInitPanelEvents'te listeye bir kez bağlanır (bmOpenUrl).
 
   // Aksiyonlar
   container.querySelectorAll('.bm-action-btn').forEach(btn => {
@@ -433,7 +433,7 @@ function bmItemHTML(item) {
     ? `<img class="bm-fav" src="${H.esc(fav)}" alt="">`
     : `<span aria-hidden="true" style="display:grid;place-items:center;width:18px;height:18px;border-radius:4px;color:#fff;font-size:10px;font-weight:700;background:${bmChipColor(domain)}">${H.esc((domain[0] || '•').toLocaleUpperCase('tr'))}</span>`;
   return `
-    <div class="bm-item" data-id="${H.esc(item.id)}">
+    <div class="bm-item" data-id="${H.esc(item.id)}" data-url="${H.esc(item.url)}" tabindex="0" role="link" title="${H.esc(item.title || domain)}">
       <div class="bm-item-icon">
         ${icon}
       </div>
@@ -752,6 +752,39 @@ function bmInitPanelEvents() {
   document.querySelector('[data-panel="bookmarks"].panel-close')?.addEventListener('click', () => {
     window.ilgezdiCloseAllPanels?.();
   });
+
+  // Satırın tamamı tıklanır (eskiden yalnızca başlık alanı): tık ya da Enter → bu sekmede
+  // açılır ve panel kapanır ki sayfa görünsün; Ctrl/Shift+tık ya da orta tık → yeni
+  // sekmede, panel açık kalır. Liste her açılışta yeniden kurulduğu için dinleyiciler
+  // birikmez. Liste kaydırılabilir: orta tuş otomatik kaydırmayı başlatmasın.
+  const list = document.getElementById('bm-list-container');
+  const rowUrl = (e) => {
+    if (e.target.closest?.('.bm-item-actions')) return '';
+    const row = e.target.closest?.('.bm-item');
+    return row ? window.ilgezdiHtml.safeUrl(row.dataset.url) : '';
+  };
+  list?.addEventListener('click', (e) => {
+    const url = rowUrl(e);
+    if (url) bmOpenUrl(url, e.ctrlKey || e.metaKey || e.shiftKey);
+  });
+  list?.addEventListener('auxclick', (e) => {
+    const url = e.button === 1 ? rowUrl(e) : '';
+    if (url) { e.preventDefault(); bmOpenUrl(url, true); }
+  });
+  list?.addEventListener('mousedown', (e) => { if (e.button === 1 && rowUrl(e)) e.preventDefault(); });
+  list?.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter' || !e.target.classList?.contains('bm-item')) return;
+    const url = window.ilgezdiHtml.safeUrl(e.target.dataset.url);
+    if (url) { e.preventDefault(); bmOpenUrl(url, e.ctrlKey || e.metaKey); }
+  });
+}
+
+function bmOpenUrl(url, inNewTab) {
+  const sb = window.secureBrowser;
+  if (inNewTab) { sb?.newTab?.(url); return; }
+  window.ilgezdiCloseAllPanels?.();
+  _bmPanelOpen = false;
+  sb?.navigate?.(url);
 }
 
 // ─── Panel Aç ─────────────────────────────────────────────────────────────────
@@ -892,7 +925,13 @@ function bmInit() {
   });
   // Yer imi değişince (panel, ☆ açılır penceresi, senkron, başka pencere) çubuk yenilenir.
   window.addEventListener('ilgezdi-bookmarks-changed', bmRenderBar);
-  window.addEventListener('ilgezdi-sync-applied', bmRenderBar);
+  // Senkron yer imlerini localStorage'a yazar; bellekteki liste de yenilenmeli (eskiden
+  // çubuk eski bellekten yeniden çiziliyor, açık panel hiç yenilenmiyordu).
+  window.addEventListener('ilgezdi-sync-applied', () => {
+    bmLoad();
+    bmRenderBar();
+    if (_bmPanelOpen) { bmRenderFolders(); bmRenderPanel(); }
+  });
   window.addEventListener('storage', (e) => {
     if (e.key === 'ilgezdi-bm-items' || e.key === 'ilgezdi-bm-folders') { bmLoad(); bmRenderBar(); }
   });

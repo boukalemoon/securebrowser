@@ -697,7 +697,7 @@ suite('WebRTC IP koruması ve gizli pencere önizlemesi');
   check('önizleme pencereye yalnızca güvenli yardımcıyla mesaj gönderiyor',
     glanceJs.split('.webContents.send(').length - 1 === 1 && glanceJs.includes('win.webContents.isDestroyed()'));
   check('önizlemenin penceresi kapanınca önizleme durumu sıfırlanıyor', glanceJs.includes("win.on('closed'"));
-  check('ayarlarda WebRTC seçimi var ve kaydediliyor', read('renderer/settings-panel.js').includes("getElementById('cfg-webrtc')?.value"));
+  check('ayarlarda WebRTC seçimi var ve kaydediliyor', /'cfg-webrtc':\s*\['webrtcPolicy', 'value'\]/.test(read('renderer/settings-panel.js')));
 }
 
 suite('Erişilebilirlik tabanı');
@@ -799,7 +799,7 @@ suite('Güvenli DNS');
   const mainJs = read('main/main.js');
   check('varsayılan yapılandırmada kullanılmayan dnsServer yerine secureDns', !mainJs.includes('dnsServer:') && /secureDns:\s*DEFAULT_SECURE_DNS/.test(mainJs));
   check('açılışta ve ayar değişince uygulanıyor', (mainJs.match(/applySecureDns\(\);/g) || []).length >= 2);
-  check('ayarlarda seçim var ve kaydediliyor', read('renderer/settings-panel.js').includes("getElementById('cfg-secure-dns')?.value"));
+  check('ayarlarda seçim var ve kaydediliyor', /'cfg-secure-dns':\s*\['secureDns', 'value'\]/.test(read('renderer/settings-panel.js')));
 }
 
 suite('Hata sayfası ve sertifika');
@@ -1004,7 +1004,7 @@ suite('Ayarlar paneli');
   check('panel olayları yalnızca bir kez bağlanıyor (her açılışta Kaydet dinleyicisi birikiyordu)',
     /function initSettingsPanelEvents\(\) \{\s*if \(_settingsEventsBound\) return;\s*_settingsEventsBound = true;/.test(setJs));
   check('sekme seçimi vurguyu ve aria-selected değerini birlikte güncelliyor',
-    /function selectSettingsTab\([^)]*\) \{[\s\S]{0,400}aria-selected[\s\S]{0,200}renderSettingsTab\(/.test(setJs));
+    /function selectSettingsTab\([^)]*\) \{[\s\S]{0,400}aria-selected[\s\S]{0,400}renderSettingsTab\(/.test(setJs));
   check('panel her açılışta Özelleştir sekmesi vurgulu açılıyor', setJs.includes("selectSettingsTab('customization');"));
 }
 
@@ -1126,7 +1126,7 @@ suite('Zararlı site koruması — ana süreç bağlantıları');
   check('"devam et" izni diske yazılmıyor, oturuma bağlı', tp.includes('const bypass = new WeakMap()') && !/bypass[\s\S]{0,80}writeFile/.test(tp));
   const setJs = read('renderer/settings-panel.js');
   check('ayarlarda anahtar, durum kutusu ve elle güncelleme var; ayar kaydediliyor',
-    setJs.includes("row('cfg-threat'") && setJs.includes('populateThreatStatus();') && setJs.includes("getElementById('cfg-threat')?.checked"));
+    setJs.includes("row('cfg-threat'") && setJs.includes('populateThreatStatus();') && /'cfg-threat':\s*\['threatProtection', 'checked'\]/.test(setJs));
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -1363,6 +1363,46 @@ suite('Keşfet — TrendTech yazılımları');
   check('Keşfet kartları textContent ile kuruluyor ve yeni sekmede açılıyor', initDiscover.length > 200 && !initDiscover.includes('innerHTML') && initDiscover.includes('sb.newTab(it.url)'));
   const feedJs = read('main/discover-feed.js');
   check('Keşfet akışı çerezsiz, bellek içi oturumla, günde en fazla bir kez', feedJs.includes("credentials: 'omit'") && feedJs.includes("FEED_PARTITION = 'ilgezdi-discover'") && feedJs.includes('REFRESH_MS = 24 * 3600 * 1000'));
+  check('Keşfet: Marka CRM ve Tınga da listede', ['markacrm', 'tinga'].every((id) => df.BUNDLED.some((b) => b.id === id)));
+
+  suite('Yer imleri paneli, ayar kaydı ve senkron çakışması (16 Eyl bildirimleri)');
+  {
+    const bmJs = read('renderer/bookmarks-panel.js');
+    check('yer imleri paneline position verilmiyor (.side-panel sağa sabitler; 0.8.0\'da sayfanın altına düşüyordu)', !/#panel-bookmarks\s*\{[^}]*position/.test(bmJs));
+    check('satırın tamamı tıklanıyor; tık → panel kapanıp aynı sekmede, Ctrl/orta tık → yeni sekmede',
+      /function bmOpenUrl\(url, inNewTab\)[\s\S]{0,200}newTab\?\.\(url\)[\s\S]{0,120}ilgezdiCloseAllPanels\?\.\(\)[\s\S]{0,80}navigate\?\.\(url\)/.test(bmJs)
+      && bmJs.includes("list?.addEventListener('auxclick'")
+      && bmJs.includes('data-url="${H.esc(item.url)}" tabindex="0" role="link"'));
+    check('senkron sonrası bellekteki yer imleri yeniden yükleniyor', /'ilgezdi-sync-applied', \(\) => \{\s*bmLoad\(\);/.test(bmJs));
+
+    const spJs = read('renderer/settings-panel.js');
+    const saveBlock = (spJs.match(/btn-save-all'\)\?\.addEventListener\('click'[\s\S]*?showSettingsToast\('Ayarlar kaydedildi!'\)/) || [''])[0];
+    check('Kaydet değerleri ekrandaki sekmeden okumuyor (başka sekmedeki kutu varsayılana düşmüyor)',
+      saveBlock.length > 100 && !/getElementById\('cfg-[\w-]+'\)\?\.checked/.test(saveBlock) && saveBlock.includes('..._formCfg'));
+    check('sekmeler bekleyen form değerleriyle çiziliyor; değişiklik dinleyicisi bir kez bağlanıyor',
+      spJs.includes('renderSettingsTab(tabId, _formCfg)')
+      && /_settingsEventsBound = true;\s*const content = document\.getElementById\('settings-content'\);\s*content\?\.addEventListener\('change', onSettingsFieldChange\)/.test(spJs));
+    const fields = [...spJs.matchAll(/^\s*'([\w-]+)':\s*\['(\w+)', '(value|checked)'\]/gm)];
+    const valuesFn = spJs.slice(spJs.indexOf('function formValuesFrom'), spJs.indexOf('function initFormState'));
+    check('form alan listesi sekmelerdeki kimliklerle ve varsayılan değerlerle eşleşiyor',
+      fields.length === 19
+      && fields.every(([, id]) => spJs.includes(`id="${id}"`) || spJs.includes(`row('${id}'`))
+      && fields.every(([, , key]) => new RegExp(`\\n\\s*${key}:\\s`).test(valuesFn)), fields.length);
+
+    let sync = {};
+    try {
+      sync = JSON.parse(require('child_process').execFileSync(process.execPath, [path.join(__dirname, 'helpers', 'sync-conflict-check.js')], { encoding: 'utf8', timeout: 30000 }));
+    } catch (e) { sync = { error: e.message }; }
+    const L = sync.localNewer || {}, Rm = sync.remoteNewer || {};
+    check('yerel değişiklik sunucudakinden yeniyse uzak ayar ve yer imleri uygulanmıyor, yerel gönderiliyor',
+      L.saved === 0 && !L.applied && !L.bookmarksWritten && L.posts === 1 && L.postedHttpsOnly === true, JSON.stringify(sync));
+    check('sunucudaki kayıt yeniyse uygulanıyor (başka cihazdaki değişiklik gelir)',
+      Rm.saved === 1 && Rm.savedHttpsOnly === false && Rm.applied && Rm.posts === 0, JSON.stringify(sync));
+    check('yerel zaman yoksa uzak uygulanıyor; sunucuda kayıt yoksa yerel gönderiliyor', sync.firstRun?.saved === 1 && sync.noRemote?.posts === 1);
+    check('oturum kapalıyken yapılan değişiklik de zaman damgası bırakıyor', sync.offlineMarks === true);
+    check('Geçmiş\'teki "Yalnızca HTTPS’i aç" düğmesi de senkrona değişiklik bildiriyor',
+      /httpsOnly: true \}\);\s*window\.ilgezdiSync\?\.schedulePush\(\);/.test(read('renderer/app.js')));
+  }
   const cardsJs = read('renderer/info-cards.js');
   let cards = null;
   try { const w = {}; new Function('window', cardsJs)(w); cards = w.ILGEZDI_INFO_CARDS; } catch (e) { cards = e.message; }

@@ -23,6 +23,26 @@
       "letter": "Q"
     },
     {
+      "id": "markacrm",
+      "name": "Marka CRM",
+      "category": "CRM",
+      "tagline": "Satıştan desteğe tek platform",
+      "description": "Fırsattan teklife, faturadan uzaktan desteğe tüm müşteri süreci tek platformda; kendi logonuz ve alan adınızla.",
+      "url": "https://www.markacrm.com",
+      "color": "#7a4a8a",
+      "letter": "M"
+    },
+    {
+      "id": "tinga",
+      "name": "Tınga",
+      "category": "Müzik çalar",
+      "tagline": "Müziğin kadim hali",
+      "description": "Winamp ruhunu modern teknolojiyle harmanlayan müzik çalar: Hi-Fi ses, 10 bant ekolayzer, temalar ve AI asistanı. Windows, macOS, Linux.",
+      "url": "https://www.tinga.com.tr",
+      "color": "#c89540",
+      "letter": "T"
+    },
+    {
       "id": "trendtech",
       "name": "TrendTech",
       "category": "Kurumsal BT",

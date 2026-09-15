@@ -615,6 +615,7 @@ async function renderHttpReport(boxId) {
       try {
         const current = await sb.getConfig();
         await sb.saveConfig({ ...current, httpsOnly: true });
+        window.ilgezdiSync?.schedulePush();
         const done = document.createElement('span');
         done.className = 'http-report-done';
         done.textContent = 'Yalnızca HTTPS açıldı ✓';

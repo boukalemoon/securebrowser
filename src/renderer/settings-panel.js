@@ -293,12 +293,88 @@ function initPendingState() {
   _pendingFontFamily = _savedFontFamily;
 }
 
+// ─── Form alanları (Özelleştir, Genel, Gizlilik) ─────────────────────────────
+// Sekmeler tek tek çizilir. Kaydet eskiden değerleri o an EKRANDAKİ sekmeden okuyordu:
+// başka sekmedeki kutu DOM'da olmadığı için `?.checked ?? false` varsayılana düşüyordu.
+// Ör. Gizlilik'te "Yalnızca HTTPS" açılıp başka sekmede Kaydet'e basılınca false
+// kaydediliyordu (kullanıcı: "ayarlarım kayıt olmuyor"). Artık her değişiklik
+// _formCfg'ye yazılır; sekmeler buradan çizilir, Kaydet buradan kaydeder.
+const SETTINGS_FIELDS = {
+  'new-tab-mode':      ['newTabMode', 'value'],
+  'custom-newtab-url': ['customNewTabUrl', 'value'],
+  'search-engine':     ['searchEngine', 'value'],
+  'cfg-startup-mode':  ['startupMode', 'value'],
+  'homepage-input':    ['homepage', 'value'],
+  'lang-select':       ['language', 'value'],
+  'cfg-ask-download':  ['askDownloadLocation', 'checked'],
+  'cfg-notifications': ['notifications', 'checked'],
+  'cfg-vpn-notify':    ['vpnNotify', 'checked'],
+  'cfg-threat':        ['threatProtection', 'checked'],
+  'cfg-tracker':       ['blockTrackers', 'checked'],
+  'cfg-ads':           ['blockAds', 'checked'],
+  'cfg-3pc':           ['blockThirdPartyCookies', 'checked'],
+  'cfg-fp':            ['fingerprintProtection', 'checked'],
+  'cfg-https-only':    ['httpsOnly', 'checked'],
+  'cfg-dnt':           ['doNotTrack', 'checked'],
+  'cfg-webrtc':        ['webrtcPolicy', 'value'],
+  'cfg-secure-dns':    ['secureDns', 'value'],
+  'cfg-log':           ['logEnabled', 'checked'],
+};
+let _formBase = {};
+let _formCfg  = {};
+
+// Kayıtlı yapılandırmadan formun göstereceği değerler (sekmelerin varsayılanlarıyla aynı).
+function formValuesFrom(cfg) {
+  const c = cfg || {};
+  return {
+    newTabMode:             c.newTabMode === 'custom' ? 'custom' : 'blank',
+    customNewTabUrl:        c.customNewTabUrl || '',
+    searchEngine:           c.searchEngine || 'duckduckgo',
+    startupMode:            c.startupMode === 'restore' ? 'restore' : 'homepage',
+    homepage:               c.homepage && c.homepage !== 'about:blank' ? c.homepage : '',
+    language:               c.language === 'en' ? 'en' : 'tr',
+    downloadFolder:         c.downloadFolder || '',
+    askDownloadLocation:    !!c.askDownloadLocation,
+    notifications:          c.notifications !== false,
+    vpnNotify:              c.vpnNotify !== false,
+    threatProtection:       c.threatProtection !== false,
+    blockTrackers:          c.blockTrackers !== false,
+    blockAds:               c.blockAds !== false,
+    blockThirdPartyCookies: c.blockThirdPartyCookies !== false,
+    fingerprintProtection:  c.fingerprintProtection !== false,
+    httpsOnly:              !!c.httpsOnly,
+    doNotTrack:             !!c.doNotTrack,
+    webrtcPolicy:           c.webrtcPolicy || 'default_public_interface_only',
+    secureDns:              c.secureDns || 'automatic',
+    logEnabled:             c.logEnabled !== false,
+  };
+}
+
+function initFormState(cfg) {
+  _formBase = formValuesFrom(cfg);
+  _formCfg  = { ..._formBase };
+}
+
+function formHasChanges() {
+  return Object.keys(_formBase).some((k) => _formCfg[k] !== _formBase[k]);
+}
+
+// Form alanı değişince (hangi sekmede olursa olsun) bekleyen değere yazılır.
+function onSettingsFieldChange(e) {
+  const field = SETTINGS_FIELDS[e.target?.id];
+  if (!field) return;
+  const [key, prop] = field;
+  _formCfg[key] = prop === 'checked' ? !!e.target.checked : String(e.target.value ?? '');
+  updateUnsavedBar();
+}
+
 function hasPendingChanges() {
   return (
     _pendingTheme      !== _savedTheme      ||
     _pendingAccent     !== _savedAccent     ||
     _pendingFontSize   !== _savedFontSize   ||
-    _pendingFontFamily !== _savedFontFamily
+    _pendingFontFamily !== _savedFontFamily ||
+    formHasChanges()
   );
 }
 
@@ -321,8 +397,9 @@ function discardPendingChanges() {
   document.documentElement.style.setProperty('--font-size-base', _savedFontSize + 'px');
   document.body.style.fontFamily = _savedFontFamily;
 
+  _formCfg = { ..._formBase };
   updateUnsavedBar();
-  renderSettingsTab('customization', settingsConfig);
+  selectSettingsTab(document.querySelector('.settings-tab.active')?.dataset.tab || 'customization');
 }
 
 // ─── Panel önizleme güncelleyici (asıl UI'a dokunmaz) ─────────────────────────
@@ -982,7 +1059,7 @@ function renderThreatStatus(st) {
 function bindGeneralEvents() {
   document.getElementById('btn-pick-folder')?.addEventListener('click', async () => {
     const folder = await window.secureBrowser?.pickDownloadFolder?.();
-    if (folder) { document.getElementById('download-folder').value=folder; settingsConfig.downloadFolder=folder; }
+    if (folder) { document.getElementById('download-folder').value=folder; _formCfg.downloadFolder=folder; updateUnsavedBar(); }
   });
   const st=(msg)=>{const el=document.getElementById('clear-status');if(el){el.textContent=msg;setTimeout(()=>el.textContent='',3000);}};
   // Sonucu kontrol et — başarısız ya da iptal edilmiş işlemi "temizlendi" diye bildirmeyelim.
@@ -1088,7 +1165,9 @@ function selectSettingsTab(tabId) {
     t.classList.toggle('active', on);
     t.setAttribute('aria-selected', on ? 'true' : 'false');
   });
-  renderSettingsTab(tabId, settingsConfig);
+  if (!Object.keys(_formBase).length) initFormState(settingsConfig);
+  // Kaydedilmemiş değişiklikler sekme değişince kaybolmasın: sekme bekleyen değerlerle çizilir.
+  renderSettingsTab(tabId, _formCfg);
 }
 
 // Panel HTML'i bir kez eklenir (initFaz4); olaylar da bir kez bağlanmalı. Eskiden
@@ -1097,6 +1176,9 @@ let _settingsEventsBound = false;
 function initSettingsPanelEvents() {
   if (_settingsEventsBound) return;
   _settingsEventsBound = true;
+  const content = document.getElementById('settings-content');
+  content?.addEventListener('change', onSettingsFieldChange);
+  content?.addEventListener('input', onSettingsFieldChange);
   document.querySelectorAll('.settings-tab').forEach(tab=>{
     tab.addEventListener('click',()=>selectSettingsTab(tab.dataset.tab));
   });
@@ -1112,37 +1194,23 @@ function initSettingsPanelEvents() {
   document.getElementById('btn-save-all')?.addEventListener('click', async()=>{
     commitTheme(_pendingTheme, _pendingAccent, _pendingFontSize, _pendingFontFamily);
 
+    // Değerler ekrandaki sekmeden değil _formCfg'den (bkz. SETTINGS_FIELDS).
     const finalCfg = {
       ...settingsConfig,
+      ..._formCfg,
+      // Boş ana sayfa = İlgezdi başlangıç sayfası
+      homepage:        String(_formCfg.homepage || '').trim(),
+      customNewTabUrl: String(_formCfg.customNewTabUrl || '').trim(),
+      downloadFolder:  _formCfg.downloadFolder || settingsConfig.downloadFolder,
       theme:       _savedTheme,
       accentColor: _savedAccent,
       fontSize:    _savedFontSize,
       fontFamily:  _savedFontFamily,
-      newTabMode:            document.getElementById('new-tab-mode')?.value          || settingsConfig.newTabMode,
-      startupMode:           document.getElementById('cfg-startup-mode')?.value      || settingsConfig.startupMode || 'homepage',
-      customNewTabUrl:       document.getElementById('custom-newtab-url')?.value     || settingsConfig.customNewTabUrl,
-      // ?? kullanılıyor ki alan BOŞ bırakılınca (İlgezdi başlangıç sayfası) korunsun
-      homepage:              (document.getElementById('homepage-input')?.value ?? settingsConfig.homepage).trim(),
-      searchEngine:          document.getElementById('search-engine')?.value        || settingsConfig.searchEngine || 'duckduckgo',
-      language:              document.getElementById('lang-select')?.value           || settingsConfig.language,
-      downloadFolder:        document.getElementById('download-folder')?.value       || settingsConfig.downloadFolder,
-      askDownloadLocation:   document.getElementById('cfg-ask-download')?.checked    ?? settingsConfig.askDownloadLocation,
-      notifications:         document.getElementById('cfg-notifications')?.checked   ?? true,
-      vpnNotify:             document.getElementById('cfg-vpn-notify')?.checked      ?? true,
-      blockTrackers:         document.getElementById('cfg-tracker')?.checked         ?? true,
-      blockAds:              document.getElementById('cfg-ads')?.checked             ?? true,
-      fingerprintProtection: document.getElementById('cfg-fp')?.checked              ?? true,
-      httpsOnly:             document.getElementById('cfg-https-only')?.checked      ?? false,
-      doNotTrack:            document.getElementById('cfg-dnt')?.checked             ?? false,
-      webrtcPolicy:          document.getElementById('cfg-webrtc')?.value            || settingsConfig.webrtcPolicy,
-      secureDns:             document.getElementById('cfg-secure-dns')?.value        || settingsConfig.secureDns,
-      blockThirdPartyCookies: document.getElementById('cfg-3pc')?.checked            ?? settingsConfig.blockThirdPartyCookies ?? true,
-      threatProtection:      document.getElementById('cfg-threat')?.checked         ?? settingsConfig.threatProtection ?? true,
-      logEnabled:            document.getElementById('cfg-log')?.checked             ?? true,
     };
     await window.secureBrowser?.saveConfig(finalCfg);
     window.ilgezdiSync?.schedulePush();
     settingsConfig = finalCfg;
+    initFormState(finalCfg);
     window._ilgezdiNewTabMode   = finalCfg.newTabMode    || 'blank';
     window._ilgezdiCustomNewTab = finalCfg.customNewTabUrl || '';
     updateUnsavedBar();
@@ -1187,6 +1255,7 @@ function upgradeSettingsButton() {
 
       // Pending'i saved ile başlat
       initPendingState();
+      initFormState(settingsConfig);
 
       panel.classList.remove('hidden');
       requestAnimationFrame(()=>panel.classList.add('visible'));

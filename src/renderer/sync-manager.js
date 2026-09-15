@@ -24,6 +24,18 @@
   ];
   const PUSH_DEBOUNCE_MS = 4000;
 
+  // Son yerel değişiklik zamanı. Açılıştaki pull eskiden "uzak kazanır" diye sunucudaki
+  // kaydı koşulsuz uyguluyordu: Kaydet'ten sonraki gönderim (4 sn gecikmeli) yapılmadan
+  // uygulama kapanırsa ya da gönderim başarısız olursa, sonraki açılışta eski ayarlar
+  // yerel ayarların üzerine yazılıyordu. Artık hangisi daha yeniyse o kazanır.
+  const LOCAL_AT_KEY = 'ilgezdi-sync-local-at';
+  function localChangedAt() {
+    try { return Number(localStorage.getItem(LOCAL_AT_KEY)) || 0; } catch { return 0; }
+  }
+  function setLocalChangedAt(ms) {
+    try { localStorage.setItem(LOCAL_AT_KEY, String(ms)); } catch {}
+  }
+
   let _ctx = null;        // { userId, accessToken }
   let _pushTimer = null;
   let _busy = false;
@@ -77,6 +89,9 @@
     if (!rows?.length) return { applied: false, empty: true };
 
     const remote = rows[0];
+    // Bu cihazda sunucudaki kayıttan sonra değişiklik yapıldıysa uzak kayıt uygulanmaz;
+    // onLogin yerel durumu gönderir.
+    if (localChangedAt() > (Date.parse(remote.updated_at) || 0)) return { applied: false, localNewer: true };
 
     // Ayarları uygula (yalnızca senkron anahtarları — cihaz ayarlarına dokunma)
     const settings = pickSyncSettings(remote.settings);
@@ -117,6 +132,7 @@
   }
 
   function schedulePush() {
+    setLocalChangedAt(Date.now());   // oturum kapalıyken yapılan değişiklik de sayılır
     if (!_ctx) return;
     clearTimeout(_pushTimer);
     _pushTimer = setTimeout(() => { push(); }, PUSH_DEBOUNCE_MS);
@@ -127,7 +143,7 @@
     _ctx = { userId: ctx.userId, accessToken: ctx.accessToken };
     const res = await pull();
     // Sunucuda hiç veri yoksa bu cihazdaki durumu ilk kayıt olarak gönder
-    if (res.empty) await push();
+    if (res.empty || res.localNewer) await push();
   }
 
   function onLogout() {

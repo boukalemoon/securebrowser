@@ -18,7 +18,8 @@ const REFRESH_MS = 24 * 3600 * 1000;
 const FETCH_TIMEOUT_MS = 8000;
 const MAX_ITEMS = 24;
 
-// Açıklamalar ürünlerin kendi sitelerindeki tanıtımlardan (2026-09-15).
+// Açıklamalar ürünlerin kendi sitelerindeki tanıtımlardan (2026-09-15; Marka CRM ve
+// Tınga 2026-09-16, sayfa başlığı, açıklaması ve özellik başlıklarından).
 const BUNDLED = Object.freeze([
   {
     id: 'arku', name: 'Arku Remote', category: 'Uzak masaüstü',
@@ -31,6 +32,18 @@ const BUNDLED = Object.freeze([
     tagline: 'Dijital kartvizit platformu',
     description: 'Kartvizitinizi dijitale taşıyın. İlgezdi hesabınız da Qartim hesabıyla açılır.',
     url: 'https://www.qartim.com', color: '#b85c3a', letter: 'Q',
+  },
+  {
+    id: 'markacrm', name: 'Marka CRM', category: 'CRM',
+    tagline: 'Satıştan desteğe tek platform',
+    description: 'Fırsattan teklife, faturadan uzaktan desteğe tüm müşteri süreci tek platformda; kendi logonuz ve alan adınızla.',
+    url: 'https://www.markacrm.com', color: '#7a4a8a', letter: 'M',
+  },
+  {
+    id: 'tinga', name: 'Tınga', category: 'Müzik çalar',
+    tagline: 'Müziğin kadim hali',
+    description: 'Winamp ruhunu modern teknolojiyle harmanlayan müzik çalar: Hi-Fi ses, 10 bant ekolayzer, temalar ve AI asistanı. Windows, macOS, Linux.',
+    url: 'https://www.tinga.com.tr', color: '#c89540', letter: 'T',
   },
   {
     id: 'trendtech', name: 'TrendTech', category: 'Kurumsal BT',
