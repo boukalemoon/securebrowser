@@ -19,7 +19,7 @@ const FETCH_TIMEOUT_MS = 8000;
 const MAX_ITEMS = 24;
 
 // Açıklamalar ürünlerin kendi sitelerindeki tanıtımlardan (2026-09-15; Marka CRM ve
-// Tınga 2026-09-16, sayfa başlığı, açıklaması ve özellik başlıklarından).
+// Tınga için sayfa başlığı, açıklaması ve özellik başlıklarından).
 const BUNDLED = Object.freeze([
   {
     id: 'arku', name: 'Arku Remote', category: 'Uzak masaüstü',

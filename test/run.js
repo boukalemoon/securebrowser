@@ -1365,7 +1365,7 @@ suite('Keşfet — TrendTech yazılımları');
   check('Keşfet akışı çerezsiz, bellek içi oturumla, günde en fazla bir kez', feedJs.includes("credentials: 'omit'") && feedJs.includes("FEED_PARTITION = 'ilgezdi-discover'") && feedJs.includes('REFRESH_MS = 24 * 3600 * 1000'));
   check('Keşfet: Marka CRM ve Tınga da listede', ['markacrm', 'tinga'].every((id) => df.BUNDLED.some((b) => b.id === id)));
 
-  suite('Yer imleri paneli, ayar kaydı ve senkron çakışması (16 Eyl bildirimleri)');
+  suite('Yer imleri paneli, ayar kaydı ve senkron çakışması (15 Eyl gece bildirimleri)');
   {
     const bmJs = read('renderer/bookmarks-panel.js');
     check('yer imleri paneline position verilmiyor (.side-panel sağa sabitler; 0.8.0\'da sayfanın altına düşüyordu)', !/#panel-bookmarks\s*\{[^}]*position/.test(bmJs));
