@@ -1194,6 +1194,13 @@ function runBrowserCommand(win, state, cmd) {
 // kullandığı birleşimler sayfada yakalanmaz (bkz. browser-commands.js).
 function bindBrowserInput(wc, win, state, surface) {
   wc.on('before-input-event', (event, input) => {
+    // Esc: sayfa yüklenirken durdurur (Chrome gibi; yenile düğmesinin ipucu bunu vaat
+    // ediyordu ama çalışmıyordu). Tuş sayfaya yine iletilir: Esc ile pencere/menü kapatan
+    // siteler bozulmaz. Yüklenmiyorsa hiçbir şey yapılmaz.
+    if (surface === 'page' && input.type === 'keyDown' && input.key === 'Escape'
+        && !input.control && !input.alt && !input.shift && !input.meta && !input.isAutoRepeat && wc.isLoading()) {
+      wc.stop();
+    }
     const cmd = commandForInput(input, { platform: process.platform, surface });
     if (!cmd) return;
     event.preventDefault();

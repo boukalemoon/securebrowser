@@ -1684,7 +1684,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (isAuthScreenOpen()) window.ilgezdiAuth?.close?.();
     else if (!findBar.hidden) closeFindBar(true);
     else if (currentScreen) hideScreen();
-    else closeAllPanels();
+    else {
+      const anyPanel = ALL_PANELS.some((n) => document.getElementById(`panel-${n}`)?.classList.contains('visible'));
+      closeAllPanels();
+      // Kapatılacak bir şey yoksa yüklenen sayfa durdurulur (yenile düğmesindeki "Esc").
+      if (!anyPanel && reloadIsStop) sb.stop?.();
+    }
   });
 
   // Marka logolarını enjekte et (toolbar + auth)

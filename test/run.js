@@ -1328,6 +1328,9 @@ suite('Yer imi simgeleri, geçmişte HTTP işareti, Arku izinleri, durdur düğm
   check('panodan okuma (yapıştırma) sorularak veriliyor ve Site Bilgisi panelinde görünüyor',
     safety.SITE_PERMISSIONS.some((p) => p.id === 'clipboard-read' && p.ask) && /const ASK_USER\s*= new Set\(\[[^\]]*'clipboard-read'/.test(mainJs));
   check('klavye kilidi (tam ekranda sistem tuşları) sessizce izinli', /const QUIET_ALLOW = new Set\(\[[^\]]*'keyboardLock'/.test(mainJs));
+  check('Esc yüklenen sayfayı durduruyor (odak sayfada: ana süreç, tuş sayfaya da gider; arayüzde: kapatılacak panel/ekran yoksa)',
+    /surface === 'page' && input\.type === 'keyDown' && input\.key === 'Escape'[\s\S]{0,160}wc\.isLoading\(\)\) \{\s*wc\.stop\(\);\s*\}\s*const cmd/.test(mainJs)
+    && /if \(!anyPanel && reloadIsStop\) sb\.stop\?\.\(\);/.test(read('renderer/app.js')));
   check('yenile düğmesi yükleme sırasında durdur oluyor',
     read('preload/preload.js').includes("ipcRenderer.invoke('stop-loading')") && mainJs.includes("ipcMain.handle('stop-loading'") && read('renderer/app.js').includes('reloadIsStop ? sb.stop?.() : sb.reload()'));
   const bmJs = read('renderer/bookmarks-panel.js');
