@@ -295,7 +295,11 @@ input, select, textarea { font-family: var(--font-ui); }
 .bookmark-chip .chip-favicon { flex-shrink: 0; }
 .bookmark-chip:focus-visible { outline: 2px solid var(--accent, #d4a85a); outline-offset: -2px; }
 .bookmark-bar-hint { font-size: 11.5px; color: var(--ink-mute); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.bookmark-chip-all { margin-left: auto; color: var(--ink-mute); border-color: var(--line); }
+/* "Tüm yer imleri": yalnızca simge (kullanıcı: yazılı düğme çubukta sırıtıyordu); sayı ipucunda */
+.bookmark-chip-all { margin-left: auto; width: 28px; height: 24px; padding: 0; justify-content: center; color: var(--ink-mute); border-color: transparent; }
+.bookmark-chip-all:hover { color: var(--gold); }
+.bookmark-chip .chip-favicon img { width: 14px; height: 14px; object-fit: contain; display: block; }
+.bookmark-chip .chip-favicon.has-img { background: none !important; }
 
 /* ══════════════════════════════════════════════════════════
    MAIN: SIDEBAR + CONTENT
@@ -635,4 +639,31 @@ input, select, textarea { font-family: var(--font-ui); }
 .tab-audio:hover { background: var(--bg-elev); color: var(--gold); }
 .tab-audio.muted { color: var(--danger); }
 .tab.pinned .tab-audio { position: absolute; right: 1px; top: 1px; width: 14px; height: 14px; }
+
+/* ── Sekme simgesi ve yükleme göstergesi ────────────────────────────────────
+   Dönen halka temanın altın → bakır geçişiyle çizilir; ortasında Göktürk
+   güneşini andıran küçük bir öz nabız gibi atar. Hareketi azalt açıksa yavaşlar. */
+.tab-icon { overflow: hidden; }
+.tab-icon img { width: 14px; height: 14px; object-fit: contain; display: block; }
+.tab-icon.tab-initial { font-size: 9px; font-weight: 700; color: var(--ink-soft); background: color-mix(in srgb, var(--bg-elev) 80%, transparent); }
+.tab.active .tab-icon.tab-initial { color: var(--gold); }
+.tab-spinner { position: relative; width: 14px; height: 14px; display: block; }
+.tab-spinner::before {
+  content: ''; position: absolute; inset: 0; border-radius: 50%;
+  background: conic-gradient(from 0deg, transparent 0 20%, var(--copper) 55%, var(--gold) 100%);
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2.5px), #000 calc(100% - 2px));
+          mask: radial-gradient(farthest-side, transparent calc(100% - 2.5px), #000 calc(100% - 2px));
+  animation: spin-slow .85s linear infinite;
+}
+.tab-spinner::after {
+  content: ''; position: absolute; inset: 5px; border-radius: 50%;
+  background: var(--gold); animation: pulse-soft 1.1s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .tab-spinner::before { animation-duration: 2.6s; }
+  .tab-spinner::after { animation: none; opacity: .8; }
+}
+/* Sabitlenmiş sekme artık simgeyi (ya da dönen halkayı) gösterir; eski baş harf yer tutucusu kalkar */
+.tab.pinned::before { content: none; }
+.tab.pinned .tab-icon { width: 16px; height: 16px; }
 .tab.dragging { opacity: .45; }

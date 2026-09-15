@@ -38,6 +38,17 @@ contextBridge.exposeInMainWorld('secureBrowser', {
   goBack:    ()    => ipcRenderer.invoke('go-back'),
   goForward: ()    => ipcRenderer.invoke('go-forward'),
   reload:    ()    => ipcRenderer.invoke('reload'),
+  stop:      ()    => ipcRenderer.invoke('stop-loading'),
+
+  // ── Site simgeleri (yer imleri için önbellekten; ağ isteği yok) ────────────────
+  favicons: {
+    lookup: (urls) => ipcRenderer.invoke('favicons-lookup', urls),
+  },
+
+  // ── Keşfet (TrendTech yazılımları) ────────────────────────────────────────────
+  discover: {
+    list: () => ipcRenderer.invoke('discover-list'),
+  },
 
   // ── Ayarlar ─────────────────────────────────────────────────────────────────
   getConfig:  ()    => ipcRenderer.invoke('get-config'),
@@ -76,6 +87,7 @@ contextBridge.exposeInMainWorld('secureBrowser', {
     exportCSV: (query)       => ipcRenderer.invoke('logs-export-csv', query),
     clearLogs: ()            => ipcRenderer.invoke('logs-clear'),
     deleteEntries: (ids)     => ipcRenderer.invoke('logs-delete', ids),
+    httpReport: ()           => ipcRenderer.invoke('logs-http-report'),
     sync:      (url, apiKey) => ipcRenderer.invoke('logs-sync', { serverUrl: url, apiKey }),
   },
 
@@ -131,6 +143,8 @@ contextBridge.exposeInMainWorld('secureBrowser', {
     detect:        ()   => ipcRenderer.invoke('bm-import-detect'),
     importBrowser: (id) => ipcRenderer.invoke('bm-import-browser', id),
     importFile:    ()   => ipcRenderer.invoke('bm-import-file'),
+    // Mevcut yer imlerinin simgeleri: tarayıcıların yerel simge önbelleğinden
+    importFavicons: (urls) => ipcRenderer.invoke('bm-import-favicons', urls),
   },
 
   // ── Şifre yöneticisi ─────────────────────────────────────────────────────────

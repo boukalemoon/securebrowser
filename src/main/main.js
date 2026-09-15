@@ -18,6 +18,12 @@ const { setupPasswordManager, getForOrigin } = require('./password-manager');
 const { setupAutoUpdater } = require('./auto-updater');
 const { setupDiagnostics, log: diag, logError } = require('./diagnostics');
 const { setupThreatProtection } = require('./threat-protection');
+const { createFaviconCache, hostKey: faviconHost } = require('./favicon-cache');
+// Site simgesi önbelleği: app.whenReady içinde, şifreleme anahtarı hazır olunca kurulur.
+let faviconCache = null;
+const { setupDiscover } = require('./discover-feed');
+// Keşfet kartları (TrendTech yazılımları): uygulamadaki liste + ilgezdi.com.tr'den günlük tazeleme.
+setupDiscover(ipcMain, session);
 const {
   normalizeWebrtcPolicy, DEFAULT_WEBRTC_POLICY, UI_COMMANDS, commandForInput, buildContextMenuModel,
   nextZoomFactor, zoomKeyForUrl, createZoomStore, snapshotHistory, pushClosedTab, isWebUrl,
@@ -189,8 +195,12 @@ function logVisit(data) {
 
 // Site izin istekleri (kamera, mikrofon, konum...) — Electron varsayılanı
 // İZİN VERMEKTİR; burada hassas izinler kullanıcı onayına bağlanır.
-const QUIET_ALLOW = new Set(['fullscreen', 'clipboard-sanitized-write', 'pointerLock']);
-const ASK_USER    = new Set(['media', 'display-capture', 'geolocation', 'notifications', 'midi', 'midiSysex']);
+// keyboardLock: uzak masaüstü gibi sitelerin tam ekranda sistem tuşlarını (Alt+Tab,
+// Windows tuşu) yakalaması; yalnızca tam ekran ve kullanıcı etkileşimiyle çalışır.
+const QUIET_ALLOW = new Set(['fullscreen', 'clipboard-sanitized-write', 'pointerLock', 'keyboardLock']);
+// clipboard-read: panodan okuma (yapıştırma). Eskiden sorulmadan reddediliyordu;
+// Arku uzak masaüstü bilgisayardaki panoyu alamıyordu (kullanıcı bildirdi).
+const ASK_USER    = new Set(['media', 'display-capture', 'geolocation', 'notifications', 'midi', 'midiSysex', 'clipboard-read']);
 // İzin adları site-safety.js'teki SITE_PERMISSIONS listesinden gelir (Site Bilgisi paneliyle aynı).
 
 // İzin kararları site (origin) + izin türü bazında hatırlanır ve config'e
@@ -714,9 +724,39 @@ function createTab(win, state, url = config.homepage, opts = {}) {
     sendTabsUpdate(win, state);
   });
 
+  // Yükleme göstergesi: sekmede dönen simge. Eskiden sekmede hiçbir işaret yoktu;
+  // sayfanın yüklenip yüklenmediği anlaşılmıyordu (kullanıcı bildirdi).
+  view.webContents.on('did-start-loading', () => {
+    const tab = state.tabs.get(tabId);
+    if (tab && !tab.loading) { tab.loading = true; sendTabsUpdate(win, state); }
+  });
+  view.webContents.on('did-stop-loading', () => {
+    const tab = state.tabs.get(tabId);
+    if (tab && tab.loading) { tab.loading = false; sendTabsUpdate(win, state); }
+  });
+
+  // Site simgesi: sayfanın kendi bildirdiği adresten, sekmenin oturumuyla ve çerezsiz
+  // (favicon-cache.js). Dış favicon servisi yok.
+  view.webContents.on('page-favicon-updated', (e, favicons) => {
+    if (!faviconCache) return;
+    const pageUrl = view.webContents.getURL();
+    faviconCache.update(view.webContents.session, pageUrl, favicons, { incognito: isIncognito }).then((dataUrl) => {
+      const tab = state.tabs.get(tabId);
+      if (tab && dataUrl && tab.favicon !== dataUrl && faviconHost(tab.url) === faviconHost(pageUrl)) {
+        tab.favicon = dataUrl;
+        sendTabsUpdate(win, state);
+      }
+    }).catch(() => {});
+  });
+
   view.webContents.on('did-navigate', (e, navUrl) => {
     const tab = state.tabs.get(tabId);
-    if (tab) { tab.url = navUrl; tab.blockedPopups = []; }
+    if (tab) {
+      // Başka siteye geçince eski simge kalmasın; önbellekte varsa hemen gösterilir.
+      if (faviconHost(tab.url) !== faviconHost(navUrl)) tab.favicon = faviconCache ? faviconCache.get(navUrl, { incognito: isIncognito }) : '';
+      tab.url = navUrl;
+      tab.blockedPopups = [];
+    }
     // Kaydedilmiş site yakınlaştırması. Gizli pencerede kalıcı değer kullanılmaz.
     if (!isIncognito) {
       const saved = zoomStore.get(zoomKeyForUrl(navUrl));
@@ -1016,6 +1056,7 @@ function sendTabsUpdate(win, state) {
   const tabsData = [...state.tabs.entries()].map(([id, tab]) => ({
     id, url: tab.url, title: tab.title, isActive: id === state.activeTabId,
     pinned: !!tab.pinned, audible: !!tab.audible, muted: !!tab.muted,
+    loading: !!tab.loading, favicon: tab.favicon || '',
   }));
   if (state === mainState) scheduleSessionSave();
   win.webContents.send('tabs-update', tabsData);
@@ -1838,6 +1879,7 @@ ipcMain.handle('clear-all', async (event) => {
     // güvenli, Electron sürümleri arasında da uyumlu.
     await ses.clearStorageData();
     secureLog?.clearLogs();
+    faviconCache?.clear();   // simge önbelleği de ziyaret edilen siteleri ele verir
     deleteSessionFiles();
     for (const [id, d] of downloads) if (!d.item) downloads.delete(id);
     saveDownloadHistoryNow();
@@ -2108,6 +2150,24 @@ app.whenReady().then(() => {
   vpnManager.reconcile().catch(() => {});
   secureLog  = new SecureLogManager(USER_DATA);
   loadDownloadHistory();   // günlük anahtarı hazır olduktan sonra
+
+  // Site simgeleri (favicon-cache.js): ziyaret günlüğüyle aynı anahtarla şifreli
+  // önbellek — ziyaret edilen alan adlarını ele verdiği için düz yazılmaz.
+  const FAVICONS_ENC = path.join(USER_DATA, 'favicons.enc');
+  const FAVICONS_PLAIN = path.join(USER_DATA, 'favicons.json');
+  faviconCache = createFaviconCache({
+    read: () => { try { return readProtectedJson(FAVICONS_ENC, FAVICONS_PLAIN); } catch { return null; } },
+    write: (obj) => { try { writeProtectedJson(FAVICONS_ENC, FAVICONS_PLAIN, obj); } catch (e) { logError('favicons', e); } },
+  });
+  // Yer imleri simgeleri önbellekten verilir; ağ isteği yapılmaz.
+  ipcMain.handle('favicons-lookup', (_e, urls) => (faviconCache ? faviconCache.lookup(Array.isArray(urls) ? urls.map(String) : []) : {}));
+  // Yenile düğmesi yükleme sırasında "Durdur" olur.
+  ipcMain.handle('stop-loading', (event) => {
+    const { state } = getContextFromEvent(event);
+    state.tabs.get(state.activeTabId)?.view.webContents.stop();
+  });
+  // Geçmiş sayfası ve yeni sekme: son 7 günün şifresiz (HTTP) ziyaret özeti.
+  ipcMain.handle('logs-http-report', () => (secureLog ? secureLog.httpReport({ days: 7 }) : null));
 
   vpnManager.onStatusChange(() => {
     // Tünel beklenmedik şekilde düştüyse kullanıcı arayüze bakmıyor olabilir —

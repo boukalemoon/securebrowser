@@ -7,8 +7,10 @@
  *   2) Herhangi bir tarayıcıdan dışa aktarılmış Netscape HTML dosyası
  *      (Firefox, Safari dahil hepsi bu formatı destekler).
  *
- * Yalnızca yer imleri okunur; şifre/oturum gibi hassas veriye DOKUNULMAZ.
- * Sonuç renderer'a { items:[{title,url,folder}] } olarak döner; birleştirme
+ * Yalnızca yer imleri ve onların site simgeleri okunur; şifre/oturum gibi hassas
+ * veriye DOKUNULMAZ. Simgeler tarayıcının kendi yerel simge önbelleğinden (Favicons)
+ * alınır — hiçbir siteye ya da dış favicon servisine istek atılmaz.
+ * Sonuç renderer'a { items:[{title,url,folder,favicon?}] } olarak döner; birleştirme
  * (dedupe + İlgezdi yer imlerine ekleme) renderer tarafında yapılır.
  */
 
@@ -18,6 +20,7 @@ const fs   = require('fs');
 const path = require('path');
 const os   = require('os');
 const { dialog } = require('electron');
+const { toDataUrl } = require('./favicon-cache');
 
 const HOME        = os.homedir();
 const LOCALAPPDATA = process.env.LOCALAPPDATA || path.join(HOME, 'AppData', 'Local');
@@ -107,6 +110,49 @@ function parseNetscape(html) {
   return items;
 }
 
+// ── Site simgeleri: tarayıcının yerel simge önbelleğinden (ağ isteği yok) ──
+// Chromium "Favicons" SQLite: icon_mapping (page_url → icon_id) ve favicon_bitmaps
+// (icon_id, image_data, width). Tarayıcı açıkken dosya kilitli olabildiği için
+// geçici kopyadan okunur; kopya her durumda silinir. Simge favicon-cache.js ile
+// doğrulanır (gerçek resim imzası, en fazla 64 KB) ve data: URL'e çevrilir.
+const MAX_FAVICON_URLS = 5000;
+
+async function faviconsFromSource(src, urls) {
+  const dbFile = path.join(path.dirname(src.file), 'Favicons');
+  const list = (Array.isArray(urls) ? urls : []).slice(0, MAX_FAVICON_URLS);
+  if (!list.length || !fs.existsSync(dbFile)) return {};
+  const tmp = path.join(os.tmpdir(), `ilgezdi-favicons-${process.pid}-${Date.now()}.db`);
+  const out = {};
+  let db = null;
+  try {
+    fs.copyFileSync(dbFile, tmp);
+    const initSqlJs = require('sql.js');
+    const SQL = await initSqlJs();
+    db = new SQL.Database(fs.readFileSync(tmp));
+    const st = db.prepare(
+      'SELECT b.image_data FROM icon_mapping m JOIN favicon_bitmaps b ON b.icon_id = m.icon_id ' +
+      'WHERE m.page_url = ? ORDER BY CASE b.width WHEN 16 THEN 0 WHEN 32 THEN 1 ELSE 2 END LIMIT 1');
+    for (const url of list) {
+      st.bind([url]);
+      if (st.step()) {
+        const data = st.get()[0];
+        if (data && data.length) {
+          const dataUrl = toDataUrl(Buffer.from(data));
+          if (dataUrl) out[url] = dataUrl;
+        }
+      }
+      st.reset();
+    }
+    st.free();
+  } catch {
+    // Okunamayan simge önbelleği içe aktarmayı durdurmaz; yer imleri simgesiz gelir.
+  } finally {
+    try { if (db) db.close(); } catch {}
+    try { fs.unlinkSync(tmp); } catch {}
+  }
+  return out;
+}
+
 function detect() {
   return chromiumSources()
     .map((s) => {
@@ -120,15 +166,33 @@ function detect() {
     .filter(Boolean);
 }
 
-function importBrowser(id) {
+async function importBrowser(id) {
   const src = chromiumSources().find((s) => s.id === id);
   if (!src || !fs.existsSync(src.file)) return { items: [], error: 'not_found' };
   try {
     const json = JSON.parse(fs.readFileSync(src.file, 'utf8'));
-    return { items: parseChromium(json) };
+    const items = parseChromium(json);
+    const favicons = await faviconsFromSource(src, items.map((i) => i.url));
+    return { items: items.map((i) => (favicons[i.url] ? { ...i, favicon: favicons[i.url] } : i)) };
   } catch (e) {
     return { items: [], error: e.message };
   }
+}
+
+/**
+ * Mevcut yer imleri için simge: kurulu Chromium tarayıcılarının yerel simge
+ * önbelleklerinden sırayla (bir adres bulunduysa sonraki tarayıcıda aranmaz).
+ * Yalnızca kullanıcı panelden istediğinde çağrılır.
+ */
+async function importFavicons(urls) {
+  const list = (Array.isArray(urls) ? urls : []).map(String).filter((u) => /^https?:\/\//i.test(u)).slice(0, MAX_FAVICON_URLS);
+  const out = {};
+  for (const src of chromiumSources()) {
+    const missing = list.filter((u) => !out[u]);
+    if (!missing.length) break;
+    Object.assign(out, await faviconsFromSource(src, missing));
+  }
+  return { favicons: out, count: Object.keys(out).length };
 }
 
 async function importFile(win) {
@@ -147,9 +211,10 @@ async function importFile(win) {
 }
 
 function setupBookmarkImport(ipcMain, getWindow) {
-  ipcMain.handle('bm-import-detect',  () => detect());
-  ipcMain.handle('bm-import-browser', (e, id) => importBrowser(id));
-  ipcMain.handle('bm-import-file',    () => importFile(getWindow()));
+  ipcMain.handle('bm-import-detect',   () => detect());
+  ipcMain.handle('bm-import-browser',  (e, id) => importBrowser(id));
+  ipcMain.handle('bm-import-file',     () => importFile(getWindow()));
+  ipcMain.handle('bm-import-favicons', (e, urls) => importFavicons(urls));
 }
 
-module.exports = { setupBookmarkImport };
+module.exports = { setupBookmarkImport, _internals: { parseChromium, parseNetscape, faviconsFromSource, importFavicons } };

@@ -51,6 +51,9 @@ const SITE_PERMISSIONS = Object.freeze([
   { id: 'notifications',       label: 'Bildirimler',                    ask: true },
   { id: 'midi',                label: 'MIDI cihazları',                 ask: true },
   { id: 'midiSysex',           label: 'MIDI sistem mesajları',          ask: true },
+  // Uzak masaüstü (Arku) gibi sitelerin bilgisayardaki panoyu okuması (yapıştırma).
+  // Eskiden hiç sorulmadan reddediliyordu; site kopyalananı alamıyordu.
+  { id: 'clipboard-read',      label: 'Panodan okuma (yapıştırma)',     ask: true },
   { id: 'popups',              label: 'Açılır pencereler',              ask: false },
   { id: 'third-party-cookies', label: 'Üçüncü taraf çerezler',          ask: false },
 ]);

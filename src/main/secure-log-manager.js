@@ -255,6 +255,38 @@ class SecureLogManager {
     };
   }
 
+  /**
+   * Şifresiz (HTTP) ziyaret özeti — "Yalnızca HTTPS" kapalı kullanıcı nerede şifresiz
+   * bağlantı kullandığını görebilsin (Geçmiş sayfası ve yeni sekme özet kartı).
+   * Adres değil yalnızca alan adı ve sayı döner. Yerel ağ adresleri (localhost, modem
+   * arayüzü vb.) sayılmaz: orada HTTP olağandır ve internete çıkmaz.
+   */
+  httpReport({ days = 7, now = Date.now(), top = 5 } = {}) {
+    const from = now - days * 86400000;
+    const isLocal = (d) => !d || d === 'localhost' || d.endsWith('.local') || d.endsWith('.localhost')
+      || /^(127\.|10\.|192\.168\.|169\.254\.|172\.(1[6-9]|2\d|3[01])\.)/.test(d) || d === '[::1]';
+    const visits = this.logs.filter((l) => l.url && l.timestamp >= from && l.timestamp <= now);
+    const counted = [];
+    for (const l of visits) {
+      let domain = l.domain || '';
+      if (!domain) { try { domain = new URL(l.url).hostname; } catch {} }
+      if (!isLocal(domain)) counted.push({ domain, http: /^http:\/\//i.test(l.url) });
+    }
+    const byDomain = new Map();
+    for (const v of counted) if (v.http) byDomain.set(v.domain, (byDomain.get(v.domain) || 0) + 1);
+    const topDomains = [...byDomain.entries()]
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .slice(0, top)
+      .map(([domain, count]) => ({ domain, count }));
+    return {
+      days, from, to: now,
+      total: counted.length,
+      http: counted.filter((v) => v.http).length,
+      httpDomains: byDomain.size,
+      top: topDomains,
+    };
+  }
+
   clearLogs() {
     this.logs      = [];
     this.syncQueue = [];

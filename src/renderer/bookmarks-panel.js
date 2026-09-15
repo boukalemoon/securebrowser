@@ -45,7 +45,7 @@ function bmInjectStyles() {
     .bm-layout { display:flex; flex:1; overflow:hidden; }
 
     .bm-sidebar {
-      width:110px; flex-shrink:0;
+      width:150px; flex-shrink:0;   /* 110px'te klasör adları "Tü…", "Yer işa…" diye kesiliyordu */
       border-right:1px solid var(--border-color);
       overflow-y:auto; padding:8px 6px;
     }
@@ -358,15 +358,17 @@ function bmRenderPanel() {
     container.innerHTML = items.map(item => bmItemHTML(item)).join('');
   }
 
-  // Favicon yüklenemezse yedek simge (satır içi onerror CSP'ye takılıyordu)
+  // Simge çözülemezse boş kalmasın (satır içi onerror CSP'ye takılıyordu)
   container.querySelectorAll('img.bm-fav').forEach(img => {
     img.addEventListener('error', () => {
       const span = document.createElement('span');
-      span.style.fontSize = '14px';
-      span.textContent = '🌐';
+      span.style.cssText = 'display:grid;place-items:center;width:18px;height:18px;border-radius:4px;background:var(--bg-input);color:var(--text-muted);font-size:10px;font-weight:700';
+      span.textContent = '•';
       img.replaceWith(span);
     }, { once: true });
   });
+  // Önbellekteki site simgeleri (ziyaret edilen siteler) — gelince yeniden çizilir.
+  bmLoadFavicons();
 
   // Navigasyon click
   container.querySelectorAll('.bm-item-info').forEach(el => {
@@ -389,21 +391,51 @@ function bmRenderPanel() {
   });
 }
 
+// ─── Site simgeleri ───────────────────────────────────────────────────────────
+// Yer iminin kendi simgesi (tarayıcıdan içe aktarılırken gelir) ya da ana süreçteki
+// önbellek (ziyaret edilen sitelerin simgeleri, favicon-cache.js). Arayüz hiçbir
+// siteye doğrudan simge isteği atmaz; yalnızca data:image adresleri gösterilir.
+const bmFavicons = new Map();   // alan adı → data:image URL
+let bmFaviconsAt = 0;
+function bmHost(url) { try { return new URL(url).hostname.toLowerCase().replace(/^www\./, ''); } catch { return ''; } }
+function bmFaviconFor(item) {
+  const own = String((item && item.favicon) || '');
+  if (/^data:image\//.test(own)) return own;
+  return bmFavicons.get(bmHost(item && item.url)) || '';
+}
+// Önbellekteki simgeleri toplu çeker (en fazla dakikada bir); yeni simge gelirse
+// çubuk ve açık panel yeniden çizilir.
+async function bmLoadFavicons() {
+  if (Date.now() - bmFaviconsAt < 60000) return;
+  bmFaviconsAt = Date.now();
+  try {
+    const map = await window.secureBrowser?.favicons?.lookup?.(bmItems.map((i) => i.url));
+    let added = 0;
+    for (const [host, dataUrl] of Object.entries(map || {})) {
+      if (/^data:image\//.test(dataUrl) && bmFavicons.get(host) !== dataUrl) { bmFavicons.set(host, dataUrl); added++; }
+    }
+    if (added) {
+      bmRenderBar();
+      if (_bmPanelOpen) { try { bmRenderPanel(); } catch {} }
+    }
+  } catch {}
+}
+
 function bmItemHTML(item) {
   // GÜVENLİK (denetim Y-04): başlık, URL ve favicon dış kaynaklı — içe aktarılan
-  // yer imi dosyası ya da sayfanın kendi <title>'ı. Hepsi kaçışlanır; favicon
-  // yalnızca http(s) veya data:image olabilir.
-  // Satır içi onerror kaldırıldı: CSP (script-src 'self') onu zaten engelliyordu,
-  // yani yedek 🌐 simgesi hiç görünmüyordu. Yerine bmRenderPanel'de
-  // addEventListener kullanılıyor (denetim D-05).
+  // yer imi dosyası ya da sayfanın kendi <title>'ı. Hepsi kaçışlanır. Simge yalnızca
+  // data:image olabilir; eski kayıtlardaki uzak simge adresleri (Google s2 dahil)
+  // yüklenmez — arayüzden siteye istek gitmesin.
   const H = window.ilgezdiHtml;
-  const rawFav = String(item.favicon || '');
-  // Önceden kaydedilmiş Google favicon adresleri de yüklenmez (gizlilik — bkz. bmGetFavicon).
-  const fav = rawFav.includes('google.com/s2/favicons') ? '' : H.safeUrl(rawFav, { allowData: true });
+  const fav = H.safeUrl(bmFaviconFor(item), { allowData: true });
+  const domain = bmGetDomain(item.url).replace(/^www\./, '');
+  const icon = fav
+    ? `<img class="bm-fav" src="${H.esc(fav)}" alt="">`
+    : `<span aria-hidden="true" style="display:grid;place-items:center;width:18px;height:18px;border-radius:4px;color:#fff;font-size:10px;font-weight:700;background:${bmChipColor(domain)}">${H.esc((domain[0] || '•').toLocaleUpperCase('tr'))}</span>`;
   return `
     <div class="bm-item" data-id="${H.esc(item.id)}">
       <div class="bm-item-icon">
-        ${fav ? `<img class="bm-fav" src="${H.esc(fav)}" alt="">` : '<span style="font-size:14px">🌐</span>'}
+        ${icon}
       </div>
       <div class="bm-item-info" data-url="${H.esc(item.url)}">
         <div class="bm-item-title">${H.esc(item.title)}</div>
@@ -427,9 +459,14 @@ function bmRenderFolders() {
     </button>
     ${bmFolders.map(f => {
       const count = bmItems.filter(i => i.folderId === f.id).length;
+      // Boş hazır klasörler (Genel, İş, Okuma) listede gösterilmez: içe aktarılmış yer
+      // imleri olan kullanıcı en üstteki bu klasörlere tıklayıp listeyi boş sanıyordu.
+      // Seçiliyse ya da içine yer imi eklenince görünür.
+      if (!count && ['default','work','reading'].includes(f.id) && bmCurrentFolder !== f.id) return '';
+      const fname = window.ilgezdiHtml.esc(f.name);
       return `
-        <button class="bm-folder-item ${bmCurrentFolder === f.id ? 'active' : ''}" data-id="${f.id}">
-          <span class="bm-folder-name">${window.ilgezdiHtml.esc(f.name)}</span>
+        <button class="bm-folder-item ${bmCurrentFolder === f.id ? 'active' : ''}" data-id="${window.ilgezdiHtml.esc(f.id)}" title="${fname} (${count})">
+          <span class="bm-folder-name">${fname}</span>
           <span class="bm-folder-count">${count}</span>
           ${!['default','work','reading'].includes(f.id) ? `<span class="bm-folder-del" data-fid="${f.id}">✕</span>` : ''}
         </button>`;
@@ -558,8 +595,20 @@ function bmMergeImported(items) {
   const existing    = new Set(bmItems.map(i => i.url));
   const folderByName = new Map(bmFolders.map(f => [f.name, f.id]));
   let added = 0;
+  let iconsFilled = 0;
+  const byUrl = new Map(bmItems.map(i => [i.url, i]));
+  // Simge yalnızca doğrulanmış data:image olarak kabul edilir (ana süreç tarayıcının
+  // yerel simge önbelleğinden okur; uzak adres saklanmaz).
+  const validIcon = (s) => typeof s === 'string' && /^data:image\/(png|x-icon|gif|jpeg|webp|svg\+xml);base64,/.test(s) ? s : null;
   items.forEach(it => {
-    if (!it || !it.url || !/^https?:\/\//i.test(it.url) || existing.has(it.url)) return;
+    if (!it || !it.url || !/^https?:\/\//i.test(it.url)) return;
+    if (existing.has(it.url)) {
+      // Yeniden içe aktarmada simgesi eksik yer imlerini tamamla
+      const cur = byUrl.get(it.url);
+      const icon = validIcon(it.favicon);
+      if (cur && icon && !validIcon(cur.favicon)) { cur.favicon = icon; iconsFilled++; }
+      return;
+    }
     const fname = (it.folder || 'İçe Aktarılan').trim() || 'İçe Aktarılan';
     let fid = folderByName.get(fname);
     if (!fid) {
@@ -569,16 +618,40 @@ function bmMergeImported(items) {
     bmItems.push({
       id: bmGenId(), folderId: fid,
       title: it.title || bmGetDomain(it.url), url: it.url,
-      favicon: bmGetFavicon(it.url), createdAt: Date.now(),
+      favicon: validIcon(it.favicon), createdAt: Date.now(),
     });
     existing.add(it.url);
     added++;
   });
-  if (added) { bmSaveFolders(); bmSaveItems(); bmRenderFolders(); bmRenderPanel(); }
+  if (added || iconsFilled) { bmSaveFolders(); bmSaveItems(); bmRenderFolders(); bmRenderPanel(); }
   return added;
 }
 
+// Mevcut yer imlerine simge: kurulu tarayıcıların yerel simge önbelleğinden (ağ
+// isteği yok). Daha önce içe aktarılmış ama simgesiz gelmiş yer imleri için.
+async function bmImportFavicons() {
+  const missing = bmItems.filter((i) => !/^data:image\//.test(String(i.favicon || ''))).map((i) => i.url);
+  if (!missing.length) { alert('Tüm yer imlerinin simgesi zaten var.'); return; }
+  try {
+    const res = await window.secureBrowser?.bookmarks?.importFavicons?.(missing);
+    const map = (res && res.favicons) || {};
+    let filled = 0;
+    for (const item of bmItems) {
+      const icon = map[item.url];
+      if (typeof icon === 'string' && /^data:image\/(png|x-icon|gif|jpeg|webp|svg\+xml);base64,/.test(icon) && !/^data:image\//.test(String(item.favicon || ''))) {
+        item.favicon = icon;
+        filled++;
+      }
+    }
+    if (filled) { bmSaveItems(); bmRenderPanel(); }
+    alert(filled ? `${filled} yer iminin simgesi eklendi.` : 'Tarayıcıların simge önbelleğinde bu yer imleri için simge bulunamadı. Siteleri ziyaret ettikçe simgeler kendiliğinden gelir.');
+  } catch (e) {
+    alert('Simgeler alınamadı: ' + (e?.message || e));
+  }
+}
+
 async function bmRunImport(source) {
+  if (source === '__icons__') return bmImportFavicons();
   try {
     const res = source === '__file__'
       ? await window.secureBrowser?.bookmarks?.importFile()
@@ -613,6 +686,10 @@ async function bmShowImportMenu() {
   }
   rows.push(`<div class="bm-im-sep"></div>`);
   rows.push(`<button class="bm-im-item" data-src="__file__"><span>📄 HTML dosyasından…</span></button>`);
+  if (detected.length) {
+    rows.push(`<div class="bm-im-sep"></div>`);
+    rows.push(`<button class="bm-im-item" data-src="__icons__" title="Kurulu tarayıcıların kendi simge önbelleğinden; hiçbir siteye istek atılmaz"><span>🖼 Site simgelerini tarayıcılardan al</span></button>`);
+  }
   menu.innerHTML = rows.join('');
 
   const btn = document.getElementById('btn-bm-import');
@@ -738,14 +815,26 @@ function bmRenderBar() {
     const fav = document.createElement('span');
     fav.className = 'chip-favicon';
     fav.setAttribute('aria-hidden', 'true');
-    fav.textContent = (domain[0] || '•').toLocaleUpperCase('tr');
-    fav.style.background = bmChipColor(domain);
+    const letter = () => { fav.textContent = (domain[0] || '•').toLocaleUpperCase('tr'); fav.style.background = bmChipColor(domain); };
+    const iconSrc = bmFaviconFor(item);
+    if (iconSrc) {
+      const img = document.createElement('img');
+      img.src = iconSrc;
+      img.alt = '';
+      img.draggable = false;
+      img.addEventListener('error', () => { img.remove(); fav.classList.remove('has-img'); letter(); }, { once: true });
+      fav.classList.add('has-img');
+      fav.appendChild(img);
+    } else {
+      letter();
+    }
     const label = document.createElement('span');
     label.className = 'chip-label';
     label.textContent = item.title || domain;
     chip.append(fav, label);
     box.appendChild(chip);
   }
+  bmLoadFavicons();
   // Çubukta yalnızca çubuk klasörü var; diğer klasörler (içe aktarılan alt klasörler
   // dahil) Yer İmleri panelinde. Onu açan düğme bağlantı kutusunun DIŞINDA, çubuğun
   // sağ ucunda: bağlantılar sığmadığında da görünür kalır (ilk sürümde 28 bağlantıda
@@ -757,13 +846,24 @@ function bmRenderBar() {
     all.type = 'button';
     all.id = 'bookmarks-bar-all';
     all.className = 'bookmark-chip bookmark-chip-all';
-    all.title = 'Tüm yer imleri ve klasörler (Ctrl+Shift+O)';
     all.addEventListener('click', () => document.getElementById('btn-bookmarks')?.click());
+    // Yalnızca simge (kullanıcı: yazılı düğme çubukta sırıtıyordu); sayı ipucunda.
+    // SVG DOM düğümleriyle kurulur (HTML metni ayrıştırılmaz).
+    const NS = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(NS, 'svg');
+    for (const [k, v] of Object.entries({ width: '16', height: '16', viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': '1.8', 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'aria-hidden': 'true' })) svg.setAttribute(k, v);
+    for (const d of ['M4 6.5A1.5 1.5 0 0 1 5.5 5H9l2 2h7.5A1.5 1.5 0 0 1 20 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 17.5z', 'M8.5 12.5h7M8.5 15.5h4.5']) {
+      const p = document.createElementNS(NS, 'path');
+      p.setAttribute('d', d);
+      svg.appendChild(p);
+    }
+    all.appendChild(svg);
     barEl.appendChild(all);
   }
   if (all) {
     all.classList.toggle('hidden', !(bmItems.length > items.length));
-    all.textContent = `📚 Tüm yer imleri (${bmItems.length})`;
+    all.title = `Tüm yer imleri ve klasörler (${bmItems.length}) · Ctrl+Shift+O`;
+    all.setAttribute('aria-label', all.title);
   }
 }
 

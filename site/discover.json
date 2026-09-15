@@ -1,0 +1,36 @@
+{
+  "version": 1,
+  "note": "İlgezdi › Keşfet kartları. Uygulama bu dosyayı günde en fazla bir kez çerezsiz okur; geçersiz alanlı kart gösterilmez. Yalnızca https bağlantı.",
+  "items": [
+    {
+      "id": "arku",
+      "name": "Arku Remote",
+      "category": "Uzak masaüstü",
+      "tagline": "Güvenli P2P uzak masaüstü",
+      "description": "Sunucusuz, uçtan uca şifreli, açık kaynak uzak masaüstü. Windows, macOS, Linux ve tarayıcı için.",
+      "url": "https://www.arku.com.tr",
+      "color": "#3a6db5",
+      "letter": "A"
+    },
+    {
+      "id": "qartim",
+      "name": "Qartim",
+      "category": "Dijital kartvizit",
+      "tagline": "Dijital kartvizit platformu",
+      "description": "Kartvizitinizi dijitale taşıyın. İlgezdi hesabınız da Qartim hesabıyla açılır.",
+      "url": "https://www.qartim.com",
+      "color": "#b85c3a",
+      "letter": "Q"
+    },
+    {
+      "id": "trendtech",
+      "name": "TrendTech",
+      "category": "Kurumsal BT",
+      "tagline": "Kurumsal BT ve siber güvenlik çözümleri",
+      "description": "Kurumsal işletmelere siber güvenlik, bulut mimarileri, KVKK uyumu ve yönetilebilir BT hizmetleri.",
+      "url": "https://www.trendtech.com.tr",
+      "color": "#5a7a4a",
+      "letter": "T"
+    }
+  ]
+}

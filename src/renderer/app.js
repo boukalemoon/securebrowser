@@ -179,8 +179,24 @@ function updateVpnIndicator(enabled) {
 const TAB_SVG_SPEAKER = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5L6 9H3v6h3l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg>';
 const TAB_SVG_MUTED   = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5L6 9H3v6h3l5 4z"/><path d="M22 9l-6 6"/><path d="M16 9l6 6"/></svg>';
 
+// Yenile düğmesi etkin sekme yüklenirken "Durdur"a dönüşür (Chrome/Edge gibi).
+const RELOAD_SVG = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 15.5-6.3L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15.5 6.3L3 16"/><path d="M3 21v-5h5"/></svg>';
+const STOP_SVG = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+let reloadIsStop = false;
+function updateReloadButton(activeTab) {
+  const btn = document.getElementById('btn-reload');
+  const loading = !!(activeTab && activeTab.loading);
+  if (!btn || loading === reloadIsStop) return;
+  reloadIsStop = loading;
+  btn.innerHTML = loading ? STOP_SVG : RELOAD_SVG;
+  btn.title = loading ? 'Yüklemeyi durdur (Esc)' : 'Yenile (F5)';
+  btn.setAttribute('aria-label', btn.title);
+  btn.classList.toggle('is-loading', loading);
+}
+
 function renderTabs(tabs) {
   currentTabs = tabs;
+  updateReloadButton(tabs.find((t) => t.isActive));
   const container = document.getElementById('tabs-container');
   if (!container) return;
   // Klavye odağı bir sekmedeyse yeniden çizimden sonra aynı sekmeye geri verilir.
@@ -203,6 +219,29 @@ function renderTabs(tabs) {
     el.setAttribute('role', 'tab');
     el.setAttribute('aria-selected', tab.isActive ? 'true' : 'false');
     el.tabIndex = tab.isActive ? 0 : -1;
+
+    // Sekme simgesi: yüklenirken dönen halka, yüklendiyse site simgesi (ana süreçten
+    // data: URL olarak gelir), yoksa alan adının baş harfi.
+    const icon = document.createElement('span');
+    icon.className = 'tab-icon';
+    icon.setAttribute('aria-hidden', 'true');
+    if (tab.loading) {
+      const spin = document.createElement('span');
+      spin.className = 'tab-spinner';
+      icon.appendChild(spin);
+      el.setAttribute('aria-busy', 'true');
+    } else if (tab.favicon && /^data:image\//.test(tab.favicon)) {
+      const img = document.createElement('img');
+      img.src = tab.favicon;
+      img.alt = '';
+      img.draggable = false;
+      img.addEventListener('error', () => { icon.replaceChildren(); icon.textContent = initial; icon.classList.add('tab-initial'); });
+      icon.appendChild(img);
+    } else {
+      icon.textContent = initial;
+      icon.classList.add('tab-initial');
+    }
+    el.appendChild(icon);
 
     const title = document.createElement('span');
     title.className = 'tab-title';
@@ -521,13 +560,63 @@ function renderHistoryPage() {
           <button type="button" class="page-btn danger" id="history-clear">Tümünü temizle</button>
         </div>
       </div>
+      <div class="http-report" id="history-http-report" hidden></div>
       <div class="list" id="history-list" aria-live="polite"></div>
       <div class="page-more"><button type="button" class="page-btn" id="history-more" hidden>Daha fazla göster</button></div>
     </div>`;
 }
 
+// Son 7 günün şifresiz (HTTP) ziyaret özeti — farkındalık için (kullanıcı önerisi).
+// Yalnızca alan adı ve sayı gösterilir; "Yalnızca HTTPS" kapalıysa tek tıkla açma.
+async function renderHttpReport(boxId) {
+  const box = document.getElementById(boxId);
+  if (!box) return;
+  let report = null;
+  let cfg = {};
+  try {
+    const res = await Promise.all([sb.logs.httpReport(), sb.getConfig()]);
+    report = res[0];
+    cfg = res[1] || {};
+  } catch {}
+  if (!report || !report.total) { box.hidden = true; return; }
+  const fmt = new Intl.NumberFormat('tr-TR');
+  const title = document.createElement('div');
+  title.className = 'http-report-title';
+  const body = document.createElement('div');
+  body.className = 'http-report-body';
+  box.classList.toggle('warn', report.http > 0);
+  if (!report.http) {
+    title.textContent = 'Son 7 günde tüm ziyaretleriniz şifreli bağlantıyla (HTTPS) yapıldı';
+    body.textContent = `${fmt.format(report.total)} ziyaret · şifresiz (HTTP) bağlantı yok`;
+  } else {
+    title.textContent = `Son 7 günde ${fmt.format(report.http)} ziyaret şifresiz bağlantıyla (HTTP) yapıldı`;
+    const names = report.top.map((t) => `${t.domain} (${fmt.format(t.count)})`).join(', ');
+    body.textContent = `${fmt.format(report.httpDomains)} sitede${names ? ': ' + names : ''}. Bu sayfalarda girilen bilgiler aynı ağdaki başkaları tarafından okunabilir.`;
+  }
+  box.replaceChildren(title, body);
+  if (report.http && !cfg.httpsOnly) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'page-btn';
+    btn.textContent = 'Yalnızca HTTPS’i aç';
+    btn.addEventListener('click', async () => {
+      try {
+        const current = await sb.getConfig();
+        await sb.saveConfig({ ...current, httpsOnly: true });
+        const done = document.createElement('span');
+        done.className = 'http-report-done';
+        done.textContent = 'Yalnızca HTTPS açıldı ✓';
+        btn.replaceWith(done);
+      } catch {}
+    });
+    box.appendChild(btn);
+  }
+  box.hidden = false;
+}
+
 async function loadHistory(reset) {
   if (reset) { historyView.page = 1; historyView.items = []; }
+  if (reset && !historyView.text) renderHttpReport('history-http-report');
   let r = { items: [], total: 0 };
   try { r = await sb.logs.search({ text: historyView.text, page: historyView.page, limit: 100 }); } catch {}
   historyView.items = historyView.page === 1 ? r.items : historyView.items.concat(r.items);
@@ -553,11 +642,17 @@ function renderHistoryList() {
       if (day !== lastDay) { html += `<div class="list-day">${H.esc(day)}</div>`; lastDay = day; }
       const time = new Date(it.timestamp).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
       const name = it.title || it.url;
+      // Şifresiz (HTTP) ziyaret işaretlenir: "Yalnızca HTTPS" kapalı kullanıcı nerede
+      // şifresiz bağlantı kullandığını görebilsin (kullanıcı önerisi).
+      const insecure = /^http:\/\//i.test(it.url);
+      const scheme = insecure
+        ? '<span class="lr-scheme http" title="Şifresiz bağlantı (HTTP): bu sayfaya gönderilen bilgiler ağda okunabilir">HTTP</span>'
+        : '<span class="lr-scheme https" title="Şifreli bağlantı (HTTPS)" aria-label="HTTPS">🔒</span>';
       html += `
-        <div class="list-row" role="link" tabindex="0" data-url="${H.esc(it.url)}">
+        <div class="list-row${insecure ? ' is-http' : ''}" role="link" tabindex="0" data-url="${H.esc(it.url)}">
           <span class="lr-icon" style="background:${iconColorFor(it.domain)}" aria-hidden="true">${H.esc(initialFor(it.domain))}</span>
           <span class="lr-title">${H.esc(name)}</span>
-          <span class="lr-url">${H.esc(it.domain || '')}</span>
+          <span class="lr-url">${scheme}${H.esc(it.domain || '')}</span>
           <span class="lr-time">${H.esc(time)}</span>
           <button type="button" class="lr-more" data-delete="${H.esc(it.id)}" title="Geçmişten sil" aria-label="Geçmişten sil: ${H.esc(name)}">✕</button>
         </div>`;
@@ -745,6 +840,54 @@ async function initDownloadsPage() {
   });
 }
 
+// ─── Keşfet: TrendTech yazılımları ────────────────────────────────────────────
+// Kartlar ana süreçten gelir (discover-feed.js: uygulamadaki liste + ilgezdi.com.tr'den
+// günlük tazeleme). Görsel ve tıklama sayımı yok; kart yeni sekmede siteyi açar.
+function renderDiscoverPage() {
+  return `
+    <div class="page fade-up" id="discover-page">
+      <div class="page-head">
+        <div>
+          <h1>Keşfet</h1>
+          <p class="page-sub">İlgezdi’yi geliştiren ekibin diğer yazılımları.</p>
+        </div>
+      </div>
+      <div class="discover-grid" id="discover-grid" aria-live="polite"><p class="page-empty">Yükleniyor…</p></div>
+    </div>`;
+}
+
+async function initDiscoverPage() {
+  const grid = document.getElementById('discover-grid');
+  if (!grid) return;
+  let items = [];
+  try { items = await sb.discover.list(); } catch {}
+  grid.replaceChildren();
+  const cards = (Array.isArray(items) ? items : []).filter((it) => it && /^https:\/\//i.test(it.url));
+  if (!cards.length) {
+    const p = document.createElement('p');
+    p.className = 'page-empty';
+    p.textContent = 'Şu an gösterilecek içerik yok.';
+    grid.appendChild(p);
+    return;
+  }
+  const part = (tag, cls, text) => { const e = document.createElement(tag); e.className = cls; e.textContent = text || ''; return e; };
+  for (const it of cards) {
+    const card = document.createElement('button');
+    card.type = 'button';
+    card.className = 'discover-card';
+    card.setAttribute('aria-label', `${it.name}: ${it.tagline}. Siteyi yeni sekmede aç`);
+    const mark = part('span', 'discover-mark', it.letter);
+    if (/^#[0-9a-f]{6}$/i.test(it.color)) mark.style.background = `linear-gradient(135deg, ${it.color}, color-mix(in srgb, ${it.color} 55%, #000))`;
+    const body = document.createElement('span');
+    body.className = 'discover-body';
+    body.append(part('span', 'discover-cat', it.category), part('span', 'discover-name', it.name),
+      part('span', 'discover-tagline', it.tagline), part('span', 'discover-desc', it.description), part('span', 'discover-cta', 'Siteyi aç →'));
+    card.append(mark, body);
+    card.addEventListener('click', () => { hideScreen(); sb.newTab(it.url); });
+    grid.appendChild(card);
+  }
+}
+
 const QUICK_LINKS = [
   { name: 'Atlas',  url: 'https://maps.google.com',        color: '#3a6db5', letter: 'A' },
   { name: 'Boy',    url: 'https://tr.wikipedia.org',        color: '#b85c3a', letter: 'B' },
@@ -916,7 +1059,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Navigasyon
   document.getElementById('btn-back')?.addEventListener('click',    () => sb.goBack());
   document.getElementById('btn-forward')?.addEventListener('click', () => sb.goForward());
-  document.getElementById('btn-reload')?.addEventListener('click',  () => sb.reload());
+  document.getElementById('btn-reload')?.addEventListener('click',  () => (reloadIsStop ? sb.stop?.() : sb.reload()));
   document.getElementById('btn-home')?.addEventListener('click', () => {
     const hp = (currentConfig.homepage || '').trim();
     if (hp && hp !== 'about:blank') sb.navigate(hp);
@@ -959,6 +1102,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         showScreen('history', renderHistoryPage).then(initHistoryPage);
       } else if (screen === 'downloads') {
         showScreen('downloads', renderDownloadsPage).then(initDownloadsPage);
+      } else if (screen === 'discover') {
+        showScreen('discover', renderDiscoverPage).then(initDiscoverPage);
       } else {
         const titles = {
           bookmarks: 'Yer İşaretleri',

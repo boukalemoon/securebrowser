@@ -1257,6 +1257,115 @@ suite('Yayın — v0.8.0');
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
+// Kullanıcı bildirimi (15 Eyl, v0.8.0): sekmede yükleme göstergesi yok, site
+// simgeleri (favicon) sekmede ve yer imlerinde görünmüyor
+// ══════════════════════════════════════════════════════════════════════════════
+suite('Site simgeleri (favicon) ve sekme yükleme göstergesi');
+{
+  const fc = require('../src/main/favicon-cache.js');
+  eq('alan adı anahtarı', [fc.hostKey('https://WWW.Ornek.com.tr/a?b'), fc.hostKey('http://a.b.c/'), fc.hostKey('file:///C:/x'), fc.hostKey('çöp')],
+    ['ornek.com.tr', 'a.b.c', '', '']);
+  const png = Buffer.from('89504e470d0a1a0a0000000d49484452', 'hex');
+  const ico = Buffer.from('00000100010010100000', 'hex');
+  const svg = Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"></svg>');
+  const html = Buffer.from('<!doctype html><title>404</title>');
+  eq('resim türü dosya imzasından (sunucunun beyanına güvenilmez)', [png, ico, svg, html].map(fc.sniffImageType), ['image/png', 'image/x-icon', 'image/svg+xml', '']);
+  check('HTML hata sayfası ve 64 KB üstü simge reddediliyor',
+    fc.toDataUrl(html) === '' && fc.toDataUrl(Buffer.concat([png, Buffer.alloc(fc.MAX_BYTES)])) === '' && fc.toDataUrl(png).startsWith('data:image/png;base64,'));
+  eq('yalnızca data: resim adresleri kabul ediliyor',
+    [fc.isImageDataUrl(fc.toDataUrl(png)), fc.isImageDataUrl('https://ornek.com/favicon.ico'), fc.isImageDataUrl('data:text/html;base64,PHNjcmlwdD4='), fc.isImageDataUrl('javascript:alert(1)')],
+    [true, false, false, false]);
+  eq('sayfanın simge adresleri: yalnızca http(s), png/ico önce, en fazla 3',
+    fc.pickIconUrls(['data:image/png;base64,AA', 'https://a.com/x.svg', 'https://a.com/f.ico', 'javascript:1', 'http://a.com/b.png', 'https://a.com/c.gif']),
+    ['https://a.com/f.ico', 'http://a.com/b.png', 'https://a.com/x.svg']);
+
+  const cache = fc.createFaviconCache({ read: () => ({ 'ornek.com': fc.toDataUrl(png), 'kotu<>': 'data:text/html;base64,AA' }), write: () => {} });
+  check('şifreli önbellekten yalnızca geçerli kayıtlar yükleniyor', cache.get('https://www.ornek.com/sayfa') !== '' && cache.size() === 1);
+  cache.set('https://gizli.example/', fc.toDataUrl(ico), { incognito: true });
+  check('gizli pencere simgesi yalnızca bellekte; normal önbelleğe ve diske gitmiyor',
+    cache.get('https://gizli.example/', { incognito: true }) !== '' && cache.get('https://gizli.example/') === '' && cache.size() === 1);
+  eq('yer imleri için toplu arama ağ isteği yapmıyor', Object.keys(cache.lookup(['https://ornek.com/a', 'https://yok.example/'])), ['ornek.com']);
+
+  const mainJs = read('main/main.js');
+  check('sekmenin yükleme durumu ve simgesi arayüze gidiyor',
+    mainJs.includes("on('did-start-loading'") && mainJs.includes("on('did-stop-loading'") && mainJs.includes('loading: !!tab.loading') && mainJs.includes("favicon: tab.favicon || ''"));
+  check('simge sekmenin oturumuyla indiriliyor; dış favicon servisi yok',
+    mainJs.includes('faviconCache.update(view.webContents.session') && !/s2\/favicons|favicon\.yandex|icons\.duckduckgo/.test(mainJs + read('main/favicon-cache.js')));
+  const appJs = read('renderer/app.js');
+  check('sekmede dönen yükleme halkası, site simgesi ya da baş harf', appJs.includes("spin.className = 'tab-spinner'") && appJs.includes("el.setAttribute('aria-busy', 'true')") && appJs.includes('img.src = tab.favicon'));
+  const css = read('renderer/styles/main.css');
+  check('yükleme halkası temanın altın/bakır renklerinde ve "hareketi azalt" tercihine uyuyor',
+    /\.tab-spinner::before \{[^}]*var\(--copper\)[^}]*var\(--gold\)/.test(css) && /prefers-reduced-motion: reduce\)[^}]*\{\s*\.tab-spinner::before/.test(css));
+}
+
+suite('Yer imi simgeleri, geçmişte HTTP işareti, Arku izinleri, durdur düğmesi');
+{
+  const { execFileSync } = require('child_process');
+  let fav = {};
+  try {
+    fav = JSON.parse(execFileSync(process.execPath, [path.join(__dirname, 'helpers', 'favicon-import-check.js')], { encoding: 'utf8', timeout: 60000 }));
+  } catch (e) { fav = { error: e.message }; }
+  eq('içe aktarmada simge tarayıcının yerel önbelleğinden: yalnızca gerçek resim, eşleşen adres', fav.keys, ['https://a.example/', 'https://c.example/sayfa']);
+  check('16 px tercih ediliyor, data:image/png dönüyor, geçici kopya siliniyor', fav.pngOk === true && fav.leftovers === 0, JSON.stringify(fav));
+
+  const { SecureLogManager } = require('../src/main/secure-log-manager.js');
+  const now = Date.UTC(2026, 8, 15, 12);
+  const day = 86400000;
+  const logs = [
+    { url: 'http://kotu.example/a', domain: 'kotu.example', timestamp: now - day },
+    { url: 'http://kotu.example/b', domain: 'kotu.example', timestamp: now - 2 * day },
+    { url: 'http://eski.example/', domain: 'eski.example', timestamp: now - 9 * day },
+    { url: 'https://iyi.example/', domain: 'iyi.example', timestamp: now - day },
+    { url: 'http://192.168.1.1/', domain: '192.168.1.1', timestamp: now - day },
+    { url: 'http://ikinci.example/', domain: 'ikinci.example', timestamp: now - 3 * day },
+  ];
+  const rep = SecureLogManager.prototype.httpReport.call({ logs }, { days: 7, now });
+  eq('haftalık HTTP özeti: son 7 gün, yerel ağ sayılmıyor, alan adına göre sıralı',
+    [rep.total, rep.http, rep.httpDomains, rep.top], [4, 3, 2, [{ domain: 'kotu.example', count: 2 }, { domain: 'ikinci.example', count: 1 }]]);
+
+  const safety = require('../src/main/site-safety.js');
+  const mainJs = read('main/main.js');
+  check('panodan okuma (yapıştırma) sorularak veriliyor ve Site Bilgisi panelinde görünüyor',
+    safety.SITE_PERMISSIONS.some((p) => p.id === 'clipboard-read' && p.ask) && /const ASK_USER\s*= new Set\(\[[^\]]*'clipboard-read'/.test(mainJs));
+  check('klavye kilidi (tam ekranda sistem tuşları) sessizce izinli', /const QUIET_ALLOW = new Set\(\[[^\]]*'keyboardLock'/.test(mainJs));
+  check('yenile düğmesi yükleme sırasında durdur oluyor',
+    read('preload/preload.js').includes("ipcRenderer.invoke('stop-loading')") && mainJs.includes("ipcMain.handle('stop-loading'") && read('renderer/app.js').includes('reloadIsStop ? sb.stop?.() : sb.reload()'));
+  const bmJs = read('renderer/bookmarks-panel.js');
+  check('yer imi simgesi yalnızca data:image; eski uzak simge adresleri yüklenmiyor',
+    bmJs.includes('if (/^data:image\\//.test(own)) return own;') && bmJs.includes('H.safeUrl(bmFaviconFor(item), { allowData: true })'));
+  check('içe aktarmada gelen simge korunuyor, eksik simgeler tamamlanıyor',
+    bmJs.includes('favicon: validIcon(it.favicon)') && bmJs.includes('cur.favicon = icon; iconsFilled++'));
+  check('boş hazır klasörler (Genel, İş, Okuma) listede gizli', bmJs.includes("if (!count && ['default','work','reading'].includes(f.id) && bmCurrentFolder !== f.id) return '';"));
+  const appJs = read('renderer/app.js');
+  check('geçmişte HTTP ziyaretleri işaretli ve haftalık özet gösteriliyor',
+    appJs.includes('lr-scheme http') && appJs.includes("renderHttpReport('history-http-report')") && mainJs.includes("ipcMain.handle('logs-http-report'"));
+}
+
+suite('Keşfet — TrendTech yazılımları');
+{
+  const df = require('../src/main/discover-feed.js');
+  check('uygulamadaki liste geçerli ve yalnızca https', df.BUNDLED.length >= 3 && df.BUNDLED.every((b) => df.validateItem(b) && /^https:\/\//.test(b.url)));
+  eq('sunucu kartı doğrulanıyor: http, kimlik bilgili adres, bozuk kimlik, renk enjeksiyonu, javascript: reddediliyor',
+    [
+      (df.validateItem({ id: 'ok', name: 'Ürün', url: 'https://ornek.com.tr', color: '#123abc' }) || {}).id,
+      df.validateItem({ id: 'http', name: 'X', url: 'http://ornek.com' }),
+      df.validateItem({ id: 'creds', name: 'X', url: 'https://kullanici:parola@ornek.com' }),
+      df.validateItem({ id: 'Büyük Harf', name: 'X', url: 'https://ornek.com' }),
+      (df.validateItem({ id: 'renk', name: 'X', url: 'https://ornek.com', color: 'red;background:url(x)' }) || {}).color,
+      df.validateItem({ id: 'js', name: 'X', url: 'javascript:alert(1)' }),
+    ],
+    ['ok', null, null, null, '#5a6a8a', null]);
+  eq('geçersiz akış uygulamadaki listeye düşüyor', [df.validateFeed({}), df.validateFeed({ items: [{ id: 'x' }] })], [null, null]);
+  const siteFeed = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'site', 'discover.json'), 'utf8'));
+  eq('sitedeki discover.json doğrulamadan geçiyor ve uygulamadaki listeyle aynı', (df.validateFeed(siteFeed) || []).map((i) => i.id), df.BUNDLED.map((b) => b.id));
+  const appJs = read('renderer/app.js');
+  const initDiscover = appJs.slice(appJs.indexOf('async function initDiscoverPage'), appJs.indexOf('const QUICK_LINKS = ['));
+  check('Keşfet kartları textContent ile kuruluyor ve yeni sekmede açılıyor', initDiscover.length > 200 && !initDiscover.includes('innerHTML') && initDiscover.includes('sb.newTab(it.url)'));
+  const feedJs = read('main/discover-feed.js');
+  check('Keşfet akışı çerezsiz, bellek içi oturumla, günde en fazla bir kez', feedJs.includes("credentials: 'omit'") && feedJs.includes("FEED_PARTITION = 'ilgezdi-discover'") && feedJs.includes('REFRESH_MS = 24 * 3600 * 1000'));
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
 // Kaynak dosyalar — görünmez ham kontrol karakteri olmamalı
 // Neden: regex aralıkları ([NUL-boşluk] gibi) ham baytla yazılınca git dosyayı
 // ikili sanıyor ve bir düzenleyici bu baytları sessizce silerse güvenlik amaçlı
