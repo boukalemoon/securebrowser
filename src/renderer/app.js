@@ -132,6 +132,9 @@ async function showScreen(name, renderFn) {
 
   const overlay = document.getElementById('screen-overlay');
   if (!overlay) return;
+  // Az önce kapanan ekranın bekleyen "gizle" zamanlayıcısı yeni açılan ekranı gizlemesin.
+  clearTimeout(screenHideTimer);
+  screenHideTimer = null;
   overlay.classList.remove('hidden');
   requestAnimationFrame(() => overlay.classList.add('visible'));
 
@@ -146,6 +149,11 @@ function isAuthScreenOpen() {
   return !!el && !el.classList.contains('hidden');
 }
 
+// Kapanış animasyonu (200 ms) bitince katmana 'hidden' eklenir. Bu arada yeni bir ekran
+// açılırsa (ör. sayfadan çıkıp hemen yeni sekme) zamanlayıcı iptal edilir; eskiden katman
+// "visible hidden" kalıyor, yeni sekme boş ekran olarak görünüyordu (gerçek girdiyle görüldü).
+let screenHideTimer = null;
+
 function hideScreen() {
   if (!currentScreen) return;
   currentScreen = null;
@@ -153,7 +161,11 @@ function hideScreen() {
   const overlay = document.getElementById('screen-overlay');
   if (overlay) {
     overlay.classList.remove('visible');
-    setTimeout(() => overlay.classList.add('hidden'), 200);
+    clearTimeout(screenHideTimer);
+    screenHideTimer = setTimeout(() => {
+      screenHideTimer = null;
+      if (!currentScreen) overlay.classList.add('hidden');
+    }, 200);
   }
 
   // WebContentsView'ı geri göster. Giriş ekranı açıksa gösterme: sayfa görünümü
@@ -710,6 +722,10 @@ async function initHistoryPage() {
     const row = e.button === 1 && e.target.closest('.list-row');
     if (row) { e.preventDefault(); open(row, true); }
   });
+  // Liste kaydırılabilir: orta tuş otomatik kaydırmayı başlatıp auxclick'i yutmasın.
+  list?.addEventListener('mousedown', (e) => {
+    if (e.button === 1 && e.target.closest('.list-row')) e.preventDefault();
+  });
   list?.addEventListener('keydown', (e) => {
     if (e.key !== 'Enter' || e.target.closest('[data-delete]')) return;
     const row = e.target.closest('.list-row');
@@ -899,22 +915,6 @@ const QUICK_LINKS = [
   { name: 'Arşiv', url: 'https://archive.org',             color: '#3a5a4a', letter: 'A' },
 ];
 
-// Türk tarihi/kültürü haber havuzu — her yeni sekmede karıştırılıp döner.
-const NEWS_POOL = [
-  { cat: 'TARİH',  read: '8 dk', icon: '🗿', title: 'Orhun Yazıtları: Türk Tarihinin Mihenk Taşı', body: 'Bilge Kağan döneminde dikildiği düşünülen yazıtlar, Türkçenin bilinen en eski belgelerinden sayılmaktadır.' },
-  { cat: 'KEŞİF',  read: '4 dk', icon: '⛏️', title: 'Sibirya Bozkırlarında Yeni Kurgan Bulundu', body: 'Arkeologlar, Altay eteklerinde bozulmadan korunmuş bir beylik mezarı gün yüzüne çıkardı.' },
-  { cat: 'KÜLTÜR', read: '6 dk', icon: '🐎', title: 'Demir Devri Atlı Göçebe Sanatı', body: 'Hayvan üslubu motifleri, bozkır sanatının Avrasya boyunca yayılışını gösteriyor.' },
-  { cat: 'DİL',    read: '5 dk', icon: '𐰚', title: 'Göktürkçe Alfabe ve 38 Harf', body: 'Runik yazının ses değerleri ve taş yazıtlardaki kullanımı üzerine kısa bir gezinti.' },
-  { cat: 'EFSANE', read: '3 dk', icon: '🐺', title: 'Ergenekon Destanı: Kurttan Türeyiş', body: 'Demir dağı eriten bozkurt önderliğinde özgürlüğe çıkış anlatısı.' },
-  { cat: 'TARİH',  read: '7 dk', icon: '🏹', title: 'Mete Han ve İlk Düzenli Ordu', body: 'Onlu sistemin bozkır savaş sanatına getirdiği devrim niteliğindeki düzen.' },
-  { cat: 'KÜLTÜR', read: '5 dk', icon: '🎶', title: 'Bozkırın Sesi: Kopuz ve Ozanlar', body: 'Destanları kuşaktan kuşağa taşıyan ozan geleneği ve kopuzun yeri.' },
-  { cat: 'BİLİM',  read: '6 dk', icon: '🌌', title: 'Türk Takvimi ve On İki Hayvanlı Sistem', body: 'Gökyüzü gözlemine dayanan yıl döngüsü ve sembolizmi.' },
-  { cat: 'COĞRAFYA', read: '9 dk', icon: '🗺️', title: 'İpek Yolu Üzerinde Türk Boyları', body: 'Kervan yollarının kavşağında ticaret, göç ve kültür alışverişi.' },
-  { cat: 'MİMARİ', read: '4 dk', icon: '🏛️', title: 'Otağ’dan Kervansaraya', body: 'Göçebe çadırından anıtsal taş yapılara uzanan mimari süreklilik.' },
-  { cat: 'EFSANE', read: '3 dk', icon: '🦅', title: 'Umay Ana ve Bereket İnancı', body: 'Bozkır inanç dünyasında koruyucu dişil ruh Umay’ın izleri.' },
-  { cat: 'KEŞİF',  read: '5 dk', icon: '💎', title: 'Pazırık Kurganları’nda Buzda Kalan Hazine', body: 'Donmuş toprak sayesinde bozulmadan gelen halı, eyer ve dövmeler.' },
-];
-
 function shuffle(arr) {
   const a = arr.slice();
   for (let i = a.length - 1; i > 0; i--) {
@@ -925,8 +925,20 @@ function shuffle(arr) {
 }
 
 function renderNewTab() {
-  // Her render'da havuzu karıştır → 1 öne çıkan + 4 yan haber döner
-  const picked = shuffle(NEWS_POOL).slice(0, 5).map((it, i) => ({ ...it, feature: i === 0 }));
+  // Bilgi kartları (info-cards.js): her bilgi kaynağında doğrulandı. Öne çıkan "günün
+  // bilgisi" güne göre değişir (aynı gün aynı kalır); diğer dördü her yeni sekmede, her biri
+  // ayrı kategoriden karışık seçilir. Eski havuzdaki kaynaksız ve uydurma "haber" kartları
+  // kaldırıldı (kullanıcı bildirdi).
+  const H = window.ilgezdiHtml;
+  const cards = Array.isArray(window.ILGEZDI_INFO_CARDS) ? window.ILGEZDI_INFO_CARDS : [];
+  const dayIndex = Math.floor((Date.now() - new Date().getTimezoneOffset() * 60000) / 86400000);
+  const featured = cards.length ? cards[dayIndex % cards.length] : null;
+  const picked = featured ? [{ ...featured, feature: true }] : [];
+  const seenCategories = new Set(picked.map((c) => c.category));
+  for (const c of shuffle(cards)) {
+    if (picked.length === 5) break;
+    if (!seenCategories.has(c.category)) { seenCategories.add(c.category); picked.push(c); }
+  }
   const shortcutsHtml = QUICK_LINKS.map(link => `
     <button class="shortcut" data-url="${link.url}" title="${link.name}">
       <span class="tile-mark" style="background:linear-gradient(135deg,${link.color},color-mix(in srgb,${link.color} 55%,#000));box-shadow:0 6px 14px -8px ${link.color}88">
@@ -937,22 +949,24 @@ function renderNewTab() {
   `).join('');
 
   const newsHtml = picked.map((item) => {
+    const src = H.safeUrl(item.sourceUrl);
+    const link = src ? ` role="link" tabindex="0" data-source="${H.esc(src)}" title="Kaynağı aç: ${H.esc(item.sourceName)}"` : '';
+    const text = `
+            <h4>${H.esc(item.title)}</h4>
+            <p>${H.esc(item.body)}</p>
+            <div class="card-source">Kaynak: ${H.esc(item.sourceName)}</div>`;
     if (item.feature) {
       return `
-        <div class="news-card feature">
-          <div class="feature-img"><span class="feature-emoji">${item.icon}</span></div>
+        <div class="news-card feature"${link}>
+          <div class="feature-img"><span class="feature-emoji">${H.esc(item.icon)}</span></div>
           <div class="body-pad">
-            <div class="meta"><span class="cat">${item.cat}</span><span>${item.read}</span></div>
-            <h4>${item.title}</h4>
-            ${item.body ? `<p>${item.body}</p>` : ''}
+            <div class="meta"><span class="cat">${H.esc(item.category)}</span><span>Günün bilgisi</span></div>${text}
           </div>
         </div>`;
     }
     return `
-      <div class="news-card">
-        <div class="meta"><span class="cat">${item.icon} ${item.cat}</span><span>${item.read}</span></div>
-        <h4>${item.title}</h4>
-        ${item.body ? `<p>${item.body}</p>` : ''}
+      <div class="news-card"${link}>
+        <div class="meta"><span class="cat">${H.esc(item.icon)} ${H.esc(item.category)}</span></div>${text}
       </div>`;
   }).join('');
 
@@ -978,10 +992,11 @@ function renderNewTab() {
       <div class="shortcuts">
         ${shortcutsHtml}
       </div>
+      <div class="http-report" id="newtab-http-report" hidden></div>
       <div class="section-head">
         <div class="title-block">
           <span class="runes">𐱅𐰇𐰼𐰰</span>
-          <h3>Keşfedilecekler</h3>
+          <h3>Bilgi Kartları</h3>
         </div>
       </div>
       <div class="news-grid">
@@ -999,6 +1014,25 @@ function initNewTabEvents() {
   });
   document.querySelectorAll('.shortcut[data-url]').forEach(btn => {
     btn.addEventListener('click', () => { hideScreen(); sb.navigate(btn.dataset.url); });
+  });
+  // Bilgi kartı → kaynağı: tıklama/Enter aynı sekmede (kısayollar gibi), orta tık yeni sekmede.
+  document.querySelectorAll('.news-card[data-source]').forEach((card) => {
+    const url = window.ilgezdiHtml.safeUrl(card.dataset.source);
+    if (!url) return;
+    card.addEventListener('click', () => { hideScreen(); sb.navigate(url); });
+    card.addEventListener('auxclick', (e) => { if (e.button === 1) { e.preventDefault(); sb.newTab(url); } });
+    card.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); hideScreen(); sb.navigate(url); }
+    });
+    // Sayfa kaydırılabilir olduğundan orta tuş Chromium'da otomatik kaydırmayı başlatıp
+    // auxclick'i yutuyordu (gerçek girdiyle görüldü) → basışta engelle.
+    card.addEventListener('mousedown', (e) => { if (e.button === 1) e.preventDefault(); });
+  });
+  // Haftalık şifresiz bağlantı özeti: yeni sekmede yalnızca HTTP ziyaret varsa görünür
+  // (her şey şifreliyse yeni sekmeyi kalabalıklaştırmaz; o bilgi Geçmiş sayfasında).
+  renderHttpReport('newtab-http-report').then(() => {
+    const box = document.getElementById('newtab-http-report');
+    if (box && !box.classList.contains('warn')) box.hidden = true;
   });
 }
 
@@ -1096,8 +1130,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
       }
       if (screen === 'newtab') {
-        showScreen('newtab', renderNewTab);
-        requestAnimationFrame(initNewTabEvents);
+        showScreen('newtab', renderNewTab).then(initNewTabEvents);
       } else if (screen === 'history') {
         showScreen('history', renderHistoryPage).then(initHistoryPage);
       } else if (screen === 'downloads') {
@@ -1140,8 +1173,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const blank = !url || url === 'about:blank' || url === 'ilgezdi://newtab';
     if (blank) {
       if (currentScreen !== 'newtab') {
-        showScreen('newtab', renderNewTab);
-        requestAnimationFrame(initNewTabEvents);
+        showScreen('newtab', renderNewTab).then(initNewTabEvents);
       } else {
         // Zaten newtab ekranındayız ama main süreci setActiveTab ile boş
         // WebContentsView'ı yeniden göstermiş olabilir → tekrar gizle (aksi halde
@@ -1311,9 +1343,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (el && v) el.textContent = 'İlgezdi v' + v;
   }).catch(() => {});
 
-  // İlk açılışta yeni sekme ekranını göster
-  showScreen('newtab', renderNewTab);
-  requestAnimationFrame(initNewTabEvents);
+  // İlk açılışta yeni sekme ekranını göster. Olaylar içerik eklendikten SONRA bağlanır:
+  // showScreen önce sekme görünümünü gizlemeyi (IPC) bekliyor; requestAnimationFrame
+  // ondan önce çalışıp boş sayfaya bağlanıyordu (kartlar, arama, kısayollar tepkisizdi).
+  showScreen('newtab', renderNewTab).then(initNewTabEvents);
 
   console.log('[İlgezdi] UI hazır');
 });

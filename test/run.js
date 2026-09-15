@@ -1363,6 +1363,28 @@ suite('Keşfet — TrendTech yazılımları');
   check('Keşfet kartları textContent ile kuruluyor ve yeni sekmede açılıyor', initDiscover.length > 200 && !initDiscover.includes('innerHTML') && initDiscover.includes('sb.newTab(it.url)'));
   const feedJs = read('main/discover-feed.js');
   check('Keşfet akışı çerezsiz, bellek içi oturumla, günde en fazla bir kez', feedJs.includes("credentials: 'omit'") && feedJs.includes("FEED_PARTITION = 'ilgezdi-discover'") && feedJs.includes('REFRESH_MS = 24 * 3600 * 1000'));
+  const cardsJs = read('renderer/info-cards.js');
+  let cards = null;
+  try { const w = {}; new Function('window', cardsJs)(w); cards = w.ILGEZDI_INFO_CARDS; } catch (e) { cards = e.message; }
+  check('bilgi kartları dosyası geçerli: 36 kart', Array.isArray(cards) && cards.length === 36, String(cards).slice(0, 80));
+  if (Array.isArray(cards)) {
+    eq('altı kategori, her birinde 6 kart', ['TARİH', 'OSMANLI', 'CUMHURİYET', 'COĞRAFYA', 'DİL', 'KÜLTÜR'].map((k) => cards.filter((c) => c.category === k).length), [6, 6, 6, 6, 6, 6]);
+    check('her kartın https kaynağı ve kaynak adı var; kimlikler tekil', cards.every((c) => /^https:\/\//.test(c.sourceUrl) && c.sourceName) && new Set(cards.map((c) => c.id)).size === cards.length);
+    check('başlık en fazla 60, metin en fazla 280 karakter; metinde emoji yok', cards.every((c) => c.title.length <= 60 && c.body.length <= 280 && !/\p{Extended_Pictographic}/u.test(c.title + c.body)));
+  }
+  check('kaynaklardan birebir alıntılar uygulama dışında belgeleniyor', fs.existsSync(path.join(__dirname, '..', 'docs', 'bilgi-kartlari-kaynaklar.json')));
+  check('yeni sekme kaynaklı kartları kullanıyor; eski kaynaksız haber havuzu yok', appJs.includes('window.ILGEZDI_INFO_CARDS') && !appJs.includes('const NEWS_POOL'));
+  check('kart metni kaçışlanıyor; kart tıklanınca (ya da Enter) kaynağı açılıyor, orta tıkla yeni sekmede', appJs.includes('H.esc(item.title)') && /\.news-card\[data-source\][\s\S]{0,700}sb\.navigate\([\s\S]{0,300}sb\.newTab\(/.test(appJs) && /news-card\[data-source\][\s\S]{0,700}'Enter'/.test(appJs));
+  check('ekran kapanışının bekleyen gizleme zamanlayıcısı yeni açılan ekranı gizlemiyor',
+    /async function showScreen[\s\S]{0,900}clearTimeout\(screenHideTimer\)[\s\S]{0,200}classList\.remove\('hidden'\)/.test(appJs)
+    && /screenHideTimer = setTimeout\(\(\) => \{\s*screenHideTimer = null;\s*if \(!currentScreen\) overlay\.classList\.add\('hidden'\);/.test(appJs));
+  check('geçmiş listesinde orta tuş otomatik kaydırmayı başlatmıyor', /list\?\.addEventListener\('mousedown', \(e\) => \{\s*if \(e\.button === 1 && e\.target\.closest\('\.list-row'\)\) e\.preventDefault\(\)/.test(appJs));
+  check('kartta orta tuş otomatik kaydırmayı başlatmıyor (yeni sekmede açma çalışsın)', /news-card\[data-source\][\s\S]{0,1200}'mousedown', \(e\) => \{ if \(e\.button === 1\) e\.preventDefault\(\)/.test(appJs));
+  check('yeni sekme olayları içerik eklendikten sonra bağlanıyor (her üç açılış yolunda)',
+    (appJs.match(/showScreen\('newtab', renderNewTab\)\.then\(initNewTabEvents\)/g) || []).length === 3 && !appJs.includes('requestAnimationFrame(initNewTabEvents)'));
+  check('bilgi kartları dosyası app.js\'ten önce yükleniyor', /<script src="info-cards\.js"><\/script>\s*<script src="app\.js"><\/script>/.test(read('renderer/index.html')));
+  check('yeni sekmede haftalık şifresiz bağlantı özeti (yalnızca HTTP ziyaret varsa)',
+    appJs.includes('id="newtab-http-report"') && appJs.includes("renderHttpReport('newtab-http-report')") && /newtab-http-report[\s\S]{0,300}classList\.contains\('warn'\)/.test(appJs));
 }
 
 // ══════════════════════════════════════════════════════════════════════════════

@@ -403,6 +403,15 @@
 .discover-tagline { font-size: 13px; color: var(--ink-soft); }
 .discover-desc { font-size: 12.5px; color: var(--ink-mute); line-height: 1.5; margin-top: 4px; }
 .discover-cta { font-size: 12px; color: var(--gold); margin-top: 8px; font-weight: 600; }
+/* Yeni sekme: haftalık şifresiz bağlantı özeti (yalnızca HTTP ziyaret varsa) */
+.newtab .http-report { max-width: 760px; margin: 0 auto 22px; text-align: left; }
+/* Bilgi kartları: metin tam gösterilir (kırpılmaz), satır yüksekliğini içerik belirler;
+   kaynak satırı kartın dibine oturur. Tıklayınca kaynak aynı sekmede açılır. */
+.news-grid { grid-template-rows: auto auto; }
+.news-card.feature .body-pad { display: flex; flex-direction: column; gap: 8px; }
+.news-card .card-source { margin-top: auto; padding-top: 4px; font-size: 11px; color: var(--ink-mute); }
+.news-card[data-source]:hover .card-source { color: var(--gold); }
+.news-card[data-source]:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
 .dl-row { grid-template-columns: 44px minmax(0, 1fr) 130px 110px auto; }
 .dl-row .dl-main { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
 .dl-row .name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
