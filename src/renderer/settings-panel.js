@@ -479,7 +479,7 @@ function renderGeneralTab(cfg) {
       <div id="clear-status" style="font-size:11px;color:var(--success);margin-top:8px;min-height:14px"></div>
     </div>
     <div class="settings-section"><h3>Kısayollar</h3>
-      <p class="s-hint" style="margin-top:0">Odak sayfadayken de çalışır. Ctrl+B, Ctrl+Shift+L ve Ctrl+Shift+V yalnızca İlgezdi arayüzü odaktayken çalışır; sayfalarda kalın yazı, hizalama ve düz metin yapıştırma için kullanılırlar.</p>
+      <p class="s-hint" style="margin-top:0">Odak sayfadayken de çalışır. Ctrl+B, Ctrl+H, Ctrl+Shift+L ve Ctrl+Shift+V yalnızca İlgezdi arayüzü odaktayken çalışır; sayfalarda kalın yazı, bul-değiştir, hizalama ve düz metin yapıştırma için kullanılırlar.</p>
       <table class="shortcut-table">
         <tr><td>Yeni sekme</td><td><span class="kbd">Ctrl</span>+<span class="kbd">T</span></td></tr>
         <tr><td>Sekmeyi kapat</td><td><span class="kbd">Ctrl</span>+<span class="kbd">W</span></td></tr>
@@ -498,6 +498,7 @@ function renderGeneralTab(cfg) {
         <tr><td>Gizli pencere</td><td><span class="kbd">Ctrl</span>+<span class="kbd">Shift</span>+<span class="kbd">N</span></td></tr>
         <tr><td>Ayarlar</td><td><span class="kbd">Ctrl</span>+<span class="kbd">,</span></td></tr>
         <tr><td>Ziyaret günlüğü</td><td><span class="kbd">Ctrl</span>+<span class="kbd">Shift</span>+<span class="kbd">L</span></td></tr>
+        <tr><td>Geçmiş / İndirilenler</td><td><span class="kbd">Ctrl</span>+<span class="kbd">H</span> · <span class="kbd">Ctrl</span>+<span class="kbd">J</span></td></tr>
       </table>
     </div>
     <div class="settings-section"><h3>Uygulama Güncellemesi</h3>

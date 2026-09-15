@@ -887,9 +887,10 @@ suite('Oturum geri yükleme');
   eq('en fazla 100 sekme', bc.serializeSession(Array.from({ length: 130 }, (_, i) => ({ url: 'https://s.com/' + i })), 0).tabs.length, 100);
 
   const mainJs = read('main/main.js');
-  const snapBody = mainJs.slice(mainJs.indexOf('function sessionSnapshot('), mainJs.indexOf('function writeSessionFile('));
+  const snapBody = mainJs.slice(mainJs.indexOf('function sessionSnapshot('), mainJs.indexOf('function writeProtectedJson('));
   check('oturuma yalnızca ana pencere yazılıyor (gizli pencere asla)', snapBody.includes('mainState.tabs') && !snapBody.includes('incognitoState'));
-  check('oturum dosyası ziyaret günlüğü anahtarıyla şifreleniyor', /write\(SESSION_ENC, secureLog\._encrypt\(data\)\)/.test(mainJs));
+  check('oturum dosyası ziyaret günlüğü anahtarıyla şifreleniyor',
+    mainJs.includes('writeProtectedJson(SESSION_ENC, SESSION_PLAIN, sessionSnapshot())') && mainJs.includes('write(encPath, secureLog._encrypt(data));'));
   check('pencere kapanırken sekmeler kapanmadan önce eşzamanlı kaydediliyor', mainJs.includes("mainWindow.on('close', () => saveSessionNow());"));
   check('"Kaldığım yerden" kapatılınca ve "Tüm verileri temizle"de oturum dosyası siliniyor', (mainJs.match(/deleteSessionFiles\(\);/g) || []).length >= 2);
   check('arka plan sekmeleri ilk açılışta yükleniyor', mainJs.includes('lazy: i !== saved.activeIndex') && mainJs.includes('if (tab.pendingLoad) {'));
@@ -902,6 +903,64 @@ suite('Tam ekran');
   check('video tam ekranında sekme görünümü tüm pencereye yayılıyor', /if \(state\.htmlFullscreen\)[\s\S]{0,200}setBounds\(\{ x: 0, y: 0, width: full\.width, height: full\.height \}\)/.test(resizeBody));
   check('tam ekran uyarısı betik çalıştırmayan ayrı görünümde', /new WebContentsView\(\{ webPreferences: \{ sandbox: true, contextIsolation: true, javascript: false \} \}\)/.test(mainJs));
   check('sekme değişince video tam ekranından çıkılıyor', /if \(state\.htmlFullscreen\) \{[\s\S]{0,400}exitFullscreen/.test(mainJs));
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Geçmiş ve indirilenler — indirme güvenliği, kalıcı geçmiş (P1-C)
+// ══════════════════════════════════════════════════════════════════════════════
+suite('İndirme güvenliği ve indirme geçmişi');
+{
+  eq('uzantı: büyük harf, sondaki nokta ve boşluk, çift uzantı, gizli dosya',
+    [ss.fileExtension('Kurulum.EXE'), ss.fileExtension('a.exe.'), ss.fileExtension('a.exe  '), ss.fileExtension('arsiv.tar.gz'), ss.fileExtension('.bashrc'), ss.fileExtension('uzantisiz')],
+    ['exe', 'exe', 'exe', 'gz', '', '']);
+  eq('tehlikeli türler', [ss.isDangerousFile('setup.msi'), ss.isDangerousFile('betik.PS1'), ss.isDangerousFile('rapor.pdf'), ss.isDangerousFile('fatura.pdf.exe'), ss.isDangerousFile('disk.iso')],
+    [true, true, false, true, true]);
+  eq('güvenli kaynak',
+    [ss.isSecureSource('https://a.com/x.exe'), ss.isSecureSource('http://localhost:3000/x'), ss.isSecureSource('http://127.0.0.5/x'), ss.isSecureSource('http://[::1]/x'),
+     ss.isSecureSource('http://a.com/x'), ss.isSecureSource('ftp://a.com/x'), ss.isSecureSource('blob:https://a.com/1')],
+    [true, true, true, true, false, false, true]);
+  eq('uyarı yalnızca güvensiz kaynaktan gelen tehlikeli dosyada',
+    [ss.downloadNeedsWarning({ filename: 'a.exe', url: 'http://a.com/a.exe' }), ss.downloadNeedsWarning({ filename: 'a.exe', url: 'https://a.com/a.exe' }), ss.downloadNeedsWarning({ filename: 'a.zip', url: 'http://a.com/a.zip' })],
+    [true, false, false]);
+  eq('günlük kimliği süzgeci', ss.sanitizeLogIds(['log_1726400000000_ab12c', 'log_1726400000000_ab12c', '../etc', { id: 1 }, 'log_1_x']), ['log_1726400000000_ab12c']);
+  const hist = ss.sanitizeDownloadHistory([
+    { filename: 'a.pdf', state: 'completed', received: 10, total: 10, savePath: 'C:/a.pdf', sourceHost: 'a.com', startedAt: 2, item: {}, gizli: 'x' },
+    { filename: 'b.bin', state: 'progressing', startedAt: 3 },
+    { filename: '', state: 'completed' },
+    { filename: 'c.zip', state: 'cancelled', received: 'x', startedAt: 1 },
+  ]);
+  eq('kalıcı geçmiş: yalnızca biten indirmeler, bilinen alanlar, sıralı',
+    [hist.map((d) => d.filename), Object.keys(hist[1]).sort().join(','), hist[0].received],
+    [['c.zip', 'a.pdf'], 'endedAt,filename,received,savePath,sourceHost,startedAt,state,total', 0]);
+  eq('kalıcı geçmiş en fazla 200 kayıt, en yeniler kalır',
+    ss.sanitizeDownloadHistory(Array.from({ length: 230 }, (_, i) => ({ filename: 'f' + i, state: 'completed', startedAt: i }))).map((d) => d.filename)[0], 'f30');
+
+  const osMod = require('os');
+  const dir = fs.mkdtempSync(path.join(osMod.tmpdir(), 'ilg-log-'));
+  const { SecureLogManager: LogManager } = require('../src/main/secure-log-manager.js');
+  const lm = new LogManager(dir);
+  const e1 = lm.addVisit({ url: 'https://a.com/', domain: 'a.com', title: 'A' });
+  const e2 = lm.addVisit({ url: 'https://b.com/', domain: 'b.com', title: 'B' });
+  eq('ziyaret günlüğünden tek kayıt silinir', [lm.deleteEntries([e1.id]), lm.search({}).items.map((x) => x.id)], [1, [e2.id]]);
+  check('silinen kayıt senkron kuyruğundan da çıkar', !lm.syncQueue.includes(e1.id) && lm.syncQueue.includes(e2.id));
+  fs.rmSync(dir, { recursive: true, force: true });
+
+  const mainJs = read('main/main.js');
+  check('güvensiz kaynaktan tehlikeli indirme onaysız başlamıyor',
+    /downloadNeedsWarning\(\{ filename, url: sourceUrl \}\)[\s\S]{0,900}event\.preventDefault\(\)/.test(mainJs));
+  check('tehlikeli dosya indirilenler sayfasından onaysız açılmıyor',
+    /'downloads-open'[\s\S]{0,400}isDangerousFile\(d\.filename\)[\s\S]{0,300}showMessageBox/.test(mainJs));
+  check('gizli pencere indirmeleri ana pencereye gönderilmiyor ve kaydedilmiyor',
+    mainJs.includes('if (!entry.incognito && mainWindow && !mainWindow.isDestroyed())') && mainJs.includes('filter((d) => !d.incognito)'));
+  check('indirme geçmişi ziyaret günlüğü anahtarıyla şifreli yazılıyor', mainJs.includes('writeProtectedJson(DOWNLOADS_ENC, DOWNLOADS_PLAIN, list)'));
+  const appJs = read('renderer/app.js');
+  check('geçmiş ve indirilenler sayfaları artık "Yakında" değil',
+    appJs.includes("showScreen('history', renderHistoryPage)") && appJs.includes("showScreen('downloads', renderDownloadsPage)") && !/history:\s*'Geçmiş'/.test(appJs));
+  check('geçmişten açılan adres yalnızca http(s)', appJs.includes('if (!isWebHref(url)) return;'));
+  check('boş sekme ve hata belgesi ziyaret günlüğüne yazılmıyor', read('main/main.js').includes('if (!isIncognito && isWebUrl(tab.url)) {'));
+  // Ana süreç duraklatılan indirmeyi 'paused' durumuyla gönderir; sayfa bunu süren indirme saymazsa
+  // Sürdür ve İptal düğmeleri kaybolur (uçtan uca sonda yakaladı).
+  check('duraklatılan indirme süren indirme sayılıyor (Sürdür/İptal kaybolmaz)', (appJs.match(/d\.state === 'progressing' \|\| d\.state === 'paused'/g) || []).length >= 2);
 }
 
 // ══════════════════════════════════════════════════════════════════════════════

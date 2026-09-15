@@ -26,6 +26,7 @@ const {
   ACTIVATION_EVENTS, popupVerdict, validatePermissionChange, listDecisions, decisionsForOrigin, permissionLabel,
   shouldStripThirdPartyCookies, normalizeSecureDns, hostResolverOptions, DEFAULT_SECURE_DNS,
   certificateSummary, errorPageModel, errorPageScript, normalizeOrigin,
+  fileExtension, isDangerousFile, downloadNeedsWarning, sourceHost, sanitizeLogIds, sanitizeDownloadHistory,
 } = require('./site-safety');
 
 let incognitoWindow = null;
@@ -272,18 +273,87 @@ function uniquePath(dir, filename) {
   return candidate;
 }
 
-function broadcastDownload(entry) {
+function publicDownload(entry) {
   const { item, ...payload } = entry;   // DownloadItem serileştirilemez
-  for (const w of [mainWindow, incognitoWindow]) {
-    if (w && !w.isDestroyed()) w.webContents.send('download-updated', payload);
+  let paused = false;
+  try { paused = !!(item && item.isPaused()); } catch {}
+  return { ...payload, paused };
+}
+
+// Gizli pencere indirmeleri ana pencereye gönderilmez (eskiden iki pencereye de
+// gidiyordu; ana pencerenin indirilenler listesi gizli indirmeleri görebiliyordu).
+function broadcastDownload(entry) {
+  const payload = publicDownload(entry);
+  if (!entry.incognito && mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('download-updated', payload);
+  if (incognitoWindow && !incognitoWindow.isDestroyed()) incognitoWindow.webContents.send('download-updated', payload);
+}
+
+// ─── İndirme geçmişi (kalıcı) ─────────────────────────────────────────────────
+// Biten indirmeler ziyaret günlüğüyle aynı anahtarla şifreli saklanır; gizli
+// pencere indirmeleri yazılmaz. Listeden kaldırmak dosyayı silmez.
+const DOWNLOADS_ENC   = path.join(USER_DATA, 'downloads.enc');
+const DOWNLOADS_PLAIN = path.join(USER_DATA, 'downloads.json');
+let downloadsSaveTimer = null;
+
+function saveDownloadHistoryNow() {
+  if (downloadsSaveTimer) { clearTimeout(downloadsSaveTimer); downloadsSaveTimer = null; }
+  const list = sanitizeDownloadHistory([...downloads.values()].filter((d) => !d.incognito));
+  try {
+    if (!list.length) {
+      for (const f of [DOWNLOADS_ENC, DOWNLOADS_PLAIN]) { try { fs.unlinkSync(f); } catch {} }
+      return;
+    }
+    writeProtectedJson(DOWNLOADS_ENC, DOWNLOADS_PLAIN, list);
+  } catch (e) {
+    logError('downloads', e);
   }
 }
 
+function scheduleDownloadHistorySave() {
+  if (downloadsSaveTimer) return;
+  downloadsSaveTimer = setTimeout(saveDownloadHistoryNow, 800);
+  if (downloadsSaveTimer.unref) downloadsSaveTimer.unref();
+}
+
+function loadDownloadHistory() {
+  try {
+    for (const d of sanitizeDownloadHistory(readProtectedJson(DOWNLOADS_ENC, DOWNLOADS_PLAIN))) {
+      const id = ++downloadSeq;
+      downloads.set(id, { ...d, id, incognito: false, dangerous: isDangerousFile(d.filename), item: null });
+    }
+  } catch (e) {
+    logError('downloads', e);
+  }
+}
+
+app.on('will-quit', () => { if (downloadsSaveTimer) saveDownloadHistoryNow(); });
+
 function setupDownloads(ses) {
-  ses.on('will-download', (_event, item) => {
-    const id = ++downloadSeq;
+  ses.on('will-download', (event, item) => {
     const filename = safeFileName(item.getFilename());
     const incognito = ses !== browsingSession() && ses !== session.defaultSession;
+    const sourceUrl = item.getURL();
+
+    // Güvensiz (HTTP) bağlantıdan gelen çalıştırılabilir dosya yolda değiştirilmiş
+    // olabilir: kullanıcı açıkça onaylamadan indirilmez. Seyrek bir durum olduğu
+    // için eşzamanlı iletişim kutusu kullanılır; indirme başlamadan karar verilir.
+    if (downloadNeedsWarning({ filename, url: sourceUrl })) {
+      const parent = BrowserWindow.getFocusedWindow() || mainWindow;
+      const options = {
+        type: 'warning', buttons: ['İndirmeyi iptal et', 'Yine de indir'], defaultId: 0, cancelId: 0,
+        title: 'Güvenli olmayan indirme',
+        message: filename + ' güvenli olmayan bir bağlantıdan (HTTP) indiriliyor',
+        detail: 'Bu tür dosyalar bilgisayarınızda program çalıştırabilir ve indirilirken değiştirilmiş olabilir. Kaynağına güvenmiyorsanız indirmeyin.',
+      };
+      const choice = parent && !parent.isDestroyed() ? dialog.showMessageBoxSync(parent, options) : dialog.showMessageBoxSync(options);
+      if (choice !== 1) {
+        event.preventDefault();
+        diag.info('download', 'Güvenli olmayan indirme iptal edildi', { ext: fileExtension(filename) });
+        return;
+      }
+    }
+
+    const id = ++downloadSeq;
 
     // "Konum sor" kapalıysa yolu biz belirleriz; açıksa Electron kendi
     // "Farklı kaydet" diyaloğunu gösterir.
@@ -297,7 +367,8 @@ function setupDownloads(ses) {
     const entry = {
       id, filename, state: 'progressing',
       received: 0, total: item.getTotalBytes() || 0,
-      savePath: '', startedAt: Date.now(), incognito, item,
+      savePath: '', startedAt: Date.now(), endedAt: 0, incognito, item,
+      sourceHost: sourceHost(sourceUrl), dangerous: isDangerousFile(filename),
     };
     downloads.set(id, entry);
     diag.info('download', 'İndirme başladı', { total: entry.total, incognito });
@@ -317,8 +388,10 @@ function setupDownloads(ses) {
       entry.state    = state;            // completed | cancelled | interrupted
       entry.received = item.getReceivedBytes();
       entry.savePath = item.getSavePath() || entry.savePath;
+      entry.endedAt  = Date.now();
       entry.item     = null;
       broadcastDownload(entry);
+      if (!incognito) scheduleDownloadHistorySave();
       if (state === 'completed') {
         diag.info('download', 'İndirme tamamlandı', { bytes: entry.received });
         if (config.notifications !== false) {
@@ -649,8 +722,9 @@ function createTab(win, state, url = config.homepage, opts = {}) {
       sendTabsUpdate(win, state);
     }
 
-    // Gizli modda ziyaret loglanmaz
-    if (!isIncognito) {
+    // Gizli modda ve web dışı adreslerde (boş sekme, hata belgesi) ziyaret loglanmaz.
+    // Eskiden boş sekme de "Yeni Sekme" diye günlüğe ve geçmişe yazılıyordu.
+    if (!isIncognito && isWebUrl(tab.url)) {
       try {
         const domain    = new URL(tab.url).hostname;
         const vpnStatus = vpnManager?.getStatus();
@@ -1300,26 +1374,34 @@ function sessionSnapshot() {
   return serializeSession(tabs, ids.indexOf(mainState.activeTabId));
 }
 
-function writeSessionFile(data) {
+// Ziyaret günlüğüyle aynı anahtar: şifreleme varsa .enc, yoksa (günlük gibi) düz JSON.
+// Oturum ve indirme geçmişi bunu kullanır.
+function writeProtectedJson(encPath, plainPath, data) {
   const write = (file, buf) => {
     const tmp = file + '.tmp';
     fs.writeFileSync(tmp, buf, { mode: 0o600 });
     fs.renameSync(tmp, file);
   };
   if (secureLog && secureLog.canEncrypt) {
-    write(SESSION_ENC, secureLog._encrypt(data));
-    try { fs.unlinkSync(SESSION_PLAIN); } catch {}
+    write(encPath, secureLog._encrypt(data));
+    try { fs.unlinkSync(plainPath); } catch {}
   } else {
-    write(SESSION_PLAIN, JSON.stringify(data));
-    try { fs.unlinkSync(SESSION_ENC); } catch {}
+    write(plainPath, JSON.stringify(data));
+    try { fs.unlinkSync(encPath); } catch {}
   }
+}
+
+function readProtectedJson(encPath, plainPath) {
+  if (secureLog && secureLog.canEncrypt && fs.existsSync(encPath)) return secureLog._decrypt(fs.readFileSync(encPath));
+  if (fs.existsSync(plainPath)) return JSON.parse(fs.readFileSync(plainPath, 'utf-8'));
+  return null;
 }
 
 function saveSessionNow() {
   if (sessionTimer) { clearTimeout(sessionTimer); sessionTimer = null; }
   if (normalizeStartupMode(config.startupMode) !== 'restore') return;
   if (!mainWindow || mainWindow.isDestroyed()) return;   // sekmeler kapandıktan sonra boş oturum yazılmasın
-  try { writeSessionFile(sessionSnapshot()); } catch (e) { logError('session', e); }
+  try { writeProtectedJson(SESSION_ENC, SESSION_PLAIN, sessionSnapshot()); } catch (e) { logError('session', e); }
 }
 
 function scheduleSessionSave() {
@@ -1330,14 +1412,11 @@ function scheduleSessionSave() {
 
 function readSessionFile() {
   try {
-    if (secureLog && secureLog.canEncrypt && fs.existsSync(SESSION_ENC)) {
-      return parseSession(secureLog._decrypt(fs.readFileSync(SESSION_ENC)));
-    }
-    if (fs.existsSync(SESSION_PLAIN)) return parseSession(JSON.parse(fs.readFileSync(SESSION_PLAIN, 'utf-8')));
+    return parseSession(readProtectedJson(SESSION_ENC, SESSION_PLAIN));
   } catch (e) {
     logError('session', e);
+    return null;
   }
-  return null;
 }
 
 function deleteSessionFiles() {
@@ -1660,6 +1739,7 @@ ipcMain.handle('logs-get-stats',  ()            => secureLog?.getStats() || {});
 ipcMain.handle('logs-search',     (e, query)    => secureLog?.search(query) || { items: [], total: 0, pages: 1, page: 1 });
 ipcMain.handle('logs-export-csv', (e, query)    => secureLog?.exportCSV(query) || '');
 ipcMain.handle('logs-clear',      ()            => { secureLog?.clearLogs(); return true; });
+ipcMain.handle('logs-delete',     (e, ids)      => ({ ok: true, removed: secureLog ? secureLog.deleteEntries(sanitizeLogIds(ids)) : 0 }));
 ipcMain.handle('logs-sync',       async (e, { serverUrl, apiKey }) => {
   return await secureLog?.syncToServer(serverUrl, apiKey) || { synced: 0, success: false };
 });
@@ -1713,7 +1793,7 @@ ipcMain.handle('clear-all', async (event) => {
       title:     'Tüm Tarama Verilerini Temizle',
       message:   'Tarama verilerinin tümü silinecek',
       detail:
-        'Silinecek: çerezler, site verileri, önbellek, ziyaret günlüğü, site izin kararları ve kayıtlı oturum.\n\n' +
+        'Silinecek: çerezler, site verileri, önbellek, ziyaret günlüğü, indirme geçmişi (dosyalar değil), site izin kararları ve kayıtlı oturum.\n\n' +
         'Silinmeyecek: yer imleri, kayıtlı şifreler, ayarlar ve VPN profilleri.\n\n' +
         'Bu işlem geri alınamaz.',
     });
@@ -1730,6 +1810,8 @@ ipcMain.handle('clear-all', async (event) => {
     await ses.clearStorageData();
     secureLog?.clearLogs();
     deleteSessionFiles();
+    for (const [id, d] of downloads) if (!d.item) downloads.delete(id);
+    saveDownloadHistoryNow();
     // Site izin kararlarını da sıfırla — siteler yeniden sorabilir
     if (config.permissionDecisions) {
       config.permissionDecisions = {};
@@ -1752,7 +1834,61 @@ ipcMain.handle('show-notification', (e, { title, body }) => {
 });
 
 // İndirmeler
-ipcMain.handle('downloads-list', () => [...downloads.values()].map(({ item, ...rest }) => rest));
+ipcMain.handle('downloads-list', (event) => {
+  const { state } = getContextFromEvent(event);
+  const incognitoView = state === incognitoState;
+  return [...downloads.values()]
+    .filter((d) => incognitoView || !d.incognito)
+    .map((d) => ({ ...publicDownload(d), exists: d.state === 'completed' && d.savePath ? fs.existsSync(d.savePath) : undefined }));
+});
+
+ipcMain.handle('downloads-open', async (event, id) => {
+  const d = downloads.get(Number(id));
+  if (!d || d.state !== 'completed' || !d.savePath || !fs.existsSync(d.savePath)) return { ok: false, error: 'Dosya bulunamadı' };
+  if (isDangerousFile(d.filename)) {
+    const parent = BrowserWindow.fromWebContents(event.sender) || mainWindow;
+    const r = await dialog.showMessageBox(parent, {
+      type: 'warning', buttons: ['Vazgeç', 'Aç'], defaultId: 0, cancelId: 0,
+      title: 'Dosyayı aç',
+      message: d.filename + ' açılsın mı?',
+      detail: 'Bu dosya bilgisayarınızda program çalıştırır. Yalnızca güvendiğiniz kaynaklardan indirdiğiniz dosyaları açın.',
+    }).catch(() => ({ response: 0 }));
+    if (r.response !== 1) return { ok: false, canceled: true };
+  }
+  const error = await require('electron').shell.openPath(d.savePath);
+  return error ? { ok: false, error } : { ok: true };
+});
+
+ipcMain.handle('downloads-pause', (e, id) => {
+  const d = downloads.get(Number(id));
+  if (!d || !d.item) return { ok: false };
+  try {
+    if (d.item.isPaused()) d.item.resume(); else d.item.pause();
+  } catch { return { ok: false }; }
+  broadcastDownload(d);
+  return { ok: true, paused: d.item.isPaused() };
+});
+
+ipcMain.handle('downloads-remove', (e, id) => {
+  const d = downloads.get(Number(id));
+  if (!d || d.item) return { ok: false };   // süren indirme önce iptal edilmeli
+  downloads.delete(Number(id));
+  if (!d.incognito) scheduleDownloadHistorySave();
+  return { ok: true };
+});
+
+ipcMain.handle('downloads-clear', (event) => {
+  const { state } = getContextFromEvent(event);
+  const incognitoView = state === incognitoState;
+  let removed = 0;
+  for (const [id, d] of downloads) {
+    if (d.item || (!incognitoView && d.incognito)) continue;
+    downloads.delete(id);
+    removed++;
+  }
+  scheduleDownloadHistorySave();
+  return { ok: true, removed };
+});
 ipcMain.handle('downloads-show', (e, id) => {
   const d = downloads.get(id);
   if (d && d.savePath && fs.existsSync(d.savePath)) {
@@ -1929,6 +2065,7 @@ app.whenReady().then(() => {
   // trafik tünelden geçmeye devam eder ve kullanıcı kapatamaz.
   vpnManager.reconcile().catch(() => {});
   secureLog  = new SecureLogManager(USER_DATA);
+  loadDownloadHistory();   // günlük anahtarı hazır olduktan sonra
 
   vpnManager.onStatusChange(() => {
     // Tünel beklenmedik şekilde düştüyse kullanıcı arayüze bakmıyor olabilir —

@@ -467,6 +467,275 @@ async function loadShield() {
 }
 
 // ─── Yeni Sekme Sayfası ────────────────────────────────────────────────────────
+// ─── Geçmiş sayfası ───────────────────────────────────────────────────────────
+// Kaynak: şifreli ziyaret günlüğü (gizli pencere kaydedilmez).
+const PAGE_ICON_COLORS = ['#3a6db5', '#b85c3a', '#5a7a4a', '#8a4a7a', '#c89540', '#4a5a8a', '#7a4a3a', '#3a5a4a'];
+const isWebHref = (u) => /^https?:\/\//i.test(String(u || ''));
+
+function iconColorFor(key) {
+  let h = 0;
+  for (const ch of String(key || '')) h = (h * 31 + ch.codePointAt(0)) >>> 0;
+  return PAGE_ICON_COLORS[h % PAGE_ICON_COLORS.length];
+}
+
+function initialFor(host) {
+  const s = String(host || '').replace(/^www\./, '');
+  return (s[0] || '?').toLocaleUpperCase('tr');
+}
+
+function dayLabel(ts) {
+  const d = new Date(ts);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const day = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const diff = Math.round((today - day) / 86400000);
+  if (diff === 0) return 'Bugün';
+  if (diff === 1) return 'Dün';
+  return d.toLocaleDateString('tr-TR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+const historyView = { text: '', page: 1, items: [], total: 0, logEnabled: true };
+
+function renderHistoryPage() {
+  return `
+    <div class="page fade-up" id="history-page">
+      <div class="page-head">
+        <div>
+          <h1>Geçmiş</h1>
+          <p class="page-sub">Ziyaret günlüğü yalnızca bu cihazda şifreli saklanır. Gizli pencere kaydedilmez.</p>
+        </div>
+        <div class="right">
+          <label class="page-search">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+            <input type="search" id="history-search" placeholder="Geçmişte ara" aria-label="Geçmişte ara" autocomplete="off">
+          </label>
+          <button type="button" class="page-btn danger" id="history-clear">Tümünü temizle</button>
+        </div>
+      </div>
+      <div class="list" id="history-list" aria-live="polite"></div>
+      <div class="page-more"><button type="button" class="page-btn" id="history-more" hidden>Daha fazla göster</button></div>
+    </div>`;
+}
+
+async function loadHistory(reset) {
+  if (reset) { historyView.page = 1; historyView.items = []; }
+  let r = { items: [], total: 0 };
+  try { r = await sb.logs.search({ text: historyView.text, page: historyView.page, limit: 100 }); } catch {}
+  historyView.items = historyView.page === 1 ? r.items : historyView.items.concat(r.items);
+  historyView.total = r.total;
+  renderHistoryList();
+}
+
+function renderHistoryList() {
+  const box = document.getElementById('history-list');
+  if (!box) return;
+  const H = window.ilgezdiHtml;
+  if (!historyView.items.length) {
+    const msg = historyView.text ? 'Aramayla eşleşen kayıt yok.'
+      : historyView.logEnabled ? 'Henüz geçmiş yok.'
+      : 'Ziyaret günlüğü kapalı. Ayarlar › Gizlilik bölümünden açabilirsiniz.';
+    box.innerHTML = `<p class="page-empty">${H.esc(msg)}</p>`;
+  } else {
+    let html = '';
+    let lastDay = '';
+    for (const it of historyView.items) {
+      if (!isWebHref(it.url)) continue;   // eski sürümlerin günlüğe yazdığı boş sekme kayıtları
+      const day = dayLabel(it.timestamp);
+      if (day !== lastDay) { html += `<div class="list-day">${H.esc(day)}</div>`; lastDay = day; }
+      const time = new Date(it.timestamp).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+      const name = it.title || it.url;
+      html += `
+        <div class="list-row" role="link" tabindex="0" data-url="${H.esc(it.url)}">
+          <span class="lr-icon" style="background:${iconColorFor(it.domain)}" aria-hidden="true">${H.esc(initialFor(it.domain))}</span>
+          <span class="lr-title">${H.esc(name)}</span>
+          <span class="lr-url">${H.esc(it.domain || '')}</span>
+          <span class="lr-time">${H.esc(time)}</span>
+          <button type="button" class="lr-more" data-delete="${H.esc(it.id)}" title="Geçmişten sil" aria-label="Geçmişten sil: ${H.esc(name)}">✕</button>
+        </div>`;
+    }
+    box.innerHTML = html;
+  }
+  const more = document.getElementById('history-more');
+  if (more) more.hidden = historyView.items.length >= historyView.total;
+}
+
+async function initHistoryPage() {
+  const cfg = await sb.getConfig().catch(() => ({}));
+  historyView.logEnabled = cfg.logEnabled !== false;
+  historyView.text = '';
+  await loadHistory(true);
+
+  const search = document.getElementById('history-search');
+  let timer = null;
+  search?.addEventListener('input', () => {
+    clearTimeout(timer);
+    timer = setTimeout(() => { historyView.text = search.value.trim(); loadHistory(true); }, 200);
+  });
+  document.getElementById('history-more')?.addEventListener('click', () => {
+    historyView.page += 1;
+    loadHistory(false);
+  });
+  document.getElementById('history-clear')?.addEventListener('click', async () => {
+    if (!confirm('Tüm ziyaret geçmişi silinsin mi? Bu işlem geri alınamaz.')) return;
+    await sb.logs.clearLogs();
+    loadHistory(true);
+  });
+
+  const list = document.getElementById('history-list');
+  const open = (row, newTab) => {
+    const url = row && row.dataset.url;
+    if (!isWebHref(url)) return;
+    if (newTab) sb.newTab(url);
+    else { hideScreen(); sb.navigate(url); }
+  };
+  list?.addEventListener('click', async (e) => {
+    const del = e.target.closest('[data-delete]');
+    if (del) {
+      e.stopPropagation();
+      const id = del.dataset.delete;
+      await sb.logs.deleteEntries([id]);
+      historyView.items = historyView.items.filter((x) => x.id !== id);
+      historyView.total = Math.max(0, historyView.total - 1);
+      renderHistoryList();
+      return;
+    }
+    const row = e.target.closest('.list-row');
+    if (row) open(row, e.ctrlKey || e.metaKey);
+  });
+  list?.addEventListener('auxclick', (e) => {
+    const row = e.button === 1 && e.target.closest('.list-row');
+    if (row) { e.preventDefault(); open(row, true); }
+  });
+  list?.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter' || e.target.closest('[data-delete]')) return;
+    const row = e.target.closest('.list-row');
+    if (row) open(row, e.ctrlKey);
+  });
+}
+
+// ─── İndirilenler sayfası ─────────────────────────────────────────────────────
+const downloadsView = new Map();   // id → ana süreçteki kayıt
+const DL_STATE_TEXT = {
+  completed: 'Tamamlandı', cancelled: 'İptal edildi', interrupted: 'Yarıda kaldı',
+  progressing: 'İndiriliyor', paused: 'Duraklatıldı',
+};
+
+function formatBytes(n) {
+  const units = ['B', 'KB', 'MB', 'GB'];
+  let x = Number(n) || 0;
+  let i = 0;
+  while (x >= 1024 && i < units.length - 1) { x /= 1024; i++; }
+  return x.toLocaleString('tr-TR', { maximumFractionDigits: i ? 1 : 0 }) + ' ' + units[i];
+}
+
+function updateDownloadsBadge() {
+  const btn = document.getElementById('sb-downloads');
+  if (!btn) return;
+  let badge = document.getElementById('downloads-badge');
+  if (!badge) {
+    badge = document.createElement('span');
+    badge.id = 'downloads-badge';
+    badge.setAttribute('aria-hidden', 'true');
+    btn.appendChild(badge);
+  }
+  // Duraklatılmış indirme de sürüyor sayılır (ana süreç durumu 'paused' olarak gönderir).
+  const active = [...downloadsView.values()].filter((d) => d.state === 'progressing' || d.state === 'paused').length;
+  badge.textContent = String(active);
+  badge.hidden = active === 0;
+  btn.setAttribute('aria-label', active ? 'İndirmeler, ' + active + ' indirme sürüyor' : 'İndirmeler');
+}
+
+function renderDownloadsPage() {
+  return `
+    <div class="page fade-up" id="downloads-page">
+      <div class="page-head">
+        <div>
+          <h1>İndirilenler</h1>
+          <p class="page-sub">Liste bu cihazda şifreli saklanır; gizli pencere indirmeleri kaydedilmez. Listeden kaldırmak dosyayı silmez.</p>
+        </div>
+        <div class="right"><button type="button" class="page-btn" id="downloads-clear">Listeyi temizle</button></div>
+      </div>
+      <div id="downloads-list" aria-live="polite"></div>
+    </div>`;
+}
+
+function renderDownloadsList() {
+  const box = document.getElementById('downloads-list');
+  if (!box) return;
+  const H = window.ilgezdiHtml;
+  const items = [...downloadsView.values()].sort((a, b) => (b.startedAt || 0) - (a.startedAt || 0));
+  if (!items.length) {
+    box.innerHTML = '<p class="page-empty">Henüz indirme yok.</p>';
+    return;
+  }
+  box.innerHTML = items.map((d) => {
+    const id = H.esc(String(d.id));
+    const running = d.state === 'progressing' || d.state === 'paused';
+    const state = d.state === 'paused' || (running && d.paused) ? 'paused' : d.state;
+    const pct = d.total ? Math.min(100, Math.round((d.received / d.total) * 100)) : 0;
+    const missing = d.state === 'completed' && d.exists === false;
+    const sizeText = running ? formatBytes(d.received) + (d.total ? ' / ' + formatBytes(d.total) : '') : formatBytes(d.total || d.received);
+    const status = missing ? 'Dosya taşınmış ya da silinmiş' : (DL_STATE_TEXT[state] || state);
+    const ext = (String(d.filename).includes('.') ? String(d.filename).split('.').pop() : '').slice(0, 4).toUpperCase() || 'DOS';
+    const actions = [];
+    if (running) {
+      actions.push(`<button type="button" class="page-btn sm" data-dl="pause" data-id="${id}">${state === 'paused' ? 'Sürdür' : 'Duraklat'}</button>`);
+      actions.push(`<button type="button" class="page-btn sm" data-dl="cancel" data-id="${id}">İptal</button>`);
+    } else {
+      if (d.state === 'completed' && !missing) {
+        actions.push(`<button type="button" class="page-btn sm" data-dl="open" data-id="${id}">Aç</button>`);
+        actions.push(`<button type="button" class="page-btn sm" data-dl="show" data-id="${id}">Klasörde göster</button>`);
+      }
+      actions.push(`<button type="button" class="page-btn sm ghost" data-dl="remove" data-id="${id}" title="Listeden kaldır" aria-label="Listeden kaldır: ${H.esc(d.filename)}">✕</button>`);
+    }
+    return `
+      <div class="dl-row${d.dangerous ? ' dangerous' : ''}" data-row="${id}">
+        <div class="file-icon" aria-hidden="true">${H.esc(ext)}</div>
+        <div class="dl-main">
+          <div class="name">${H.esc(d.filename)}</div>
+          <div class="src">${H.esc(d.sourceHost || '')}${d.dangerous ? ' · <span class="dl-warn">program çalıştırabilir</span>' : ''}</div>
+          ${running ? `<div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}" aria-label="${H.esc(d.filename)} indiriliyor"><i style="width:${pct}%"></i></div>` : ''}
+        </div>
+        <div class="pct">${H.esc(sizeText)}</div>
+        <div class="dl-status ${H.esc(state)}">${H.esc(status)}</div>
+        <div class="dl-actions">${actions.join('')}</div>
+      </div>`;
+  }).join('');
+}
+
+async function refreshDownloads() {
+  try {
+    const list = await sb.downloads.list();
+    downloadsView.clear();
+    for (const d of list || []) downloadsView.set(d.id, d);
+  } catch {}
+  renderDownloadsList();
+  updateDownloadsBadge();
+}
+
+async function initDownloadsPage() {
+  await refreshDownloads();
+  document.getElementById('downloads-clear')?.addEventListener('click', async () => {
+    await sb.downloads.clear();
+    refreshDownloads();
+  });
+  document.getElementById('downloads-list')?.addEventListener('click', async (e) => {
+    const btn = e.target.closest('[data-dl]');
+    if (!btn) return;
+    const id = Number(btn.dataset.id);
+    const action = btn.dataset.dl;
+    if (action === 'open') await sb.downloads.open(id);
+    else if (action === 'show') await sb.downloads.showInFolder(id);
+    else if (action === 'pause') await sb.downloads.pause(id);
+    else if (action === 'cancel') await sb.downloads.cancel(id);
+    else if (action === 'remove') {
+      const r = await sb.downloads.remove(id);
+      if (r && r.ok) downloadsView.delete(id);
+      renderDownloadsList();
+    }
+  });
+}
+
 const QUICK_LINKS = [
   { name: 'Atlas',  url: 'https://maps.google.com',        color: '#3a6db5', letter: 'A' },
   { name: 'Boy',    url: 'https://tr.wikipedia.org',        color: '#b85c3a', letter: 'B' },
@@ -677,11 +946,13 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (screen === 'newtab') {
         showScreen('newtab', renderNewTab);
         requestAnimationFrame(initNewTabEvents);
+      } else if (screen === 'history') {
+        showScreen('history', renderHistoryPage).then(initHistoryPage);
+      } else if (screen === 'downloads') {
+        showScreen('downloads', renderDownloadsPage).then(initDownloadsPage);
       } else {
         const titles = {
-          history:   'Geçmiş',
           bookmarks: 'Yer İşaretleri',
-          downloads: 'İndirmeler',
           discover:  'Keşfet',
         };
         showScreen(screen, () => `
@@ -835,6 +1106,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (n && siteInfoOpen()) loadSiteInfo();
   });
 
+  // ── İndirmeler: canlı durum ve kenar çubuğu rozeti ──────────────────────────
+  sb.downloads?.list?.().then((list) => {
+    for (const d of list || []) downloadsView.set(d.id, d);
+    updateDownloadsBadge();
+  }).catch(() => {});
+  sb.downloads?.onUpdated?.((d) => {
+    if (!d || d.id == null) return;
+    downloadsView.set(d.id, { ...(downloadsView.get(d.id) || {}), ...d });
+    updateDownloadsBadge();
+    if (currentScreen === 'downloads') renderDownloadsList();
+  });
+
   // ── Klavye kısayolları ────────────────────────────────────────────────────
   // Kısayolların tamamı ana süreçte (browser-commands.js) yakalanır. Eskiden
   // buradaydı ve odak sayfadayken hiçbiri çalışmıyordu. Arayüze ait olanlar
@@ -851,6 +1134,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       case 'toggle-bookmarks': document.getElementById('btn-bookmarks')?.click(); break;
       case 'logs':             document.getElementById('btn-logs')?.click(); break;
       case 'vpn-panel':        document.getElementById('btn-vpn-panel')?.click(); break;
+      case 'history-page':     document.getElementById('sb-history')?.click(); break;
+      case 'downloads-page':   document.getElementById('sb-downloads')?.click(); break;
     }
   });
 

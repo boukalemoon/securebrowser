@@ -262,6 +262,21 @@ class SecureLogManager {
     this._saveSyncQueue();
   }
 
+  /** Geçmiş sayfasından tek tek silme. Senkron kuyruğundan da çıkarılır. */
+  deleteEntries(ids) {
+    const remove = new Set(Array.isArray(ids) ? ids : []);
+    if (!remove.size) return 0;
+    const before = this.logs.length;
+    this.logs = this.logs.filter((l) => !remove.has(l.id));
+    this.syncQueue = this.syncQueue.filter((id) => !remove.has(id));
+    const removed = before - this.logs.length;
+    if (removed) {
+      this.saveLogs();
+      this._saveSyncQueue();
+    }
+    return removed;
+  }
+
   // ── CSV Dışa Aktarma ──────────────────────────────────────────────────────────
 
   /**

@@ -327,7 +327,83 @@ const ERROR_PAGE_CSS = [
   '.code{margin-top:26px;font:12px ui-monospace,Consolas,monospace;color:var(--mute);letter-spacing:.04em}',
 ].join('');
 
+// ─── İndirme güvenliği ────────────────────────────────────────────────────────
+// Electron 44 indirilen dosyaya Mark-of-the-Web'i (Zone.Identifier) kendisi
+// yazıyor (sondayla doğrulandı); SmartScreen dosya açılırken denetler. Burada
+// yalnızca güvensiz kaynaktan gelen çalıştırılabilir dosya uyarısı belirlenir.
+const DANGEROUS_EXTENSIONS = Object.freeze(new Set([
+  'exe', 'msi', 'msp', 'msix', 'msixbundle', 'appx', 'appxbundle', 'bat', 'cmd', 'com', 'scr', 'pif', 'cpl',
+  'dll', 'ps1', 'psm1', 'vbs', 'vbe', 'js', 'jse', 'wsf', 'wsh', 'hta', 'lnk', 'reg', 'jar', 'application',
+  'gadget', 'inf', 'scf', 'url', 'iso', 'img', 'vhd', 'vhdx', 'chm', 'sh', 'app', 'dmg', 'pkg', 'deb', 'rpm',
+]));
+
+/** Uzantı (küçük harf). Windows sondaki nokta ve boşlukları attığı için onlar yok sayılır. */
+function fileExtension(name) {
+  const base = String(name || '').replace(/[.\s]+$/, '');
+  const i = base.lastIndexOf('.');
+  return i > 0 ? base.slice(i + 1).toLowerCase() : '';
+}
+
+const isDangerousFile = (name) => DANGEROUS_EXTENSIONS.has(fileExtension(name));
+
+/** https, yerel döngü (localhost, 127.x, ::1) ya da sayfanın ürettiği blob/data. */
+function isSecureSource(url) {
+  try {
+    const u = new URL(String(url || ''));
+    if (u.protocol === 'https:' || u.protocol === 'blob:' || u.protocol === 'data:') return true;
+    if (u.protocol !== 'http:') return false;
+    const h = u.hostname.replace(/^\[|\]$/g, '');
+    return h === 'localhost' || h.endsWith('.localhost') || /^127\./.test(h) || h === '::1';
+  } catch { return false; }
+}
+
+const downloadNeedsWarning = ({ filename, url }) => isDangerousFile(filename) && !isSecureSource(url);
+
+function sourceHost(url) {
+  try {
+    const u = new URL(String(url || ''));
+    return u.protocol === 'http:' || u.protocol === 'https:' ? u.hostname : '';
+  } catch { return ''; }
+}
+
+// Ziyaret günlüğü kimliği: secure-log-manager addVisit biçimi.
+const LOG_ID_RE = /^log_\d{10,16}_[a-z0-9]{1,8}$/;
+function sanitizeLogIds(ids) {
+  if (!Array.isArray(ids)) return [];
+  return [...new Set(ids.filter((x) => typeof x === 'string' && LOG_ID_RE.test(x)))].slice(0, 500);
+}
+
+// Kalıcı indirme geçmişi: yalnızca biten indirmeler, yalnızca bilinen alanlar.
+const DOWNLOAD_HISTORY_MAX = 200;
+const FINISHED_DOWNLOAD_STATES = new Set(['completed', 'cancelled', 'interrupted']);
+function sanitizeDownloadHistory(list) {
+  if (!Array.isArray(list)) return [];
+  const num = (v) => (Number.isFinite(Number(v)) && Number(v) >= 0 ? Number(v) : 0);
+  return list
+    .filter((d) => d && FINISHED_DOWNLOAD_STATES.has(d.state) && typeof d.filename === 'string' && d.filename)
+    .map((d) => ({
+      filename:   d.filename.slice(0, 180),
+      state:      d.state,
+      received:   num(d.received),
+      total:      num(d.total),
+      savePath:   typeof d.savePath === 'string' ? d.savePath.slice(0, 1024) : '',
+      sourceHost: typeof d.sourceHost === 'string' ? d.sourceHost.slice(0, 253) : '',
+      startedAt:  num(d.startedAt),
+      endedAt:    num(d.endedAt),
+    }))
+    .sort((a, b) => a.startedAt - b.startedAt)
+    .slice(-DOWNLOAD_HISTORY_MAX);
+}
+
 module.exports = {
+  DANGEROUS_EXTENSIONS,
+  fileExtension,
+  isDangerousFile,
+  isSecureSource,
+  downloadNeedsWarning,
+  sourceHost,
+  sanitizeLogIds,
+  sanitizeDownloadHistory,
   ACTIVATION_WINDOW_MS,
   ACTIVATION_EVENTS,
   popupVerdict,

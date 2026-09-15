@@ -50,6 +50,10 @@ contextBridge.exposeInMainWorld('secureBrowser', {
     list:         ()   => ipcRenderer.invoke('downloads-list'),
     showInFolder: (id) => ipcRenderer.invoke('downloads-show', id),
     cancel:       (id) => ipcRenderer.invoke('downloads-cancel', id),
+    open:         (id) => ipcRenderer.invoke('downloads-open', id),
+    pause:        (id) => ipcRenderer.invoke('downloads-pause', id),
+    remove:       (id) => ipcRenderer.invoke('downloads-remove', id),
+    clear:        ()   => ipcRenderer.invoke('downloads-clear'),
     onUpdated:    (cb) => ipcRenderer.on('download-updated', (_, d) => cb(d)),
   },
 
@@ -71,6 +75,7 @@ contextBridge.exposeInMainWorld('secureBrowser', {
     search:    (query)       => ipcRenderer.invoke('logs-search', query),
     exportCSV: (query)       => ipcRenderer.invoke('logs-export-csv', query),
     clearLogs: ()            => ipcRenderer.invoke('logs-clear'),
+    deleteEntries: (ids)     => ipcRenderer.invoke('logs-delete', ids),
     sync:      (url, apiKey) => ipcRenderer.invoke('logs-sync', { serverUrl: url, apiKey }),
   },
 

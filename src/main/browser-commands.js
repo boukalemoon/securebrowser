@@ -73,13 +73,15 @@ const SHORTCUTS = [
   { keys: ['Mod+Shift+L'],                       cmd: 'logs',              page: false },
   { keys: ['Mod+Shift+V'],                       cmd: 'vpn-panel',         page: false },
   { keys: ['F11'],                               cmd: 'toggle-fullscreen', page: true },
+  { keys: ['Mod+J'],                             cmd: 'downloads-page',    page: true },
+  { keys: ['Mod+H'],                             cmd: 'history-page',      page: false },   // Docs: bul-değiştir
 ];
 for (let i = 1; i <= 8; i++) SHORTCUTS.push({ keys: ['Mod+' + i], cmd: 'tab-' + i, page: true });
 
 // Ana süreç yalnızca bu komutları kendisi yürütür; kalanlar arayüze iletilir.
 const UI_COMMANDS = Object.freeze(new Set([
   'new-tab', 'focus-address', 'find', 'find-next', 'find-prev', 'bookmark-page',
-  'settings', 'toggle-bookmarks', 'logs', 'vpn-panel',
+  'settings', 'toggle-bookmarks', 'logs', 'vpn-panel', 'history-page', 'downloads-page',
 ]));
 
 function parseShortcut(str) {
