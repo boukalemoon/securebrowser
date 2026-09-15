@@ -423,6 +423,16 @@ function renderCustomizationTab(cfg) {
       </div>
       <p class="s-hint">Adres çubuğuna yazdığınız kelimeler bu motorda aranır.</p>
     </div>
+    <div class="settings-section"><h3>Başlangıçta</h3>
+      <div class="s-input-row">
+        <label for="cfg-startup-mode">İlgezdi açıldığında</label>
+        <select id="cfg-startup-mode">
+          <option value="homepage" ${(cfg.startupMode||'homepage')==='homepage'?'selected':''}>Ana sayfayı aç</option>
+          <option value="restore"  ${cfg.startupMode==='restore'?'selected':''}>Kaldığım yerden devam et</option>
+        </select>
+      </div>
+      <p class="s-hint">Kaldığım yerden devam et: açık sekmeler (sabitlenenler dahil) geri/ileri geçmişleriyle geri gelir. Liste ziyaret günlüğüyle aynı anahtarla şifreli saklanır; gizli pencere sekmeleri kaydedilmez.</p>
+    </div>
     <div class="settings-section"><h3>Ana Sayfa</h3>
       <div class="s-input-row"><input type="text" id="homepage-input" value="${cfg.homepage && cfg.homepage!=='about:blank' ? cfg.homepage : ''}" placeholder="https://... (boş bırakılırsa İlgezdi başlangıç sayfası)" /></div>
       <p class="s-hint">Uygulama açıldığında ve Ana Sayfa düğmesine basınca bu adres açılır.</p>
@@ -482,6 +492,7 @@ function renderGeneralTab(cfg) {
         <tr><td>Sayfada bul / sonraki eşleşme</td><td><span class="kbd">Ctrl</span>+<span class="kbd">F</span> · <span class="kbd">F3</span></td></tr>
         <tr><td>Yakınlaştır / uzaklaştır / sıfırla</td><td><span class="kbd">Ctrl</span>+<span class="kbd">+</span> · <span class="kbd">Ctrl</span>+<span class="kbd">-</span> · <span class="kbd">Ctrl</span>+<span class="kbd">0</span></td></tr>
         <tr><td>Yazdır</td><td><span class="kbd">Ctrl</span>+<span class="kbd">P</span></td></tr>
+        <tr><td>Tam ekran</td><td><span class="kbd">F11</span></td></tr>
         <tr><td>Yer imine ekle</td><td><span class="kbd">Ctrl</span>+<span class="kbd">D</span></td></tr>
         <tr><td>Yer imleri paneli</td><td><span class="kbd">Ctrl</span>+<span class="kbd">Shift</span>+<span class="kbd">O</span> · <span class="kbd">Ctrl</span>+<span class="kbd">B</span></td></tr>
         <tr><td>Gizli pencere</td><td><span class="kbd">Ctrl</span>+<span class="kbd">Shift</span>+<span class="kbd">N</span></td></tr>
@@ -1001,6 +1012,7 @@ function initSettingsPanelEvents() {
       fontSize:    _savedFontSize,
       fontFamily:  _savedFontFamily,
       newTabMode:            document.getElementById('new-tab-mode')?.value          || settingsConfig.newTabMode,
+      startupMode:           document.getElementById('cfg-startup-mode')?.value      || settingsConfig.startupMode || 'homepage',
       customNewTabUrl:       document.getElementById('custom-newtab-url')?.value     || settingsConfig.customNewTabUrl,
       // ?? kullanılıyor ki alan BOŞ bırakılınca (İlgezdi başlangıç sayfası) korunsun
       homepage:              (document.getElementById('homepage-input')?.value ?? settingsConfig.homepage).trim(),

@@ -833,6 +833,78 @@ suite('Hata sayfası ve sertifika');
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
+// Sekmeler — sıralama, sabitleme, sekme menüsü, oturum, tam ekran (P1-B)
+// ══════════════════════════════════════════════════════════════════════════════
+suite('Sekme düzeni ve sekme menüsü');
+{
+  const pins = (...ids) => new Set(ids);
+  eq('taşıma', bc.moveTabId([1, 2, 3, 4], pins(), 4, 1), [1, 4, 2, 3]);
+  eq('sabitsiz sekme sabitli grubun önüne geçemez', bc.moveTabId([1, 2, 3], pins(1), 3, 0), [1, 3, 2]);
+  eq('sabitli sekme sabitsiz gruba geçemez', bc.moveTabId([1, 2, 3], pins(1, 2), 1, 3), [2, 1, 3]);
+  eq('aralık dışı hedef sona sıkıştırılır', bc.moveTabId([1, 2, 3], pins(), 1, 99), [2, 3, 1]);
+  eq('bilinmeyen sekme sırayı değiştirmez', bc.moveTabId([1, 2], pins(), 9, 0), [1, 2]);
+  eq('sabitlenen sekme sabitli grubun sonuna gider', bc.orderAfterPin([1, 2, 3, 4], pins(1, 4), 4), [1, 4, 2, 3]);
+  eq('sabitlemesi kaldırılan sekme sabitsiz grubun başına gider', bc.orderAfterPin([1, 2, 3], pins(2), 1), [2, 1, 3]);
+
+  const menu = bc.buildTabMenuModel({ index: 2, count: 3, pinned: false, muted: false, canReopen: false, platform: 'win32' });
+  const ids = menu.filter((i) => !i.type).map((i) => i.id);
+  eq('sekme menüsü', ids, ['new-tab-right', 'reload', 'duplicate', 'pin', 'mute', 'close', 'close-others', 'close-right', 'reopen-closed']);
+  eq('son sekmede "sağdakileri kapat" ve yığın boşken "yeniden aç" pasif',
+    menu.filter((i) => i.id === 'close-right' || i.id === 'reopen-closed').map((i) => i.enabled), [false, false]);
+  eq('sabitli ve sessiz sekmede ters işlemler',
+    bc.buildTabMenuModel({ index: 0, count: 1, pinned: true, muted: true }).filter((i) => !i.type).map((i) => i.id).slice(3, 5), ['unpin', 'unmute']);
+  const allMenuIds = [true, false].flatMap((p) => [true, false].flatMap((m) =>
+    bc.buildTabMenuModel({ index: 0, count: 2, pinned: p, muted: m }).filter((i) => !i.type).map((i) => i.id)));
+  check('menüdeki her işlem IPC beyaz listesinde', allMenuIds.every((id) => bc.TAB_ACTIONS.has(id)), allMenuIds.filter((id) => !bc.TAB_ACTIONS.has(id)));
+  eq('F11 → tam ekran', bc.commandForInput({ type: 'keyDown', key: 'F11', code: 'F11' }, { platform: 'win32' }), 'toggle-fullscreen');
+  const mainJs = read('main/main.js');
+  check("tab-action IPC'si yalnızca beyaz listedeki işlemleri kabul ediyor", /'tab-action'[\s\S]{0,200}if \(!TAB_ACTIONS\.has\(action\)\) return/.test(mainJs));
+}
+
+suite('Oturum geri yükleme');
+{
+  eq('başlangıç modu', [bc.normalizeStartupMode('restore'), bc.normalizeStartupMode('bozuk'), bc.normalizeStartupMode()], ['restore', 'homepage', 'homepage']);
+  const E = (u) => ({ url: u, title: 'T ' + u, pageState: 'form-verisi' });
+  const s = bc.serializeSession([
+    { url: 'about:blank', title: 'Yeni Sekme' },
+    { url: 'https://a.com/', title: 'A', pinned: true, entries: [E('https://a.com/')], index: 0 },
+    { url: 'https://b.com/2', title: 'B', entries: [E('about:blank'), E('https://b.com/1'), E('https://b.com/2')], index: 2 },
+  ], 2);
+  eq('boş sekme kaydedilmez, etkin sekme konumu kayar', [s.tabs.length, s.activeIndex, s.version], [2, 1, 1]);
+  eq('girdilerde web dışı atılır, etkin konum korunur', [s.tabs[1].entries.map((e) => e.url), s.tabs[1].index], [['https://b.com/1', 'https://b.com/2'], 1]);
+  check('form içeriği taşıyabilen pageState diske yazılmaz', !JSON.stringify(s).includes('form-verisi'));
+
+  const roundTrip = bc.parseSession(JSON.parse(JSON.stringify(s)));
+  eq('kaydedilen oturum geri okunur', [roundTrip.tabs.map((t) => t.url), roundTrip.activeIndex, roundTrip.tabs[0].pinned], [['https://a.com/', 'https://b.com/2'], 1, true]);
+  eq('sürüm uymazsa ya da sekme yoksa null', [bc.parseSession({ version: 2, tabs: [] }), bc.parseSession({ version: 1, tabs: [{ url: 'file:///C:/x' }] }), bc.parseSession(null)], [null, null, null]);
+  const tampered = bc.parseSession({ version: 1, activeIndex: 0, tabs: [
+    { url: 'https://x.com/', pinned: 'evet', entries: [{ url: 'javascript:alert(1)' }, { url: 'https://x.com/' }], index: 7 },
+    { url: 'https://y.com/', pinned: true },
+  ] });
+  eq('elle bozulmuş dosya: sabitli önde, geçersiz girdi atılır, konum sınırda, etkin sekme izlenir',
+    [tampered.tabs.map((t) => t.url), tampered.tabs[1].pinned, tampered.tabs[1].entries.length, tampered.tabs[1].index, tampered.activeIndex],
+    [['https://y.com/', 'https://x.com/'], false, 1, 0, 1]);
+  eq('en fazla 100 sekme', bc.serializeSession(Array.from({ length: 130 }, (_, i) => ({ url: 'https://s.com/' + i })), 0).tabs.length, 100);
+
+  const mainJs = read('main/main.js');
+  const snapBody = mainJs.slice(mainJs.indexOf('function sessionSnapshot('), mainJs.indexOf('function writeSessionFile('));
+  check('oturuma yalnızca ana pencere yazılıyor (gizli pencere asla)', snapBody.includes('mainState.tabs') && !snapBody.includes('incognitoState'));
+  check('oturum dosyası ziyaret günlüğü anahtarıyla şifreleniyor', /write\(SESSION_ENC, secureLog\._encrypt\(data\)\)/.test(mainJs));
+  check('pencere kapanırken sekmeler kapanmadan önce eşzamanlı kaydediliyor', mainJs.includes("mainWindow.on('close', () => saveSessionNow());"));
+  check('"Kaldığım yerden" kapatılınca ve "Tüm verileri temizle"de oturum dosyası siliniyor', (mainJs.match(/deleteSessionFiles\(\);/g) || []).length >= 2);
+  check('arka plan sekmeleri ilk açılışta yükleniyor', mainJs.includes('lazy: i !== saved.activeIndex') && mainJs.includes('if (tab.pendingLoad) {'));
+}
+
+suite('Tam ekran');
+{
+  const mainJs = read('main/main.js');
+  const resizeBody = mainJs.slice(mainJs.indexOf('function resizeActiveView('), mainJs.indexOf('function setActiveTab('));
+  check('video tam ekranında sekme görünümü tüm pencereye yayılıyor', /if \(state\.htmlFullscreen\)[\s\S]{0,200}setBounds\(\{ x: 0, y: 0, width: full\.width, height: full\.height \}\)/.test(resizeBody));
+  check('tam ekran uyarısı betik çalıştırmayan ayrı görünümde', /new WebContentsView\(\{ webPreferences: \{ sandbox: true, contextIsolation: true, javascript: false \} \}\)/.test(mainJs));
+  check('sekme değişince video tam ekranından çıkılıyor', /if \(state\.htmlFullscreen\) \{[\s\S]{0,400}exitFullscreen/.test(mainJs));
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
 // Kaynak dosyalar — görünmez ham kontrol karakteri olmamalı
 // Neden: regex aralıkları ([NUL-boşluk] gibi) ham baytla yazılınca git dosyayı
 // ikili sanıyor ve bir düzenleyici bu baytları sessizce silerse güvenlik amaçlı

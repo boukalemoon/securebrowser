@@ -605,3 +605,25 @@ input, select, textarea { font-family: var(--font-ui); }
 .si-btn.danger:hover { color: var(--danger); border-color: var(--danger); }
 .si-result { margin-top: 8px; font-size: 12px; color: var(--success); min-height: 16px; }
 .si-result.bad { color: var(--danger); }
+
+/* ══════════════════════════════════════════════════════════
+   SEKMELER — sabitlenmiş, ses göstergesi, sürükleme
+   ══════════════════════════════════════════════════════════ */
+.tab.pinned { min-width: 40px; max-width: 40px; padding: 6px 0; justify-content: center; gap: 0; }
+.tab.pinned .tab-title, .tab.pinned .tab-close { display: none; }
+.tab.pinned::before {
+  content: attr(data-initial);
+  width: 20px; height: 20px; display: grid; place-items: center; border-radius: 5px;
+  font-size: 11px; font-weight: 700; color: var(--ink-soft);
+  background: color-mix(in srgb, var(--gold) 16%, transparent);
+}
+.tab.pinned.active::before { color: var(--gold); }
+.tab-audio {
+  width: 18px; height: 18px; padding: 0; flex-shrink: 0;
+  display: grid; place-items: center; border: none; border-radius: 4px;
+  background: transparent; color: var(--ink-soft); cursor: pointer;
+}
+.tab-audio:hover { background: var(--bg-elev); color: var(--gold); }
+.tab-audio.muted { color: var(--danger); }
+.tab.pinned .tab-audio { position: absolute; right: 1px; top: 1px; width: 14px; height: 14px; }
+.tab.dragging { opacity: .45; }

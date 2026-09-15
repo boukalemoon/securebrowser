@@ -269,6 +269,7 @@ function featureFlags() {
     webrtcPolicy:   c.webrtcPolicy || 'default_public_interface_only',
     secureDns:      c.secureDns || 'automatic',
     blockThirdPartyCookies: c.blockThirdPartyCookies !== false,
+    startupMode:    c.startupMode || 'homepage',
   };
 }
 

@@ -192,6 +192,12 @@ contextBridge.exposeInMainWorld('secureBrowser', {
     onPopupState:     (cb)      => ipcRenderer.on('popup-state', (_, d) => cb(d)),
   },
 
+  // ── Sekme işlemleri (sabitle, sessize al, taşı, sağ tık menüsü) ───────────────
+  tabs: {
+    action:      (id, action, toIndex) => ipcRenderer.invoke('tab-action', { tabId: id, action, toIndex }),
+    contextMenu: (id)                  => ipcRenderer.invoke('tab-context-menu', { tabId: id }),
+  },
+
   // Ana süreçteki kısayollardan arayüze iletilen komutlar (bkz. browser-commands.js)
   onBrowserCommand:   (cb) => ipcRenderer.on('browser-command', (_, cmd) => cb(cmd)),
 

@@ -20,6 +20,7 @@ const { setupDiagnostics, log: diag, logError } = require('./diagnostics');
 const {
   normalizeWebrtcPolicy, DEFAULT_WEBRTC_POLICY, UI_COMMANDS, commandForInput, buildContextMenuModel,
   nextZoomFactor, zoomKeyForUrl, createZoomStore, snapshotHistory, pushClosedTab, isWebUrl,
+  TAB_ACTIONS, moveTabId, orderAfterPin, buildTabMenuModel, normalizeStartupMode, serializeSession, parseSession,
 } = require('./browser-commands');
 const {
   ACTIVATION_EVENTS, popupVerdict, validatePermissionChange, listDecisions, decisionsForOrigin, permissionLabel,
@@ -48,6 +49,7 @@ function browsingSession() { return session.fromPartition(BROWSING_PARTITION); }
 const DEFAULT_CONFIG = {
   homepage:              '',           // boş = İlgezdi başlangıç sayfası; URL = o sayfa açılır
   searchEngine:          'duckduckgo', // varsayılan; kullanıcı ayarlardan değiştirebilir
+  startupMode:           'homepage',   // homepage | restore ("Kaldığım yerden devam et")
   vpnEnabled:            false,
   vpnAutoConnect:        false,
   vpnLastProfileId:      null,
@@ -453,8 +455,9 @@ function hardenChromeWindow(win) {
 // resize/panel olayları bu bayrağa saygı duymalı — yoksa gizli boş view
 // yanlışlıkla geri gösterilip overlay'in üstünü örtüyor (boş ekran hatası).
 // closedTabs: Ctrl+Shift+T yığını — yalnızca bellekte, pencereyle birlikte gider.
-const mainState = { tabs: new Map(), activeTabId: null, tabCounter: 0, panelIsOpen: false, viewHidden: false, closedTabs: [] };
-const incognitoState = { tabs: new Map(), activeTabId: null, tabCounter: 0, panelIsOpen: false, viewHidden: false, closedTabs: [] };
+// htmlFullscreen: etkin sekme video/HTML tam ekranında; windowFullscreen: F11 ile açıldı.
+const mainState = { tabs: new Map(), activeTabId: null, tabCounter: 0, panelIsOpen: false, viewHidden: false, closedTabs: [], htmlFullscreen: false, windowFullscreen: false };
+const incognitoState = { tabs: new Map(), activeTabId: null, tabCounter: 0, panelIsOpen: false, viewHidden: false, closedTabs: [], htmlFullscreen: false, windowFullscreen: false };
 
 const PANEL_WIDTH      = 420;
 const SIDEBAR_WIDTH    = 56;
@@ -488,6 +491,8 @@ function createWindow() {
 
   hardenChromeWindow(mainWindow);
   bindBrowserInput(mainWindow.webContents, mainWindow, mainState, 'ui');
+  // Sekmeler kapanmadan ÖNCE oturum eşzamanlı yazılır (şifreleme eşzamanlı; kapanış beklemez).
+  mainWindow.on('close', () => saveSessionNow());
   mainWindow.on('resize', () => resizeActiveView(mainWindow, mainState));
 
   mainWindow.on('minimize', () => {
@@ -566,6 +571,32 @@ function createTab(win, state, url = config.homepage, opts = {}) {
     diag.info('navigation', 'Sayfa yüklenemedi', { code: errorCode, kind: model.kind });
   });
 
+  // Ses göstergesi (sekmede hoparlör simgesi)
+  view.webContents.on('audio-state-changed', (event) => {
+    const tab = state.tabs.get(tabId);
+    if (!tab) return;
+    tab.audible = !!(event && event.audible);
+    sendTabsUpdate(win, state);
+  });
+
+  // HTML5 tam ekran (video): Electron pencereyi kendiliğinden tam ekrana alıyor ama
+  // sekme görünümü eski sınırlarında kalıyor, video pencerenin bir köşesinde
+  // görünüyordu. Görünüm tüm pencereye yayılır; çıkınca düzen geri gelir.
+  view.webContents.on('enter-html-full-screen', () => {
+    if (!win || win.isDestroyed() || state.activeTabId !== tabId) return;
+    state.htmlFullscreen = true;
+    resizeActiveView(win, state);
+    showFullscreenNotice(win);
+  });
+  view.webContents.on('leave-html-full-screen', () => {
+    if (!win || win.isDestroyed()) return;
+    state.htmlFullscreen = false;
+    hideFullscreenNotice(win);
+    // F11 ile açılmış pencere tam ekranı, videodan çıkınca korunur.
+    if (state.windowFullscreen && !win.isFullScreen()) win.setFullScreen(true);
+    resizeActiveView(win, state);
+  });
+
   view.webContents.on('found-in-page', (e, result) => {
     if (state.activeTabId !== tabId || !win || win.isDestroyed()) return;
     win.webContents.send('find-result', {
@@ -609,6 +640,14 @@ function createTab(win, state, url = config.homepage, opts = {}) {
   view.webContents.on('did-finish-load', () => {
     const tab = state.tabs.get(tabId);
     if (!tab) return;
+
+    // Başlık her yükleme bitişinde doğrulanır (geri yükleme ve önbellekten dönüşte
+    // page-title-updated gelmeyebiliyor; sekme alan adıyla kalıyordu).
+    const pageTitle = view.webContents.getTitle();
+    if (pageTitle && isWebUrl(view.webContents.getURL()) && pageTitle !== tab.title) {
+      tab.title = pageTitle;
+      sendTabsUpdate(win, state);
+    }
 
     // Gizli modda ziyaret loglanmaz
     if (!isIncognito) {
@@ -714,6 +753,12 @@ function createTab(win, state, url = config.homepage, opts = {}) {
   const isBlank = !url || url === 'about:blank';
   let initialTitle = 'Yeni Sekme';
   if (!isBlank) { try { initialTitle = new URL(url).hostname || url; } catch { initialTitle = url; } }
+  if (opts.title) initialTitle = String(opts.title).slice(0, 300);   // oturum geri yükleme
+  else if (opts.restore && Array.isArray(opts.restore.entries)) {
+    // Geçmişten geri yüklemede Chromium başlık olayı yayımlamıyor; başlık girdiden alınır.
+    const entry = opts.restore.entries[opts.restore.index ?? opts.restore.entries.length - 1];
+    if (entry && entry.title) initialTitle = String(entry.title).slice(0, 300);
+  }
 
   state.tabs.set(tabId, {
     view,
@@ -721,16 +766,16 @@ function createTab(win, state, url = config.homepage, opts = {}) {
     title:        initialTitle,
     startTime:    Date.now(),
     blockedCount: 0,
+    pinned:       !!opts.pinned,
+    muted:        false,
+    audible:      false,
   });
 
-  if (opts.restore && opts.restore.entries) {
-    // Kapatılan sekme geri/ileri geçmişiyle birlikte geri yüklenir.
-    view.webContents.navigationHistory.restore(opts.restore).catch((err) => {
-      diag.warn('tabs', 'Sekme geçmişi geri yüklenemedi, yalnızca adres açılıyor', { error: String((err && err.message) || err).slice(0, 120) });
-      if (!view.webContents.isDestroyed()) view.webContents.loadURL(url).catch(() => {});
-    });
+  if (opts.lazy) {
+    // Oturum geri yüklemede arka plan sekmeleri ilk açılışlarında yüklenir.
+    state.tabs.get(tabId).pendingLoad = { url, restore: opts.restore || null };
   } else {
-    view.webContents.loadURL(url).catch(() => {});
+    loadTabContent(view.webContents, url, opts.restore);
   }
 
   // ── Glance polling ──
@@ -758,6 +803,13 @@ function createTab(win, state, url = config.homepage, opts = {}) {
 function resizeActiveView(win, state) {
   const tab = state.tabs.get(state.activeTabId);
   if (!tab || !win || win.isDestroyed()) return;
+  if (state.htmlFullscreen) {
+    const full = win.getContentBounds();
+    tab.view.setVisible(true);
+    tab.view.setBounds({ x: 0, y: 0, width: full.width, height: full.height });
+    positionFullscreenNotice(win);
+    return;
+  }
   // Renderer view'ı bilerek gizlediyse (ekran overlay açık) gizli tut —
   // panel-opened / pencere resize olayları gizliliği bozmasın.
   if (state.viewHidden) {
@@ -789,6 +841,12 @@ function setActiveTab(win, state, tabId) {
   if (previous && state.activeTabId !== tabId) {
     try { if (!previous.view.webContents.isDestroyed()) previous.view.webContents.stopFindInPage('clearSelection'); } catch {}
     win.webContents.send('find-reset');
+    if (state.htmlFullscreen) {
+      // Sekme değişince video tam ekranından çıkılır (Chrome gibi).
+      state.htmlFullscreen = false;
+      hideFullscreenNotice(win);
+      try { previous.view.webContents.executeJavaScript('document.fullscreenElement && document.exitFullscreen()', true).catch(() => {}); } catch {}
+    }
   }
 
   const content = win.contentView;
@@ -798,6 +856,11 @@ function setActiveTab(win, state, tabId) {
   // Açık bir glance yeni sekmenin altında kalıp görünmez hâle gelmesin.
   closeGlance();
   content.addChildView(tab.view);   // zaten çocuksa en üste taşınır
+  if (tab.pendingLoad) {
+    const pending = tab.pendingLoad;
+    tab.pendingLoad = null;
+    loadTabContent(tab.view.webContents, pending.url, pending.restore);
+  }
   state.activeTabId = tabId;
 
   resizeActiveView(win, state);
@@ -813,12 +876,21 @@ function closeTab(win, state, tabId) {
 
   if (tab.__glancePoll) clearInterval(tab.__glancePoll);
 
+  if (state.activeTabId === tabId && state.htmlFullscreen) {
+    state.htmlFullscreen = false;
+    hideFullscreenNotice(win);
+    if (win && !win.isDestroyed() && win.isFullScreen() && !state.windowFullscreen) win.setFullScreen(false);
+  }
+
   // Ctrl+Shift+T için geri/ileri geçmişiyle birlikte hatırla (yalnızca bellekte).
   try {
     const wc = tab.view.webContents;
     if (!wc.isDestroyed() && isWebUrl(tab.url)) {
       const h = wc.navigationHistory;
-      pushClosedTab(state.closedTabs, { url: tab.url, title: tab.title, ...snapshotHistory(h.getAllEntries(), h.getActiveIndex()) });
+      const hist = tab.pendingLoad && tab.pendingLoad.restore
+        ? { entries: tab.pendingLoad.restore.entries, index: tab.pendingLoad.restore.index }
+        : snapshotHistory(h.getAllEntries(), h.getActiveIndex());
+      pushClosedTab(state.closedTabs, { url: tab.url, title: tab.title, ...hist });
     }
   } catch {}
 
@@ -843,7 +915,9 @@ function sendTabsUpdate(win, state) {
   if (!win || win.isDestroyed()) return;
   const tabsData = [...state.tabs.entries()].map(([id, tab]) => ({
     id, url: tab.url, title: tab.title, isActive: id === state.activeTabId,
+    pinned: !!tab.pinned, audible: !!tab.audible, muted: !!tab.muted,
   }));
+  if (state === mainState) scheduleSessionSave();
   win.webContents.send('tabs-update', tabsData);
   win.webContents.send('active-url', state.tabs.get(state.activeTabId)?.url || '');
   if (vpnManager) {
@@ -958,6 +1032,11 @@ function runBrowserCommand(win, state, cmd) {
       }
       break;
     case 'incognito': createIncognitoWindow(); break;
+    case 'toggle-fullscreen':
+      // F11: pencere tam ekranı. Video tam ekranından çıkınca korunur.
+      state.windowFullscreen = !win.isFullScreen();
+      win.setFullScreen(state.windowFullscreen);
+      break;
     default: {
       const m = /^tab-([1-8])$/.exec(cmd);
       if (m && ids[Number(m[1]) - 1] != null) setActiveTab(win, state, ids[Number(m[1]) - 1]);
@@ -1179,6 +1258,249 @@ ipcMain.handle('popup-open-blocked', (event, index) => {
   return { ok: true };
 });
 
+// ─── Sekme içeriği yükleme ────────────────────────────────────────────────────
+function loadTabContent(wc, url, restore) {
+  if (wc.isDestroyed()) return;
+  if (restore && restore.entries) {
+    // Geri/ileri geçmişiyle birlikte geri yükleme (kapatılan sekme, oturum).
+    wc.navigationHistory.restore(restore).catch((err) => {
+      diag.warn('tabs', 'Sekme geçmişi geri yüklenemedi, yalnızca adres açılıyor', { error: String((err && err.message) || err).slice(0, 120) });
+      if (!wc.isDestroyed()) wc.loadURL(url).catch(() => {});
+    });
+  } else {
+    wc.loadURL(url).catch(() => {});
+  }
+}
+
+// ─── Oturum: "Kaldığım yerden devam et" ───────────────────────────────────────
+// Yalnızca ana pencere kaydedilir, gizli pencere asla. Dosya ziyaret günlüğüyle
+// aynı AES-256-GCM anahtarıyla şifrelenir (şifreleme yoksa günlük gibi düz JSON).
+// Gezinme girdilerinden yalnızca adres ve başlık yazılır; form içerikleri yazılmaz.
+const SESSION_ENC   = path.join(USER_DATA, 'session.enc');
+const SESSION_PLAIN = path.join(USER_DATA, 'session.json');
+let sessionTimer = null;
+
+function sessionSnapshot() {
+  const ids = [...mainState.tabs.keys()];
+  const tabs = ids.map((id) => {
+    const t = mainState.tabs.get(id);
+    if (t.pendingLoad) {
+      const r = t.pendingLoad.restore;
+      return { url: t.pendingLoad.url, title: t.title, pinned: !!t.pinned, entries: r ? r.entries : null, index: r ? r.index : undefined };
+    }
+    let entries = null;
+    let index;
+    try {
+      const h = t.view.webContents.navigationHistory;
+      entries = h.getAllEntries();
+      index = h.getActiveIndex();
+    } catch {}
+    return { url: t.url, title: t.title, pinned: !!t.pinned, entries, index };
+  });
+  return serializeSession(tabs, ids.indexOf(mainState.activeTabId));
+}
+
+function writeSessionFile(data) {
+  const write = (file, buf) => {
+    const tmp = file + '.tmp';
+    fs.writeFileSync(tmp, buf, { mode: 0o600 });
+    fs.renameSync(tmp, file);
+  };
+  if (secureLog && secureLog.canEncrypt) {
+    write(SESSION_ENC, secureLog._encrypt(data));
+    try { fs.unlinkSync(SESSION_PLAIN); } catch {}
+  } else {
+    write(SESSION_PLAIN, JSON.stringify(data));
+    try { fs.unlinkSync(SESSION_ENC); } catch {}
+  }
+}
+
+function saveSessionNow() {
+  if (sessionTimer) { clearTimeout(sessionTimer); sessionTimer = null; }
+  if (normalizeStartupMode(config.startupMode) !== 'restore') return;
+  if (!mainWindow || mainWindow.isDestroyed()) return;   // sekmeler kapandıktan sonra boş oturum yazılmasın
+  try { writeSessionFile(sessionSnapshot()); } catch (e) { logError('session', e); }
+}
+
+function scheduleSessionSave() {
+  if (sessionTimer || normalizeStartupMode(config.startupMode) !== 'restore') return;
+  sessionTimer = setTimeout(saveSessionNow, 1500);
+  if (sessionTimer.unref) sessionTimer.unref();
+}
+
+function readSessionFile() {
+  try {
+    if (secureLog && secureLog.canEncrypt && fs.existsSync(SESSION_ENC)) {
+      return parseSession(secureLog._decrypt(fs.readFileSync(SESSION_ENC)));
+    }
+    if (fs.existsSync(SESSION_PLAIN)) return parseSession(JSON.parse(fs.readFileSync(SESSION_PLAIN, 'utf-8')));
+  } catch (e) {
+    logError('session', e);
+  }
+  return null;
+}
+
+function deleteSessionFiles() {
+  if (sessionTimer) { clearTimeout(sessionTimer); sessionTimer = null; }
+  for (const f of [SESSION_ENC, SESSION_PLAIN]) { try { fs.unlinkSync(f); } catch {} }
+}
+
+function restoreSession(saved) {
+  if (!saved || !saved.tabs.length || !mainWindow || mainWindow.isDestroyed()) return false;
+  const ids = saved.tabs.map((t, i) => createTab(mainWindow, mainState, t.url, {
+    lazy: i !== saved.activeIndex,
+    restore: t.entries ? { entries: t.entries, index: t.index } : null,
+    pinned: t.pinned,
+    title: t.title,
+  }));
+  setActiveTab(mainWindow, mainState, ids[saved.activeIndex] != null ? ids[saved.activeIndex] : ids[0]);
+  diag.info('session', 'Oturum geri yüklendi', { tabs: ids.length, pinned: saved.tabs.filter((t) => t.pinned).length });
+  return true;
+}
+
+// ─── Sekme işlemleri: sabitle, sessize al, taşı, çoğalt, sağ tık menüsü ───────
+function reorderTabs(state, ids) {
+  const next = new Map();
+  for (const id of ids) if (state.tabs.has(id)) next.set(id, state.tabs.get(id));
+  state.tabs = next;
+}
+
+function runTabAction(win, state, tabId, action, arg) {
+  const tab = state.tabs.get(tabId);
+  if (!tab || !win || win.isDestroyed()) return { ok: false };
+  const ids = [...state.tabs.keys()];
+  const pinnedSet = new Set(ids.filter((id) => state.tabs.get(id).pinned));
+  const index = ids.indexOf(tabId);
+  const wc = tab.view.webContents;
+  const placeAfterSource = (newId) => {
+    const all = [...state.tabs.keys()];
+    const pins = new Set(all.filter((id) => state.tabs.get(id).pinned));
+    reorderTabs(state, moveTabId(all, pins, newId, index + 1));
+  };
+
+  switch (action) {
+    case 'pin':
+    case 'unpin':
+      tab.pinned = action === 'pin';
+      if (tab.pinned) pinnedSet.add(tabId); else pinnedSet.delete(tabId);
+      reorderTabs(state, orderAfterPin(ids, pinnedSet, tabId));
+      break;
+    case 'mute':
+    case 'unmute':
+    case 'toggle-mute': {
+      const muted = action === 'toggle-mute' ? !wc.isAudioMuted() : action === 'mute';
+      wc.setAudioMuted(muted);
+      tab.muted = muted;
+      break;
+    }
+    case 'move':
+      reorderTabs(state, moveTabId(ids, pinnedSet, tabId, Number(arg)));
+      break;
+    case 'reload':
+      if (tab.pendingLoad) setActiveTab(win, state, tabId); else wc.reload();
+      break;
+    case 'duplicate': {
+      const hist = tab.pendingLoad && tab.pendingLoad.restore
+        ? tab.pendingLoad.restore
+        : snapshotHistory(wc.navigationHistory.getAllEntries(), wc.navigationHistory.getActiveIndex());
+      const newId = createTab(win, state, tab.url, { restore: hist && hist.entries ? hist : null });
+      placeAfterSource(newId);
+      setActiveTab(win, state, newId);
+      break;
+    }
+    case 'new-tab-right': {
+      const url = config.newTabMode === 'custom' && isWebUrl(config.customNewTabUrl) ? config.customNewTabUrl : 'about:blank';
+      const newId = createTab(win, state, url);
+      placeAfterSource(newId);
+      setActiveTab(win, state, newId);
+      break;
+    }
+    case 'close':
+      closeTab(win, state, tabId);
+      break;
+    case 'close-others':
+      // Chrome gibi sabitlenmiş sekmeler kapatılmaz.
+      for (const id of ids) if (id !== tabId && !pinnedSet.has(id)) closeTab(win, state, id);
+      if (state.tabs.has(tabId)) setActiveTab(win, state, tabId);
+      break;
+    case 'close-right':
+      for (const id of ids.slice(index + 1)) if (!pinnedSet.has(id)) closeTab(win, state, id);
+      break;
+    case 'reopen-closed':
+      reopenClosedTab(win, state);
+      break;
+    default:
+      return { ok: false };
+  }
+  sendTabsUpdate(win, state);
+  return { ok: true };
+}
+
+ipcMain.handle('tab-action', (event, payload) => {
+  const { win, state } = getContextFromEvent(event);
+  const action = String((payload && payload.action) || '');
+  if (!TAB_ACTIONS.has(action)) return { ok: false };
+  try {
+    return runTabAction(win, state, Number(payload.tabId), action, payload.toIndex);
+  } catch (e) {
+    logError('tab-action', e, { action });
+    return { ok: false };
+  }
+});
+
+ipcMain.handle('tab-context-menu', (event, payload) => {
+  const { win, state } = getContextFromEvent(event);
+  const tabId = Number(payload && payload.tabId);
+  const tab = state.tabs.get(tabId);
+  if (!tab || !win || win.isDestroyed()) return { ok: false };
+  const ids = [...state.tabs.keys()];
+  const model = buildTabMenuModel({
+    index: ids.indexOf(tabId), count: ids.length, pinned: !!tab.pinned, muted: !!tab.muted,
+    canReopen: state.closedTabs.length > 0, platform: process.platform,
+  });
+  Menu.buildFromTemplate(model.map((item) => (item.type ? { type: 'separator' } : {
+    label: item.label,
+    enabled: item.enabled,
+    click: () => {
+      try { runTabAction(win, state, tabId, item.id); } catch (e) { logError('tab-menu', e, { id: item.id }); }
+    },
+  }))).popup({ window: win });
+  return { ok: true };
+});
+
+// ─── Tam ekran uyarısı ────────────────────────────────────────────────────────
+// "Çıkmak için Esc" ayrı bir görünümde: sayfa bu katmanı gizleyemez ya da taklit
+// edemez (tam ekran sahteciliğine karşı). Betik çalıştırmaz.
+const FULLSCREEN_NOTICE_HTML = '<!doctype html><meta charset="utf-8"><body style="margin:0;height:100vh;display:grid;place-items:center;background:transparent;font:14px/1.2 Segoe UI,system-ui,sans-serif"><div style="background:rgba(14,20,34,.92);color:#f3ead6;padding:11px 18px;border-radius:8px;border:1px solid rgba(212,168,90,.55)">Tam ekrandan çıkmak için <b>Esc</b> tuşuna basın</div></body>';
+
+function positionFullscreenNotice(win) {
+  const v = win && win.__fsNotice;
+  if (!v) return;
+  const b = win.getContentBounds();
+  v.setBounds({ x: Math.max(0, Math.round(b.width / 2 - 200)), y: 28, width: 400, height: 52 });
+}
+
+function showFullscreenNotice(win) {
+  hideFullscreenNotice(win);
+  const v = new WebContentsView({ webPreferences: { sandbox: true, contextIsolation: true, javascript: false } });
+  try { v.setBackgroundColor('#00000000'); } catch {}
+  v.webContents.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(FULLSCREEN_NOTICE_HTML)).catch(() => {});
+  win.contentView.addChildView(v);
+  win.__fsNotice = v;
+  positionFullscreenNotice(win);
+  win.__fsNoticeTimer = setTimeout(() => hideFullscreenNotice(win), 4000);
+}
+
+function hideFullscreenNotice(win) {
+  if (!win) return;
+  if (win.__fsNoticeTimer) { clearTimeout(win.__fsNoticeTimer); win.__fsNoticeTimer = null; }
+  const v = win.__fsNotice;
+  if (!v) return;
+  win.__fsNotice = null;
+  try { if (!win.isDestroyed()) win.contentView.removeChildView(v); } catch {}
+  try { if (!v.webContents.isDestroyed()) v.webContents.close(); } catch {}
+}
+
 ipcMain.handle('find-in-page', (event, payload) => {
   const { state } = getContextFromEvent(event);
   const wc = activeTabContents(state);
@@ -1280,11 +1602,16 @@ ipcMain.handle('save-config', (e, newCfg) => {
   if ('webrtcPolicy' in incoming) incoming.webrtcPolicy = normalizeWebrtcPolicy(incoming.webrtcPolicy);
   if ('secureDns' in incoming) incoming.secureDns = normalizeSecureDns(incoming.secureDns);
   if ('blockThirdPartyCookies' in incoming) incoming.blockThirdPartyCookies = incoming.blockThirdPartyCookies !== false;
-  const previous = { webrtcPolicy: config.webrtcPolicy, secureDns: config.secureDns };
+  if ('startupMode' in incoming) incoming.startupMode = normalizeStartupMode(incoming.startupMode);
+  const previous = { webrtcPolicy: config.webrtcPolicy, secureDns: config.secureDns, startupMode: config.startupMode };
   config = { ...config, ...incoming };
   saveConfig(config);
   if (config.webrtcPolicy !== previous.webrtcPolicy) applyWebrtcPolicyToAllTabs();
   if (config.secureDns !== previous.secureDns) applySecureDns();
+  if (config.startupMode !== previous.startupMode) {
+    if (normalizeStartupMode(config.startupMode) === 'restore') scheduleSessionSave();
+    else deleteSessionFiles();   // kapatılınca açık sekmelerin kaydı diskte tutulmaz
+  }
   return publicConfig();
 });
 
@@ -1386,7 +1713,7 @@ ipcMain.handle('clear-all', async (event) => {
       title:     'Tüm Tarama Verilerini Temizle',
       message:   'Tarama verilerinin tümü silinecek',
       detail:
-        'Silinecek: çerezler, site verileri, önbellek, ziyaret günlüğü ve site izin kararları.\n\n' +
+        'Silinecek: çerezler, site verileri, önbellek, ziyaret günlüğü, site izin kararları ve kayıtlı oturum.\n\n' +
         'Silinmeyecek: yer imleri, kayıtlı şifreler, ayarlar ve VPN profilleri.\n\n' +
         'Bu işlem geri alınamaz.',
     });
@@ -1402,6 +1729,7 @@ ipcMain.handle('clear-all', async (event) => {
     // güvenli, Electron sürümleri arasında da uyumlu.
     await ses.clearStorageData();
     secureLog?.clearLogs();
+    deleteSessionFiles();
     // Site izin kararlarını da sıfırla — siteler yeniden sorabilir
     if (config.permissionDecisions) {
       config.permissionDecisions = {};
@@ -1660,11 +1988,13 @@ app.whenReady().then(() => {
   }
 
   setTimeout(() => {
-    if (mainState.tabs.size === 0) {
-      // Kullanıcının belirlediği anasayfayı aç (boşsa İlgezdi başlangıç sayfası)
-      const id = createTab(mainWindow, mainState, homepageUrl());
-      setActiveTab(mainWindow, mainState, id);
-    }
+    if (mainState.tabs.size !== 0) return;
+    // "Kaldığım yerden devam et": kayıtlı oturum varsa sekmeler geri gelir.
+    const saved = normalizeStartupMode(config.startupMode) === 'restore' ? readSessionFile() : null;
+    if (saved && restoreSession(saved)) return;
+    // Kullanıcının belirlediği anasayfayı aç (boşsa İlgezdi başlangıç sayfası)
+    const id = createTab(mainWindow, mainState, homepageUrl());
+    setActiveTab(mainWindow, mainState, id);
   }, 800);
 });
 
@@ -1693,6 +2023,8 @@ function createIncognitoWindow() {
   incognitoState.panelIsOpen = false;
   incognitoState.viewHidden = false;
   incognitoState.closedTabs = [];
+  incognitoState.htmlFullscreen = false;
+  incognitoState.windowFullscreen = false;
 
   incognitoWindow = new BrowserWindow({
     width: 1200, height: 800,

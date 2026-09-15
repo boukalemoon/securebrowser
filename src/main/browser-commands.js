@@ -72,6 +72,7 @@ const SHORTCUTS = [
   { keys: ['Mod+B'],                             cmd: 'toggle-bookmarks',  page: false },
   { keys: ['Mod+Shift+L'],                       cmd: 'logs',              page: false },
   { keys: ['Mod+Shift+V'],                       cmd: 'vpn-panel',         page: false },
+  { keys: ['F11'],                               cmd: 'toggle-fullscreen', page: true },
 ];
 for (let i = 1; i <= 8; i++) SHORTCUTS.push({ keys: ['Mod+' + i], cmd: 'tab-' + i, page: true });
 
@@ -399,7 +400,121 @@ function pushClosedTab(stack, entry) {
   return true;
 }
 
+// ─── Sekme düzeni ─────────────────────────────────────────────────────────────
+// Sabitlenmiş sekmeler her zaman soldadır; taşıma ve sabitleme bu sınırı korur.
+
+/** tabId'yi toIndex'e taşır; sabitli sekme sabitli grupta, diğeri dışında kalır. */
+function moveTabId(ids, pinnedSet, tabId, toIndex) {
+  const from = ids.indexOf(tabId);
+  if (from < 0) return ids.slice();
+  const rest = ids.filter((id) => id !== tabId);
+  const pinnedCount = rest.filter((id) => pinnedSet.has(id)).length;
+  let to = Number.isInteger(toIndex) ? toIndex : from;
+  to = Math.max(0, Math.min(to, rest.length));
+  to = pinnedSet.has(tabId) ? Math.min(to, pinnedCount) : Math.max(to, pinnedCount);
+  rest.splice(to, 0, tabId);
+  return rest;
+}
+
+/** Sabitleme değişince sekme grup sınırına gider (pinnedSet yeni durumu içerir). */
+function orderAfterPin(ids, pinnedSet, tabId) {
+  const rest = ids.filter((id) => id !== tabId);
+  const pinnedCount = rest.filter((id) => pinnedSet.has(id)).length;
+  rest.splice(pinnedCount, 0, tabId);
+  return rest;
+}
+
+// Sekme sağ tık menüsündeki ve arayüzün çağırabildiği işlemler (IPC beyaz listesi).
+const TAB_ACTIONS = Object.freeze(new Set([
+  'new-tab-right', 'reload', 'duplicate', 'pin', 'unpin', 'mute', 'unmute', 'toggle-mute',
+  'move', 'close', 'close-others', 'close-right', 'reopen-closed',
+]));
+
+function buildTabMenuModel({ index, count, pinned, muted, canReopen, platform } = {}) {
+  const items = [
+    { id: 'new-tab-right', label: 'Sağa yeni sekme' },
+    { type: 'separator' },
+    { id: 'reload', label: 'Yeniden yükle' },
+    { id: 'duplicate', label: 'Çoğalt' },
+    { id: pinned ? 'unpin' : 'pin', label: pinned ? 'Sabitlemeyi kaldır' : 'Sabitle' },
+    { id: muted ? 'unmute' : 'mute', label: muted ? 'Sekmenin sesini aç' : 'Sekmeyi sessize al' },
+    { type: 'separator' },
+    { id: 'close', label: 'Kapat' },
+    { id: 'close-others', label: 'Diğer sekmeleri kapat', enabled: count > 1 },
+    { id: 'close-right', label: 'Sağdaki sekmeleri kapat', enabled: index < count - 1 },
+    { type: 'separator' },
+    { id: 'reopen-closed', label: 'Kapatılan sekmeyi yeniden aç', enabled: !!canReopen },
+  ];
+  return finalizeMenu(items, platform);
+}
+
+// ─── Başlangıç ve oturum ──────────────────────────────────────────────────────
+const STARTUP_MODES = Object.freeze(['homepage', 'restore']);
+const normalizeStartupMode = (v) => (STARTUP_MODES.includes(v) ? v : 'homepage');
+
+const SESSION_VERSION = 1;
+const SESSION_TABS_MAX = 100;
+
+/**
+ * Kaydedilecek oturum. Yalnızca web sekmeleri; gezinme girdilerinden yalnızca
+ * adres ve başlık tutulur (pageState form içerikleri taşıyabilir, diske yazılmaz).
+ * @param {Array<{url, title, pinned, entries, index}>} tabs  pencere sırasıyla
+ * @param {number} activeIndex
+ */
+function serializeSession(tabs, activeIndex) {
+  const out = [];
+  let active = 0;
+  (Array.isArray(tabs) ? tabs : []).forEach((t, i) => {
+    if (!t || !isWebUrl(t.url) || out.length >= SESSION_TABS_MAX) return;
+    const snap = snapshotHistory(t.entries, t.index);
+    if (i === activeIndex) active = out.length;
+    out.push({
+      url: String(t.url),
+      title: String(t.title || '').slice(0, 300),
+      pinned: !!t.pinned,
+      entries: snap.entries ? snap.entries.map((e) => ({ url: String(e.url), title: String(e.title || '').slice(0, 300) })) : null,
+      index: snap.entries ? snap.index : undefined,
+    });
+  });
+  return { version: SESSION_VERSION, savedAt: Date.now(), activeIndex: out.length ? active : 0, tabs: out };
+}
+
+/** Diskten okunan oturumu doğrular; kullanılabilir sekme yoksa null. */
+function parseSession(raw) {
+  if (!raw || typeof raw !== 'object' || raw.version !== SESSION_VERSION || !Array.isArray(raw.tabs)) return null;
+  const tabs = [];
+  let activeIndex = 0;
+  raw.tabs.forEach((t, i) => {
+    if (!t || !isWebUrl(t.url) || tabs.length >= SESSION_TABS_MAX) return;
+    const entries = Array.isArray(t.entries)
+      ? t.entries.filter((e) => e && isWebUrl(e.url)).slice(-50).map((e) => ({ url: String(e.url), title: String(e.title || '').slice(0, 300) }))
+      : [];
+    let index = Number.isInteger(t.index) ? t.index : entries.length - 1;
+    if (index < 0 || index >= entries.length) index = entries.length - 1;
+    if (i === raw.activeIndex) activeIndex = tabs.length;
+    tabs.push({
+      url: String(t.url),
+      title: String(t.title || '').slice(0, 300),
+      pinned: t.pinned === true,
+      entries: entries.length ? entries : null,
+      index: entries.length ? index : undefined,
+    });
+  });
+  if (!tabs.length) return null;
+  // Sabitli sekmeler her zaman önde (bozuk ya da elle düzenlenmiş dosyaya karşı).
+  const ordered = [...tabs.filter((t) => t.pinned), ...tabs.filter((t) => !t.pinned)];
+  return { activeIndex: ordered.indexOf(tabs[activeIndex]), tabs: ordered };
+}
+
 module.exports = {
+  TAB_ACTIONS,
+  moveTabId,
+  orderAfterPin,
+  buildTabMenuModel,
+  STARTUP_MODES,
+  normalizeStartupMode,
+  serializeSession,
+  parseSession,
   WEBRTC_POLICIES,
   DEFAULT_WEBRTC_POLICY,
   normalizeWebrtcPolicy,

@@ -167,6 +167,9 @@ function updateVpnIndicator(enabled) {
 }
 
 // ─── Sekme Render ─────────────────────────────────────────────────────────────
+const TAB_SVG_SPEAKER = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5L6 9H3v6h3l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg>';
+const TAB_SVG_MUTED   = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5L6 9H3v6h3l5 4z"/><path d="M22 9l-6 6"/><path d="M16 9l6 6"/></svg>';
+
 function renderTabs(tabs) {
   currentTabs = tabs;
   const container = document.getElementById('tabs-container');
@@ -178,8 +181,14 @@ function renderTabs(tabs) {
   tabs.forEach(tab => {
     const label = tab.title || tab.url || 'Yeni Sekme';
     const el = document.createElement('div');
-    el.className = 'tab' + (tab.isActive ? ' active' : '');
+    el.className = 'tab' + (tab.isActive ? ' active' : '') + (tab.pinned ? ' pinned' : '');
     el.dataset.id = tab.id;
+    el.draggable = true;
+    // Sabitlenmiş sekme yalnızca alan adının baş harfini gösterir; adı ekran okuyucu için etikette.
+    let initial = '•';
+    try { initial = (new URL(tab.url).hostname.replace(/^www\./, '')[0] || '•').toLocaleUpperCase('tr'); } catch {}
+    el.dataset.initial = initial;
+    if (tab.pinned) el.setAttribute('aria-label', label + ' (sabitlenmiş)');
     // Erişilebilirlik: sekme şeridi bir tablist. Yalnızca etkin sekme Tab ile
     // odak alır; diğerlerine ok tuşlarıyla geçilir, Enter/Boşluk ile açılır.
     el.setAttribute('role', 'tab');
@@ -202,13 +211,29 @@ function renderTabs(tabs) {
     });
 
     el.appendChild(title);
+    if (tab.audible || tab.muted) {
+      const audio = document.createElement('button');
+      audio.className = 'tab-audio' + (tab.muted ? ' muted' : '');
+      audio.tabIndex = -1;
+      audio.title = tab.muted ? 'Sekmenin sesini aç' : 'Sekmeyi sessize al';
+      audio.setAttribute('aria-label', (tab.muted ? 'Sesi aç: ' : 'Sessize al: ') + label);
+      audio.innerHTML = tab.muted ? TAB_SVG_MUTED : TAB_SVG_SPEAKER;
+      audio.addEventListener('click', (e) => {
+        e.stopPropagation();
+        sb.tabs?.action(tab.id, 'toggle-mute');
+      });
+      el.appendChild(audio);
+    }
     el.appendChild(closeBtn);
     el.addEventListener('click', () => {
       sb.switchTab(tab.id);
       if (currentScreen) hideScreen();
     });
     el.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' || e.key === ' ') {
+      if (e.key === 'ContextMenu' || (e.shiftKey && e.key === 'F10')) {
+        e.preventDefault();
+        sb.tabs?.contextMenu(tab.id);
+      } else if (e.key === 'Enter' || e.key === ' ') {
         e.preventDefault();
         el.click();
       } else if (['ArrowRight', 'ArrowLeft', 'Home', 'End'].includes(e.key)) {
@@ -220,6 +245,34 @@ function renderTabs(tabs) {
           : all[(i + (e.key === 'ArrowRight' ? 1 : -1) + all.length) % all.length];
         target?.focus();
       }
+    });
+    // Sağ tık: sekme menüsü (ana süreçte yerel menü). Orta tık: kapat.
+    el.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      sb.tabs?.contextMenu(tab.id);
+    });
+    el.addEventListener('auxclick', (e) => {
+      if (e.button !== 1) return;
+      e.preventDefault();
+      sb.closeTab(tab.id);
+    });
+    // Sürükle-bırak ile sıralama (sabitlenmiş sekmeler kendi grubunda kalır).
+    el.addEventListener('dragstart', (e) => {
+      e.dataTransfer.setData('text/ilgezdi-tab', String(tab.id));
+      e.dataTransfer.effectAllowed = 'move';
+      el.classList.add('dragging');
+    });
+    el.addEventListener('dragend', () => el.classList.remove('dragging'));
+    el.addEventListener('dragover', (e) => {
+      if (![...e.dataTransfer.types].includes('text/ilgezdi-tab')) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+    });
+    el.addEventListener('drop', (e) => {
+      const fromId = Number(e.dataTransfer.getData('text/ilgezdi-tab'));
+      if (!fromId || fromId === tab.id) return;
+      e.preventDefault();
+      sb.tabs?.action(fromId, 'move', tabs.findIndex((t) => t.id === tab.id));
     });
     container.appendChild(el);
     if (focusedId && String(tab.id) === focusedId) el.focus();
