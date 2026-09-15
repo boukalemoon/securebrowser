@@ -10,3 +10,5 @@ userData/
 *firebase-adminsdk*.json
 serviceAccount*.json
 service-account*.json
+# Site derlemesinde üretilen tehdit listeleri (scripts/build-threat-lists.js)
+site/lists/

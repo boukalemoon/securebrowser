@@ -169,7 +169,9 @@ function setupThreatProtection({ ipcMain, session, userDataPath, getConfig, user
       if (declared > s.maxBytes) throw new Error('liste beklenenden büyük');
       let buf = Buffer.from(await res.arrayBuffer());
       if (buf.length > s.maxBytes) throw new Error('liste beklenenden büyük');
-      if (s.gzip) buf = zlib.gunzipSync(buf, { maxOutputLength: s.maxBytes * 10 });
+      // Sıkıştırılmış liste (ör. İlgezdi sunucusundaki usom.txt.gz) gzip imzasından
+      // tanınır. Sunucu Content-Encoding ile gönderirse fetch zaten açmıştır, imza olmaz.
+      if (buf.length > 2 && buf[0] === 0x1f && buf[1] === 0x8b) buf = zlib.gunzipSync(buf, { maxOutputLength: s.maxBytes * 10 });
       const compiled = await compileTextAsync(buf.toString('utf8'));
       const floor = Math.max(Number(s.minEntries) || 1, matcher.has(s.id) && prev.count ? Math.floor(prev.count * MIN_KEEP_RATIO) : 0);
       if (compiled.index.length < floor) {

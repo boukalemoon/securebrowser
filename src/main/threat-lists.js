@@ -139,7 +139,9 @@ function urlKeys(u) {
 // ve bunlara uymayan satırlar (CSV başlığı vb.) atlanır.
 function parseListLine(line) {
   let s = String(line == null ? '' : line).trim();
-  if (!s || /^(#|!|;|\/\/|\[)/.test(s)) return null;
+  if (!s || /^(#|!|;|\/\/)/.test(s)) return null;
+  // "[Adblock Plus 2.0]" gibi bölüm başlıkları atlanır; "[2001:db8::1]" IPv6 adresidir.
+  if (s.startsWith('[') && !/^\[[0-9a-f:.]+\]/i.test(s)) return null;
   const hashAt = s.search(/\s#/);
   if (hashAt > 0) s = s.slice(0, hashAt).trim();
   const hostsLine = /^(?:0\.0\.0\.0|127\.0\.0\.1|::1?|::)\s+(\S+)$/.exec(s);
@@ -365,9 +367,13 @@ function threatPageModel({ url, sourceName, kind, token }) {
 //   • abuse.ch URLhaus / ThreatFox: kişisel Auth-Key ve kâr amacı gütmeyen kullanım
 //     şartı, türev kullanım için yazılı izin. İzin alınırsa eklenebilir.
 //   • Spamhaus DBL: her sorguda alan adı Spamhaus'a gider.
-//   • USOM (Siber Güvenlik Başkanlığı): .txt listesi 1 Haziran 2026'da kapandı, yerini
-//     sayfalı bir JSON API aldı (ilk eşitleme ~50 istek). Kullanım koşulları teyit
-//     edilmedi; teyit edilene kadar eklenmedi.
+// Karar (2026-09-15): son kullanıcıyı anahtar/izin/kayıt işleriyle uğraştıracak
+// kaynaklar eklenmeyecek.
+//
+// USOM (T.C. Siber Güvenlik Başkanlığı): .txt listesi 1 Haziran 2026'da kapandı, yerini
+// sayfalı bir JSON API aldı (~490 bin kayıt, 50 sayfa). Liste İlgezdi sunucusunda
+// günlük derlenir (scripts/build-threat-lists.js) ve tek dosya olarak dağıtılır;
+// uygulama USOM'a doğrudan istek atmaz.
 const SOURCES = Object.freeze([
   Object.freeze({
     id: 'hagezi-tif-medium',
@@ -383,6 +389,21 @@ const SOURCES = Object.freeze([
     intervalHours: 12,            // dosya başlığı "Expires: 8 hours"; depo günde bir güncelleniyor
     maxBytes: 64 * 1024 * 1024,   // 2026-09: 13,4 MB, yaklaşık 778 bin alan adı
     minEntries: 50000,
+  }),
+  Object.freeze({
+    id: 'ilgezdi-usom',
+    name: 'USOM Zararlı Bağlantılar',
+    covers: 'Türkiye\'yi hedefleyen oltalama (banka, e-Devlet, kargo taklidi) ve zararlı yazılım adresleri',
+    homepage: 'https://www.usom.gov.tr',
+    license: 'Kamu listesi (T.C. Siber Güvenlik Başkanlığı)',
+    // İlgezdi sunucusu; yansı aynı dağıtımın Vercel adresi.
+    urls: Object.freeze([
+      'https://www.ilgezdi.com.tr/lists/usom.txt.gz',
+      'https://ilgezdi.vercel.app/lists/usom.txt.gz',
+    ]),
+    intervalHours: 12,            // sunucu listeyi günde bir derler; değişmediyse 304
+    maxBytes: 32 * 1024 * 1024,   // sıkıştırılmış; 2026-09: 3,1 MB, yaklaşık 492 bin kayıt
+    minEntries: 100000,
   }),
 ]);
 

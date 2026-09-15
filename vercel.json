@@ -5,6 +5,10 @@
   "trailingSlash": false,
   "framework": null,
   "installCommand": "npm install --include=dev --ignore-scripts --no-audit --no-fund",
+  "buildCommand": "node scripts/build-threat-lists.js",
+  "crons": [
+    { "path": "/api/cron/threat-lists", "schedule": "20 1 * * *" }
+  ],
   "headers": [
     {
       "source": "/(.*)",
@@ -18,6 +22,12 @@
           "key": "Content-Security-Policy-Report-Only",
           "value": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'"
         }
+      ]
+    },
+    {
+      "source": "/lists/(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=3600, must-revalidate" }
       ]
     }
   ]

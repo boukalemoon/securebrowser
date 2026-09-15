@@ -64,6 +64,8 @@ nav{display:flex;align-items:center;justify-content:space-between;height:66px}
 .rel-ver{font-family:var(--font-display);font-weight:700;font-size:24px;letter-spacing:1px;color:var(--ink)}
 .rel-latest-tag{font-family:var(--font-mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:#1a1206;background:linear-gradient(135deg,var(--gold-bright),var(--copper));padding:3px 9px;border-radius:999px}
 .rel-date{font-family:var(--font-mono);font-size:12.5px;color:var(--ink-mute)}
+.rel-upcoming-tag{font-family:var(--font-mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink);border:1px dashed var(--gold);padding:2px 9px;border-radius:999px}
+.rel.upcoming::before{background:var(--bg);border:2px dashed var(--gold);box-shadow:none}
 .rel-title{color:var(--gold);font-size:14px;font-weight:600;margin-bottom:14px}
 .rel-card{background:var(--bg-elev);border:1px solid var(--line);border-radius:var(--radius-lg);padding:18px 20px}
 .chg{display:flex;gap:12px;align-items:flex-start;padding:7px 0}
@@ -134,7 +136,44 @@ footer a{font-family:var(--font-mono);font-size:12.5px}
 <script>
 // ─── Sürüm geçmişi ───────────────────────────────────────────────────────────
 // Yeni sürüm eklemek için: en üste yeni bir nesne ekleyin. Tür: new | fix | sec | imp
+// upcoming: true → kurulum dosyası henüz yayınlanmamış sürüm ("Geliştiriliyor");
+// "En son" etiketi yayınlanmış ilk sürüme verilir.
 const RELEASES = [
+  {
+    version: '0.8.0', upcoming: true, date: 'Eylül 2026', title: 'Güvenlik denetimi, yeni tarayıcı motoru ve günlük kullanım özellikleri',
+    changes: [
+      { t:'sec', d:'<b>Zararlı site koruması.</b> Kimlik avı ve zararlı yazılım siteleri açılmadan önce uyarı gösterilir. Denetim cihazınızda yapılır; ziyaret ettiğiniz adresler Google dahil hiçbir sunucuya gönderilmez. Türkiye\'yi hedefleyen USOM listesi İlgezdi sunucusunda her gün derlenir ve uygulamaya kendiliğinden iner.' },
+      { t:'sec', d:'<b>Yeni tarayıcı motoru.</b> Electron 44 / Chromium 152 ile yaklaşık iki buçuk yıllık motor güvenlik yamaları.' },
+      { t:'new', d:'<b>Klavye kısayolları her yerde çalışıyor.</b> Sayfa odaktayken de Ctrl+T, Ctrl+W, Ctrl+Shift+T (kapatılan sekmeyi geri aç), Ctrl+Tab, Ctrl+1–9, F5, Ctrl+L, Ctrl+D ve Ctrl+P.' },
+      { t:'new', d:'<b>Sayfada bul ve yakınlaştırma.</b> Ctrl+F ve F3 ile sayfada arama; Ctrl + fare tekerleği, Ctrl+± ve Ctrl+0 ile site başına hatırlanan yakınlaştırma.' },
+      { t:'new', d:'<b>Sağ tık menüsü.</b> Bağlantıyı yeni sekmede aç, resmi kaydet, seçili metni ara, yazım önerileri, kes / kopyala / yapıştır.' },
+      { t:'new', d:'<b>Site bilgisi paneli.</b> Kilit simgesinden sertifika ayrıntıları, siteye verdiğiniz izinler (konum, kamera, bildirim…) ve site verilerini silme.' },
+      { t:'new', d:'<b>Açılır pencere engelleme.</b> Tıklamadan açılan pencereler engellenir; adres çubuğundan tek tıkla izin verebilirsiniz.' },
+      { t:'sec', d:'<b>Üçüncü taraf çerezler varsayılan olarak engelli.</b> Siteler arası çerez takibi durdurulur; sorun çıkan bir sitede izin verebilirsiniz.' },
+      { t:'sec', d:'<b>WebRTC IP koruması.</b> VPN açıkken görüntülü görüşme altyapısı üzerinden gerçek IP adresiniz sızmaz.' },
+      { t:'new', d:'<b>Güvenli DNS.</b> Alan adı sorgularınız şifrelenir (DNS-over-HTTPS); sağlayıcıyı Ayarlar › Gizlilik bölümünden seçebilirsiniz.' },
+      { t:'new', d:'<b>Kaldığım yerden devam et.</b> İsterseniz açık sekmeleriniz sıraları ve geri / ileri geçmişleriyle şifreli saklanır, açılışta geri gelir.' },
+      { t:'new', d:'<b>Sekme yönetimi.</b> Sabitleme, sessize alma, sürükle-bırak sıralama ve sekme sağ tık menüsü (çoğalt, diğerlerini kapat, kapatılanı geri aç).' },
+      { t:'new', d:'<b>Geçmiş ve İndirilenler sayfaları.</b> Geçmişte arama ve satır satır silme; indirmeleri duraklatma, sürdürme ve klasörde gösterme. İndirme geçmişi şifreli saklanır.' },
+      { t:'sec', d:'<b>Güvensiz indirme uyarısı.</b> Şifresiz (HTTP) bağlantıdan gelen program dosyaları onayınız olmadan indirilmez.' },
+      { t:'imp', d:'<b>Anlaşılır hata sayfaları.</b> Boş beyaz sayfa yerine sorunun nedeni ve çözüm önerisi: bağlantı yok, alan adı bulunamadı, sertifika hatası…' },
+      { t:'fix', d:'<b>Video tam ekranı ve F11.</b> Tam ekrana alınan video pencerenin bir köşesinde kalıyordu.' },
+      { t:'imp', d:'<b>Açılışta giriş ekranı çıkmıyor.</b> Qrtım girişi isteğe bağlı; Ayarlar › Hesap bölümünden yapılır.' },
+      { t:'fix', d:'<b>Ayarlar paneli.</b> Üst sekmeler panele sığıyor; Hesap bölümünden giriş yaparken Ayarlar kapanmıyor.' },
+      { t:'sec', d:'<b>VPN güvenlik açıkları kapatıldı.</b> VPN profili alanları üzerinden bilgisayarda komut çalıştırılabilen iki kritik açık giderildi.' },
+      { t:'sec', d:'<b>Şifre kasası ve günlükler.</b> Şifreleme anahtarları işletim sistemi kasasında korunuyor; koruma sağlamayan sahte ana şifre kaldırıldı. Kasa okunamazsa kayıtlar sessizce silinmiyor.' },
+      { t:'sec', d:'<b>Otomatik doldurma kuralları.</b> Bir sitenin HTTPS şifresi aynı sitenin şifresiz (HTTP) sayfasına asla doldurulmaz.' },
+      { t:'sec', d:'<b>Arayüz güvenliği.</b> Sayfa başlıkları ve dışa aktarılan raporlar üzerinden kod çalıştırma açıkları kapatıldı.' },
+      { t:'sec', d:'<b>Açılışta dış bağlantı yok.</b> Yazı tipleri uygulamaya gömüldü, Google\'a istek gitmiyor; kullanılmayan eklentiler arka planda sunucuya bağlanmıyor.' },
+      { t:'fix', d:'<b>Verileri temizle gerçekten temizliyor.</b> Çerez ve önbellek temizleme yanlış yeri hedefliyordu: tarama verileri silinmiyor, buna karşın yer imleri siliniyordu.' },
+      { t:'fix', d:'<b>Reklam ve izleyici engelleyici.</b> Seviye seçimi, "bu siteye izin ver" ve istatistikler artık çalışıyor; meşru sayfaları bozan kurallar daraltıldı.' },
+      { t:'fix', d:'<b>İndirme ayarları uygulanıyor.</b> "İndirme klasörü" ve "Konum sor" ayarları kaydediliyor ama kullanılmıyordu.' },
+      { t:'fix', d:'<b>Ayarlar kaybolmuyor.</b> Ayar dosyası güvenli yazılıyor; yarım kalan bir kayıt artık tüm ayarları sıfırlamıyor.' },
+      { t:'imp', d:'<b>VPN durumu gerçekten doğrulanıyor.</b> Bağlantı düşünce bildirim gelir; DNS sızıntı testi sistem çözümleyicisiyle yapılır.' },
+      { t:'new', d:'<b>Sorun bildirme.</b> Ayarlar › Tanılama: yalnızca izninizle ve gönderilecek raporun tamamını görerek. Adresler raporda kimliksizleştirilir.' },
+      { t:'imp', d:'<b>Erişilebilirlik.</b> Sekmeler ve düğmeler klavyeyle gezilebilir, ekran okuyucular için adlandırıldı.' },
+    ],
+  },
   {
     version: '0.7.3', date: '25 Temmuz 2026', title: 'Yer imi & şifre içe aktarma',
     changes: [
@@ -177,11 +216,14 @@ const RELEASES = [
 
 const LABEL = { new:'Yeni', fix:'Düzeltme', sec:'Güvenlik', imp:'İyileştirme' };
 
+// "En son": yayınlanmış (upcoming olmayan) ilk sürüm.
+const LATEST = RELEASES.findIndex((r) => !r.upcoming);
+
 document.getElementById('timeline').innerHTML = RELEASES.map((r, i) => `
-  <div class="rel${i===0?' latest':''}">
+  <div class="rel${r.upcoming ? ' upcoming' : i===LATEST ? ' latest' : ''}">
     <div class="rel-head">
       <span class="rel-ver">v${r.version}</span>
-      ${i===0?'<span class="rel-latest-tag">En son</span>':''}
+      ${r.upcoming ? '<span class="rel-upcoming-tag">Geliştiriliyor</span>' : i===LATEST ? '<span class="rel-latest-tag">En son</span>' : ''}
       <span class="rel-date">${r.date}</span>
     </div>
     <div class="rel-title">${r.title}</div>

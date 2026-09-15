@@ -1130,6 +1130,82 @@ suite('Zararlı site koruması — ana süreç bağlantıları');
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
+// USOM listesi İlgezdi sunucusunda derlenir; uygulama yalnızca o dosyayı indirir
+// ══════════════════════════════════════════════════════════════════════════════
+suite('Zararlı site koruması — İlgezdi sunucusundaki USOM listesi');
+{
+  const ROOTD = path.join(__dirname, '..');
+  const tl = require('../src/main/threat-lists.js');
+  const usom = tl.SOURCES.find((s) => s.id === 'ilgezdi-usom');
+  const mainSrcAll = fs.readdirSync(path.join(SRC, 'main')).filter((f) => f.endsWith('.js')).map((f) => read('main/' + f)).join('\n');
+  check('uygulama listeyi yalnızca İlgezdi sunucusundan indiriyor, USOM API\'sine gitmiyor',
+    !!usom && usom.urls.every((u) => /^https:\/\/(www\.ilgezdi\.com\.tr|ilgezdi\.vercel\.app)\/lists\/usom\.txt\.gz$/.test(u))
+    && !mainSrcAll.includes('siberguvenlik.gov.tr'));
+
+  const b = require('../scripts/build-threat-lists.js');
+  eq('USOM kaydı → liste satırı',
+    [
+      { type: 'domain', url: 'Kotu-Banka.COM.' }, { type: 'url', url: 'kotu.example/Giris?x=1' }, { type: 'ip', url: '203.0.113.9' },
+      { type: 'ip6', url: 'a83f:8110::1' }, { type: 'ip6net', url: '2001:db8::/32' }, { type: 'domain', url: 'bosluk var.com' },
+      { type: 'domain', url: 'tekparca' }, { type: 'url', url: '' }, { type: 'domain', url: 'x\x00.com' }, null,
+    ].map(b.toLine),
+    ['kotu-banka.com', 'kotu.example/Giris?x=1', '203.0.113.9', '[a83f:8110::1]', null, null, null, null, null, null]);
+  eq('sunucunun ürettiği satırları uygulama okuyabiliyor (IPv6 dahil)',
+    ['kotu-banka.com', 'kotu.example/Giris?x=1', '203.0.113.9', '[a83f:8110::1]'].map((l) => { const e = tl.parseListLine(l); return e && e.key; }),
+    ['h|kotu-banka.com', 'u|kotu.example/Giris?x=1', 'h|203.0.113.9', 'h|a83f:8110::1']);
+  eq('köşeli parantezli bölüm başlıkları hâlâ atlanıyor', [tl.parseListLine('[Adblock Plus 2.0]'), tl.parseListLine('[genel]')], [null, null]);
+  const bs = fs.readFileSync(path.join(ROOTD, 'scripts', 'build-threat-lists.js'), 'utf8');
+  check('USOM başarısızsa, sayfalar eksikse ya da liste yarıdan küçükse canlı liste korunuyor; site dağıtımı durmuyor',
+    (bs.match(/return keepLive\(/g) || []).length >= 3 && bs.includes('process.exitCode = 0') && b.MIN_KEEP_RATIO === 0.5 && b.MIN_COVERAGE === 0.95);
+  check('liste dosyasında zaman damgası yok (içerik aynıysa ETag değişmez)', !/generatedAt[\s\S]{0,40}'#/.test(bs) && !bs.includes("'# Derlenme"));
+
+  // Cron ucu: yalnızca Vercel Cron'un gizli anahtarıyla; kanca adresi yanıta yazılmaz.
+  const cron = require('../api/cron/threat-lists.js');
+  const prev = { secret: process.env.CRON_SECRET, hook: process.env.THREAT_LISTS_DEPLOY_HOOK, err: console.error };
+  const call = (auth) => {
+    const r = { code: 0, body: null, setHeader() {}, status(c) { this.code = c; return this; }, json(x) { this.body = x; return this; } };
+    cron({ headers: auth === undefined ? {} : { authorization: auth } }, r);
+    return r;
+  };
+  console.error = () => {};
+  delete process.env.THREAT_LISTS_DEPLOY_HOOK;
+  delete process.env.CRON_SECRET;
+  const noSecret = call('Bearer ').code;
+  process.env.CRON_SECRET = 'deneme-gizli';
+  const wrong = [call().code, call('Bearer yanlis').code, call('bearer deneme-gizli').code];
+  const noHook = call('Bearer deneme-gizli');
+  console.error = prev.err;
+  if (prev.secret === undefined) delete process.env.CRON_SECRET; else process.env.CRON_SECRET = prev.secret;
+  if (prev.hook !== undefined) process.env.THREAT_LISTS_DEPLOY_HOOK = prev.hook;
+  eq('cron ucu: anahtar tanımsız ya da yanlışsa 401', [noSecret, ...wrong], [401, 401, 401, 401]);
+  check('cron ucu: doğru anahtarla kanca tanımsızsa 500 ve yanıtta adres yok', noHook.code === 500 && !JSON.stringify(noHook.body).includes('http'));
+
+  const vj = JSON.parse(fs.readFileSync(path.join(ROOTD, 'vercel.json'), 'utf8'));
+  check('site derlemesi listeyi üretiyor, günlük cron tanımlı (Hobby planı günde bir)',
+    vj.buildCommand === 'node scripts/build-threat-lists.js' && vj.outputDirectory === 'site'
+    && (vj.crons || []).some((c) => c.path === '/api/cron/threat-lists' && /^\d+ \d+ \* \* \*$/.test(c.schedule)));
+  check('derleme betiği Vercel\'e yükleniyor (.vercelignore dışarıda bırakmıyor)', !/^\/?scripts\/?$/m.test(fs.readFileSync(path.join(ROOTD, '.vercelignore'), 'utf8')));
+  check('üretilen liste git\'e girmiyor', fs.readFileSync(path.join(ROOTD, '.gitignore'), 'utf8').split(/\r?\n/).includes('site/lists/'));
+}
+
+suite('Site — sürüm notları');
+{
+  const html = fs.readFileSync(path.join(__dirname, '..', 'site', 'surumler.html'), 'utf8');
+  const js = html.slice(html.indexOf('const RELEASES = ['), html.indexOf('const LABEL'));
+  let releases = null;
+  try { releases = new Function(js + '; return RELEASES;')(); } catch (e) { releases = e.message; }
+  check('RELEASES dizisi geçerli JavaScript', Array.isArray(releases), String(releases).slice(0, 120));
+  if (Array.isArray(releases)) {
+    const versions = releases.map((r) => r.version);
+    check('sürümler yeniden eskiye ve tekrarsız', versions.join() === [...new Set(versions)].join() && versions[0] === '0.8.0');
+    check('yayınlanmamış 0.8.0 "En son" sayılmıyor; en son yayınlanan 0.7.3', releases[0].upcoming === true && releases.find((r) => !r.upcoming).version === '0.7.3');
+    check('her değişikliğin türü tanımlı ve metni dolu', releases.every((r) => r.changes.every((c) => ['new', 'fix', 'sec', 'imp'].includes(c.t) && c.d.length > 20)));
+    check('0.8.0 güncellemeleri tek tek listelenmiş (zararlı site koruması ve USOM dahil)', releases[0].changes.length >= 25 && releases[0].changes.some((c) => c.d.includes('USOM')));
+  }
+  check('işleyici "Geliştiriliyor" etiketini ve yayınlanmış ilk sürüme "En son"u veriyor', html.includes("const LATEST = RELEASES.findIndex((r) => !r.upcoming);") && html.includes('rel-upcoming-tag'));
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
 // Kaynak dosyalar — görünmez ham kontrol karakteri olmamalı
 // Neden: regex aralıkları ([NUL-boşluk] gibi) ham baytla yazılınca git dosyayı
 // ikili sanıyor ve bir düzenleyici bu baytları sessizce silerse güvenlik amaçlı
@@ -1143,7 +1219,7 @@ suite('Kaynak dosyalar — ham kontrol baytı yok');
     if (d.isDirectory()) return d.name === 'node_modules' ? [] : walk(p);
     return /\.(js|html|css|json|md|yml)$/.test(d.name) ? [p] : [];
   });
-  const targets = ['src', 'api', 'test', '.github'].flatMap((d) => walk(path.join(ROOTD, d)));
+  const targets = ['src', 'api', 'test', 'scripts', '.github'].flatMap((d) => walk(path.join(ROOTD, d)));
   const offenders = [];
   for (const f of targets) {
     const buf = fs.readFileSync(f);
