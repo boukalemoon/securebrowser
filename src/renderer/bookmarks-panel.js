@@ -747,15 +747,23 @@ function bmRenderBar() {
     box.appendChild(chip);
   }
   // Çubukta yalnızca çubuk klasörü var; diğer klasörler (içe aktarılan alt klasörler
-  // dahil) Yer İmleri panelinde. Sona onu açan düğme eklenir — bağlantılardan SONRA,
-  // böylece klavye Tab sırası görsel sırayla aynı kalır.
-  if (bmItems.length > items.length) {
-    const all = document.createElement('button');
+  // dahil) Yer İmleri panelinde. Onu açan düğme bağlantı kutusunun DIŞINDA, çubuğun
+  // sağ ucunda: bağlantılar sığmadığında da görünür kalır (ilk sürümde 28 bağlantıda
+  // ekranın dışına taşıyordu). Bağlantılardan sonra geldiği için Tab sırası da sonda.
+  const barEl = document.getElementById('bookmarks-bar');
+  let all = document.getElementById('bookmarks-bar-all');
+  if (!all && barEl) {
+    all = document.createElement('button');
     all.type = 'button';
+    all.id = 'bookmarks-bar-all';
     all.className = 'bookmark-chip bookmark-chip-all';
     all.title = 'Tüm yer imleri ve klasörler (Ctrl+Shift+O)';
+    all.addEventListener('click', () => document.getElementById('btn-bookmarks')?.click());
+    barEl.appendChild(all);
+  }
+  if (all) {
+    all.classList.toggle('hidden', !(bmItems.length > items.length));
     all.textContent = `📚 Tüm yer imleri (${bmItems.length})`;
-    box.appendChild(all);
   }
 }
 

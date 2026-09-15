@@ -288,7 +288,8 @@ input, select, textarea { font-family: var(--font-ui); }
   display: grid; place-items: center; font-size: 10px; color: white; font-weight: 700;
 }
 /* Çubuk öğeleri <button>: tarayıcı varsayılanları sıfırlanır, uzun adlar kısaltılır */
-#bookmarks-bar-items { display: flex; align-items: center; gap: 4px; min-width: 0; }
+/* Bağlantılar sığmazsa kırpılır; "Tüm yer imleri" düğmesi kutunun dışında, sağda görünür kalır */
+#bookmarks-bar-items { display: flex; align-items: center; gap: 4px; min-width: 0; flex: 1; overflow: hidden; }
 .bookmark-chip { background: none; font-family: inherit; max-width: 220px; flex-shrink: 0; }
 .bookmark-chip .chip-label { overflow: hidden; text-overflow: ellipsis; }
 .bookmark-chip .chip-favicon { flex-shrink: 0; }

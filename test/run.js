@@ -1227,6 +1227,9 @@ suite('Sık kullanılanlar çubuğu');
   check('orta tık ve Ctrl/Shift+tık yeni sekmede açıyor', bmJs.includes("addEventListener('auxclick'") && /e\.ctrlKey \|\| e\.metaKey \|\| e\.shiftKey\) sb\?\.newTab/.test(bmJs));
   check('çubuğun sonunda tüm yer imlerini açan düğme (diğer klasörler panelde)',
     bmJs.includes("'bookmark-chip bookmark-chip-all'") && bmJs.includes("closest?.('.bookmark-chip-all')"));
+  check('düğme bağlantı kutusunun dışında, çubuğun sağında; bağlantılar sığmayınca görünür kalıyor',
+    bar.includes("all.id = 'bookmarks-bar-all'") && bar.includes('barEl.appendChild(all)')
+    && /#bookmarks-bar-items \{[^}]*flex: 1;[^}]*overflow: hidden;/.test(read('renderer/styles/main.css')));
   check('düğme bağlantılardan SONRA ekleniyor (Tab sırası görsel sırayla aynı)',
     bar.indexOf('for (const item of items)') > 0 && bar.indexOf("'bookmark-chip bookmark-chip-all'") > bar.indexOf('for (const item of items)')
     && !/\.bookmark-chip-all\s*\{[^}]*order:/.test(read('renderer/styles/main.css')));
