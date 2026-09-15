@@ -287,6 +287,14 @@ input, select, textarea { font-family: var(--font-ui); }
   width: 14px; height: 14px; border-radius: 3px;
   display: grid; place-items: center; font-size: 10px; color: white; font-weight: 700;
 }
+/* Çubuk öğeleri <button>: tarayıcı varsayılanları sıfırlanır, uzun adlar kısaltılır */
+#bookmarks-bar-items { display: flex; align-items: center; gap: 4px; min-width: 0; }
+.bookmark-chip { background: none; font-family: inherit; max-width: 220px; flex-shrink: 0; }
+.bookmark-chip .chip-label { overflow: hidden; text-overflow: ellipsis; }
+.bookmark-chip .chip-favicon { flex-shrink: 0; }
+.bookmark-chip:focus-visible { outline: 2px solid var(--accent, #d4a85a); outline-offset: -2px; }
+.bookmark-bar-hint { font-size: 11.5px; color: var(--ink-mute); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bookmark-chip-all { margin-left: auto; color: var(--ink-mute); border-color: var(--line); }
 
 /* ══════════════════════════════════════════════════════════
    MAIN: SIDEBAR + CONTENT

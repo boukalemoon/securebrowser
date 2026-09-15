@@ -191,30 +191,51 @@ function setupThreatProtection({ ipcMain, session, userDataPath, getConfig, user
     }
   }
 
-  async function runUpdates({ force = false } = {}) {
-    if (updating || !enabled() || !sources.length) return status();
-    updating = true;
-    try {
-      for (const s of sources) {
-        if (!enabled()) break;
-        const m = meta.sources[s.id];
-        const now = Date.now();
-        const due = force
-          ? !m || !m.lastAttemptAt || now - m.lastAttemptAt >= MANUAL_MIN_GAP_MS
-          : now >= tl.nextUpdateAt(s, m);
-        if (!due) continue;
-        try {
-          const result = await fetchSource(s);
-          info('Tehdit listesi güncellendi', { source: s.id, result, entries: meta.sources[s.id].count });
-        } catch {
-          warn('Tehdit listesi indirilemedi', { source: s.id, error: meta.sources[s.id].lastError, failures: meta.sources[s.id].failures });
+  // Durum değişince (güncelleme başladı, bir liste bitti, iş tamamlandı) arayüz haber
+  // alır. Eskiden Ayarlar › Gizlilik kutusu yalnızca sekme açılırken bir kez
+  // çiziliyordu; liste arka planda sonradan inince sayılar ekranda değişmiyordu.
+  const statusListeners = new Set();
+  function notifyStatus() {
+    const st = status();
+    for (const fn of statusListeners) { try { fn(st); } catch {} }
+  }
+
+  // Aynı anda tek güncelleme. Süren bir güncelleme varken gelen istek (ör. açılıştaki
+  // otomatik güncelleme sürerken "Şimdi güncelle") onun bitmesini bekler; eskiden
+  // hemen o anki yarım durumu döndürüyordu.
+  let inFlight = null;
+  function runUpdates({ force = false } = {}) {
+    if (!enabled() || !sources.length) return Promise.resolve(status());
+    if (inFlight) return inFlight;
+    inFlight = (async () => {
+      updating = true;
+      notifyStatus();
+      try {
+        for (const s of sources) {
+          if (!enabled()) break;
+          const m = meta.sources[s.id];
+          const now = Date.now();
+          const due = force
+            ? !m || !m.lastAttemptAt || now - m.lastAttemptAt >= MANUAL_MIN_GAP_MS
+            : now >= tl.nextUpdateAt(s, m);
+          if (!due) continue;
+          try {
+            const result = await fetchSource(s);
+            info('Tehdit listesi güncellendi', { source: s.id, result, entries: meta.sources[s.id].count });
+          } catch {
+            warn('Tehdit listesi indirilemedi', { source: s.id, error: meta.sources[s.id].lastError, failures: meta.sources[s.id].failures });
+          }
+          saveMeta();
+          notifyStatus();
         }
-        saveMeta();
+      } finally {
+        updating = false;
+        inFlight = null;
       }
-    } finally {
-      updating = false;
-    }
-    return status();
+      notifyStatus();
+      return status();
+    })();
+    return inFlight;
   }
 
   // ── Engelleme ───────────────────────────────────────────────────────────────
@@ -309,7 +330,11 @@ function setupThreatProtection({ ipcMain, session, userDataPath, getConfig, user
   ipcMain.handle('threats-status', () => status());
   ipcMain.handle('threats-update-now', () => runUpdates({ force: true }));
 
-  return { start, stop, check, noteBlocked, takeBlock, handleConsoleMessage, forget, status, runUpdates, onConfigChanged, _matcher: matcher };
+  return {
+    start, stop, check, noteBlocked, takeBlock, handleConsoleMessage, forget, status, runUpdates, onConfigChanged,
+    onStatus: (fn) => { statusListeners.add(fn); return () => statusListeners.delete(fn); },
+    _matcher: matcher,
+  };
 }
 
 module.exports = { setupThreatProtection, compileTextAsync, FETCH_PARTITION, MANUAL_MIN_GAP_MS };

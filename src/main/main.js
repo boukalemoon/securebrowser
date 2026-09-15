@@ -2092,6 +2092,12 @@ app.whenReady().then(() => {
   threats = setupThreatProtection({
     ipcMain, session, userDataPath: USER_DATA, getConfig: () => config, userAgent: CLEAN_UA, log: diag,
   });
+  // Liste durumu değişince açık pencerelerin Ayarlar › Gizlilik kutusu yerinde yenilenir.
+  threats.onStatus((st) => {
+    for (const w of [mainWindow, incognitoWindow]) {
+      if (w && !w.isDestroyed() && !w.webContents.isDestroyed()) w.webContents.send('threats-status-changed', st);
+    }
+  });
   threats.start();
 
   // Eski ölü sql.js veritabanının diskte kalan dosyası (hiç veri içermedi).

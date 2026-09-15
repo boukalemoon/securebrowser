@@ -906,23 +906,47 @@ function bindPrivacyEvents() {
   document.getElementById('btn-threat-update')?.addEventListener('click', async (e) => {
     const btn = e.currentTarget;
     const old = btn.textContent;
+    const before = _lastThreatStatus;
     btn.disabled = true;
-    btn.textContent = 'Güncelleniyor…';
+    btn.textContent = 'Denetleniyor…';
     let st = null;
     try { st = await window.secureBrowser?.threats?.updateNow?.(); } catch {}
     btn.disabled = false;
     btn.textContent = old;
     renderThreatStatus(st);
-    if (st && !st.enabled) showSettingsToast('Koruma kapalıyken listeler güncellenmez');
+    if (!st) return;
+    const fmt = new Intl.NumberFormat('tr-TR');
+    const changed = !before || st.sources.some((s) => {
+      const b = before.sources.find((x) => x.id === s.id);
+      return !b || b.updatedAt !== s.updatedAt || b.lastError !== s.lastError;
+    });
+    if (!st.enabled) showSettingsToast('Koruma kapalıyken listeler güncellenmez');
+    else if (st.sources.some((s) => s.lastError)) showSettingsToast('Bazı listeler indirilemedi; ayrıntı aşağıda');
+    else if (!changed) showSettingsToast('Listeler birkaç dakika önce denetlendi, güncel');
+    else showSettingsToast('Listeler denetlendi: ' + st.sources.map((s) => fmt.format(s.entries)).join(' + ') + ' kayıt');
   });
 }
 
-// Zararlı site koruması durumu: kaynak başına kayıt sayısı, son güncelleme ve hata.
+// Zararlı site koruması durumu: kaynak başına kayıt sayısı, son denetim ve hata.
 // DOM textContent ile kurulur (hata metni ağdan gelebilir).
+let _lastThreatStatus = null;
 async function populateThreatStatus() {
+  subscribeThreatStatus();
   let st = null;
   try { st = await window.secureBrowser?.threats?.status?.(); } catch {}
   renderThreatStatus(st);
+}
+
+// Ana süreç liste durumu değişince haber verir (güncelleme başladı, bir liste bitti);
+// Gizlilik sekmesi açıksa kutu yerinde yenilenir. Eskiden yalnızca sekme açılırken
+// bir kez çiziliyordu. Abonelik bir kez kurulur.
+let _threatStatusSubscribed = false;
+function subscribeThreatStatus() {
+  if (_threatStatusSubscribed) return;
+  _threatStatusSubscribed = true;
+  window.secureBrowser?.threats?.onStatus?.((st) => {
+    if (document.getElementById('threat-status')) renderThreatStatus(st);
+  });
 }
 
 function renderThreatStatus(st) {
@@ -944,7 +968,7 @@ function renderThreatStatus(st) {
     item.appendChild(line('s-toggle-label', s.name));
     const when = s.updatedAt ? new Date(s.updatedAt).toLocaleString('tr-TR', { dateStyle: 'medium', timeStyle: 'short' }) : '';
     item.appendChild(line('s-toggle-sub', s.entries
-      ? `${fmt.format(s.entries)} kayıt · son güncelleme ${when}${s.stale ? ' · güncel değil' : ''}`
+      ? `${fmt.format(s.entries)} kayıt · son denetim ${when}${s.stale ? ' · güncel değil' : ''}${st.updating ? ' · denetleniyor…' : ''}`
       : (st.updating ? 'Liste indiriliyor…' : 'Liste henüz indirilmedi')));
     if (s.covers) item.appendChild(line('s-toggle-sub', s.covers + (s.license ? ' · lisans ' + s.license : '')));
     if (s.lastError) item.appendChild(line('s-toggle-sub', 'Son deneme başarısız: ' + s.lastError, 'var(--danger)'));

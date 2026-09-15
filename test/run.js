@@ -1206,6 +1206,51 @@ suite('Site — sürüm notları');
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
+// Kullanıcı bildirimi (15 Eyl): sık kullanılanlar çubuğu boş, Gizlilik'teki liste
+// sayıları güncellenmiyor
+// ══════════════════════════════════════════════════════════════════════════════
+suite('Sık kullanılanlar çubuğu');
+{
+  const bmJs = read('renderer/bookmarks-panel.js');
+  const bar = bmJs.slice(bmJs.indexOf('function bmRenderBar('), bmJs.indexOf('// ─── Init'));
+  check('çubuk dolduruluyor (eskiden HTML\'de boş yer tutucuydu)', bar.length > 300 && bmJs.includes('  bmRenderBar();'));
+  // Tanıma işlevi tarayıcı bağlamı olmadan çalıştırılır (yalnızca saf ad denetimi).
+  const nameFn = new Function(bmJs.slice(bmJs.indexOf('const BM_BAR_FOLDER_EN'), bmJs.indexOf('function bmBarFolderId(')) + '; return bmIsBarFolderName;')();
+  eq('çubuk klasörü adları: Brave/Chrome, Edge, Firefox, İlgezdi, İngilizce; benzer adlar değil',
+    ['Yer işaretleri çubuğu', 'Yer İmi Çubuğu', 'Sık kullanılanlar çubuğu', 'Yer imleri araç çubuğu', '⭐ Bookmarks Bar', 'Favorites bar', 'Çubuğu', 'Snickers bar tarifleri', 'Diğer Yer İmleri', 'Gaming'].map(nameFn),
+    [true, true, true, true, true, true, true, false, false, false]);
+  check('çubuk textContent ile kuruluyor, yalnızca http(s) adresler, dış favicon servisi yok',
+    !bar.includes('innerHTML') && bar.includes('H.safeUrl(i.url)') && bar.includes('label.textContent') && !/google|favicons\?/i.test(bar));
+  check('yer imi kaydedilince, senkronda ve başka pencerede değişince çubuk yenileniyor',
+    (bmJs.match(/dispatchEvent\(new CustomEvent\('ilgezdi-bookmarks-changed'\)\)/g) || []).length >= 2
+    && bmJs.includes("addEventListener('ilgezdi-bookmarks-changed', bmRenderBar)") && bmJs.includes("addEventListener('storage'"));
+  check('orta tık ve Ctrl/Shift+tık yeni sekmede açıyor', bmJs.includes("addEventListener('auxclick'") && /e\.ctrlKey \|\| e\.metaKey \|\| e\.shiftKey\) sb\?\.newTab/.test(bmJs));
+  check('çubuğun sonunda tüm yer imlerini açan düğme (diğer klasörler panelde)',
+    bmJs.includes("'bookmark-chip bookmark-chip-all'") && bmJs.includes("closest?.('.bookmark-chip-all')"));
+  check('düğme bağlantılardan SONRA ekleniyor (Tab sırası görsel sırayla aynı)',
+    bar.indexOf('for (const item of items)') > 0 && bar.indexOf("'bookmark-chip bookmark-chip-all'") > bar.indexOf('for (const item of items)')
+    && !/\.bookmark-chip-all\s*\{[^}]*order:/.test(read('renderer/styles/main.css')));
+}
+
+suite('Zararlı site koruması — canlı liste durumu');
+{
+  const tp = read('main/threat-protection.js');
+  check('durum değişince bildiriliyor (başlangıç, her liste, bitiş)', (tp.match(/notifyStatus\(\);/g) || []).length >= 3 && /onStatus: \(fn\) =>/.test(tp));
+  check('süren güncelleme varken "Şimdi güncelle" onun bitmesini bekliyor', tp.includes('if (inFlight) return inFlight;'));
+  check('ana süreç açık pencerelere durum gönderiyor', read('main/main.js').includes('threats.onStatus((st) =>') && read('main/main.js').includes("'threats-status-changed'"));
+  check('önyükleme köprüsü ve Ayarlar aboneliği (bir kez)',
+    read('preload/preload.js').includes("ipcRenderer.on('threats-status-changed'") && /let _threatStatusSubscribed = false;[\s\S]{0,200}if \(_threatStatusSubscribed\) return;/.test(read('renderer/settings-panel.js')));
+}
+
+suite('Yayın — v0.8.0');
+{
+  const ROOTD = path.join(__dirname, '..');
+  check('paket sürümü 0.8.0', JSON.parse(fs.readFileSync(path.join(ROOTD, 'package.json'), 'utf8')).version === '0.8.0');
+  const wf = fs.readFileSync(path.join(ROOTD, '.github', 'workflows', 'release.yml'), 'utf8');
+  check('yayın otomatik güncelleme dosyalarını da yüklüyor (latest*.yml, blockmap)', wf.includes('dist/latest*.yml') && wf.includes('dist/*.blockmap'));
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
 // Kaynak dosyalar — görünmez ham kontrol karakteri olmamalı
 // Neden: regex aralıkları ([NUL-boşluk] gibi) ham baytla yazılınca git dosyayı
 // ikili sanıyor ve bir düzenleyici bu baytları sessizce silerse güvenlik amaçlı

@@ -66,11 +66,15 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
+          # latest*.yml ve .blockmap: uygulama içi otomatik güncelleme bunlara bakar.
+          # 0.7.3'te elle yüklenmişti; artık her yayında otomatik.
           files: |
             dist/*.exe
             dist/*.dmg
             dist/*.zip
             dist/*.AppImage
             dist/*.deb
+            dist/latest*.yml
+            dist/*.blockmap
           fail_on_unmatched_files: false
           generate_release_notes: true

@@ -196,10 +196,12 @@ function bmLoad() {
 function bmSaveFolders() {
   try { localStorage.setItem('ilgezdi-bm-folders', JSON.stringify(bmFolders)); } catch {}
   window.ilgezdiSync?.schedulePush();
+  window.dispatchEvent(new CustomEvent('ilgezdi-bookmarks-changed'));
 }
 function bmSaveItems() {
   try { localStorage.setItem('ilgezdi-bm-items', JSON.stringify(bmItems)); } catch {}
   window.ilgezdiSync?.schedulePush();
+  window.dispatchEvent(new CustomEvent('ilgezdi-bookmarks-changed'));
 }
 
 // Qrtım senkronizasyonu uzak yer imlerini uyguladığında paneli tazele
@@ -686,11 +688,107 @@ function bmOpenPanel() {
   _bmPanelOpen = true;
 }
 
+// ─── Sık kullanılanlar çubuğu ─────────────────────────────────────────────────
+// Adres çubuğunun altındaki şerit. index.html'de vardı ama hiçbir kod doldurmuyordu
+// (kullanıcı bildirdi: "sık kullanılanlar bölümü gelmiyor"). Tarayıcılardan içe
+// aktarılan "Yer İmi Çubuğu" klasörü (bookmark-import.js bu adı verir) ya da
+// "Sık Kullanılanlar Çubuğu" adlı klasör gösterilir; yoksa "⭐ Genel".
+// Tarayıcılar farklı adlar veriyor: Brave/Chrome "Yer işaretleri çubuğu", Edge "Sık
+// kullanılanlar çubuğu", Firefox "Yer imleri araç çubuğu", İngilizce "Bookmarks bar".
+// Kullanıcının Brave'den aktardığı çubuk ilk sürümde tanınmamıştı (tekil ad aranıyordu).
+const BM_BAR_FOLDER_EN = ['bookmarks bar', 'favorites bar', 'favourites bar', 'bookmarks toolbar'];
+
+function bmIsBarFolderName(name) {
+  const n = String(name || '').replace(/^[^\p{L}]+/u, '').trim().toLocaleLowerCase('tr');
+  return /(^|\s)çubuğu$/.test(n) || BM_BAR_FOLDER_EN.includes(n);
+}
+
+function bmBarFolderId() {
+  const bar = bmFolders.find((f) => bmIsBarFolderName(f.name));
+  return bar ? bar.id : 'default';
+}
+
+// Alan adından sabit bir renk: aynı site her açılışta aynı renkte (dış favicon yok).
+function bmChipColor(domain) {
+  let h = 0;
+  for (const ch of String(domain)) h = (h * 31 + ch.codePointAt(0)) % 360;
+  return `hsl(${h} 45% 40%)`;
+}
+
+function bmRenderBar() {
+  const box = document.getElementById('bookmarks-bar-items');
+  if (!box) return;
+  const H = window.ilgezdiHtml;
+  const folderId = bmBarFolderId();
+  const items = bmItems.filter((i) => (i.folderId || 'default') === folderId && H.safeUrl(i.url));
+  box.replaceChildren();
+  if (!items.length) {
+    const hint = document.createElement('span');
+    hint.className = 'bookmark-bar-hint';
+    hint.textContent = 'Sık kullanılanlar çubuğu boş: bir sayfayı ☆ ile ekleyin ya da Yer İmleri panelinden içe aktarın.';
+    box.appendChild(hint);
+  }
+  for (const item of items) {
+    const domain = bmGetDomain(item.url).replace(/^www\./, '');
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'bookmark-chip';
+    chip.dataset.url = item.url;
+    chip.title = (item.title || domain) + '\n' + item.url;
+    const fav = document.createElement('span');
+    fav.className = 'chip-favicon';
+    fav.setAttribute('aria-hidden', 'true');
+    fav.textContent = (domain[0] || '•').toLocaleUpperCase('tr');
+    fav.style.background = bmChipColor(domain);
+    const label = document.createElement('span');
+    label.className = 'chip-label';
+    label.textContent = item.title || domain;
+    chip.append(fav, label);
+    box.appendChild(chip);
+  }
+  // Çubukta yalnızca çubuk klasörü var; diğer klasörler (içe aktarılan alt klasörler
+  // dahil) Yer İmleri panelinde. Sona onu açan düğme eklenir — bağlantılardan SONRA,
+  // böylece klavye Tab sırası görsel sırayla aynı kalır.
+  if (bmItems.length > items.length) {
+    const all = document.createElement('button');
+    all.type = 'button';
+    all.className = 'bookmark-chip bookmark-chip-all';
+    all.title = 'Tüm yer imleri ve klasörler (Ctrl+Shift+O)';
+    all.textContent = `📚 Tüm yer imleri (${bmItems.length})`;
+    box.appendChild(all);
+  }
+}
+
 // ─── Init ─────────────────────────────────────────────────────────────────────
 function bmInit() {
   bmLoad();
   bmInjectStyles();
   const sb = window.secureBrowser;
+
+  // Sık kullanılanlar çubuğu: tık → bu sekmede, Ctrl/Shift+tık ya da orta tık → yeni sekme.
+  const bar = document.getElementById('bookmarks-bar-items');
+  const chipUrl = (e) => {
+    const chip = e.target.closest?.('.bookmark-chip');
+    return chip ? window.ilgezdiHtml.safeUrl(chip.dataset.url) : '';
+  };
+  bar?.addEventListener('click', (e) => {
+    if (e.target.closest?.('.bookmark-chip-all')) { document.getElementById('btn-bookmarks')?.click(); return; }
+    const url = chipUrl(e);
+    if (!url) return;
+    if (e.ctrlKey || e.metaKey || e.shiftKey) sb?.newTab?.(url);
+    else sb?.navigate?.(url);
+  });
+  bar?.addEventListener('auxclick', (e) => {
+    const url = e.button === 1 ? chipUrl(e) : '';
+    if (url) { e.preventDefault(); sb?.newTab?.(url); }
+  });
+  // Yer imi değişince (panel, ☆ açılır penceresi, senkron, başka pencere) çubuk yenilenir.
+  window.addEventListener('ilgezdi-bookmarks-changed', bmRenderBar);
+  window.addEventListener('ilgezdi-sync-applied', bmRenderBar);
+  window.addEventListener('storage', (e) => {
+    if (e.key === 'ilgezdi-bm-items' || e.key === 'ilgezdi-bm-folders') { bmLoad(); bmRenderBar(); }
+  });
+  bmRenderBar();
 
   sb?.onActiveUrl?.((url) => setTimeout(() => bmCheckCurrentPage(), 100));
 

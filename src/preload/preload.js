@@ -201,6 +201,7 @@ contextBridge.exposeInMainWorld('secureBrowser', {
   threats: {
     status:    () => ipcRenderer.invoke('threats-status'),
     updateNow: () => ipcRenderer.invoke('threats-update-now'),
+    onStatus:  (cb) => ipcRenderer.on('threats-status-changed', (_, d) => cb(d)),
   },
 
   // ── Sekme işlemleri (sabitle, sessize al, taşı, sağ tık menüsü) ───────────────
