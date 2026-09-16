@@ -21,10 +21,11 @@ const Module = require('module');
 // Ana süreç modülleri `require('electron')` yapıyor. Testte gerçek Electron
 // yok; doğrulama/ayrıştırma mantığını izole etmek için yerine bunu koyuyoruz.
 const fakeElectron = {
+  // Eşzamansız API (os-crypto.js); testte şifreleme kullanılamıyor sayılır.
   safeStorage: {
-    isEncryptionAvailable: () => false,
-    encryptString: (s) => Buffer.from('fake:' + s, 'utf8'),
-    decryptString: (b) => String(b).replace(/^fake:/, ''),
+    isAsyncEncryptionAvailable: async () => false,
+    encryptStringAsync: async (s) => Buffer.from('fake:' + s, 'utf8'),
+    decryptStringAsync: async (b) => ({ result: String(b).replace(/^fake:/, ''), shouldReEncrypt: false }),
   },
   dialog:  { showOpenDialog: async () => ({ canceled: true, filePaths: [] }) },
   app:     { getPath: () => path.join(__dirname, '.tmp'), getVersion: () => '0.0.0-test', isPackaged: false },
@@ -1571,6 +1572,32 @@ suite('Keşfet — TrendTech yazılımları');
     const app4 = read('renderer/app.js');
     check('geçmiş satırı ve bilgi kartı: orta tık arka planda',
       app4.includes("if (row) { e.preventDefault(); open(row, 'background'); }") && app4.includes('sb.newTab(url, { background: true })'));
+  }
+
+  suite('Electron 46 hazırlığı — eşzamansız işletim sistemi şifrelemesi');
+  {
+    const mainDir = path.join(__dirname, '..', 'src', 'main');
+    const mainFiles = fs.readdirSync(mainDir).filter((f) => f.endsWith('.js'));
+    const syncUsers = mainFiles.filter((f) => /safeStorage\.(encryptString|decryptString|isEncryptionAvailable)\s*\(/.test(read('main/' + f)));
+    check('ana süreçte eşzamanlı safeStorage çağrısı kalmadı (Electron 46\'da siliniyor)', syncUsers.length === 0, syncUsers.join(', '));
+    const oc = read('main/os-crypto.js');
+    check('os-crypto eşzamansız API\'yi kullanıyor ve yeniden şifreleme bildirimini iletiyor',
+      oc.includes('safeStorage.isAsyncEncryptionAvailable()') && oc.includes('safeStorage.encryptStringAsync(') && oc.includes('safeStorage.decryptStringAsync(') && oc.includes('r.shouldReEncrypt === true'));
+    const directUsers = mainFiles.filter((f) => f !== 'os-crypto.js' && /\{[^}]*\bsafeStorage\b[^}]*\}\s*=\s*require\('electron'\)/.test(read('main/' + f)));
+    check('safeStorage yalnızca os-crypto.js üzerinden kullanılıyor', directUsers.length === 0, directUsers.join(', '));
+    const pmj = read('main/password-manager.js');
+    check('şifre kasası: işleyiciler kasanın yüklenmesini bekliyor; kayıtlar sıraya alınıyor; anahtar yenilenince yeniden yazılıyor',
+      (pmj.match(/await vaultReady;/g) || []).length >= 10 && pmj.includes('saveChain = saveChain.then(run, run);') && pmj.includes('if (r.reencrypt) await saveVault();'));
+    const slm = read('main/secure-log-manager.js');
+    check('günlük anahtarı: ana süreç anahtarı bekliyor; okunamayan anahtar ve günlük ezilmeden yedekleniyor',
+      read('main/main.js').includes('secureLog  = await SecureLogManager.create(USER_DATA);') && slm.includes("this.keyPathEnc + '.bozuk-'") && slm.includes("this.logsPath + '.bozuk-'"));
+    check('VPN anahtarı ve Qrtım oturumu eşzamansız şifreleniyor',
+      read('main/vpn-manager.js').includes("(await osCrypto.encryptText(plain)).toString('base64')") && read('main/main.js').includes('async function writeAuthSession(sessionData)'));
+    const { SecureLogManager: SLM } = require('../src/main/secure-log-manager.js');
+    const tmpLog = fs.mkdtempSync(path.join(require('os').tmpdir(), 'ilg-log2-'));
+    const inst = new SLM(tmpLog);
+    check('yapıcıyla kurulan günlük (testler) şifresiz ve boş başlıyor', inst.canEncrypt === false && inst.key === null && inst.logs.length === 0);
+    fs.rmSync(tmpLog, { recursive: true, force: true });
   }
   const cardsJs = read('renderer/info-cards.js');
   let cards = null;

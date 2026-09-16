@@ -8,25 +8,38 @@
 const crypto = require('crypto');
 const fs     = require('fs');
 const path   = require('path');
-const { safeStorage } = require('electron');
+const osCrypto = require('./os-crypto');
 
 const ALGO         = 'aes-256-gcm';
 const KEY_FILE     = 'ilgezdi.key';     // ESKİ: düz metin anahtar (taşınıp silinir)
 const KEY_FILE_ENC = 'ilgezdi.key.enc'; // YENİ: safeStorage ile şifreli anahtar
 
 class SecureLogManager {
+  // Anahtar kasası eşzamansız (os-crypto.js): ana süreç SecureLogManager.create() ile kurar
+  // ve anahtar hazır olmadan günlüğü, oturumu ya da indirme geçmişini okumaz. Yalnızca
+  // yapıcıyla kurulan örnek (testler) şifresiz ve boş başlar.
   constructor(userDataPath) {
     this.userDataPath = userDataPath;
     this.keyPath      = path.join(userDataPath, KEY_FILE);
     this.keyPathEnc   = path.join(userDataPath, KEY_FILE_ENC);
     this.logsPath     = path.join(userDataPath, 'ilgezdi-logs.enc');
     this.syncPath     = path.join(userDataPath, 'sync-queue.json');
-    this.canEncrypt   = this._encryptionAvailable();
-    this.key          = this.canEncrypt ? this._loadOrCreateKey() : null;
+    this.canEncrypt   = false;
+    this.key          = null;
     this.logs         = [];
     this.syncQueue    = [];
+  }
+
+  static create(userDataPath) {
+    return new SecureLogManager(userDataPath).init();
+  }
+
+  async init() {
+    this.canEncrypt = await osCrypto.isAvailable();
+    this.key        = this.canEncrypt ? await this._loadOrCreateKey() : null;
     this._loadLogs();
     this._loadSyncQueue();
+    return this;
   }
 
   // ── Anahtar Yönetimi ─────────────────────────────────────────────────────────
@@ -39,21 +52,26 @@ class SecureLogManager {
   // saklanır ve getStats() bunu `encrypted:false` olarak bildirir. Korunmadığı
   // hâlde korunuyormuş gibi göstermek yerine durumu dürüstçe söylemek daha iyi.
 
-  _encryptionAvailable() {
-    try { return safeStorage.isEncryptionAvailable(); } catch { return false; }
-  }
-
-  _loadOrCreateKey() {
+  async _loadOrCreateKey() {
     // 1) Şifreli anahtar varsa onu kullan
     try {
       if (fs.existsSync(this.keyPathEnc)) {
-        const b64 = safeStorage.decryptString(fs.readFileSync(this.keyPathEnc));
+        const { text: b64, reencrypt } = await osCrypto.decryptBuffer(fs.readFileSync(this.keyPathEnc));
         const key = Buffer.from(b64, 'base64');
-        if (key.length === 32) return key;
+        if (key.length === 32) {
+          // İşletim sistemi anahtarı yenilendiyse günlük anahtarı yeni anahtarla sarılır.
+          if (reencrypt) await this._writeKey(key);
+          return key;
+        }
         console.warn('[SecureLog] Şifreli anahtar bozuk, yeniden oluşturulacak');
       }
     } catch (e) {
       console.warn('[SecureLog] Şifreli anahtar okunamadı:', e.message);
+    }
+    // Okunamayan anahtar yenisiyle ezilmeden önce saklanır: anahtar kasası geçici olarak
+    // açılamadıysa eski günlükler elle kurtarılabilsin.
+    if (fs.existsSync(this.keyPathEnc)) {
+      try { fs.copyFileSync(this.keyPathEnc, this.keyPathEnc + '.bozuk-' + Date.now()); } catch {}
     }
 
     // 2) Eski düz metin anahtar varsa AYNI anahtarı koru (yoksa mevcut loglar
@@ -62,7 +80,7 @@ class SecureLogManager {
       if (fs.existsSync(this.keyPath)) {
         const key = fs.readFileSync(this.keyPath);
         if (key.length === 32) {
-          this._writeKey(key);
+          await this._writeKey(key);
           try { fs.unlinkSync(this.keyPath); } catch {}
           console.log('[SecureLog] Düz metin anahtar şifreli formata taşındı');
           return key;
@@ -74,13 +92,13 @@ class SecureLogManager {
 
     // 3) Yeni anahtar
     const key = crypto.randomBytes(32);
-    this._writeKey(key);
+    await this._writeKey(key);
     console.log('[SecureLog] Yeni AES-256 anahtarı oluşturuldu (safeStorage ile korunuyor)');
     return key;
   }
 
-  _writeKey(key) {
-    const blob = safeStorage.encryptString(key.toString('base64'));
+  async _writeKey(key) {
+    const blob = await osCrypto.encryptText(key.toString('base64'));
     const tmp  = this.keyPathEnc + '.tmp';
     fs.writeFileSync(tmp, blob, { mode: 0o600 });
     fs.renameSync(tmp, this.keyPathEnc);
@@ -131,6 +149,8 @@ class SecureLogManager {
       console.log(`[SecureLog] ${this.logs.length} log yüklendi (şifreli: ${!isJson})`);
     } catch (e) {
       console.warn('[SecureLog] Log yüklenemedi, sıfırlanıyor:', e.message);
+      // Bir sonraki kayıt dosyanın üzerine yazacak: çözülemeyen geçmiş önce saklanır.
+      try { fs.copyFileSync(this.logsPath, this.logsPath + '.bozuk-' + Date.now()); } catch {}
       this.logs = [];
     }
   }

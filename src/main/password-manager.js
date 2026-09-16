@@ -24,12 +24,18 @@ const os   = require('os');
 const path = require('path');
 const crypto = require('crypto');
 const { execFileSync } = require('child_process');
-const { safeStorage, dialog } = require('electron');
+const { dialog } = require('electron');
+const osCrypto = require('./os-crypto');
 const { log: diag } = require('./diagnostics');
 
 let VAULT_PATH = null;
 let vault = [];            // [{ id, url, username, password, createdAt, source }]
 let vaultLoadError = null; // null | 'encryption_unavailable' | 'decrypt_failed'
+// İşletim sistemi anahtar kasası eşzamansız (os-crypto.js): loadVault belirler; kasayı
+// kullanan her IPC işleyicisi önce vaultReady'yi bekler.
+let encryptionOk = false;
+let vaultReady = Promise.resolve();
+let saveChain = Promise.resolve();
 
 // Kullanıcıya gösterilecek mesajlar — IPC'den ham hata kodu sızdırmak yerine.
 const MESSAGES = {
@@ -97,26 +103,30 @@ function dpapiUnprotectMany(b64List) {
 
 // ─── Kasa şifreleme ───────────────────────────────────────────────────────────
 
-function tryDecryptVaultFile(p) {
-  const parsed = JSON.parse(safeStorage.decryptString(fs.readFileSync(p)));
-  return Array.isArray(parsed) ? parsed : null;
+async function tryDecryptVaultFile(p) {
+  const { text, reencrypt } = await osCrypto.decryptBuffer(fs.readFileSync(p));
+  const parsed = JSON.parse(text);
+  return Array.isArray(parsed) ? { entries: parsed, reencrypt } : null;
 }
 
-function loadVault() {
+async function loadVault() {
   vault = [];
   vaultLoadError = null;
+  encryptionOk = await osCrypto.isAvailable();
   if (!fs.existsSync(VAULT_PATH)) return;
 
-  if (!safeStorage.isEncryptionAvailable()) {
+  if (!encryptionOk) {
     vaultLoadError = 'encryption_unavailable';
     diag.warn('passwords', 'Kasa var ama işletim sistemi şifrelemesi kullanılamıyor');
     return;
   }
 
   try {
-    const v = tryDecryptVaultFile(VAULT_PATH);
-    if (!v) throw new Error('kasa biçimi geçersiz');
-    vault = v;
+    const r = await tryDecryptVaultFile(VAULT_PATH);
+    if (!r) throw new Error('kasa biçimi geçersiz');
+    vault = r.entries;
+    // İşletim sistemi anahtarı yenilendiyse kasa yeni anahtarla yeniden yazılır.
+    if (r.reencrypt) await saveVault();
     return;
   } catch (e) {
     diag.error('passwords', 'Kasa çözülemedi', { reason: e.message });
@@ -132,10 +142,10 @@ function loadVault() {
   const bak = VAULT_PATH + '.bak';
   if (fs.existsSync(bak)) {
     try {
-      const v = tryDecryptVaultFile(bak);
-      if (v) {
-        vault = v;
-        diag.warn('passwords', 'Kasa yedekten kurtarıldı', { count: v.length });
+      const r = await tryDecryptVaultFile(bak);
+      if (r) {
+        vault = r.entries;
+        diag.warn('passwords', 'Kasa yedekten kurtarıldı', { count: r.entries.length });
         return;
       }
     } catch {}
@@ -145,20 +155,27 @@ function loadVault() {
   vaultLoadError = 'decrypt_failed';
 }
 
+// Kayıtlar sıraya alınır: şifreleme artık eşzamansız, art arda iki kayıt aynı geçici
+// dosyaya yazıp birbirini ezmesin. Her kayıt o anki kasanın tamamını yazar.
 function saveVault() {
-  if (!safeStorage.isEncryptionAvailable()) return false;
-  if (vaultLoadError === 'decrypt_failed') return false; // okunamayan kasayı EZME
-  const tmp = VAULT_PATH + '.tmp';
-  fs.writeFileSync(tmp, safeStorage.encryptString(JSON.stringify(vault)), { mode: 0o600 });
-  // Son sağlam kasayı yedekle, sonra atomik olarak değiştir.
-  try { if (fs.existsSync(VAULT_PATH)) fs.copyFileSync(VAULT_PATH, VAULT_PATH + '.bak'); } catch {}
-  fs.renameSync(tmp, VAULT_PATH);
-  return true;
+  const run = async () => {
+    if (!encryptionOk) return false;
+    if (vaultLoadError === 'decrypt_failed') return false; // okunamayan kasayı EZME
+    const blob = await osCrypto.encryptText(JSON.stringify(vault));
+    const tmp = VAULT_PATH + '.tmp';
+    fs.writeFileSync(tmp, blob, { mode: 0o600 });
+    // Son sağlam kasayı yedekle, sonra atomik olarak değiştir.
+    try { if (fs.existsSync(VAULT_PATH)) fs.copyFileSync(VAULT_PATH, VAULT_PATH + '.bak'); } catch {}
+    fs.renameSync(tmp, VAULT_PATH);
+    return true;
+  };
+  saveChain = saveChain.then(run, run);
+  return saveChain;
 }
 
 function writeGuard() {
   if (vaultLoadError === 'decrypt_failed') return fail('vault_unreadable');
-  if (!safeStorage.isEncryptionAvailable()) return fail('encryption_unavailable');
+  if (!encryptionOk) return fail('encryption_unavailable');
   return null;
 }
 
@@ -314,7 +331,7 @@ async function importFromBrowser(id) {
     }
   }
 
-  if (imported) saveVault();
+  if (imported) await saveVault();
   diag.info('passwords', 'Tarayıcıdan içe aktarma', { source: id, total: rows.length, imported, appBound, failed });
 
   // Hiçbiri alınamadı ve sebep app-bound şifreleme → sessizce "0" deme, nedenini söyle.
@@ -376,7 +393,7 @@ async function importFromCsv(win) {
     vault.push({ id: genId(), url, username: e.username, password: e.password, createdAt: Date.now(), source: 'csv' });
     existing.add(key); imported++;
   }
-  if (imported) saveVault();
+  if (imported) await saveVault();
   diag.info('passwords', 'CSV içe aktarma', { total: entries.length, imported });
   return { ok: true, imported };
 }
@@ -384,25 +401,31 @@ async function importFromCsv(win) {
 // ─── IPC ──────────────────────────────────────────────────────────────────────
 function setupPasswordManager(ipcMain, options) {
   VAULT_PATH = path.join(options.userDataPath, 'passwords.enc');
-  loadVault();
+  vaultReady = loadVault().catch((e) => { diag.error('passwords', 'Kasa yüklenemedi', { reason: e.message }); });
 
   // Listeleme: parolalar MASKELİ döner (güvenlik); tam parola ayrı istekle.
-  ipcMain.handle('pw-list', () => vault.map(v => ({
-    id: v.id, url: v.url, username: v.username, source: v.source, createdAt: v.createdAt,
-  })));
-  ipcMain.handle('pw-reveal', (e, id) => vault.find(v => v.id === id)?.password || '');
+  ipcMain.handle('pw-list', async () => {
+    await vaultReady;
+    return vault.map(v => ({ id: v.id, url: v.url, username: v.username, source: v.source, createdAt: v.createdAt }));
+  });
+  ipcMain.handle('pw-reveal', async (e, id) => {
+    await vaultReady;
+    return vault.find(v => v.id === id)?.password || '';
+  });
 
-  ipcMain.handle('pw-add', (e, { url, username, password } = {}) => {
+  ipcMain.handle('pw-add', async (e, { url, username, password } = {}) => {
+    await vaultReady;
     const guard = writeGuard();
     if (guard) return guard;
     const normalized = normalizeSiteUrl(url);
     if (!normalized || !password) return fail('invalid_input');
     vault.push({ id: genId(), url: normalized, username: username || '', password, createdAt: Date.now(), source: 'manual' });
-    saveVault();
+    await saveVault();
     return { ok: true };
   });
 
-  ipcMain.handle('pw-update', (e, { id, url, username, password } = {}) => {
+  ipcMain.handle('pw-update', async (e, { id, url, username, password } = {}) => {
+    await vaultReady;
     const guard = writeGuard();
     if (guard) return guard;
     const v = vault.find(x => x.id === id); if (!v) return { ok: false };
@@ -413,30 +436,33 @@ function setupPasswordManager(ipcMain, options) {
     }
     if (username != null) v.username = username;
     if (password) v.password = password;
-    saveVault();
+    await saveVault();
     return { ok: true };
   });
 
-  ipcMain.handle('pw-delete', (e, id) => {
+  ipcMain.handle('pw-delete', async (e, id) => {
+    await vaultReady;
     const guard = writeGuard();
     if (guard) return guard;
     vault = vault.filter(v => v.id !== id);
-    saveVault();
+    await saveVault();
     return { ok: true };
   });
 
-  ipcMain.handle('pw-count', () => vault.length);
-  ipcMain.handle('pw-encryption-available', () => safeStorage.isEncryptionAvailable() && vaultLoadError !== 'decrypt_failed');
+  ipcMain.handle('pw-count', async () => { await vaultReady; return vault.length; });
+  ipcMain.handle('pw-encryption-available', async () => { await vaultReady; return encryptionOk && vaultLoadError !== 'decrypt_failed'; });
 
   ipcMain.handle('pw-import-detect',  () => detectSources());
-  ipcMain.handle('pw-import-browser', (e, id) => importFromBrowser(id));
-  ipcMain.handle('pw-import-csv',     () => importFromCsv(options.getMainWindow()));
+  ipcMain.handle('pw-import-browser', async (e, id) => { await vaultReady; return importFromBrowser(id); });
+  ipcMain.handle('pw-import-csv',     async () => { await vaultReady; return importFromCsv(options.getMainWindow()); });
 
   // Arayüz için yalnızca KULLANICI ADLARI döner. Eskiden bu kanal herhangi bir
   // origin için düz metin parolaları arayüze veriyordu; otomatik doldurma zaten
   // ana süreçte getForOrigin'i doğrudan çağırıyor, arayüzün parolaya ihtiyacı yok.
-  ipcMain.handle('pw-for-origin', (e, origin) =>
-    getForOrigin(origin).map(({ id, username }) => ({ id, username })));
+  ipcMain.handle('pw-for-origin', async (e, origin) => {
+    await vaultReady;
+    return getForOrigin(origin).map(({ id, username }) => ({ id, username }));
+  });
 }
 
 /**
@@ -491,7 +517,8 @@ function canSavePasswords() {
  * Kullanıcının "Kaydet"/"Güncelle" dediği giriş bilgisini kasaya yazar. Adres sayfanın
  * kökü (origin) olarak saklanır: aynı sitenin başka giriş sayfasında da doldurulabilir.
  */
-function saveCapturedCredential({ url, username, password, action, existingId } = {}) {
+async function saveCapturedCredential({ url, username, password, action, existingId } = {}) {
+  await vaultReady;
   const guard = writeGuard();
   if (guard) return guard;
   let origin = '';
@@ -503,12 +530,12 @@ function saveCapturedCredential({ url, username, password, action, existingId } 
     if (v) {
       v.password = password;
       v.updatedAt = Date.now();
-      saveVault();
+      await saveVault();
       return { ok: true, action: 'updated' };
     }
   }
   vault.push({ id: genId(), url: normalized, username: String(username || ''), password, createdAt: Date.now(), source: 'saved' });
-  saveVault();
+  await saveVault();
   return { ok: true, action: 'added' };
 }
 

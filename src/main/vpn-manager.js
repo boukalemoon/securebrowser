@@ -7,7 +7,7 @@
 
 const { execFile }    = require('child_process');
 const { promisify }   = require('util');
-const { safeStorage } = require('electron');
+const osCrypto = require('./os-crypto');
 const fs   = require('fs');
 const path = require('path');
 const os   = require('os');
@@ -128,22 +128,24 @@ class VpnManager {
     this.status          = 'disconnected';
     this.killSwitchOn    = false;
     this.statusListeners = [];
+    this.ready           = Promise.resolve();   // eski düz metin anahtarların taşınması (varsa)
     this._loadProfiles();
   }
 
-  // WireGuard private key'leri diske düz metin yazılmaz — safeStorage ile şifrelenir.
-  _encryptKey(plain) {
+  // WireGuard private key'leri diske düz metin yazılmaz — safeStorage ile şifrelenir
+  // (os-crypto.js, eşzamansız).
+  async _encryptKey(plain) {
     if (!plain) return '';
-    if (safeStorage.isEncryptionAvailable()) {
-      return 'enc:' + safeStorage.encryptString(plain).toString('base64');
+    if (await osCrypto.isAvailable()) {
+      return 'enc:' + (await osCrypto.encryptText(plain)).toString('base64');
     }
     return plain; // şifreleme yoksa (nadir) mevcut davranışa düş
   }
 
-  _decryptKey(stored) {
+  async _decryptKey(stored) {
     if (!stored) return '';
     if (stored.startsWith('enc:')) {
-      try { return safeStorage.decryptString(Buffer.from(stored.slice(4), 'base64')); }
+      try { return (await osCrypto.decryptBuffer(Buffer.from(stored.slice(4), 'base64'))).text; }
       catch { return ''; }
     }
     return stored; // eski düz metin kayıt
@@ -153,19 +155,23 @@ class VpnManager {
     try {
       if (fs.existsSync(this.profilesPath)) {
         this.profiles = JSON.parse(fs.readFileSync(this.profilesPath, 'utf-8'));
-        // Eski düz metin anahtarları şifreli formata taşı
-        let migrated = false;
-        for (const p of this.profiles) {
-          if (p.privateKey && !p.privateKey.startsWith('enc:') && p.privateKey !== '••••••••') {
-            p.privateKey = this._encryptKey(p.privateKey);
-            migrated = true;
-          }
-        }
-        if (migrated) this._saveProfiles();
+        // Eski düz metin anahtarlar şifreli formata arka planda taşınır.
+        this.ready = this._migratePlainKeys();
       }
     } catch (e) {
       this.profiles = [];
     }
+  }
+
+  async _migratePlainKeys() {
+    let migrated = false;
+    for (const p of this.profiles) {
+      if (p.privateKey && !p.privateKey.startsWith('enc:') && p.privateKey !== '••••••••') {
+        const enc = await this._encryptKey(p.privateKey);
+        if (enc !== p.privateKey) { p.privateKey = enc; migrated = true; }
+      }
+    }
+    if (migrated) this._saveProfiles();
   }
 
   _saveProfiles() {
@@ -188,7 +194,7 @@ class VpnManager {
     }));
   }
 
-  addProfile(profile) {
+  async addProfile(profile) {
     // Varsayılanları doğrulamadan ÖNCE uygula — boş alan gelirse şema ihlali
     // sayılmasın, ama kullanıcının yazdığı her şey şemadan geçsin.
     const candidate = {
@@ -208,7 +214,7 @@ class VpnManager {
       name:       cleanLabel(profile.name)     || 'Yeni Sunucu',
       endpoint:   candidate.endpoint,
       publicKey:  candidate.publicKey,
-      privateKey: this._encryptKey(candidate.privateKey),
+      privateKey: await this._encryptKey(candidate.privateKey),
       clientIp:   candidate.clientIp,
       dns:        candidate.dns,
       location:   cleanLabel(profile.location, 40) || '🌐 Bilinmiyor',
@@ -228,7 +234,7 @@ class VpnManager {
     this._saveProfiles();
   }
 
-  _generateWgConf(profile) {
+  async _generateWgConf(profile) {
     // İKİNCİ savunma katmanı. Profil addProfile'da doğrulanır, ama diskteki eski
     // kayıtlar (doğrulama eklenmeden önce yazılmış olanlar) ya da elle düzenlenmiş
     // vpn-profiles.json buraya doğrudan gelebilir. Yazmadan önce yine doğrula:
@@ -236,7 +242,7 @@ class VpnManager {
     const err = validateProfileInput(profile);
     if (err) throw new Error('Profil güvenlik doğrulamasından geçemedi: ' + err);
 
-    const privateKey = this._decryptKey(profile.privateKey);
+    const privateKey = await this._decryptKey(profile.privateKey);
     if (!RE_WG_KEY.test(privateKey)) {
       throw new Error('Private key geçersiz — yapılandırma oluşturulmadı.');
     }
@@ -314,7 +320,7 @@ PersistentKeepalive = 25
     const confPath = path.join(os.tmpdir(), `sb-vpn.conf`);
     const psPath   = path.join(os.tmpdir(), 'sb-wg-install.ps1');
     // conf private key içerir — HER çıkış yolunda silinmesi gerekir (finally).
-    fs.writeFileSync(confPath, this._generateWgConf(profile), { mode: 0o600 });
+    fs.writeFileSync(confPath, await this._generateWgConf(profile), { mode: 0o600 });
 
     try {
       // Önce varsa eski tüneli kaldır
@@ -353,7 +359,7 @@ PersistentKeepalive = 25
 
   async _connectUnix(profile) {
     const confPath = path.join(os.tmpdir(), `sb-vpn.conf`);
-    fs.writeFileSync(confPath, this._generateWgConf(profile), { mode: 0o600 });
+    fs.writeFileSync(confPath, await this._generateWgConf(profile), { mode: 0o600 });
     try {
       await execFileAsync('wg-quick', ['down', confPath]).catch(() => {});
       await execFileAsync('wg-quick', ['up', confPath]);

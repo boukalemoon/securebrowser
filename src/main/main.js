@@ -4,10 +4,12 @@
 
 'use strict';
 
-const { app, BrowserWindow, WebContentsView, Menu, clipboard, ipcMain, session, dialog, safeStorage, webContents, shell } = require('electron');
+const { app, BrowserWindow, WebContentsView, Menu, clipboard, ipcMain, session, dialog, webContents, shell } = require('electron');
 const path = require('path');
 const fs   = require('fs');
 const { execFile } = require('child_process');
+// İşletim sistemi anahtar kasası eşzamansız (Electron 46'da eşzamanlı safeStorage siliniyor).
+const osCrypto = require('./os-crypto');
 
 const { SecureLogManager } = require('./secure-log-manager');
 const { VpnManager } = require('./vpn-manager');
@@ -1800,9 +1802,9 @@ ipcMain.handle('save-config', (e, newCfg) => {
 ipcMain.handle('vpn-get-profiles',   ()           => vpnManager?.getProfiles() || []);
 // Doğrulama hatası kullanıcıya gösterilecek bir mesaj — ham Electron IPC
 // istisnası olarak sızdırmak yerine düzgün bir sonuç nesnesi döndürülür.
-ipcMain.handle('vpn-add-profile',    (e, profile) => {
+ipcMain.handle('vpn-add-profile',    async (e, profile) => {
   try {
-    const p = vpnManager?.addProfile(profile);
+    const p = await vpnManager?.addProfile(profile);
     return { ok: true, profile: p };
   } catch (err) {
     return { ok: false, error: err.message };
@@ -2307,7 +2309,7 @@ ipcMain.handle('default-browser-set', async () => {
   return { ok: app.setAsDefaultProtocolClient('http') && app.setAsDefaultProtocolClient('https') };
 });
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   // Aynı profille ikinci başlatma: bağlantı ilk sürece iletildi, bu süreç kapanıyor.
   if (isDuplicateInstance) return;
   // Windows: görev çubuğu / bildirimlerde doğru uygulama kimliği + ikon eşleşmesi
@@ -2344,7 +2346,9 @@ app.whenReady().then(() => {
   // Önceki oturumdan açık kalmış tüneli bul — yoksa arayüz "bağlı değil" derken
   // trafik tünelden geçmeye devam eder ve kullanıcı kapatamaz.
   vpnManager.reconcile().catch(() => {});
-  secureLog  = new SecureLogManager(USER_DATA);
+  // Günlük anahtarı işletim sistemi anahtar kasasından eşzamansız çözülür. Oturum, indirme
+  // geçmişi ve site simgeleri aynı anahtarla şifreli: pencere ve sekmeler bundan sonra kurulur.
+  secureLog  = await SecureLogManager.create(USER_DATA);
   loadDownloadHistory();   // günlük anahtarı hazır olduktan sonra
 
   // Site simgeleri (favicon-cache.js): ziyaret günlüğüyle aynı anahtarla şifreli
@@ -2519,37 +2523,43 @@ ipcMain.handle('open-incognito', () => {
 // Şifreleme kullanılamıyorsa (nadir, ör. keyring'siz Linux) oturum kalıcı
 // saklanmaz — kullanıcı yeniden giriş yapar; token sızdırmaktan iyidir.
 
-function readAuthSession() {
+async function readAuthSession() {
   // Yeni format: şifreli blob
   if (config.authSessionEnc) {
     try {
-      if (!safeStorage.isEncryptionAvailable()) return null;
-      return JSON.parse(safeStorage.decryptString(Buffer.from(config.authSessionEnc, 'base64')));
+      if (!(await osCrypto.isAvailable())) return null;
+      const { text, reencrypt } = await osCrypto.decryptBuffer(Buffer.from(config.authSessionEnc, 'base64'));
+      const session = JSON.parse(text);
+      // İşletim sistemi anahtarı yenilendiyse oturum yeni anahtarla yeniden yazılır.
+      if (reencrypt) await writeAuthSession(session);
+      return session;
     } catch { return null; }
   }
   // Eski format (düz metin) → şifreli formata taşı
   if (config.authSession) {
     const legacy = config.authSession;
-    writeAuthSession(legacy);
+    await writeAuthSession(legacy);
     return legacy;
   }
   return null;
 }
 
-function writeAuthSession(sessionData) {
+async function writeAuthSession(sessionData) {
+  // Önce şifrelenir; yapılandırma nesnesine şifreleme bittikten sonra yazılır (arada
+  // save-config yapılandırmayı yeni bir nesneyle değiştirmiş olabilir).
+  const enc = sessionData && (await osCrypto.isAvailable())
+    ? (await osCrypto.encryptText(JSON.stringify(sessionData))).toString('base64')
+    : null;
   delete config.authSession; // düz metin kopya asla kalmasın
-  if (sessionData && safeStorage.isEncryptionAvailable()) {
-    config.authSessionEnc = safeStorage.encryptString(JSON.stringify(sessionData)).toString('base64');
-  } else {
-    delete config.authSessionEnc;
-  }
+  if (enc) config.authSessionEnc = enc;
+  else delete config.authSessionEnc;
   saveConfig(config);
 }
 
 ipcMain.handle('auth-get-session', () => readAuthSession());
 
-ipcMain.handle('auth-save-session', (e, sessionData) => {
-  writeAuthSession(sessionData);
+ipcMain.handle('auth-save-session', async (e, sessionData) => {
+  await writeAuthSession(sessionData);
   return true;
 });
 
