@@ -77,6 +77,7 @@ const SHORTCUTS = [
   { keys: ['Mod+H'],                             cmd: 'history-page',      page: false },   // Docs: bul-değiştir
   { keys: ['F12', 'Mod+Shift+I'],                cmd: 'devtools',          page: true },
   { keys: ['Mod+Shift+A'],                       cmd: 'tab-search',        page: true },
+  { keys: ['F9'],                                cmd: 'reader',            page: true },
   // Web düzenleyicilerinde "Farklı kaydet" (Photopea, vscode.dev): sayfada sağ tık menüsünden.
   { keys: ['Mod+Shift+S'],                       cmd: 'screenshot',        page: false },
 ];
@@ -85,7 +86,7 @@ for (let i = 1; i <= 8; i++) SHORTCUTS.push({ keys: ['Mod+' + i], cmd: 'tab-' + 
 // Ana süreç yalnızca bu komutları kendisi yürütür; kalanlar arayüze iletilir.
 const UI_COMMANDS = Object.freeze(new Set([
   'new-tab', 'focus-address', 'find', 'find-next', 'find-prev', 'bookmark-page',
-  'settings', 'toggle-bookmarks', 'logs', 'vpn-panel', 'history-page', 'downloads-page', 'tab-search',
+  'settings', 'toggle-bookmarks', 'logs', 'vpn-panel', 'history-page', 'downloads-page', 'tab-search', 'reader',
 ]));
 
 function parseShortcut(str) {

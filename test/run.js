@@ -1631,6 +1631,72 @@ suite('Keşfet — TrendTech yazılımları');
     fs.rmSync(tmpLog, { recursive: true, force: true });
   }
 
+  suite('Okuma modu');
+  {
+    const RD = require('../src/main/reader.js');
+    const { Readability } = require('@mozilla/readability');
+    const JSDOMParser = require('@mozilla/readability/JSDOMParser.js');
+    const para = '<p>İlgezdi okuma modu için yazılmış uzun bir paragraf; yeterince metin olsun diye tekrar ediliyor. </p>'.repeat(14);
+    const html = '<html><head><title>Deneme</title></head><body><nav><a href="/menu">Menü</a></nav><article><h1>Başlık</h1>' + para
+      + '<p>Bir <a href="/x?y=1">bağlantı</a>, <a href="javascript:alert(1)">kötü</a>, <a href="data:text/html,x">veri</a> ve <img src="/r.png" alt="Resim"/><img src="javascript:alert(2)"/></p>'
+      + '<script>alert(1)</script><iframe src="https://kotu.example/"></iframe><form><input value="x"/></form><svg><script>alert(3)</script></svg>'
+      + '<p><span onclick="x()" style="color:red">sarmal <b onmouseover="y()">kalın</b></span></p></article></body></html>';
+    const doc = new JSDOMParser().parse(html, 'https://ornek.com/yazi/1');
+    const art = new Readability(doc, { charThreshold: 500, serializer: (el) => el }).parse();
+    const nodes = RD.readerNodesFrom(art.content, 'https://ornek.com/yazi/1');
+    const flat = JSON.stringify(nodes);
+    check('betik, çerçeve, form, svg, olay nitelikleri, stil ve javascript:/data: bağlantılar ağaca girmiyor',
+      !/script|iframe|form|input|svg|onclick|onmouseover|style|javascript:|data:text|alert/.test(flat), flat.slice(0, 200));
+    check('metin, kalın, göreli bağlantı ve resim mutlak adresle korunuyor',
+      flat.includes('"sarmal "') && flat.includes('["b",null,["kalın"]]') && flat.includes('{"href":"https://ornek.com/x?y=1"}') && flat.includes('{"src":"https://ornek.com/r.png","alt":"Resim"}'));
+    const hostile = [
+      ['script', null, ['alert(1)']], ['a', { href: 'javascript:alert(1)' }, ['x']], ['img', { src: 'data:image/png;base64,AA' }, []],
+      ['img', { src: 'https://a.com/r.png', alt: 'a'.repeat(900), onerror: 'x' }, []], ['p', { style: 'x', onclick: 'y' }, ['metin']],
+      ['div', null, 'metin değil dizi'], 'düz metin', 42, ['p', null], ['br', null, [['p', null, ['içeride']]]],
+    ];
+    eq('ana süreç doğrulaması: bilinmeyen etiket, javascript/data adresi, fazladan nitelik ve bozuk biçim atılıyor; boş öğenin çocuğu yok',
+      RD.validateReaderNodes(hostile),
+      [['a', null, ['x']], ['img', { src: 'https://a.com/r.png', alt: 'a'.repeat(300) }, []], ['p', null, ['metin']], ['div', null, []], 'düz metin', ['br', null, []]]);
+    let deep = ['metin'];
+    for (let i = 0; i < 100; i++) deep = [['div', null, deep]];
+    const depthOf = (list) => (Array.isArray(list) && list.length && Array.isArray(list[0]) ? 1 + depthOf(list[0][2]) : 0);
+    check('derinlik sınırı (40) ve düğüm sınırı uygulanıyor',
+      depthOf(RD.validateReaderNodes(deep)) <= 41 && RD.validateReaderNodes(Array.from({ length: 20000 }, () => 'x')).length === RD.READER_LIMITS.nodes);
+    const png = Buffer.from('89504e470d0a1a0a0000000d49484452', 'hex');
+    eq('resim türü baytlardan: PNG, JPEG; HTML "image/png" diye gelse de reddediliyor; SVG yalnızca sunucu SVG derse',
+      [RD.imageDataUrl(png, 'text/html').slice(0, 22), RD.imageDataUrl(Buffer.from('ffd8ffe000104a46', 'hex'), '').slice(0, 23),
+       RD.imageDataUrl(Buffer.from('<html><script>x</script>'), 'image/png'), RD.imageDataUrl(Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"/>'), 'image/svg+xml').slice(0, 26),
+       RD.imageDataUrl(Buffer.from('<svg/>'), 'text/plain')],
+      ['data:image/png;base64,', 'data:image/jpeg;base64,', null, 'data:image/svg+xml;base64,', null]);
+    const withImgs = [['p', null, ['a']], ['img', { src: 'https://a.com/1.png', alt: 'bir' }, []], ['figure', null, [['img', { src: 'https://a.com/2.png' }, []]]]];
+    eq('resim adresleri toplanıyor; indirilen gömülüyor, indirilemeyen atılıyor',
+      [RD.collectImageUrls(withImgs), RD.embedImages(withImgs, new Map([['https://a.com/1.png', 'data:image/png;base64,AA']]))],
+      [['https://a.com/1.png', 'https://a.com/2.png'], [['p', null, ['a']], ['img', { src: 'data:image/png;base64,AA', alt: 'bir' }, []], ['figure', null, []]]]);
+    let imgs = null;
+    try {
+      imgs = JSON.parse(require('child_process').execFileSync(process.execPath, [path.join(__dirname, 'helpers', 'reader-images-check.js')], { encoding: 'utf8', timeout: 30000 }));
+    } catch (e) { imgs = { error: e.message }; }
+    eq('indirme: 404, 5 MB üstü (bildirilen ya da gerçek), resim olmayan içerik ve http(s) olmayan adres atlanıyor; file:/javascript: hiç istenmiyor',
+      imgs && [imgs.kept, imgs.requested && imgs.requested.some((u) => !u.startsWith('https://'))], [['https://a.com/ok.png'], false]);
+    eq('toplam 30 MB sınırı (3 MB × 12 resimden 10)', imgs && imgs.totalKept, 10);
+    eq('okuma süresi en az 1 dk', [RD.readingMinutes([]), RD.readingMinutes(['x'.repeat(6000)])], [1, 5]);
+    const mjR = read('main/main.js');
+    check('çıkarma yalıtılmış dünyada; adres değiştiyse sonuç atılıyor; ağaç doğrulanıyor; resimler sekmenin oturumuyla çerezsiz',
+      mjR.includes('raw = await wc.executeJavaScriptInIsolatedWorld(READER_WORLD_ID, [{ code: readerScript }]);')
+      && mjR.includes("if (wc.isDestroyed() || wc.getURL() !== url) return { ok: false, reason: 'navigated' };")
+      && mjR.includes('const nodes = reader.validateReaderNodes(raw.nodes);')
+      && mjR.includes("(u) => wc.session.fetch(u, { credentials: 'omit', redirect: 'follow', signal: AbortSignal.timeout(8000) })"));
+    const appR = read('renderer/app.js');
+    const buildFn = (appR.match(/function buildReaderNodes\(parent, nodes, depth = 0\) \{[\s\S]*?\n\}/) || [''])[0];
+    check('arayüz ağacı innerHTML kullanmadan, yalnızca bilinen etiket, http(s) bağlantı ve data:image resimle çiziyor',
+      buildFn.length > 200 && !/innerHTML|insertAdjacentHTML|setAttribute\('on/.test(buildFn) && buildFn.includes("if (!Array.isArray(n) || !READER_TAGS_UI.has(n[0])) continue;")
+      && buildFn.includes("/^data:image\\/(png|jpeg|gif|webp|avif|svg\\+xml);base64,/"));
+    check('F9 sayfada da çalışıyor; sekme ya da adres değişince okuma modu kapanıyor',
+      require('../src/main/browser-commands.js').commandForInput({ type: 'keyDown', key: 'F9' }, { platform: 'win32', surface: 'page' }) === 'reader'
+      && appR.includes("} else if (currentScreen === 'reader' && url !== readerSourceUrl) {"));
+    check('Readability bağımlılığı package.json\'da', !!(require('../package.json').dependencies || {})['@mozilla/readability']);
+  }
+
   suite('Şifre denetimi (yerel)');
   {
     const G2 = require('../src/main/password-generator.js');

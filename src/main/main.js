@@ -19,6 +19,7 @@ const { setupArku } = require('./arku-manager');
 const { setupBookmarkImport } = require('./bookmark-import');
 const { setupPasswordManager, getForOrigin, classifyCapture, canSavePasswords, saveCapturedCredential } = require('./password-manager');
 const { generatePassword } = require('./password-generator');
+const reader = require('./reader');
 const { setupAutoUpdater } = require('./auto-updater');
 const { setupDiagnostics, log: diag, logError } = require('./diagnostics');
 const { setupThreatProtection } = require('./threat-protection');
@@ -1411,6 +1412,39 @@ async function takeScreenshot(win, wc) {
     note({ text: 'Ekran görüntüsü alınamadı', error: true });
   }
 }
+
+// ─── Okuma modu (F9, adres çubuğundaki kitap düğmesi) ─────────────────────────
+// Makale sayfanın yalıtılmış dünyasında çıkarılır, ağaç burada yeniden doğrulanır, resimler
+// sekmenin oturumuyla çerezsiz indirilip gömülür (bkz. reader.js).
+const READER_WORLD_ID = 1017;
+let readerScript = null;
+
+ipcMain.handle('reader-extract', async (event) => {
+  const { state } = getContextFromEvent(event);
+  const wc = activeTabContents(state);
+  if (!wc || !isWebUrl(wc.getURL())) return { ok: false, reason: 'not-web' };
+  const url = wc.getURL();
+  let raw = null;
+  try {
+    if (!readerScript) readerScript = reader.buildExtractScript(fs.readFileSync(require.resolve('@mozilla/readability/Readability.js'), 'utf8'));
+    raw = await wc.executeJavaScriptInIsolatedWorld(READER_WORLD_ID, [{ code: readerScript }]);
+  } catch (e) {
+    logError('reader', e);
+  }
+  if (wc.isDestroyed() || wc.getURL() !== url) return { ok: false, reason: 'navigated' };
+  if (!raw || raw.error || !Array.isArray(raw.nodes)) return { ok: false, reason: 'no-article' };
+  const nodes = reader.validateReaderNodes(raw.nodes);
+  if (reader.readerTextLength(nodes) < 200) return { ok: false, reason: 'no-article' };
+  const images = await reader.fetchReaderImages(reader.collectImageUrls(nodes, 30),
+    (u) => wc.session.fetch(u, { credentials: 'omit', redirect: 'follow', signal: AbortSignal.timeout(8000) }));
+  const str = (v, n) => (typeof v === 'string' ? v.slice(0, n) : '');
+  diag.info('reader', 'Okuma modu açıldı', { images: images.size });
+  return {
+    ok: true, url, title: str(raw.title, 300), byline: str(raw.byline, 200), siteName: str(raw.siteName, 120),
+    lang: /^[a-z]{2,3}(-[A-Za-z0-9]{2,8})?$/.test(raw.lang) ? raw.lang : '', dir: raw.dir === 'rtl' ? 'rtl' : 'ltr',
+    minutes: reader.readingMinutes(nodes), nodes: reader.embedImages(nodes, images),
+  };
+});
 
 ipcMain.handle('screenshot-reveal', (_e, file) => {
   if (typeof file !== 'string' || !screenshotPaths.has(file) || !fs.existsSync(file)) return false;

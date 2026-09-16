@@ -255,6 +255,8 @@ contextBridge.exposeInMainWorld('secureBrowser', {
   // Durum çubuğu bildirimi (ekran görüntüsü kaydedildi vb.)
   onStatusNote:       (cb) => ipcRenderer.on('status-note', (_, d) => cb(d)),
   revealScreenshot:   (file) => ipcRenderer.invoke('screenshot-reveal', file),
+  // Okuma modu: etkin sekmedeki makale (doğrulanmış ağaç, resimler data: adresi)
+  reader: { extract: () => ipcRenderer.invoke('reader-extract') },
 
   // ── Event Dinleyiciler ───────────────────────────────────────────────────────
   onTabsUpdate:       (cb) => ipcRenderer.on('tabs-update', (e, data) => cb(data)),

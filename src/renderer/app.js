@@ -122,6 +122,7 @@ window.ilgezdiCloseAllPanels = closeAllPanels;
 async function showScreen(name, renderFn) {
   currentScreen = name;
   closeAllPanels();
+  document.getElementById('btn-reader')?.classList.toggle('active', name === 'reader');
 
   // Sidebar aktif butonu işaretle
   document.querySelectorAll('.sidebar-btn[data-screen]').forEach(b => b.classList.remove('active'));
@@ -157,6 +158,7 @@ let screenHideTimer = null;
 function hideScreen() {
   if (!currentScreen) return;
   currentScreen = null;
+  document.getElementById('btn-reader')?.classList.remove('active');
 
   const overlay = document.getElementById('screen-overlay');
   if (overlay) {
@@ -363,6 +365,8 @@ function updateAddressBar(url) {
 
   const statusUrl = document.getElementById('status-url');
   if (statusUrl) statusUrl.textContent = url ? truncateUrl(url) : '';
+  const readerBtn = document.getElementById('btn-reader');
+  if (readerBtn) readerBtn.hidden = !/^https?:\/\//i.test(url || '');
 }
 
 // ─── Koruma Durumu ────────────────────────────────────────────────────────────
@@ -856,6 +860,153 @@ function initTabsPage() {
     else if (e.key === 'ArrowUp') { e.preventDefault(); (row.previousElementSibling || search)?.focus(); }
     else if (e.key === 'Delete') { e.preventDefault(); sb.closeTab(Number(row.dataset.tabId)); }
   });
+}
+
+// ─── Okuma modu (F9) ──────────────────────────────────────────────────────────
+// Makale ana süreçten doğrulanmış bir ağaç olarak gelir; burada yine yalnızca bilinen
+// etiketler, http(s) bağlantılar ve data:image resimlerle, innerHTML kullanılmadan çizilir.
+const READER_TAGS_UI = new Set(['p', 'br', 'hr', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'li', 'blockquote', 'pre', 'code',
+  'em', 'i', 'strong', 'b', 'u', 's', 'sub', 'sup', 'small', 'mark', 'a', 'img', 'figure', 'figcaption',
+  'table', 'thead', 'tbody', 'tfoot', 'tr', 'th', 'td', 'caption', 'dl', 'dt', 'dd', 'div']);
+const READER_PREFS_KEY = 'ilgezdi-reader';
+const READER_SIZES = [15, 17, 19, 21, 24, 28];
+let readerSourceUrl = null;
+let readerRequest = 0;
+
+function readerPrefs() {
+  const def = { size: 19, theme: 'paper', font: 'serif' };
+  try {
+    const p = { ...def, ...JSON.parse(localStorage.getItem(READER_PREFS_KEY) || '{}') };
+    return {
+      size: READER_SIZES.includes(p.size) ? p.size : def.size,
+      theme: ['paper', 'light', 'dark'].includes(p.theme) ? p.theme : def.theme,
+      font: ['serif', 'sans'].includes(p.font) ? p.font : def.font,
+    };
+  } catch { return def; }
+}
+
+function saveReaderPrefs(p) {
+  try { localStorage.setItem(READER_PREFS_KEY, JSON.stringify(p)); } catch {}
+}
+
+function buildReaderNodes(parent, nodes, depth = 0) {
+  if (!Array.isArray(nodes) || depth > 40) return;
+  for (const n of nodes) {
+    if (typeof n === 'string') { parent.append(n); continue; }
+    if (!Array.isArray(n) || !READER_TAGS_UI.has(n[0])) continue;
+    const [tag, attrs, kids] = n;
+    const el = document.createElement(tag);
+    if (tag === 'a' && attrs && isWebHref(attrs.href)) { el.href = attrs.href; el.rel = 'noreferrer'; }
+    if (tag === 'img') {
+      if (!attrs || !/^data:image\/(png|jpeg|gif|webp|avif|svg\+xml);base64,/.test(String(attrs.src || ''))) continue;
+      el.src = attrs.src;
+      el.alt = typeof attrs.alt === 'string' ? attrs.alt : '';
+      el.loading = 'lazy';
+    }
+    if (tag !== 'img' && tag !== 'br' && tag !== 'hr') buildReaderNodes(el, kids, depth + 1);
+    parent.append(el);
+  }
+}
+
+function applyReaderPrefs(page, p) {
+  page.dataset.theme = p.theme;
+  page.dataset.font = p.font;
+  page.style.setProperty('--reader-size', p.size + 'px');
+  page.querySelectorAll('[data-reader-theme]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.readerTheme === p.theme)));
+  page.querySelectorAll('[data-reader-font]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.readerFont === p.font)));
+}
+
+function renderReaderShell() {
+  return `
+    <div class="reader-page" id="reader-page">
+      <div class="reader-bar" role="toolbar" aria-label="Okuma modu">
+        <button type="button" data-reader-act="close" title="Sayfaya dön (Esc)">← Sayfaya dön</button>
+        <span class="reader-site" id="reader-site"></span>
+        <button type="button" data-reader-act="smaller" aria-label="Yazıyı küçült" title="Yazıyı küçült">A−</button>
+        <button type="button" data-reader-act="larger" aria-label="Yazıyı büyüt" title="Yazıyı büyüt">A+</button>
+        <button type="button" data-reader-font="serif" title="Tırnaklı yazı">Serif</button>
+        <button type="button" data-reader-font="sans" title="Tırnaksız yazı">Sans</button>
+        <button type="button" data-reader-theme="paper" title="Kâğıt">Kâğıt</button>
+        <button type="button" data-reader-theme="light" title="Açık">Açık</button>
+        <button type="button" data-reader-theme="dark" title="Koyu">Koyu</button>
+      </div>
+      <article class="reader-article" id="reader-article" aria-busy="true"><p class="reader-meta">Makale hazırlanıyor…</p></article>
+    </div>`;
+}
+
+async function openReader() {
+  if (currentScreen === 'reader') { hideScreen(); return; }
+  const active = currentTabs.find((t) => t.isActive);
+  if (!active || !isWebHref(active.url)) return;
+  const req = ++readerRequest;
+  readerSourceUrl = active.url;
+  document.getElementById('btn-reader')?.classList.add('active');
+  await showScreen('reader', renderReaderShell);
+  const page = document.getElementById('reader-page');
+  if (!page) return;
+  applyReaderPrefs(page, readerPrefs());
+  initReaderEvents(page);
+  let r = null;
+  try { r = await sb.reader.extract(); } catch {}
+  if (req !== readerRequest || currentScreen !== 'reader') return;
+  const article = document.getElementById('reader-article');
+  article.removeAttribute('aria-busy');
+  article.replaceChildren();
+  if (!r || !r.ok) {
+    const p = document.createElement('p');
+    p.className = 'reader-empty';
+    p.textContent = r && r.reason === 'navigated'
+      ? 'Sayfa bu arada değişti. Okuma modunu yeniden açın.'
+      : 'Bu sayfada okuma moduna uygun bir makale bulunamadı.';
+    article.append(p);
+    return;
+  }
+  readerSourceUrl = r.url;
+  let host = '';
+  try { host = new URL(r.url).hostname.replace(/^www\./, ''); } catch {}
+  document.getElementById('reader-site').textContent = r.siteName || host;
+  if (r.lang) article.lang = r.lang;
+  article.dir = r.dir === 'rtl' ? 'rtl' : 'ltr';
+  const h1 = document.createElement('h1');
+  h1.className = 'reader-title';
+  h1.textContent = r.title || host;
+  const meta = document.createElement('p');
+  meta.className = 'reader-meta';
+  meta.textContent = [r.byline, `yaklaşık ${Number(r.minutes) || 1} dk okuma`].filter(Boolean).join(' · ');
+  article.append(h1, meta);
+  buildReaderNodes(article, r.nodes);
+}
+
+function initReaderEvents(page) {
+  page.addEventListener('click', (e) => {
+    const act = e.target.closest('[data-reader-act]')?.dataset.readerAct;
+    const theme = e.target.closest('[data-reader-theme]')?.dataset.readerTheme;
+    const font = e.target.closest('[data-reader-font]')?.dataset.readerFont;
+    if (act === 'close') { hideScreen(); return; }
+    if (act || theme || font) {
+      const p = readerPrefs();
+      if (act === 'smaller') p.size = READER_SIZES[Math.max(0, READER_SIZES.indexOf(p.size) - 1)];
+      if (act === 'larger') p.size = READER_SIZES[Math.min(READER_SIZES.length - 1, READER_SIZES.indexOf(p.size) + 1)];
+      if (theme) p.theme = theme;
+      if (font) p.font = font;
+      saveReaderPrefs(p);
+      applyReaderPrefs(page, p);
+      return;
+    }
+    // Makaledeki bağlantı: tıklama sekmede açar (okuma modu kapanır); Ctrl/orta tık arka planda.
+    const a = e.target.closest('.reader-article a[href]');
+    if (!a) return;
+    e.preventDefault();
+    if (!isWebHref(a.href)) return;
+    if (e.ctrlKey || e.metaKey) { sb.newTab(a.href, { background: !e.shiftKey }); return; }
+    hideScreen();
+    sb.navigate(a.href);
+  });
+  page.addEventListener('auxclick', (e) => {
+    const a = e.button === 1 && e.target.closest('.reader-article a[href]');
+    if (a) { e.preventDefault(); if (isWebHref(a.href)) sb.newTab(a.href, { background: true }); }
+  });
+  page.addEventListener('mousedown', (e) => { if (e.button === 1 && e.target.closest('.reader-article a[href]')) e.preventDefault(); });
 }
 
 // ─── İndirilenler sayfası ─────────────────────────────────────────────────────
@@ -1669,6 +1820,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Gizli pencere
   document.getElementById('btn-incognito')?.addEventListener('click', () => sb.openIncognito());
   document.getElementById('btn-tab-search')?.addEventListener('click', openTabsScreen);
+  document.getElementById('btn-reader')?.addEventListener('click', openReader);
 
   // ── Kenar çubuğu — sayfa butonları (data-screen) ─────────────────────────
   document.querySelectorAll('.sidebar-btn[data-screen]').forEach(btn => {
@@ -1738,6 +1890,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         sb.hideActiveTab?.();
       }
     } else if (currentScreen === 'newtab') {
+      hideScreen();
+    } else if (currentScreen === 'reader' && url !== readerSourceUrl) {
+      // Sekme değişti ya da sayfa başka adrese gitti: okuma modu o sayfaya aitti.
       hideScreen();
     } else if (!currentScreen) {
       // Güvenlik ağı: gerçek sayfa + ekran overlay'i yok → view görünür olmalı.
@@ -1882,6 +2037,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       case 'history-page':     document.getElementById('sb-history')?.click(); break;
       case 'downloads-page':   document.getElementById('sb-downloads')?.click(); break;
       case 'tab-search':       openTabsScreen(); break;
+      case 'reader':           openReader(); break;
     }
   });
 

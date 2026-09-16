@@ -683,6 +683,7 @@ function renderGeneralTab(cfg) {
         <tr><td>Ayarlar</td><td><span class="kbd">Ctrl</span>+<span class="kbd">,</span></td></tr>
         <tr><td>Ziyaret günlüğü</td><td><span class="kbd">Ctrl</span>+<span class="kbd">Shift</span>+<span class="kbd">L</span></td></tr>
         <tr><td>Geçmiş / İndirilenler</td><td><span class="kbd">Ctrl</span>+<span class="kbd">H</span> · <span class="kbd">Ctrl</span>+<span class="kbd">J</span></td></tr>
+        <tr><td>Okuma modu</td><td><span class="kbd">F9</span></td></tr>
         <tr><td>Sekmelerde ara</td><td><span class="kbd">Ctrl</span>+<span class="kbd">Shift</span>+<span class="kbd">A</span></td></tr>
         <tr><td>Geliştirici araçları (sayfa)</td><td><span class="kbd">F12</span> · <span class="kbd">Ctrl</span>+<span class="kbd">Shift</span>+<span class="kbd">I</span></td></tr>
         <tr><td>Ekran görüntüsü (sayfada sağ tık da)</td><td><span class="kbd">Ctrl</span>+<span class="kbd">Shift</span>+<span class="kbd">S</span></td></tr>

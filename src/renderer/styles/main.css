@@ -248,11 +248,13 @@ input, select, textarea { font-family: var(--font-ui); }
 }
 #address-bar::placeholder { color: var(--ink-mute); }
 .addr-actions { display: flex; align-items: center; gap: 2px; }
-#btn-bookmark-star, #btn-search {
+#btn-bookmark-star, #btn-search, #btn-reader {
   width: 28px; height: 28px; background: transparent; border-radius: 6px;
   color: var(--ink-soft); display: grid; place-items: center; flex-shrink: 0;
 }
-#btn-bookmark-star:hover, #btn-search:hover { background: var(--bg-elev); color: var(--gold); }
+#btn-bookmark-star:hover, #btn-search:hover, #btn-reader:hover { background: var(--bg-elev); color: var(--gold); }
+#btn-reader[hidden] { display: none; }
+#btn-reader.active { color: var(--gold); }
 #btn-bookmark-star.starred { color: var(--gold); }
 
 /* Araç butonları (sağ toolbar + dinamik enjekte) */
