@@ -588,7 +588,7 @@ function shouldSleepTab(tab, { now, minutes, active }) {
 }
 
 // ─── Ayarları sıfırla ─────────────────────────────────────────────────────────
-// Kullanıcının verisi ve verdiği kararlar korunur: Qrtım oturumu, "bu sitede şifre
+// Kullanıcının verisi ve verdiği kararlar korunur: QRtım oturumu, "bu sitede şifre
 // kaydetme" listesi, tanılama izni, son VPN profili, indirme klasörü ve eski günlük
 // senkron sunucusu. Görünüm, arama, başlangıç, gizlilik, engelleyici istisnaları ve site
 // izinleri varsayılana döner. Yer imleri, geçmiş ve şifreler config.json'da değildir.

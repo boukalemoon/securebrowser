@@ -6,7 +6,7 @@
  * Veri Nexus'un Firestore veritabanında; erişim yalnızca Firebase Admin SDK ile
  * (service account). Public'in Firestore'a doğrudan erişimi yoktur (kurallar owner-only).
  *
- * Qrtım hesabı Supabase Auth'ta. Uygulamadan gelen erişim anahtarı burada Qrtım'ın
+ * QRtım hesabı Supabase Auth'ta. Uygulamadan gelen erişim anahtarı burada QRtım'ın
  * /auth/v1/user uç noktasına sorularak doğrulanır; anahtarın kendisi saklanmaz.
  * Anon anahtar uygulamada zaten açıktır (herkese açık proje anahtarı): yetki vermez,
  * yalnızca projeyi tanıtır.
@@ -14,7 +14,7 @@
  * Ortam değişkenleri (Vercel → Settings → Environment Variables):
  *   FIREBASE_SERVICE_ACCOUNT = <service account JSON'unun tamamı>
  *   RATE_LIMIT_SALT          = <rastgele uzun metin>  (isteğe bağlı ama önerilir)
- *   QRTIM_SUPABASE_URL / QRTIM_SUPABASE_ANON_KEY  (isteğe bağlı; varsayılan Qrtım projesi)
+ *   QRTIM_SUPABASE_URL / QRTIM_SUPABASE_ANON_KEY  (isteğe bağlı; varsayılan QRtım projesi)
  */
 
 'use strict';
@@ -85,7 +85,7 @@ function bearerToken(req) {
   return m ? m[1] : '';
 }
 
-/** Qrtım erişim anahtarını doğrular → { id, email, displayName } ya da null. */
+/** QRtım erişim anahtarını doğrular → { id, email, displayName } ya da null. */
 async function verifyQrtimUser(token) {
   if (!token) return null;
   try {

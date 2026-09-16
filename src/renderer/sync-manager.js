@@ -1,9 +1,9 @@
 'use strict';
 
 /**
- * İlgezdi — Qrtım Hesap Senkronizasyonu
+ * İlgezdi — QRtım Hesap Senkronizasyonu
  *
- * Kullanıcının Qrtım (Supabase) user_id'sine bağlı tek satırda ayarlar ve
+ * Kullanıcının QRtım (Supabase) user_id'sine bağlı tek satırda ayarlar ve
  * yer imleri tutulur: public.ilgezdi_sync_data (RLS: herkes yalnız kendi satırı).
  *
  * Akış:

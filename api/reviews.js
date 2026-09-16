@@ -2,13 +2,13 @@
  * İlgezdi web sitesi — Yorum API'si (Vercel serverless, Node).
  *
  * GET  /api/reviews  → onaylanmış yorumlar + özet (sayı, ort. puan)
- *      Authorization: Bearer <Qrtım erişim anahtarı> ile ayrıca { mine }: kişinin
+ *      Authorization: Bearer <QRtım erişim anahtarı> ile ayrıca { mine }: kişinin
  *      uygulamadan yazdığı yorum ve onay durumu (önbelleğe alınmaz).
  * POST /api/reviews  → yeni yorum (status: 'pending') — moderasyon Nexus CRM'de
  *      • Web sitesi formu: anonim; IP başına saatlik sınır (değişmedi).
- *      • İlgezdi uygulaması (Keşfet): Qrtım hesabı ZORUNLU, anahtar sunucuda doğrulanır.
+ *      • İlgezdi uygulaması (Keşfet): QRtım hesabı ZORUNLU, anahtar sunucuda doğrulanır.
  *        Hesap başına tek yorum: yeniden gönderilen yorum öncekinin yerine geçer ve
- *        yayındaysa bile yeniden onaya düşer. Nexus'ta "Uygulama · Qrtım" olarak görünür.
+ *        yayındaysa bile yeniden onaya düşer. Nexus'ta "Uygulama · QRtım" olarak görünür.
  *
  * Yorumlar Nexus'un Firestore veritabanında (ilgezdi_reviews) tutulur; ortak
  * yardımcılar ve ortam değişkenleri için bkz. api/_lib/community.js.
@@ -112,7 +112,7 @@ module.exports = async (req, res) => {
       const rating  = parseRating(body.rating);
       const token   = bearerToken(req);
 
-      // Uygulamadan gelen yorum: Qrtım hesabı zorunlu.
+      // Uygulamadan gelen yorum: QRtım hesabı zorunlu.
       if (token || body.source === 'app') {
         const user = await verifyQrtimUser(token);
         if (!user) return res.status(401).json({ error: 'unauthorized' });

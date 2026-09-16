@@ -1,4 +1,4 @@
-// Topluluk API'leri (api/reviews.js, api/feedback.js): firebase-admin ve Qrtım doğrulaması
+// Topluluk API'leri (api/reviews.js, api/feedback.js): firebase-admin ve QRtım doğrulaması
 // sahte nesnelerle değiştirilip gerçek işleyiciler çalıştırılır. Ağ ve gerçek veritabanı yok.
 // Sonuç JSON olarak stdout'a yazılır (test/run.js okur).
 'use strict';

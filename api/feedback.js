@@ -5,9 +5,9 @@
  *   veritabanına (ilgezdi_feedback) 'yeni' durumuyla yazılır. Nexus → Pazarlama →
  *   İlgezdi → Öneriler sekmesinde durum (inceleniyor, planlandı, tamamlandı,
  *   reddedildi) ve ekip yanıtı verilir.
- *   Qrtım oturumu İSTEĞE BAĞLI: varsa hesap doğrulanır ve kişi önerisinin durumunu
+ *   QRtım oturumu İSTEĞE BAĞLI: varsa hesap doğrulanır ve kişi önerisinin durumunu
  *   uygulamada izler; yoksa anonim kaydedilir (IP başına saatlik sınır).
- * GET  /api/feedback → yalnızca Qrtım oturumuyla: kişinin kendi önerileri, durumları
+ * GET  /api/feedback → yalnızca QRtım oturumuyla: kişinin kendi önerileri, durumları
  *   ve ekibin yanıtı.
  *
  * Gizlilik: ziyaret edilen adresler, geçmiş, sekme ya da yer imi bilgisi GÖNDERİLMEZ

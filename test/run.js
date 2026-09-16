@@ -1438,21 +1438,21 @@ suite('Keşfet — TrendTech yazılımları');
       /httpsOnly: true \}\);\s*window\.ilgezdiSync\?\.schedulePush\(\);/.test(read('renderer/app.js')));
   }
 
-  suite('Topluluk — Keşfet yorumları ve Öneri (Qrtım doğrulaması, Nexus onayı)');
+  suite('Topluluk — Keşfet yorumları ve Öneri (QRtım doğrulaması, Nexus onayı)');
   {
     let api = {};
     try {
       api = JSON.parse(require('child_process').execFileSync(process.execPath, [path.join(__dirname, 'helpers', 'community-api-check.js')], { encoding: 'utf8', timeout: 30000 }));
     } catch (e) { api = { error: e.message }; }
     const brief = JSON.stringify(api).slice(0, 400);
-    check('uygulama yorumu Qrtım hesabı olmadan reddediliyor (anahtarsız ve geçersiz anahtar → 401)', api.appNoToken?.status === 401 && api.appBadToken?.status === 401, brief);
+    check('uygulama yorumu QRtım hesabı olmadan reddediliyor (anahtarsız ve geçersiz anahtar → 401)', api.appNoToken?.status === 401 && api.appBadToken?.status === 401, brief);
     check('uygulama yorumu puansız kabul edilmiyor', api.appNoRating?.status === 400 && api.appNoRating.body.error === 'invalid_rating');
     check('hesaplı yorum "onay bekliyor" yazılıyor; HTML sökülüyor; kimlik ve e-posta yalnızca kayıtta',
       api.appFirst?.status === 201 && api.appDoc?.status === 'pending' && !/[<>]/.test(api.appDoc.comment) && api.appDoc.email === 'bir@example.com' && /^app_[0-9a-f]{24}$/.test(api.appDoc.id), JSON.stringify(api.appDoc));
     check('hesap başına tek yorum: düzenleme aynı kaydın yerine geçiyor, yayındaysa yeniden onaya düşüyor',
       api.appDocCount2 === 1 && api.appEdit?.body?.updated === true && api.appEdited?.status === 'pending' && api.appEdited.edited === true && api.appEdited.createdKept === true, JSON.stringify(api.appEdited));
     check('web sitesi formu değişmedi: anonim, onay bekliyor, IP başına saatte 3', api.sitePost?.status === 201 && api.siteDoc?.status === 'pending' && api.siteRate?.status === 429);
-    check('herkese açık liste e-posta ve kimlik içermiyor; uygulama yorumu "Qrtım hesabı" işaretli',
+    check('herkese açık liste e-posta ve kimlik içermiyor; uygulama yorumu "QRtım hesabı" işaretli',
       api.publicList?.status === 200 && !/@|userId|email/.test(JSON.stringify(api.publicList.body)) && api.publicList.body.items[0]?.verified === true && /s-maxage/.test(api.publicList.cache));
     check('oturumla kişi yalnızca kendi yorumunu ve durumunu görüyor; yanıt önbelleğe alınmıyor',
       api.mineList?.body?.mine?.status === 'approved' && api.otherMine?.body?.mine === null && api.mineList.cache === 'private, no-store');
@@ -1467,7 +1467,7 @@ suite('Keşfet — TrendTech yazılımları');
     check('"Önerilerim" yalnızca oturumla ve yalnızca kişinin kendi kayıtları; Nexus durumu ve yanıtı geliyor',
       api.fbMineNoToken?.status === 401 && api.fbMine?.body?.items?.length === 2
       && api.fbMine.body.items.some((i) => i.status === 'planlandi' && /sürümde/.test(i.reply)) && api.fbMineOther?.body?.items?.length === 0);
-    check('Qrtım doğrulaması Qrtım projesinin /auth/v1/user uç noktasına, anon anahtarla', api.verifyCalls?.allApikey === true && /kfpnsxoxfrxepxezatsr\.supabase\.co\/auth\/v1\/user$/.test(api.verifyCalls?.url || ''));
+    check('QRtım doğrulaması QRtım projesinin /auth/v1/user uç noktasına, anon anahtarla', api.verifyCalls?.allApikey === true && /kfpnsxoxfrxepxezatsr\.supabase\.co\/auth\/v1\/user$/.test(api.verifyCalls?.url || ''));
 
     const cm = require('../src/main/community.js');
     const tok = 'tok_' + 'a'.repeat(30);
@@ -1491,7 +1491,7 @@ suite('Keşfet — TrendTech yazılımları');
     check('yorum ve öneri arayüzü sunucu metnini innerHTML ile basmıyor', communityCode.length > 2000 && !communityCode.includes('innerHTML'));
     check('sol menüde Öneri düğmesi var ve sayfaya yönleniyor',
       /id="sb-feedback"[\s\S]{0,80}data-screen="feedback"/.test(read('renderer/index.html')) && appSrc.includes("showScreen('feedback', renderFeedbackPage).then(initFeedbackPage)"));
-    check('yorum bölümü Keşfet sayfasında; oturum yoksa Qrtım girişine yönlendiriyor',
+    check('yorum bölümü Keşfet sayfasında; oturum yoksa QRtım girişine yönlendiriyor',
       appSrc.includes('initReviewSection();') && /review-login[\s\S]{0,120}ilgezdiAuth\?\.open\?\.\(\)/.test(appSrc));
     check('hesapla gönderilen öneride oturum yenilenemezse sessizce anonime düşülmüyor', /session && !token\s*\?\s*Promise\.resolve\(SESSION_LOST\)/.test(appSrc));
     check('preload topluluk köprüsü ve oturum anahtarı yenileme',
@@ -1622,7 +1622,7 @@ suite('Keşfet — TrendTech yazılımları');
     const slm = read('main/secure-log-manager.js');
     check('günlük anahtarı: ana süreç anahtarı bekliyor; okunamayan anahtar ve günlük ezilmeden yedekleniyor',
       read('main/main.js').includes('secureLog  = await SecureLogManager.create(USER_DATA);') && slm.includes("this.keyPathEnc + '.bozuk-'") && slm.includes("this.logsPath + '.bozuk-'"));
-    check('VPN anahtarı ve Qrtım oturumu eşzamansız şifreleniyor',
+    check('VPN anahtarı ve QRtım oturumu eşzamansız şifreleniyor',
       read('main/vpn-manager.js').includes("(await osCrypto.encryptText(plain)).toString('base64')") && read('main/main.js').includes('async function writeAuthSession(sessionData)'));
     const { SecureLogManager: SLM } = require('../src/main/secure-log-manager.js');
     const tmpLog = fs.mkdtempSync(path.join(require('os').tmpdir(), 'ilg-log2-'));
@@ -1914,7 +1914,7 @@ suite('Keşfet — TrendTech yazılımları');
     const reset = BC.resetConfig(current, defaults);
     eq('sıfırlama: görünüm, arama, istisnalar, site izinleri ve donanım hızlandırma varsayılana döner',
       [reset.theme, reset.searchEngine, reset.whitelist, reset.permissionDecisions, reset.hardwareAcceleration, reset.blockLevel], ['otuken', 'duckduckgo', [], undefined, true, undefined]);
-    eq('sıfırlama: Qrtım oturumu, "asla" listesi, tanılama kararı, VPN profili ve indirme klasörü korunur',
+    eq('sıfırlama: QRtım oturumu, "asla" listesi, tanılama kararı, VPN profili ve indirme klasörü korunur',
       [reset.authSessionEnc, reset.passwordNeverSave, reset.diagnosticsConsent, reset.vpnLastProfileId, reset.downloadFolder], ['ENC', ['https://b.com'], false, 'p1', 'D:/indir']);
     check('sıfırlama varsayılan nesnesini değiştirmiyor', defaults.theme === 'otuken' && !('authSessionEnc' in defaults));
     const now = 1_800_000_000_000;
@@ -1941,7 +1941,7 @@ suite('Keşfet — TrendTech yazılımları');
     check('sıfırlama onay istiyor, korunanları söylüyor; Kaydet ile aynı etkileri uyguluyor; engelleyici istisnaları temizleniyor',
       /ipcMain\.handle\('reset-settings', async \(event\) => \{[\s\S]{0,1400}if \(!confirmed\) return \{ ok: false, canceled: true \};\s*const previous = configEffectsSnapshot\(\);\s*config = resetConfig\(config, DEFAULT_CONFIG\);\s*saveConfig\(config\);\s*applyConfigEffects\(previous\);\s*updateBlockerConfig\(\{ level: config\.blockLevel \|\| 'medium', whitelist: \[\]/.test(mj6)
       && mj6.includes("detail: T('dialog.resetSettings.detail'),")
-      && JSON.parse(read('locales/tr.json'))['dialog.resetSettings.detail'].includes('Korunacak: yer imleri, geçmiş, kayıtlı şifreler, Qrtım oturumu, VPN profilleri ve indirme klasörü.')
+      && JSON.parse(read('locales/tr.json'))['dialog.resetSettings.detail'].includes('Korunacak: yer imleri, geçmiş, kayıtlı şifreler, QRtım oturumu, VPN profilleri ve indirme klasörü.')
       && /ipcMain\.handle\('save-config'[\s\S]{0,2500}const previous = configEffectsSnapshot\(\);\s*config = \{ \.\.\.config, \.\.\.incoming \};\s*saveConfig\(config\);\s*applyConfigEffects\(previous\);/.test(mj6));
     check('kapatma uyarısı: yalnızca ayar açık, birden çok sekme ve uygulama kapanmıyorken; "bir daha sorma" kaydediliyor',
       mj6.includes("if (!closeConfirmed && !appQuitting && config.warnOnCloseTabs === true && count > 1) {")

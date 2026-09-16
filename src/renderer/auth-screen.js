@@ -548,7 +548,7 @@ window.ilgezdiAuth = {
       return _accessToken;
     } catch { return null; }
   },
-  // Topluluk (Keşfet yorumu, Öneri): sunucu Qrtım oturumunu bu anahtarla doğrular.
+  // Topluluk (Keşfet yorumu, Öneri): sunucu QRtım oturumunu bu anahtarla doğrular.
   // Bellekte yoksa ya da { refresh: true } istenirse yenilenir; oturum yoksa null.
   getAccessToken: async ({ refresh = false } = {}) => {
     if (_accessToken && !refresh) return _accessToken;

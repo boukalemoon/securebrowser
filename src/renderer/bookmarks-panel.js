@@ -208,7 +208,7 @@ function bmSaveItems() {
   window.dispatchEvent(new CustomEvent('ilgezdi-bookmarks-changed'));
 }
 
-// Qrtım senkronizasyonu uzak yer imlerini uyguladığında paneli tazele
+// QRtım senkronizasyonu uzak yer imlerini uyguladığında paneli tazele
 window.addEventListener('ilgezdi-sync-applied', () => {
   bmLoad();
   try { bmRenderFolders(); bmRenderPanel(); } catch {}

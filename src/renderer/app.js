@@ -1220,7 +1220,7 @@ async function initDiscoverPage() {
 
 // ─── Topluluk: Keşfet'te yorumlar, Öneri sayfası ─────────────────────────────
 // İstekler ana süreçte (main/community.js) yalnızca İlgezdi sunucusuna gider. Yorum
-// yazmak Qrtım hesabı ister (kullanıcı kararı); öneri anonim de gönderilebilir, hesapla
+// yazmak QRtım hesabı ister (kullanıcı kararı); öneri anonim de gönderilebilir, hesapla
 // gönderilince durumu ve ekibin yanıtı burada izlenir. Sunucudan ve kullanıcıdan gelen
 // tüm metinler DOM'a textContent ile yazılır.
 // Değerler sunucuyla paylaşılan kimliklerdir (Türkçe kalır); görünen metinler çeviriden.

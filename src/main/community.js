@@ -2,8 +2,8 @@
  * İlgezdi — Topluluk: Keşfet'teki kullanıcı yorumları ve "Öneri" sayfası.
  *
  * İstekler yalnızca İlgezdi'nin kendi sunucusuna (www.ilgezdi.com.tr/api) gider:
- * bellek içi ayrı oturum, çerez yok. Qrtım erişim anahtarı arayüzden gelir, yalnızca
- * Authorization başlığında sunucuya iletilir, diske yazılmaz. Sunucu anahtarı Qrtım'da
+ * bellek içi ayrı oturum, çerez yok. QRtım erişim anahtarı arayüzden gelir, yalnızca
+ * Authorization başlığında sunucuya iletilir, diske yazılmaz. Sunucu anahtarı QRtım'da
  * doğrular; yorumlar Nexus CRM'de onaylanır, öneriler orada izlenir ve yanıtlanır.
  *
  * GÖNDERİLMEYENLER: ziyaret edilen adresler, geçmiş, sekmeler, yer imleri.
