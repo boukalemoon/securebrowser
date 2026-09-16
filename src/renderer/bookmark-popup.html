@@ -153,9 +153,10 @@
 </head>
 <body>
   <div id="popup-root">
-    <div id="loading">Yükleniyor…</div>
+    <div id="loading" data-i18n="common.loading">Yükleniyor…</div>
   </div>
 
+  <script src="i18n.js"></script>
   <script>
     
  const bridge = window.popupBridge;
@@ -171,26 +172,26 @@ function render(data) {
 
   document.getElementById('popup-root').innerHTML = `
     <div class="popup-header">
-      <span>${isBookmarked ? '★ Sık Kullanılanlarda' : '☆ Sık Kullanılanlara Ekle'}</span>
-      <button class="popup-close" id="btn-close">✕</button>
+      <span>${isBookmarked ? TH('bmPopup.inFavorites') : TH('bmPopup.addToFavorites')}</span>
+      <button class="popup-close" id="btn-close" aria-label="${TH('common.close')}">✕</button>
     </div>
     <div class="popup-body">
       <div>
-        <label>Başlık</label>
+        <label for="inp-title">${TH('bmPopup.titleLabel')}</label>
         <input type="text" id="inp-title" value="${escHtml(title)}" />
       </div>
       <div>
-        <label>Klasör</label>
+        <label for="inp-folder">${TH('bmPopup.folderLabel')}</label>
         <select id="inp-folder">
           ${folders.map(f =>
-            `<option value="${f.id}" ${f.id === folderId ? 'selected' : ''}>${escHtml(f.name)}</option>`
+            `<option value="${escHtml(f.id)}" ${f.id === folderId ? 'selected' : ''}>${escHtml(f.name)}</option>`
           ).join('')}
         </select>
       </div>
     </div>
     <div class="popup-footer">
-      ${isBookmarked ? `<button class="btn btn-delete" id="btn-delete">🗑 Kaldır</button>` : ''}
-      <button class="btn btn-save" id="btn-save">${isBookmarked ? '💾 Güncelle' : '★ Ekle'}</button>
+      ${isBookmarked ? `<button class="btn btn-delete" id="btn-delete">${TH('bmPopup.remove')}</button>` : ''}
+      <button class="btn btn-save" id="btn-save">${isBookmarked ? TH('bmPopup.update') : TH('bmPopup.add')}</button>
     </div>
   `;
 

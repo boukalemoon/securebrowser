@@ -166,7 +166,7 @@ function glanceInitEvents() {
   // Hata
   sb.glance?.onError?.(() => {
     glanceCleanupUI();
-    showGlanceToast('Sayfa yüklenemedi');
+    showGlanceToast(T('glance.loadFailed'));
   });
 }
 

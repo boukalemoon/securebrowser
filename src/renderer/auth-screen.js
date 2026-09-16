@@ -62,7 +62,7 @@ async function doRegister(email, password, name) {
     email, password,
     data: { display_name: name },
   });
-  if (data.error) throw new Error(data.error.message || data.msg || 'Kayıt başarısız');
+  if (data.error) throw new Error(data.error.message || data.msg || T('auth.registerFailed'));
   // Profil satırını oluştur
   if (data.user?.id) {
     await restPost('ilgezdi_profiles', {
@@ -76,7 +76,7 @@ async function doRegister(email, password, name) {
 
 async function doLogin(email, password) {
   const data = await authPost('/token?grant_type=password', { email, password });
-  if (data.error) throw new Error(data.error.message || data.msg || 'Giriş başarısız');
+  if (data.error) throw new Error(data.error.message || data.msg || T('auth.loginFailed'));
   // last_login_at güncelle
   if (data.access_token) {
     restPatch('ilgezdi_profiles', `user_id=eq.${data.user?.id}`,
@@ -105,7 +105,7 @@ async function qrApi(body) {
 
 async function createQrSession() {
   const data = await qrApi({ action: 'create' });
-  if (!data?.session_token) throw new Error('QR oturum oluşturulamadı');
+  if (!data?.session_token) throw new Error(T('auth.qrCreateFailed'));
   return data;
 }
 
@@ -120,7 +120,7 @@ async function loadQrCode() {
   if (!img) return;
 
   img.src = '';
-  setQrStatus('QR oluşturuluyor...', '');
+  setQrStatus(T('auth.qrCreating'), '');
 
   try {
     const session = await createQrSession();
@@ -134,10 +134,10 @@ async function loadQrCode() {
 
     _countdown = setInterval(() => {
       const left = Math.max(0, Math.floor((expiresAt - Date.now()) / 1000));
-      setQrStatus(`QRtım uygulamanızla okutun (${left}s)`, '');
+      setQrStatus(T('auth.qrScan', { seconds: left }), '');
       if (left <= 0) {
         clearInterval(_countdown);
-        setQrStatus('Süre doldu — yenile', 'error');
+        setQrStatus(T('auth.qrExpired'), 'error');
       }
     }, 1000);
 
@@ -146,17 +146,17 @@ async function loadQrCode() {
         const res = await qrApi({ action: 'status', session_token: _qrToken });
         if (res?.status === 'approved' && res.token_hash) {
           stopQrPoll();
-          setQrStatus('✓ Onaylandı, giriş yapılıyor...', 'success');
+          setQrStatus(T('auth.qrApproved'), 'success');
           await finishQrLogin(res.token_hash);
         } else if (res?.status === 'expired' || res?.status === 'not_found') {
           stopQrPoll();
-          setQrStatus('Süre doldu — yenile', 'error');
+          setQrStatus(T('auth.qrExpired'), 'error');
         }
       } catch {}
     }, 3000);
 
   } catch (e) {
-    setQrStatus('QR oluşturulamadı: ' + e.message, 'error');
+    setQrStatus(T('auth.qrError', { error: e.message }), 'error');
   }
 }
 
@@ -164,7 +164,7 @@ async function finishQrLogin(tokenHash) {
   try {
     // Tek kullanımlık token_hash'i gerçek Supabase oturumuyla değiştir
     const data = await authPost('/verify', { type: 'magiclink', token_hash: tokenHash });
-    if (!data?.access_token) throw new Error(data?.error_description || data?.msg || 'Oturum doğrulanamadı');
+    if (!data?.access_token) throw new Error(data?.error_description || data?.msg || T('auth.sessionVerifyFailed'));
 
     const userId = data.user?.id;
     // Profil, kullanıcının KENDİ access token'ıyla okunur (RLS: yalnızca kendi satırı)
@@ -183,11 +183,11 @@ async function finishQrLogin(tokenHash) {
       loginMethod:  'qr',
     });
     setAuthContext(userId, data.access_token);
-    updateAccountBadge(profile.email || data.user?.email || 'Kullanıcı');
+    updateAccountBadge(profile.email || data.user?.email || T('auth.userFallback'));
     notifyAuthChanged();
     setTimeout(hideAuthScreen, 700);
   } catch (e) {
-    setQrStatus('Giriş tamamlanamadı: ' + e.message, 'error');
+    setQrStatus(T('auth.loginIncomplete', { error: e.message }), 'error');
   }
 }
 
@@ -294,7 +294,7 @@ function updateAccountBadge(emailOrName) {
     settings.style.position = 'relative';
     settings.appendChild(badge);
   }
-  settings.title = `Ayarlar — ${emailOrName}`;
+  settings.title = T('auth.settingsWithAccount', { account: emailOrName });
 }
 
 // ─── Event'ler ────────────────────────────────────────────────────────────────
@@ -316,7 +316,7 @@ function bindAuthEvents() {
     const password = authEl('login-password')?.value;
     if (!email || !password) return;
     const btn = authEl('auth-login-btn');
-    if (btn) { btn.textContent = 'Giriş yapılıyor...'; btn.disabled = true; }
+    if (btn) { btn.textContent = T('auth.loggingIn'); btn.disabled = true; }
     setStatus('');
     try {
       const data = await doLogin(email, password);
@@ -326,14 +326,14 @@ function bindAuthEvents() {
         plan: 'free', refreshToken: data.refresh_token, loginMethod: 'email',
       });
       setAuthContext(data.user?.id, data.access_token);
-      setStatus('✓ Giriş başarılı! Ayarların senkronize ediliyor...', 'success');
+      setStatus(T('auth.loginSuccess'), 'success');
       updateAccountBadge(email);
       notifyAuthChanged();
       setTimeout(hideAuthScreen, 600);
     } catch (err) {
       setStatus(err.message, 'error');
     } finally {
-      if (btn) { btn.textContent = 'Giriş Yap'; btn.disabled = false; }
+      if (btn) { btn.textContent = T('auth.login'); btn.disabled = false; }
     }
   });
 
@@ -344,11 +344,11 @@ function bindAuthEvents() {
     const email     = authEl('register-email')?.value.trim();
     const password  = authEl('register-password')?.value;
     const password2 = authEl('register-password2')?.value;
-    if (!name || !email || !password) { setStatus('Tüm alanları doldurun', 'error'); return; }
-    if (password !== password2)        { setStatus('Şifreler eşleşmiyor', 'error'); return; }
-    if (password.length < 8)           { setStatus('Şifre en az 8 karakter olmalı', 'error'); return; }
+    if (!name || !email || !password) { setStatus(T('auth.fillAll'), 'error'); return; }
+    if (password !== password2)        { setStatus(T('auth.passwordMismatch'), 'error'); return; }
+    if (password.length < 8)           { setStatus(T('auth.passwordTooShort'), 'error'); return; }
     const btn = authEl('auth-register-btn');
-    if (btn) { btn.textContent = 'Kayıt oluşturuluyor...'; btn.disabled = true; }
+    if (btn) { btn.textContent = T('auth.registering'); btn.disabled = true; }
     setStatus('');
     try {
       const data = await doRegister(email, password, name);
@@ -357,14 +357,14 @@ function bindAuthEvents() {
         plan: 'free', refreshToken: data.refresh_token, loginMethod: 'email',
       });
       setAuthContext(data.user?.id, data.access_token);
-      setStatus('✓ Hesabınız oluşturuldu! Hoş geldiniz.', 'success');
+      setStatus(T('auth.registerSuccess'), 'success');
       updateAccountBadge(email);
       notifyAuthChanged();
       setTimeout(hideAuthScreen, 700);
     } catch (err) {
       setStatus(err.message, 'error');
     } finally {
-      if (btn) { btn.textContent = 'Kayıt Ol'; btn.disabled = false; }
+      if (btn) { btn.textContent = T('auth.register'); btn.disabled = false; }
     }
   });
 }
