@@ -64,8 +64,8 @@
   --radius-pill:  20px;
 
   /* Fontlar */
-  --font-brand:   'Cinzel', Georgia, serif;
-  --font-display: 'Cinzel', Georgia, serif;
+  --font-brand:   'Cinzel', 'Inter', Georgia, serif;
+  --font-display: 'Cinzel', 'Inter', Georgia, serif;
   --font-body:    'Inter', -apple-system, system-ui, sans-serif;
   --font-ui:      'Inter', -apple-system, system-ui, sans-serif;
   --font-mono:    'JetBrains Mono', ui-monospace, monospace;
