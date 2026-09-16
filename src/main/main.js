@@ -991,7 +991,7 @@ function createTab(win, state, url = config.homepage, opts = {}) {
 
   // Başlangıç başlığı: boş sekme → "Yeni Sekme", aksi halde alan adı.
   const isBlank = !url || url === 'about:blank';
-  let initialTitle = 'Yeni Sekme';
+  let initialTitle = T('tab.new');
   if (!isBlank) { try { initialTitle = new URL(url).hostname || url; } catch { initialTitle = url; } }
   if (opts.title) initialTitle = String(opts.title).slice(0, 300);   // oturum geri yükleme
   else if (opts.restore && Array.isArray(opts.restore.entries)) {
