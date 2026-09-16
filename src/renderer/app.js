@@ -219,7 +219,7 @@ function renderTabs(tabs) {
   tabs.forEach(tab => {
     const label = tab.title || tab.url || 'Yeni Sekme';
     const el = document.createElement('div');
-    el.className = 'tab' + (tab.isActive ? ' active' : '') + (tab.pinned ? ' pinned' : '');
+    el.className = 'tab' + (tab.isActive ? ' active' : '') + (tab.pinned ? ' pinned' : '') + (tab.sleeping ? ' sleeping' : '');
     el.dataset.id = tab.id;
     el.draggable = true;
     // Sabitlenmiş sekme yalnızca alan adının baş harfini gösterir; adı ekran okuyucu için etikette.
@@ -806,7 +806,7 @@ function renderTabsList() {
     const icon = t.favicon && /^data:image\//.test(t.favicon)
       ? `<img class="lr-icon" src="${H.esc(t.favicon)}" alt="" aria-hidden="true">`
       : `<span class="lr-icon" style="background:${iconColorFor(host || title)}" aria-hidden="true">${H.esc(initialFor(host || title))}</span>`;
-    const state = [t.isActive ? 'Açık' : '', t.pinned ? 'Sabit' : '', t.muted ? 'Sessiz' : (t.audible ? 'Ses' : '')].filter(Boolean).join(' · ');
+    const state = [t.isActive ? 'Açık' : '', t.sleeping ? 'Uyuyor' : '', t.pinned ? 'Sabit' : '', t.muted ? 'Sessiz' : (t.audible ? 'Ses' : '')].filter(Boolean).join(' · ');
     return `
       <div class="list-row tab-row${t.isActive ? ' is-active' : ''}" role="button" tabindex="0" data-tab-id="${H.esc(String(t.id))}" data-blank="${blank ? '1' : ''}">
         ${icon}

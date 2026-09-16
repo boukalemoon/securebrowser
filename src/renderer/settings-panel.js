@@ -332,6 +332,7 @@ const SETTINGS_FIELDS = {
   'cfg-clear-history-exit': ['clearHistoryOnExit', 'checked'],
   'cfg-hw-accel':      ['hardwareAcceleration', 'checked'],
   'cfg-warn-close':    ['warnOnCloseTabs', 'checked'],
+  'cfg-tab-sleep':     ['tabSleepMinutes', 'value'],
 };
 let _formBase = {};
 let _formCfg  = {};
@@ -373,8 +374,12 @@ function formValuesFrom(cfg) {
     clearHistoryOnExit:     c.clearHistoryOnExit === true,
     hardwareAcceleration:   c.hardwareAcceleration !== false,
     warnOnCloseTabs:        c.warnOnCloseTabs === true,
+    tabSleepMinutes:        TAB_SLEEP_UI.some(([v]) => v === Number(c.tabSleepMinutes)) && c.tabSleepMinutes !== null && c.tabSleepMinutes !== '' ? String(Number(c.tabSleepMinutes)) : '120',
   };
 }
+
+// Ana süreçteki listeyle aynı (browser-commands.js → normalizeTabSleepMinutes).
+const TAB_SLEEP_UI = [[0, 'Kapalı'], [15, '15 dakika'], [30, '30 dakika'], [60, '1 saat'], [120, '2 saat (varsayılan)']];
 
 // Ana süreçteki listelerle aynı (browser-commands.js → normalizePageZoom / normalizeMinFontSize).
 const PAGE_ZOOMS_UI = [0.8, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2];
@@ -703,6 +708,13 @@ function renderGeneralTab(cfg) {
           <span class="s-hint" style="margin:0">Bu değişiklik yeniden başlatınca geçerli olur.</span>
           <button class="folder-btn" id="btn-relaunch">Kaydet ve yeniden başlat</button>
         </div>
+      </div>
+      <div class="s-input-row">
+        <label for="cfg-tab-sleep">Kullanılmayan sekmeleri uyut</label>
+        <select id="cfg-tab-sleep">
+          ${TAB_SLEEP_UI.map(([v, t]) => `<option value="${v}" ${String(cfg.tabSleepMinutes ?? '120') === String(v) ? 'selected' : ''}>${t}</option>`).join('')}
+        </select>
+        <p class="s-hint">Bu süre boyunca açılmayan sekme belleği boşaltır; tıklayınca yeniden yüklenir, geri/ileri geçmişi korunur. Sabitlenmiş, ses çalan, sayfasına yazı yazdığınız ve kamera ya da mikrofon kullanan sekmeler uyutulmaz.</p>
       </div>
       <div class="s-toggle-row">
         <div><div class="s-toggle-label">Birden çok sekme açıkken kapatmadan önce sor</div></div>

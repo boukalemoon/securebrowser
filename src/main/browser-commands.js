@@ -553,6 +553,29 @@ function parseSession(raw) {
   return { activeIndex: ordered.indexOf(tabs[activeIndex]), tabs: ordered };
 }
 
+// ─── Sekme uyutma ─────────────────────────────────────────────────────────────
+// Dakika; 0 = kapalı. Varsayılan Edge'in "uyuyan sekmeler" süresi (2 saat).
+const TAB_SLEEP_CHOICES = Object.freeze([0, 15, 30, 60, 120]);
+const DEFAULT_TAB_SLEEP_MINUTES = 120;
+
+function normalizeTabSleepMinutes(value) {
+  const n = Number(value);
+  return TAB_SLEEP_CHOICES.includes(n) && value !== null && value !== '' ? n : DEFAULT_TAB_SLEEP_MINUTES;
+}
+
+/**
+ * Sekme uyutulmalı mı? Uyutulmayanlar: etkin sekme, zaten uyuyan ya da hiç yüklenmemiş
+ * sekme, sabitlenmiş (e-posta, sohbet), ses çalan, yüklenen, sayfasına yazı yazılmış,
+ * kamera/mikrofon izni kullanan, geliştirici araçları açık ve web sayfası olmayan sekme.
+ */
+function shouldSleepTab(tab, { now, minutes, active }) {
+  if (!tab || !minutes || active) return false;
+  if (tab.pendingLoad || tab.pinned || tab.audible || tab.loading || tab.edited || tab.usedMedia || tab.devtools) return false;
+  if (!isWebUrl(tab.url)) return false;
+  const last = Number(tab.lastActiveAt);
+  return Number.isFinite(last) && now - last >= minutes * 60 * 1000;
+}
+
 // ─── Ayarları sıfırla ─────────────────────────────────────────────────────────
 // Kullanıcının verisi ve verdiği kararlar korunur: Qrtım oturumu, "bu sitede şifre
 // kaydetme" listesi, tanılama izni, son VPN profili, indirme klasörü ve eski günlük
@@ -570,6 +593,10 @@ function resetConfig(current, defaults) {
 }
 
 module.exports = {
+  TAB_SLEEP_CHOICES,
+  DEFAULT_TAB_SLEEP_MINUTES,
+  normalizeTabSleepMinutes,
+  shouldSleepTab,
   RESET_KEEP_KEYS,
   resetConfig,
   TAB_ACTIONS,

@@ -137,6 +137,8 @@ input, select, textarea { font-family: var(--font-ui); }
   transition: all 0.15s;
 }
 .tab-add:hover { background: var(--bg-soft); color: var(--gold); }
+/* Uyuyan sekme (bellek boşaltıldı, tıklayınca yeniden yüklenir) */
+.tab.sleeping:not(.active) .tab-icon, .tab.sleeping:not(.active) .tab-title { opacity: .5; }
 
 /* Pencere sağ bölümü */
 .window-actions {

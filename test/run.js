@@ -707,8 +707,8 @@ suite('WebRTC IP koruması ve gizli pencere önizlemesi');
     ['default_public_interface_only', 'default_public_interface_only']);
   const mainJs = read('main/main.js');
   check('varsayılan yapılandırmada politika tanımlı', /webrtcPolicy:\s*DEFAULT_WEBRTC_POLICY/.test(mainJs));
-  const createTabBody = mainJs.slice(mainJs.indexOf('function createTab('), mainJs.indexOf('function resizeActiveView('));
-  check('her sekme oluşturulurken politika uygulanıyor', createTabBody.includes('applyWebrtcPolicy(view.webContents)'));
+  const createTabBody = mainJs.slice(mainJs.indexOf('function createTabView('), mainJs.indexOf('function resizeActiveView('));
+  check('her sekme görünümü oluşturulurken (uyanınca da) politika uygulanıyor', createTabBody.includes('applyWebrtcPolicy(view.webContents)'));
   check('ayar kaydında politika doğrulanıyor ve açık sekmelere uygulanıyor',
     /incoming\.webrtcPolicy\s*=\s*normalizeWebrtcPolicy/.test(mainJs) && mainJs.includes('applyWebrtcPolicyToAllTabs()'));
   check('önizleme görünümüne de politika uygulanıyor', /onViewCreated[\s\S]{0,400}applyWebrtcPolicy\(view\.webContents\)/.test(mainJs));
@@ -1411,7 +1411,7 @@ suite('Keşfet — TrendTech yazılımları');
     const fields = [...spJs.matchAll(/^\s*'([\w-]+)':\s*\['(\w+)', '(value|checked)'\]/gm)];
     const valuesFn = spJs.slice(spJs.indexOf('function formValuesFrom'), spJs.indexOf('function initFormState'));
     check('form alan listesi sekmelerdeki kimliklerle ve varsayılan değerlerle eşleşiyor',
-      fields.length === 31
+      fields.length === 32
       && fields.every(([, id]) => spJs.includes(`id="${id}"`) || spJs.includes(`row('${id}'`))
       && fields.every(([, , key]) => new RegExp(`\\n\\s*${key}:\\s`).test(valuesFn)), fields.length);
 
@@ -1621,6 +1621,39 @@ suite('Keşfet — TrendTech yazılımları');
     const inst = new SLM(tmpLog);
     check('yapıcıyla kurulan günlük (testler) şifresiz ve boş başlıyor', inst.canEncrypt === false && inst.key === null && inst.logs.length === 0);
     fs.rmSync(tmpLog, { recursive: true, force: true });
+  }
+
+  suite('Sekme uyutma');
+  {
+    const bcS = require('../src/main/browser-commands.js');
+    const now = 1_800_000_000_000;
+    const base = { url: 'https://ornek.com/', lastActiveAt: now - 3 * 3600 * 1000 };
+    const sleep = (extra, ctx = {}) => bcS.shouldSleepTab({ ...base, ...extra }, { now, minutes: 120, active: false, ...ctx });
+    check('2 saattir açılmayan sıradan sekme uyutuluyor', sleep({}) === true);
+    eq('uyutulmayanlar: etkin, süresi dolmamış, ayar kapalı', [sleep({}, { active: true }), sleep({ lastActiveAt: now - 60 * 60 * 1000 }), sleep({}, { minutes: 0 })], [false, false, false]);
+    eq('uyutulmayanlar: sabitlenmiş, ses çalan, yüklenen, yazı yazılmış, kamera/mikrofon, geliştirici araçları, zaten uyuyan',
+      [sleep({ pinned: true }), sleep({ audible: true }), sleep({ loading: true }), sleep({ edited: true }), sleep({ usedMedia: true }), sleep({ devtools: true }), sleep({ pendingLoad: { url: 'x' } })],
+      [false, false, false, false, false, false, false]);
+    eq('uyutulmayanlar: web sayfası olmayan (yeni sekme, kaynak görünümü) ve zamanı bilinmeyen',
+      [sleep({ url: 'about:blank' }), sleep({ url: 'view-source:https://ornek.com/' }), sleep({ lastActiveAt: undefined })], [false, false, false]);
+    eq('süre seçenekleri; geçersiz değer varsayılan 2 saat, 0 kapalı',
+      [bcS.normalizeTabSleepMinutes('30'), bcS.normalizeTabSleepMinutes(0), bcS.normalizeTabSleepMinutes(45), bcS.normalizeTabSleepMinutes(undefined), bcS.normalizeTabSleepMinutes(null), bcS.normalizeTabSleepMinutes('')],
+      [30, 0, 120, 120, 120, 120]);
+
+    const mjS = read('main/main.js');
+    const viewFn = mjS.slice(mjS.indexOf('function createTabView('), mjS.indexOf('function createTab('));
+    check('görünüm olayları görünüm hâlâ sekmenin görünümüyse işleniyor (uyutulan eski görünüm sekmeyi değiştiremez)',
+      viewFn.includes("const own = () => { const t = state.tabs.get(tabId); return t && t.view === view ? t : null; };")
+      && !viewFn.includes('state.tabs.get(tabId)', viewFn.indexOf('const own') + 80) && (viewFn.match(/own\(\)/g) || []).length >= 12);
+    check('uyutma: geçmiş saklanıyor, yeni boş görünüm kuruluyor, sessiz sekme sessiz kalıyor, eski görünüm kapatılıyor',
+      /function sleepTab\(win, state, tabId\) \{[\s\S]{0,400}const restore = snapshotHistory\(h\.getAllEntries\(\), h\.getActiveIndex\(\)\);\s*tab\.view = createTabView\(win, state, tabId\);\s*if \(tab\.muted\) tab\.view\.webContents\.setAudioMuted\(true\);\s*tab\.pendingLoad = \{ url: tab\.url, restore: restore\.entries \? restore : null \};[\s\S]{0,200}wc\.close\(\)/.test(mjS));
+    check('etkin sekme uyutulmuyor; sekmeye dönülünce yükleniyor; son etkin olma anı tutuluyor',
+      mjS.includes("if (!tab || tab.pendingLoad || !win || win.isDestroyed() || state.activeTabId === tabId) return false;")
+      && /if \(tab\.pendingLoad\) \{\s*const pending = tab\.pendingLoad;\s*tab\.pendingLoad = null;\s*tab\.sleeping = false;/.test(mjS)
+      && mjS.includes('if (previous && state.activeTabId !== tabId) previous.lastActiveAt = Date.now();'));
+    check('yazı yazılınca ve kamera/mikrofon izni verilince işaretleniyor; yeni sayfada sıfırlanıyor',
+      viewFn.includes("if (ev.type === 'char') { const t = own(); if (t) t.edited = true; }") && /if \(!tab\) return;\s*tab\.edited = false;\s*tab\.usedMedia = false;/.test(viewFn)
+      && /if \(permission === 'media' \|\| permission === 'display-capture'\) \{\s*const ctx = tabFromContents\(webContents\);\s*if \(ctx\) ctx\.tab\.usedMedia = true;/.test(mjS));
   }
 
   suite('Sekmelerde ara (Ctrl+Shift+A)');

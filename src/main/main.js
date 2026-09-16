@@ -37,7 +37,7 @@ const {
   nextZoomFactor, zoomKeyForUrl, createZoomStore, snapshotHistory, pushClosedTab, isWebUrl,
   normalizePageZoom, normalizeMinFontSize, urlsFromArgv,
   TAB_ACTIONS, moveTabId, orderAfterPin, buildTabMenuModel, normalizeStartupMode, serializeSession, parseSession,
-  resetConfig,
+  resetConfig, normalizeTabSleepMinutes, shouldSleepTab, DEFAULT_TAB_SLEEP_MINUTES,
 } = require('./browser-commands');
 const {
   ACTIVATION_EVENTS, popupVerdict, validatePermissionChange, listDecisions, decisionsForOrigin, permissionLabel,
@@ -118,6 +118,7 @@ const DEFAULT_CONFIG = {
   clearSiteDataOnExit:   false,        // kapatınca çerezler, site verileri ve önbellek
   clearHistoryOnExit:    false,        // kapatınca ziyaret günlüğü, indirme geçmişi ve site simgeleri
   hardwareAcceleration:  true,         // yeniden başlatınca geçerli (bkz. hardwareAccelerationAtStart)
+  tabSleepMinutes:       DEFAULT_TAB_SLEEP_MINUTES,   // kullanılmayan sekmeyi uyut (dakika, 0 = kapalı)
   warnOnCloseTabs:       false,        // birden çok sekme açıkken pencereyi kapatmadan önce sor
   // WebRTC IP politikası (bkz. browser-commands.js): VPN açıkken gerçek IP'nin
   // WebRTC üzerinden sızmasını önler, görüntülü görüşmeleri bozmaz.
@@ -260,10 +261,18 @@ function setupPermissionHandler(ses) {
     if (!ASK_USER.has(permission))   return callback(false);
 
     const origin = originOf(details.requestingUrl || webContents.getURL()) || 'Bilinmeyen site';
+    // Kamera, mikrofon ya da ekran paylaşımı verilen sekme uyutulmaz (görüşme kesilmesin).
+    const grant = () => {
+      if (permission === 'media' || permission === 'display-capture') {
+        const ctx = tabFromContents(webContents);
+        if (ctx) ctx.tab.usedMedia = true;
+      }
+      callback(true);
+    };
 
     // Bu site için daha önce karar verilmişse tekrar SORMA — sessizce uygula.
     const prior = getPermDecision(origin, permission);
-    if (prior === true)  return callback(true);
+    if (prior === true)  return grant();
     if (prior === false) return callback(false);
 
     const parent = BrowserWindow.getFocusedWindow() || mainWindow;
@@ -278,7 +287,7 @@ function setupPermissionHandler(ses) {
     }).then(r => {
       const granted = r.response === 1;
       setPermDecision(origin, permission, granted);
-      callback(granted);
+      if (granted) grant(); else callback(false);
     }).catch(() => callback(false));
   });
 
@@ -684,9 +693,12 @@ function createWindow() {
   });
 }
 
-function createTab(win, state, url = config.homepage, opts = {}) {
-  const tabId = ++state.tabCounter;
+// Sekmenin görünümü ve olayları. Sekme uyutulunca (bkz. sleepTab) aynı sekme için yeni,
+// boş bir görünüm kurulur ve eskisi kapatılır: eski görünümden geç gelen olaylar sekmeyi
+// değiştirmesin diye işleyiciler görünümün hâlâ sekmenin görünümü olduğunu denetler (own).
+function createTabView(win, state, tabId) {
   const isIncognito = state === incognitoState;
+  const own = () => { const t = state.tabs.get(tabId); return t && t.view === view ? t : null; };
 
   // WebContentsView: BrowserView Electron 30'dan beri kullanımdan kaldırılmış durumda.
   const view = new WebContentsView({
@@ -715,8 +727,10 @@ function createTab(win, state, url = config.homepage, opts = {}) {
 
   // Açılır pencere kararı için son kullanıcı etkileşimi (sayfa taklit edemez).
   view.webContents.on('input-event', (e, ev) => {
+    // Sayfaya yazı yazıldıysa sekme uyutulmaz (yazılan kaybolmasın); yeni sayfada sıfırlanır.
+    if (ev.type === 'char') { const t = own(); if (t) t.edited = true; }
     if (!ACTIVATION_EVENTS.has(ev.type)) return;
-    const tab = state.tabs.get(tabId);
+    const tab = own();
     if (tab) tab.lastActivation = Date.now();
   });
 
@@ -728,7 +742,7 @@ function createTab(win, state, url = config.homepage, opts = {}) {
     // sayfası yerine "devam et" belirteçli uyarı sayfası.
     const threatModel = errorCode === -20 && threats ? threats.takeBlock(view.webContents) : null;
     const model = threatModel || errorPageModel({ code: errorCode, description: errorDescription, url: validatedURL, httpsOnly: !!config.httpsOnly });
-    const tab = state.tabs.get(tabId);
+    const tab = own();
     // Sekme başlığı hata belgesinin başlığıyla aynı (Chrome gibi: DNS hatasında alan adı).
     if (tab) { tab.title = model.title; sendTabsUpdate(win, state); }
     injectErrorPage(view.webContents, model);
@@ -745,7 +759,7 @@ function createTab(win, state, url = config.homepage, opts = {}) {
 
   // Ses göstergesi (sekmede hoparlör simgesi)
   view.webContents.on('audio-state-changed', (event) => {
-    const tab = state.tabs.get(tabId);
+    const tab = own();
     if (!tab) return;
     tab.audible = !!(event && event.audible);
     sendTabsUpdate(win, state);
@@ -755,7 +769,7 @@ function createTab(win, state, url = config.homepage, opts = {}) {
   // sekme görünümü eski sınırlarında kalıyor, video pencerenin bir köşesinde
   // görünüyordu. Görünüm tüm pencereye yayılır; çıkınca düzen geri gelir.
   view.webContents.on('enter-html-full-screen', () => {
-    if (!win || win.isDestroyed() || state.activeTabId !== tabId) return;
+    if (!own() || !win || win.isDestroyed() || state.activeTabId !== tabId) return;
     state.htmlFullscreen = true;
     resizeActiveView(win, state);
     showFullscreenNotice(win);
@@ -770,7 +784,7 @@ function createTab(win, state, url = config.homepage, opts = {}) {
   });
 
   view.webContents.on('found-in-page', (e, result) => {
-    if (state.activeTabId !== tabId || !win || win.isDestroyed()) return;
+    if (!own() || state.activeTabId !== tabId || !win || win.isDestroyed()) return;
     win.webContents.send('find-result', {
       active: result.activeMatchOrdinal, matches: result.matches, final: result.finalUpdate,
     });
@@ -778,11 +792,12 @@ function createTab(win, state, url = config.homepage, opts = {}) {
 
   // Ctrl + fare tekerleği ya da dokunmatik yüzeyde kıstırma
   view.webContents.on('zoom-changed', (e, direction) => {
+    if (!own()) return;
     changeZoom(win, state, view.webContents, direction === 'in' ? 1 : -1);
   });
 
   view.webContents.on('page-title-updated', (e, title) => {
-    const tab = state.tabs.get(tabId);
+    const tab = own();
     if (tab) tab.title = title;
     sendTabsUpdate(win, state);
   });
@@ -790,11 +805,11 @@ function createTab(win, state, url = config.homepage, opts = {}) {
   // Yükleme göstergesi: sekmede dönen simge. Eskiden sekmede hiçbir işaret yoktu;
   // sayfanın yüklenip yüklenmediği anlaşılmıyordu (kullanıcı bildirdi).
   view.webContents.on('did-start-loading', () => {
-    const tab = state.tabs.get(tabId);
+    const tab = own();
     if (tab && !tab.loading) { tab.loading = true; sendTabsUpdate(win, state); }
   });
   view.webContents.on('did-stop-loading', () => {
-    const tab = state.tabs.get(tabId);
+    const tab = own();
     if (tab && tab.loading) { tab.loading = false; sendTabsUpdate(win, state); }
   });
 
@@ -804,7 +819,7 @@ function createTab(win, state, url = config.homepage, opts = {}) {
     if (!faviconCache) return;
     const pageUrl = view.webContents.getURL();
     faviconCache.update(view.webContents.session, pageUrl, favicons, { incognito: isIncognito }).then((dataUrl) => {
-      const tab = state.tabs.get(tabId);
+      const tab = own();
       if (tab && dataUrl && tab.favicon !== dataUrl && faviconHost(tab.url) === faviconHost(pageUrl)) {
         tab.favicon = dataUrl;
         sendTabsUpdate(win, state);
@@ -813,8 +828,11 @@ function createTab(win, state, url = config.homepage, opts = {}) {
   });
 
   view.webContents.on('did-navigate', (e, navUrl) => {
-    const tab = state.tabs.get(tabId);
-    if (tab) {
+    const tab = own();
+    if (!tab) return;
+    tab.edited = false;
+    tab.usedMedia = false;
+    {
       // Başka siteye geçince eski simge kalmasın; önbellekte varsa hemen gösterilir.
       if (faviconHost(tab.url) !== faviconHost(navUrl)) tab.favicon = faviconCache ? faviconCache.get(navUrl, { incognito: isIncognito }) : '';
       tab.url = navUrl;
@@ -839,13 +857,13 @@ function createTab(win, state, url = config.homepage, opts = {}) {
   });
 
   view.webContents.on('did-navigate-in-page', (e, navUrl) => {
-    const tab = state.tabs.get(tabId);
+    const tab = own();
     if (tab) tab.url = navUrl;
     sendTabsUpdate(win, state);
   });
 
   view.webContents.on('did-finish-load', () => {
-    const tab = state.tabs.get(tabId);
+    const tab = own();
     if (!tab) return;
 
     // Başlık her yükleme bitişinde doğrulanır (geri yükleme ve önbellekten dönüşte
@@ -916,7 +934,7 @@ function createTab(win, state, url = config.homepage, opts = {}) {
     }
     // Açılır pencere engelleme: Electron'da Chromium'un engelleyicisi yok, her
     // window.open buraya ulaşır. Kullanıcı etkileşimi olmadan açılanlar engellenir.
-    const tab = state.tabs.get(tabId);
+    const tab = own();
     const pageOrigin = originOf(view.webContents.getURL());
     const siteDecision = pageOrigin ? getPermDecision(pageOrigin, 'popups') : undefined;
     const verdict = popupVerdict({ now: Date.now(), lastActivation: tab && tab.lastActivation, siteDecision });
@@ -935,6 +953,15 @@ function createTab(win, state, url = config.homepage, opts = {}) {
     if (disposition !== 'background-tab') setActiveTab(win, state, newId);
     return { action: 'deny' };
   });
+
+  return view;
+}
+
+function createTab(win, state, url = config.homepage, opts = {}) {
+  const tabId = ++state.tabCounter;
+  const isIncognito = state === incognitoState;
+
+  const view = createTabView(win, state, tabId);
 
   // Başlangıç başlığı: boş sekme → "Yeni Sekme", aksi halde alan adı.
   const isBlank = !url || url === 'about:blank';
@@ -956,6 +983,7 @@ function createTab(win, state, url = config.homepage, opts = {}) {
     pinned:       !!opts.pinned,
     muted:        false,
     audible:      false,
+    lastActiveAt: Date.now(),   // sekme uyutma: son etkin olduğu an
   });
 
   if (opts.lazy) {
@@ -969,9 +997,9 @@ function createTab(win, state, url = config.homepage, opts = {}) {
   const glancePoll = setInterval(async () => {
     const tab = state.tabs.get(tabId);
     if (!tab) { clearInterval(glancePoll); return; }
-    if (tabId !== state.activeTabId) return;
+    if (tabId !== state.activeTabId || tab.pendingLoad || tab.view.webContents.isDestroyed()) return;
     try {
-      const result = await view.webContents.executeJavaScript(
+      const result = await tab.view.webContents.executeJavaScript(
         '(function(){ var r=window.__glancePending; window.__glancePending=null; return r||null; })()'
       );
       // Sayfa JS'i güvenilmezdir — yalnızca http(s) URL'leri kabul et
@@ -1025,6 +1053,7 @@ function setActiveTab(win, state, tabId) {
   // LİSTELENMEZ — Electron 44 uçtan uca sondasıyla doğrulandı.)
   // Sekme değişince önceki sekmedeki bulma vurgusu temizlenir, bul çubuğu kapanır.
   const previous = state.tabs.get(state.activeTabId);
+  if (previous && state.activeTabId !== tabId) previous.lastActiveAt = Date.now();
   if (previous && state.activeTabId !== tabId) {
     try { if (!previous.view.webContents.isDestroyed()) previous.view.webContents.stopFindInPage('clearSelection'); } catch {}
     win.webContents.send('find-reset');
@@ -1046,6 +1075,7 @@ function setActiveTab(win, state, tabId) {
   if (tab.pendingLoad) {
     const pending = tab.pendingLoad;
     tab.pendingLoad = null;
+    tab.sleeping = false;
     loadTabContent(tab.view.webContents, pending.url, pending.restore);
   }
   state.activeTabId = tabId;
@@ -1098,12 +1128,55 @@ function closeTab(win, state, tabId) {
   sendTabsUpdate(win, state);
 }
 
+// ─── Sekme uyutma (Ayarlar › Genel › Sistem) ─────────────────────────────────
+// Uzun süredir açılmayan sekmenin görünümü boş bir görünümle değiştirilir: sayfanın
+// süreci ve belleği bırakılır, geri/ileri geçmişi saklanır. Sekmeye dönülünce oturum
+// geri yüklemedeki tembel sekme gibi yeniden yüklenir. Kararlar browser-commands.js'te.
+const TAB_SLEEP_CHECK_MS = 30 * 1000;
+
+function sleepTab(win, state, tabId) {
+  const tab = state.tabs.get(tabId);
+  if (!tab || tab.pendingLoad || !win || win.isDestroyed() || state.activeTabId === tabId) return false;
+  const oldView = tab.view;
+  const wc = oldView.webContents;
+  if (wc.isDestroyed()) return false;
+  const h = wc.navigationHistory;
+  const restore = snapshotHistory(h.getAllEntries(), h.getActiveIndex());
+  tab.view = createTabView(win, state, tabId);
+  if (tab.muted) tab.view.webContents.setAudioMuted(true);
+  tab.pendingLoad = { url: tab.url, restore: restore.entries ? restore : null };
+  tab.sleeping = true;
+  tab.loading = false;
+  tab.audible = false;
+  try { win.contentView.removeChildView(oldView); } catch {}
+  try { wc.close(); } catch {}
+  sendTabsUpdate(win, state);
+  return true;
+}
+
+function sleepInactiveTabs() {
+  const minutes = normalizeTabSleepMinutes(config.tabSleepMinutes);
+  if (!minutes) return;
+  const now = Date.now();
+  for (const [state, win] of [[mainState, mainWindow], [incognitoState, incognitoWindow]]) {
+    if (!win || win.isDestroyed()) continue;
+    for (const [tabId, tab] of [...state.tabs]) {
+      let devtools = false;
+      try { devtools = tab.view.webContents.isDevToolsOpened(); } catch {}
+      if (shouldSleepTab({ ...tab, devtools }, { now, minutes, active: state.activeTabId === tabId }) && sleepTab(win, state, tabId)) {
+        diag.info('tabs', 'Kullanılmayan sekme uyutuldu', { minutes });
+      }
+    }
+  }
+}
+setInterval(sleepInactiveTabs, TAB_SLEEP_CHECK_MS).unref?.();
+
 function sendTabsUpdate(win, state) {
   if (!win || win.isDestroyed()) return;
   const tabsData = [...state.tabs.entries()].map(([id, tab]) => ({
     id, url: tab.url, title: tab.title, isActive: id === state.activeTabId,
     pinned: !!tab.pinned, audible: !!tab.audible, muted: !!tab.muted,
-    loading: !!tab.loading, favicon: tab.favicon || '',
+    loading: !!tab.loading, favicon: tab.favicon || '', sleeping: !!tab.sleeping,
   }));
   if (state === mainState) scheduleSessionSave();
   win.webContents.send('tabs-update', tabsData);
@@ -1888,6 +1961,7 @@ ipcMain.handle('save-config', (e, newCfg) => {
   for (const k of ['globalPrivacyControl', 'cleanLinks', 'blockAutoplay']) if (k in incoming) incoming[k] = incoming[k] !== false;
   for (const k of ['clearSiteDataOnExit', 'clearHistoryOnExit', 'warnOnCloseTabs']) if (k in incoming) incoming[k] = incoming[k] === true;
   if ('hardwareAcceleration' in incoming) incoming.hardwareAcceleration = incoming.hardwareAcceleration !== false;
+  if ('tabSleepMinutes' in incoming) incoming.tabSleepMinutes = normalizeTabSleepMinutes(incoming.tabSleepMinutes);
   const previous = configEffectsSnapshot();
   config = { ...config, ...incoming };
   saveConfig(config);
