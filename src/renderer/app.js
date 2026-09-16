@@ -1744,6 +1744,27 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
+  // Durum çubuğu bildirimi: sayfa görünümü arayüzün üstünde çizildiği için köşe bildirimi
+  // web sayfası açıkken görünmez; durum çubuğu sayfanın altında her zaman görünür.
+  const statusNote = document.getElementById('status-note');
+  let statusNoteTimer = null;
+  sb.onStatusNote?.((d) => {
+    if (!statusNote || !d || typeof d.text !== 'string') return;
+    statusNote.textContent = d.text.slice(0, 160);
+    statusNote.classList.toggle('error', d.error === true);
+    if (typeof d.reveal === 'string') {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'status-note-btn';
+      btn.textContent = 'Klasörde göster';
+      btn.addEventListener('click', () => sb.revealScreenshot?.(d.reveal));
+      statusNote.append(btn);
+    }
+    statusNote.hidden = false;
+    clearTimeout(statusNoteTimer);
+    statusNoteTimer = setTimeout(() => { statusNote.hidden = true; statusNote.textContent = ''; }, 10000);
+  });
+
   // Esc ana süreçte yakalanmaz: önce bul çubuğu, sonra ekran, sonra paneller kapanır.
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;

@@ -75,6 +75,9 @@ const SHORTCUTS = [
   { keys: ['F11'],                               cmd: 'toggle-fullscreen', page: true },
   { keys: ['Mod+J'],                             cmd: 'downloads-page',    page: true },
   { keys: ['Mod+H'],                             cmd: 'history-page',      page: false },   // Docs: bul-değiştir
+  { keys: ['F12', 'Mod+Shift+I'],                cmd: 'devtools',          page: true },
+  // Web düzenleyicilerinde "Farklı kaydet" (Photopea, vscode.dev): sayfada sağ tık menüsünden.
+  { keys: ['Mod+Shift+S'],                       cmd: 'screenshot',        page: false },
 ];
 for (let i = 1; i <= 8; i++) SHORTCUTS.push({ keys: ['Mod+' + i], cmd: 'tab-' + i, page: true });
 
@@ -193,6 +196,11 @@ function buildContextMenuModel(p = {}, ctx = {}) {
   const selection = String(p.selectionText || '').slice(0, 1000);
   const hasSelection = selection.trim().length > 0;
   const surface = ctx.surface === 'ui' ? 'ui' : 'page';
+  // Chrome gibi her sayfa menüsünün sonunda: sağ tıklanan öğe geliştirici araçlarında seçilir.
+  const inspect = () => {
+    sep();
+    add('inspect', 'İncele', { arg: { x: Number(p.x) || 0, y: Number(p.y) || 0 } });
+  };
 
   if (p.isEditable) {
     if (p.misspelledWord) {
@@ -214,6 +222,7 @@ function buildContextMenuModel(p = {}, ctx = {}) {
       sep();
       add('search-selection', '“' + clip(selection, 24) + '” için ara', { arg: selection });
     }
+    if (surface === 'page') inspect();
     return finalizeMenu(items, ctx.platform);
   }
 
@@ -257,16 +266,18 @@ function buildContextMenuModel(p = {}, ctx = {}) {
   }
 
   // Sayfa öğeleri yalnızca boş alana tıklanınca. javascript: ya da file: gibi
-  // açılmasına izin verilmeyen bağlantılarda menü boş kalır (hiç açılmaz).
+  // açılmasına izin verilmeyen bağlantılarda yalnızca İncele kalır.
   if (!p.linkURL && !hasSelection && !isImage && !isAv) {
     add('back', 'Geri', { enabled: !!ctx.canGoBack });
     add('forward', 'İleri', { enabled: !!ctx.canGoForward });
     add('reload', 'Yeniden yükle');
     sep();
     add('print', 'Yazdır…');
+    if (isWebUrl(p.pageURL)) add('screenshot', 'Ekran görüntüsü al');
     if (isWebUrl(p.pageURL)) add('view-source', 'Sayfa kaynağını görüntüle', { arg: 'view-source:' + p.pageURL });
   }
 
+  inspect();
   return finalizeMenu(items, ctx.platform);
 }
 

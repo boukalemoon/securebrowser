@@ -244,6 +244,9 @@ contextBridge.exposeInMainWorld('secureBrowser', {
 
   // Ana süreçteki kısayollardan arayüze iletilen komutlar (bkz. browser-commands.js)
   onBrowserCommand:   (cb) => ipcRenderer.on('browser-command', (_, cmd) => cb(cmd)),
+  // Durum çubuğu bildirimi (ekran görüntüsü kaydedildi vb.)
+  onStatusNote:       (cb) => ipcRenderer.on('status-note', (_, d) => cb(d)),
+  revealScreenshot:   (file) => ipcRenderer.invoke('screenshot-reveal', file),
 
   // ── Event Dinleyiciler ───────────────────────────────────────────────────────
   onTabsUpdate:       (cb) => ipcRenderer.on('tabs-update', (e, data) => cb(data)),

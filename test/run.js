@@ -607,23 +607,44 @@ suite('Sağ tık menüsü');
   const page = (p, ctx = {}) => bc.buildContextMenuModel(p, { platform: 'win32', ...ctx });
 
   const linkMenu = page({ linkURL: 'https://ornek.com/a', pageURL: 'https://ornek.com/' });
-  eq('bağlantı menüsü', ids(linkMenu), ['open-link-tab', 'open-link-incognito', 'glance-link', 'save-link', 'copy-text']);
+  eq('bağlantı menüsü', ids(linkMenu), ['open-link-tab', 'open-link-incognito', 'glance-link', 'save-link', 'copy-text', 'inspect']);
   check('gizli pencerede "gizli pencerede aç" gösterilmez',
     !ids(page({ linkURL: 'https://ornek.com/' }, { incognito: true })).includes('open-link-incognito'));
-  eq('javascript: bağlantısında menü açılmaz', ids(page({ linkURL: 'javascript:alert(1)', pageURL: 'https://ornek.com/' })), []);
-  eq('file: bağlantısında menü açılmaz', ids(page({ linkURL: 'file:///C:/Windows/win.ini', pageURL: 'https://ornek.com/' })), []);
-  eq('mailto: yalnızca adresi kopyalar',
-    page({ linkURL: 'mailto:ali%40ornek.com?subject=x' }).filter((i) => !i.type).map((i) => [i.id, i.arg]), [['copy-text', 'ali@ornek.com']]);
+  eq('javascript: bağlantısında bağlantı eylemi yok, yalnızca İncele', ids(page({ linkURL: 'javascript:alert(1)', pageURL: 'https://ornek.com/' })), ['inspect']);
+  eq('file: bağlantısında bağlantı eylemi yok, yalnızca İncele', ids(page({ linkURL: 'file:///C:/Windows/win.ini', pageURL: 'https://ornek.com/' })), ['inspect']);
+  eq('mailto: yalnızca adresi kopyalar; İncele sağ tıklanan noktayı taşır',
+    page({ linkURL: 'mailto:ali%40ornek.com?subject=x', x: 12, y: 34 }).filter((i) => !i.type).map((i) => [i.id, i.arg]), [['copy-text', 'ali@ornek.com'], ['inspect', { x: 12, y: 34 }]]);
 
   const img = page({ mediaType: 'image', srcURL: 'https://ornek.com/r.png', x: 10, y: 20, pageURL: 'https://ornek.com/' });
-  eq('resim menüsü', ids(img), ['open-tab', 'save-media', 'copy-image', 'copy-text']);
-  eq('data: resim kaydedilir ama yeni sekmede açılmaz', ids(page({ mediaType: 'image', srcURL: 'data:image/png;base64,AAAA' })), ['save-media', 'copy-image']);
-  eq('data:text/html resim sayılmaz', ids(page({ mediaType: 'image', srcURL: 'data:text/html,<b>x</b>' })), []);
+  eq('resim menüsü', ids(img), ['open-tab', 'save-media', 'copy-image', 'copy-text', 'inspect']);
+  eq('data: resim kaydedilir ama yeni sekmede açılmaz', ids(page({ mediaType: 'image', srcURL: 'data:image/png;base64,AAAA' })), ['save-media', 'copy-image', 'inspect']);
+  eq('data:text/html resim sayılmaz', ids(page({ mediaType: 'image', srcURL: 'data:text/html,<b>x</b>' })), ['inspect']);
 
   const sel = page({ selectionText: '  İlgezdi   tarayıcı  ', pageURL: 'https://ornek.com/' });
-  eq('seçim menüsü', ids(sel), ['copy', 'search-selection']);
+  eq('seçim menüsü', ids(sel), ['copy', 'search-selection', 'inspect']);
   eq('arama etiketi sadeleşir', sel.find((i) => i.id === 'search-selection').label, '“İlgezdi tarayıcı” için ara');
-  eq('sayfa menüsü', ids(page({ pageURL: 'https://ornek.com/' })), ['back', 'forward', 'reload', 'print', 'view-source']);
+  eq('sayfa menüsü', ids(page({ pageURL: 'https://ornek.com/' })), ['back', 'forward', 'reload', 'print', 'screenshot', 'view-source', 'inspect']);
+  eq('web sayfası olmayan adreste ekran görüntüsü ve kaynak yok', ids(page({ pageURL: 'about:blank' })), ['back', 'forward', 'reload', 'print', 'inspect']);
+  eq('düzenlenebilir alanda İncele en sonda; arayüzde (adres çubuğu) yok',
+    [ids(page({ isEditable: true, editFlags: {} })).slice(-1), ids(bc.buildContextMenuModel({ isEditable: true, editFlags: {} }, { surface: 'ui', platform: 'win32' })).includes('inspect')], [['inspect'], false]);
+  eq('F12 ve Ctrl+Shift+I sayfada da geliştirici araçları; Ctrl+Shift+S yalnızca arayüzde',
+    [bc.commandForInput({ type: 'keyDown', key: 'F12' }, { platform: 'win32', surface: 'page' }),
+     bc.commandForInput({ type: 'keyDown', key: 'I', control: true, shift: true }, { platform: 'win32', surface: 'page' }),
+     bc.commandForInput({ type: 'keyDown', key: 'S', control: true, shift: true }, { platform: 'win32', surface: 'page' }),
+     bc.commandForInput({ type: 'keyDown', key: 'S', control: true, shift: true }, { platform: 'win32', surface: 'ui' })],
+    ['devtools', 'devtools', null, 'screenshot']);
+  {
+    const mjm = read('main/main.js');
+    check('geliştirici araçları yalnızca web sayfası ve kaynak görünümünde, ayrı pencerede',
+      mjm.includes("const canInspect = (wc) => !!wc && !wc.isDestroyed() && (isWebUrl(wc.getURL()) || wc.getURL().startsWith('view-source:'));")
+      && (mjm.match(/wc\.openDevTools\(\{ mode: 'detach' \}\)/g) || []).length === 2 && mjm.includes("case 'inspect':    inspectElementAt(wc, arg); break;"));
+    check('ekran görüntüsü: görünen alan PNG, indirme klasörüne benzersiz adla, panoya; yalnızca kendi yazdığı dosya klasörde gösteriliyor',
+      /async function takeScreenshot\(win, wc\) \{[\s\S]{0,300}wc\.capturePage\(\)[\s\S]{0,400}uniquePath\(dir, screenshotFileName\(wc\.getURL\(\)\)\)[\s\S]{0,200}clipboard\.writeImage\(image\)/.test(mjm)
+      && /ipcMain\.handle\('screenshot-reveal', \(_e, file\) => \{\s*if \(typeof file !== 'string' \|\| !screenshotPaths\.has\(file\)/.test(mjm));
+    const appm = read('renderer/app.js');
+    check('durum çubuğu bildirimi metni textContent ile yazıyor (HTML işlenmiyor)',
+      appm.includes("statusNote.textContent = d.text.slice(0, 160);") && !/statusNote\.innerHTML/.test(appm) && read('renderer/index.html').includes('id="status-note"'));
+  }
   eq('geri/ileri etkinliği geçmişe göre',
     page({ pageURL: 'https://ornek.com/' }, { canGoBack: true }).filter((i) => i.id === 'back' || i.id === 'forward').map((i) => i.enabled), [true, false]);
 

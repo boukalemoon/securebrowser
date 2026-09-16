@@ -1213,6 +1213,8 @@ function runBrowserCommand(win, state, cmd) {
       state.windowFullscreen = !win.isFullScreen();
       win.setFullScreen(state.windowFullscreen);
       break;
+    case 'devtools':   toggleDevTools(wc); break;
+    case 'screenshot': takeScreenshot(win, wc); break;
     default: {
       const m = /^tab-([1-8])$/.exec(cmd);
       if (m && ids[Number(m[1]) - 1] != null) setActiveTab(win, state, ids[Number(m[1]) - 1]);
@@ -1260,6 +1262,59 @@ function bindBrowserInput(wc, win, state, surface) {
   });
 }
 
+// Sayfanın geliştirici araçları ayrı pencerede açılır: sekme görünümü arayüzün üstünde
+// çizildiği için yerleşik yerleşim sayfayı daraltıp arayüzle çakışırdı. Arayüzün kendi
+// araçları yalnızca --dev ile açılır; İlgezdi sayfaları (yeni sekme, hata) incelenmez.
+const canInspect = (wc) => !!wc && !wc.isDestroyed() && (isWebUrl(wc.getURL()) || wc.getURL().startsWith('view-source:'));
+
+function toggleDevTools(wc) {
+  if (!canInspect(wc)) return;
+  if (wc.isDevToolsOpened()) wc.closeDevTools();
+  else wc.openDevTools({ mode: 'detach' });
+}
+
+function inspectElementAt(wc, point) {
+  if (!canInspect(wc)) return;
+  if (!wc.isDevToolsOpened()) wc.openDevTools({ mode: 'detach' });
+  wc.inspectElement(Math.round(Number(point && point.x)) || 0, Math.round(Number(point && point.y)) || 0);
+}
+
+// Ekran görüntüsü: sayfanın görünen alanı PNG olarak indirme klasörüne yazılır ve panoya
+// kopyalanır. "Klasörde göster" yalnızca İlgezdi'nin yazdığı dosyalar için çalışır.
+const screenshotPaths = new Set();
+
+function screenshotFileName(pageUrl, now = new Date()) {
+  const pad = (n) => String(n).padStart(2, '0');
+  const stamp = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}.${pad(now.getMinutes())}.${pad(now.getSeconds())}`;
+  return safeFileName(`Ekran görüntüsü ${sourceHost(pageUrl) || 'sayfa'} ${stamp}.png`);
+}
+
+async function takeScreenshot(win, wc) {
+  if (!wc || wc.isDestroyed() || !isWebUrl(wc.getURL())) return;
+  const note = (payload) => { if (win && !win.isDestroyed()) win.webContents.send('status-note', payload); };
+  try {
+    const image = await wc.capturePage();
+    if (image.isEmpty()) throw new Error('boş görüntü');
+    const dir = (config.downloadFolder && fs.existsSync(config.downloadFolder)) ? config.downloadFolder : app.getPath('downloads');
+    const file = uniquePath(dir, screenshotFileName(wc.getURL()));
+    await fs.promises.writeFile(file, image.toPNG());
+    clipboard.writeImage(image);
+    screenshotPaths.add(file);
+    if (screenshotPaths.size > 20) screenshotPaths.delete(screenshotPaths.values().next().value);
+    diag.info('screenshot', 'Ekran görüntüsü kaydedildi', { width: image.getSize().width, height: image.getSize().height });
+    note({ text: 'Ekran görüntüsü kaydedildi ve panoya kopyalandı: ' + path.basename(file), reveal: file });
+  } catch (e) {
+    logError('screenshot', e);
+    note({ text: 'Ekran görüntüsü alınamadı', error: true });
+  }
+}
+
+ipcMain.handle('screenshot-reveal', (_e, file) => {
+  if (typeof file !== 'string' || !screenshotPaths.has(file) || !fs.existsSync(file)) return false;
+  require('electron').shell.showItemInFolder(file);
+  return true;
+});
+
 function runContextAction(win, state, wc, item, params) {
   if (wc.isDestroyed()) return;
   const arg = item.arg;
@@ -1302,6 +1357,8 @@ function runContextAction(win, state, wc, item, params) {
     case 'forward': if (wc.navigationHistory.canGoForward()) wc.navigationHistory.goForward(); break;
     case 'reload':  wc.reload(); break;
     case 'print':   runBrowserCommand(win, state, 'print'); break;
+    case 'screenshot': takeScreenshot(win, wc); break;
+    case 'inspect':    inspectElementAt(wc, arg); break;
   }
 }
 
