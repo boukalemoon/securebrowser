@@ -20,8 +20,8 @@ function injectVpnPanelHTML() {
   vpnPanel.className = 'side-panel hidden';
   vpnPanel.innerHTML = `
     <div class="panel-header">
-      <h2>🔒 VPN Yönetimi</h2>
-      <button class="panel-close" data-panel="vpn">✕</button>
+      <h2>${TH('vpn.title')}</h2>
+      <button class="panel-close" data-panel="vpn" aria-label="${TH('common.closePanel')}">✕</button>
     </div>
     <div class="panel-body">
 
@@ -30,61 +30,61 @@ function injectVpnPanelHTML() {
         <div id="vpn-status-display" class="vpn-status-card disconnected">
           <div class="vpn-status-icon">🔓</div>
           <div class="vpn-status-info">
-            <div id="vpn-status-text">Bağlı Değil</div>
-            <div id="vpn-status-sub">İnternet trafiğiniz korumasız</div>
+            <div id="vpn-status-text">${TH('vpn.status.disconnected')}</div>
+            <div id="vpn-status-sub">${TH('vpn.status.unprotected')}</div>
           </div>
           <div id="vpn-toggle-btn-wrap">
-            <button id="btn-vpn-toggle" class="vpn-toggle-btn off">Bağlan</button>
+            <button id="btn-vpn-toggle" class="vpn-toggle-btn off">${TH('vpn.connect')}</button>
           </div>
         </div>
 
         <!-- Kill Switch Göstergesi -->
         <div class="ks-row">
-          <span>🛡 Kill Switch</span>
-          <span id="ks-status" class="ks-badge off">Kapalı</span>
+          <span>${TH('vpn.killSwitch')}</span>
+          <span id="ks-status" class="ks-badge off">${TH('vpn.ks.off')}</span>
         </div>
 
         <!-- DNS Sızıntı Testi -->
-        <button id="btn-dns-test" class="btn-secondary">🔍 DNS Sızıntı Testi</button>
+        <button id="btn-dns-test" class="btn-secondary">${TH('vpn.dnsTest')}</button>
         <div id="dns-test-result" class="dns-result hidden"></div>
       </div>
 
       <!-- Sunucu Listesi -->
-      <div class="vpn-section-title">Sunucular</div>
+      <div class="vpn-section-title">${TH('vpn.servers')}</div>
       <div id="vpn-profile-list"></div>
 
       <!-- Yeni Sunucu Ekle -->
-      <div class="vpn-section-title" style="margin-top:16px">Sunucu Ekle</div>
+      <div class="vpn-section-title" style="margin-top:16px">${TH('vpn.addServer')}</div>
       <div id="vpn-add-form">
         <div class="vpn-input-row">
-          <label>Sunucu Adı</label>
+          <label>${TH('vpn.field.name')}</label>
           <input type="text" id="vpn-new-name"       placeholder="Oracle Frankfurt" />
         </div>
         <div class="vpn-input-row">
-          <label>Konum</label>
+          <label>${TH('vpn.field.location')}</label>
           <input type="text" id="vpn-new-location"   placeholder="🇩🇪 Frankfurt" />
         </div>
         <div class="vpn-input-row">
-          <label>Endpoint (IP:Port)</label>
+          <label>${TH('vpn.field.endpoint')}</label>
           <input type="text" id="vpn-new-endpoint"   placeholder="1.2.3.4:51820" />
         </div>
         <div class="vpn-input-row">
-          <label>Sunucu Public Key</label>
+          <label>${TH('vpn.field.pubkey')}</label>
           <input type="text" id="vpn-new-pubkey"     placeholder="Base64 public key..." />
         </div>
         <div class="vpn-input-row">
-          <label>İstemci Private Key</label>
+          <label>${TH('vpn.field.privkey')}</label>
           <input type="password" id="vpn-new-privkey" placeholder="Base64 private key..." />
         </div>
         <div class="vpn-input-row">
-          <label>İstemci Tünel IP</label>
+          <label>${TH('vpn.field.clientIp')}</label>
           <input type="text" id="vpn-new-clientip"   placeholder="10.0.0.2/32" value="10.0.0.2/32" />
         </div>
         <div class="vpn-input-row">
-          <label>DNS Sunucusu</label>
+          <label>${TH('vpn.field.dns')}</label>
           <input type="text" id="vpn-new-dns"        placeholder="10.0.0.1" value="10.0.0.1" />
         </div>
-        <button id="btn-vpn-add" class="btn-primary" style="margin-top:8px">➕ Sunucu Ekle</button>
+        <button id="btn-vpn-add" class="btn-primary" style="margin-top:8px">${TH('vpn.addServerBtn')}</button>
       </div>
 
     </div>
@@ -212,22 +212,22 @@ function renderVpnStatus(status) {
 
   if (status.status === 'connected' && status.activeProfile) {
     icon.textContent    = '🔒';
-    text.textContent    = `${status.activeProfile.location} — Bağlı`;
+    text.textContent    = T('vpn.status.connected', { location: status.activeProfile.location });
     sub.textContent     = `${status.activeProfile.name} · ${status.activeProfile.endpoint}`;
-    toggleBtn.textContent = 'Bağlantıyı Kes';
+    toggleBtn.textContent = T('vpn.disconnect');
     toggleBtn.className = 'vpn-toggle-btn on';
   } else if (status.status === 'connecting') {
     icon.textContent    = '⏳';
-    text.textContent    = 'Bağlanıyor...';
-    sub.textContent     = 'Lütfen bekleyin';
-    toggleBtn.textContent = 'Bağlanıyor...';
+    text.textContent    = T('vpn.status.connecting');
+    sub.textContent     = T('vpn.status.wait');
+    toggleBtn.textContent = T('vpn.status.connecting');
     toggleBtn.className = 'vpn-toggle-btn loading';
     toggleBtn.disabled  = true;
   } else {
     icon.textContent    = '🔓';
-    text.textContent    = 'Bağlı Değil';
-    sub.textContent     = 'İnternet trafiğiniz korumasız';
-    toggleBtn.textContent = 'Bağlan';
+    text.textContent    = T('vpn.status.disconnected');
+    sub.textContent     = T('vpn.status.unprotected');
+    toggleBtn.textContent = T('vpn.connect');
     toggleBtn.className = 'vpn-toggle-btn off';
     toggleBtn.disabled  = false;
   }
@@ -236,8 +236,8 @@ function renderVpnStatus(status) {
   // "bağlantın koptu, şu an korumasızsın" aynı şey değil.
   if (status.status === 'dropped') {
     icon.textContent = '⚠️';
-    text.textContent = 'Bağlantı koptu';
-    sub.textContent  = 'VPN tüneli beklenmedik şekilde kapandı — trafiğiniz korumasız.';
+    text.textContent = T('vpn.status.dropped');
+    sub.textContent  = T('vpn.status.droppedSub');
   }
 
   // Kill switch — GERÇEK durum (denetim Y-06). Eskiden vpn-manager'da hiçbir şey
@@ -245,17 +245,17 @@ function renderVpnStatus(status) {
   // platform varsa "Aktif" gösterilir (bkz. vpn-manager.js getStatus notu).
   if (ksStatus) {
     if (status.killSwitch) {
-      ksStatus.textContent = 'Aktif';
+      ksStatus.textContent = T('vpn.ks.active');
       ksStatus.className   = 'ks-badge on';
-      ksStatus.title       = 'WireGuard, tünel dışındaki trafiği güvenlik duvarı kurallarıyla engelliyor.';
+      ksStatus.title       = T('vpn.ks.activeTitle');
     } else if (status.killSwitchSupported === false) {
-      ksStatus.textContent = 'Bu platformda yok';
+      ksStatus.textContent = T('vpn.ks.unsupported');
       ksStatus.className   = 'ks-badge off';
-      ksStatus.title       = 'Bu işletim sisteminde tünel düşerse trafik korumasız çıkar.';
+      ksStatus.title       = T('vpn.ks.unsupportedTitle');
     } else {
-      ksStatus.textContent = 'Kapalı';
+      ksStatus.textContent = T('vpn.ks.off');
       ksStatus.className   = 'ks-badge off';
-      ksStatus.title       = 'Kill switch yalnızca VPN bağlıyken etkindir.';
+      ksStatus.title       = T('vpn.ks.offTitle');
     }
   }
 
@@ -270,7 +270,7 @@ function renderVpnProfiles(profiles, pings = {}) {
 
   if (!profiles.length) {
     list.innerHTML = `<p style="color:var(--text-muted);font-size:12px;text-align:center;padding:12px">
-      Henüz sunucu eklenmedi.<br>Aşağıdan yeni sunucu ekleyin.
+      ${TH('vpn.noServers')}<br>${TH('vpn.noServersHint')}
     </p>`;
     return;
   }
@@ -294,10 +294,10 @@ function renderVpnProfiles(profiles, pings = {}) {
         <div class="profile-ping ${pingClass}">${pingText}</div>
         <div class="profile-actions">
           ${isActive
-            ? `<button class="profile-btn disconnect" data-action="disconnect">Kes</button>`
-            : `<button class="profile-btn connect" data-action="connect" data-id="${p.id}">Bağlan</button>`
+            ? `<button class="profile-btn disconnect" data-action="disconnect">${TH('vpn.disconnectShort')}</button>`
+            : `<button class="profile-btn connect" data-action="connect" data-id="${p.id}">${TH('vpn.connect')}</button>`
           }
-          <button class="profile-btn delete" data-action="delete" data-id="${p.id}">🗑</button>
+          <button class="profile-btn delete" data-action="delete" data-id="${p.id}" aria-label="${TH('vpn.deleteServer')}" title="${TH('vpn.deleteServer')}">🗑</button>
         </div>
       </div>
     `;
@@ -318,7 +318,7 @@ function renderVpnProfiles(profiles, pings = {}) {
         // Aktif profil silinemez — ana süreç bunu reddediyor, nedenini göster.
         const res = await sb.vpn.removeProfile(id);
         if (res && res.ok === false) {
-          alert('Profil silinemedi:\n\n' + (res.error || 'Bilinmeyen hata'));
+          alert(T('vpn.removeFailed', { error: res.error || T('common.unknownError') }));
           return;
         }
         await loadVpnPanel();
@@ -332,7 +332,7 @@ async function vpnConnect(profileId) {
   if (!profileId) {
     // Bağlan butonuna basıldı ama profil seçilmedi
     if (!vpnProfiles.length) {
-      alert('Önce bir sunucu ekleyin.');
+      alert(T('vpn.addFirst'));
       return;
     }
     // İlk profili seç
@@ -340,11 +340,11 @@ async function vpnConnect(profileId) {
   }
 
   const toggleBtn = document.getElementById('btn-vpn-toggle');
-  if (toggleBtn) { toggleBtn.textContent = 'Bağlanıyor...'; toggleBtn.disabled = true; }
+  if (toggleBtn) { toggleBtn.textContent = T('vpn.status.connecting'); toggleBtn.disabled = true; }
 
   const result = await sb.vpn.connect(profileId);
   if (!result?.success) {
-    alert('VPN bağlantısı kurulamadı:\n' + (result?.error || 'Bilinmeyen hata'));
+    alert(T('vpn.connectFailed', { error: result?.error || T('common.unknownError') }));
   }
   await loadVpnPanel();
 }
@@ -352,7 +352,7 @@ async function vpnConnect(profileId) {
 async function vpnDisconnect() {
   const result = await sb.vpn.disconnect();
   if (!result?.success) {
-    alert('Bağlantı kesilirken hata:\n' + (result?.error || 'Bilinmeyen hata'));
+    alert(T('vpn.disconnectFailed', { error: result?.error || T('common.unknownError') }));
   }
   await loadVpnPanel();
 }
@@ -382,10 +382,10 @@ function initVpnPanelEvents() {
   document.getElementById('btn-dns-test')?.addEventListener('click', async () => {
     const btn = document.getElementById('btn-dns-test');
     const res = document.getElementById('dns-test-result');
-    btn.textContent = '⏳ Test ediliyor...';
+    btn.textContent = T('vpn.dnsTesting');
     btn.disabled = true;
     res.classList.remove('hidden');
-    res.textContent = 'Sorgu gönderiliyor...';
+    res.textContent = T('vpn.dnsSending');
 
     const result = await sb.vpn.testDnsLeak();
     // Sonuç textContent ile yazılır — çözümleyici IP'si dış kaynaklı veri.
@@ -393,17 +393,17 @@ function initVpnPanelEvents() {
       const mark = result.level === 'ok' ? '✓' : result.level === 'warn' ? '⚠' : 'ℹ';
       res.textContent =
         mark + ' ' + result.verdict + '\n\n' +
-        'Çözümleyici IP: ' + (result.resolverIp || '—') + '\n' +
-        'VPN: ' + (result.vpnConnected ? 'bağlı' : 'bağlı değil') +
-        (result.vpnDns ? '\nTünel DNS: ' + result.vpnDns : '');
+        T('vpn.dnsResolver', { ip: result.resolverIp || '—' }) + '\n' +
+        (result.vpnConnected ? T('vpn.dnsVpnOn') : T('vpn.dnsVpnOff')) +
+        (result.vpnDns ? '\n' + T('vpn.dnsTunnel', { dns: result.vpnDns }) : '');
       res.style.color = result.level === 'ok'   ? 'var(--success)'
                       : result.level === 'warn' ? 'var(--warning)'
                       :                           'var(--text-secondary)';
     } else {
-      res.textContent = '✗ Test yapılamadı: ' + ((result && result.error) || 'bilinmeyen hata');
+      res.textContent = T('vpn.dnsFailed', { error: (result && result.error) || T('common.unknownError') });
       res.style.color = 'var(--danger)';
     }
-    btn.textContent = '🔍 DNS Sızıntı Testi';
+    btn.textContent = T('vpn.dnsTest');
     btn.disabled = false;
   });
 
@@ -418,7 +418,7 @@ function initVpnPanelEvents() {
     const dns      = document.getElementById('vpn-new-dns')?.value.trim();
 
     if (!name || !endpoint || !publicKey || !privateKey) {
-      alert('Lütfen en azından: Sunucu Adı, Endpoint, Public Key ve Private Key doldurun.');
+      alert(T('vpn.requiredFields'));
       return;
     }
 
@@ -426,7 +426,7 @@ function initVpnPanelEvents() {
     // Reddedilirse formu TEMİZLEMEDEN hatayı göster, kullanıcı düzeltebilsin.
     const res = await sb.vpn.addProfile({ name, location, endpoint, publicKey, privateKey, clientIp, dns });
     if (res && res.ok === false) {
-      alert('Profil eklenemedi:\n\n' + (res.error || 'Bilinmeyen hata'));
+      alert(T('vpn.addFailed', { error: res.error || T('common.unknownError') }));
       return;
     }
 
@@ -461,7 +461,8 @@ function injectVpnToolbarButton() {
   const vpnBtn = document.createElement('button');
   vpnBtn.className = 'action-btn';
   vpnBtn.id        = 'btn-vpn-panel';
-  vpnBtn.title     = 'VPN Yönetimi';
+  vpnBtn.title     = T('vpn.titlePlain');
+  vpnBtn.setAttribute('aria-label', T('vpn.titlePlain'));
   vpnBtn.textContent = '🔒';
   actionsDiv.prepend(vpnBtn);
 

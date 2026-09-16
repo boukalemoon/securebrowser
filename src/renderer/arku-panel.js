@@ -12,40 +12,39 @@
   const sb = window.secureBrowser;
   let arkuInfo = null;
 
-  const fmtTime = (ts) => ts ? new Date(ts).toLocaleString('tr-TR') : '—';
+  const fmtTime = (ts) => ts ? window.ilgezdiI18n.formatDateTime(ts) : '—';
 
   function arkuBuildPanel() {
     const panel = document.getElementById('panel-arku');
     if (!panel) return;
     panel.innerHTML = `
       <div class="panel-header">
-        <h2>🖥 Arku Uzak Masaüstü</h2>
-        <button class="panel-close" data-panel="arku">✕</button>
+        <h2>${TH('arku.title')}</h2>
+        <button class="panel-close" data-panel="arku" aria-label="${TH('common.closePanel')}">✕</button>
       </div>
       <div class="panel-body">
 
         <div class="arku-hero">
           <div class="arku-hero-icon">🖥</div>
-          <p class="arku-hero-text">Sunucusuz, uçtan uca şifreli P2P uzak masaüstü.
-          Ekranınızı paylaşın veya bir cihaza bağlanın — tarayıcıdan çıkmadan.</p>
-          <button id="btn-arku-open" class="arku-open-btn">Arku'yu Aç</button>
+          <p class="arku-hero-text">${TH('arku.hero')}</p>
+          <button id="btn-arku-open" class="arku-open-btn">${TH('arku.open')}</button>
         </div>
 
         <!-- Güncelleme bildirimi (yalnızca yeni sürüm varken görünür) -->
         <div id="arku-update-card" class="arku-update-card hidden">
-          <div class="arku-update-title">⬆ Güncelleme hazır: <span id="arku-new-ver"></span></div>
-          <p class="arku-update-desc">Onay verdiğinizde açık Arku sekmeleri yeni sürümle yenilenir. Aktif bir uzak bağlantınız varsa kesilir.</p>
+          <div class="arku-update-title">${TH('arku.updateReady')} <span id="arku-new-ver"></span></div>
+          <p class="arku-update-desc">${TH('arku.updateDesc')}</p>
           <div class="arku-update-actions">
-            <button id="btn-arku-apply" class="arku-apply-btn">Şimdi Güncelle</button>
-            <button id="btn-arku-later" class="btn-secondary">Daha Sonra</button>
+            <button id="btn-arku-apply" class="arku-apply-btn">${TH('arku.updateNow')}</button>
+            <button id="btn-arku-later" class="btn-secondary">${TH('arku.later')}</button>
           </div>
         </div>
 
-        <div class="vpn-section-title">Sürüm</div>
-        <div class="arku-ver-row"><span>Kurulu sürüm</span><span id="arku-ver-installed" class="arku-ver-val">—</span></div>
-        <div class="arku-ver-row"><span>Son sürüm</span><span id="arku-ver-latest" class="arku-ver-val">—</span></div>
-        <div class="arku-ver-row"><span>Son denetim</span><span id="arku-ver-checked" class="arku-ver-val">—</span></div>
-        <button id="btn-arku-check" class="btn-secondary" style="margin-top:10px">🔄 Güncellemeleri Denetle</button>
+        <div class="vpn-section-title">${TH('arku.version')}</div>
+        <div class="arku-ver-row"><span>${TH('arku.installed')}</span><span id="arku-ver-installed" class="arku-ver-val">—</span></div>
+        <div class="arku-ver-row"><span>${TH('arku.latest')}</span><span id="arku-ver-latest" class="arku-ver-val">—</span></div>
+        <div class="arku-ver-row"><span>${TH('arku.lastCheck')}</span><span id="arku-ver-checked" class="arku-ver-val">—</span></div>
+        <button id="btn-arku-check" class="btn-secondary" style="margin-top:10px">${TH('arku.check')}</button>
         <div id="arku-check-note" class="arku-note hidden"></div>
 
       </div>
@@ -59,13 +58,13 @@
 
     document.getElementById('btn-arku-check')?.addEventListener('click', async () => {
       const note = document.getElementById('arku-check-note');
-      if (note) { note.textContent = 'Denetleniyor…'; note.classList.remove('hidden'); }
+      if (note) { note.textContent = T('arku.checking'); note.classList.remove('hidden'); }
       arkuInfo = await sb.arku?.checkUpdate?.();
       arkuRender();
       if (note) {
         note.textContent = arkuInfo?.updateAvailable
-          ? 'Yeni sürüm bulundu.'
-          : 'Arku güncel.';
+          ? T('arku.found')
+          : T('arku.upToDate');
         setTimeout(() => note.classList.add('hidden'), 4000);
       }
     });
@@ -76,7 +75,7 @@
       arkuSetBadge(false);
       const note = document.getElementById('arku-check-note');
       if (note) {
-        note.textContent = 'Güncellendi. Açık Arku sekmeleri yenilendi.';
+        note.textContent = T('arku.updated');
         note.classList.remove('hidden');
         setTimeout(() => note.classList.add('hidden'), 5000);
       }
@@ -133,8 +132,8 @@
       arkuSetBadge(true);
       arkuRender();
       sb.showNotification?.(
-        'Arku güncellemesi hazır',
-        `v${info.latestVersion} yayınlandı. Uygulamak için kenar çubuğundaki Arku panelini açın.`
+        T('arku.notifyTitle'),
+        T('arku.notifyBody', { version: info.latestVersion })
       );
     });
 

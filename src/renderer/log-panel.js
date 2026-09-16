@@ -141,57 +141,57 @@ function injectLogPanelHTML() {
 
   panel.innerHTML = `
     <div class="panel-header">
-      <h2>📋 Ziyaret Logları</h2>
-      <button class="panel-close" data-panel="logs">✕</button>
+      <h2>${TH('logs.title')}</h2>
+      <button class="panel-close" data-panel="logs" aria-label="${TH('common.closePanel')}">✕</button>
     </div>
     <div class="panel-body">
 
       <!-- Şifreleme Durumu -->
       <div class="enc-badge">
-        🔐 AES-256-GCM şifreli &nbsp;·&nbsp; <span id="log-size-info">Yükleniyor...</span>
+        ${TH('logs.encrypted')} &nbsp;·&nbsp; <span id="log-size-info">${TH('common.loading')}</span>
       </div>
 
       <!-- İstatistik Bar -->
       <div class="log-stats-bar">
         <div class="stat-chip">
           <span class="stat-val" id="stat-total">-</span>
-          <span class="stat-lbl">Toplam</span>
+          <span class="stat-lbl">${TH('logs.stat.total')}</span>
         </div>
         <div class="stat-chip">
           <span class="stat-val" id="stat-today">-</span>
-          <span class="stat-lbl">Bugün</span>
+          <span class="stat-lbl">${TH('logs.stat.today')}</span>
         </div>
         <div class="stat-chip">
           <span class="stat-val" id="stat-domains">-</span>
-          <span class="stat-lbl">Domain</span>
+          <span class="stat-lbl">${TH('logs.stat.domains')}</span>
         </div>
         <div class="stat-chip">
           <span class="stat-val" id="stat-vpn">-</span>
-          <span class="stat-lbl">VPN ile</span>
+          <span class="stat-lbl">${TH('logs.stat.vpn')}</span>
         </div>
         <div class="stat-chip">
           <span class="stat-val" id="stat-blocked">-</span>
-          <span class="stat-lbl">Engellenen</span>
+          <span class="stat-lbl">${TH('logs.stat.blocked')}</span>
         </div>
       </div>
 
       <!-- Arama / Filtre -->
       <div class="log-toolbar">
         <div class="log-search-row">
-          <input type="text" id="log-search-input" placeholder="Domain, URL veya başlık ara..." />
-          <button class="page-btn" id="btn-log-search">Ara</button>
-          <button class="page-btn" id="btn-log-clear-search">✕</button>
+          <input type="text" id="log-search-input" placeholder="${TH('logs.searchPlaceholder')}" />
+          <button class="page-btn" id="btn-log-search">${TH('logs.search')}</button>
+          <button class="page-btn" id="btn-log-clear-search" title="${TH('logs.clearSearch')}" aria-label="${TH('logs.clearSearch')}">✕</button>
         </div>
         <div class="log-filter-row">
-          <input type="date" id="log-date-from" title="Başlangıç tarihi" />
+          <input type="date" id="log-date-from" title="${TH('logs.dateFrom')}" aria-label="${TH('logs.dateFrom')}" />
           <span style="font-size:11px;color:var(--text-muted)">—</span>
-          <input type="date" id="log-date-to" title="Bitiş tarihi" />
-          <button class="log-filter-toggle" id="btn-vpn-filter">🔒 Sadece VPN</button>
+          <input type="date" id="log-date-to" title="${TH('logs.dateTo')}" aria-label="${TH('logs.dateTo')}" />
+          <button class="log-filter-toggle" id="btn-vpn-filter">${TH('logs.vpnOnly')}</button>
         </div>
         <div class="log-export-row">
-          <button class="log-export-btn" id="btn-export-csv">📄 CSV İndir</button>
-          <button class="log-export-btn" id="btn-export-html">🌐 HTML Rapor</button>
-          <button class="log-export-btn" id="btn-clear-logs" style="color:var(--danger)">🗑 Temizle</button>
+          <button class="log-export-btn" id="btn-export-csv">${TH('logs.exportCsv')}</button>
+          <button class="log-export-btn" id="btn-export-html">${TH('logs.exportHtml')}</button>
+          <button class="log-export-btn" id="btn-clear-logs" style="color:var(--danger)">${TH('logs.clear')}</button>
         </div>
       </div>
 
@@ -199,15 +199,15 @@ function injectLogPanelHTML() {
       <div class="log-list-wrap" id="log-list-wrap">
         <div class="log-empty">
           <div class="empty-icon">📋</div>
-          Henüz log yok
+          ${TH('logs.empty')}
         </div>
       </div>
 
       <!-- Sayfalama -->
       <div class="log-pagination">
-        <button class="page-btn" id="btn-log-prev">‹ Önceki</button>
+        <button class="page-btn" id="btn-log-prev">${TH('logs.prev')}</button>
         <span class="page-info" id="log-page-info">1 / 1</span>
-        <button class="page-btn" id="btn-log-next">Sonraki ›</button>
+        <button class="page-btn" id="btn-log-next">${TH('logs.next')}</button>
       </div>
 
     </div>
@@ -226,7 +226,7 @@ function renderLogStats(stats) {
   // sayaçtan okunuyor ve hep 0 gösteriyordu (denetim D-11).
   sb.blocker?.getStats?.().then((b) => set('stat-blocked', Number(b?.today) || 0)).catch(() => {});
   // safeStorage yoksa günlük şifresiz tutulur — "şifreli" diye göstermeyelim.
-  set('log-size-info', `${stats.logSizeKb || 0} KB ${stats.encrypted === false ? 'şifresiz' : 'şifreli'} dosya`);
+  set('log-size-info', T(stats.encrypted === false ? 'logs.sizePlain' : 'logs.sizeEncrypted', { size: window.ilgezdiI18n.formatNumber(stats.logSizeKb || 0) }));
 }
 
 function renderLogList(data) {
@@ -235,7 +235,7 @@ function renderLogList(data) {
   if (!wrap) return;
 
   if (!data.items?.length) {
-    wrap.innerHTML = `<div class="log-empty"><div class="empty-icon">🔍</div>Sonuç bulunamadı</div>`;
+    wrap.innerHTML = `<div class="log-empty"><div class="empty-icon">🔍</div>${TH('logs.noResults')}</div>`;
   } else {
     // GÜVENLİK (denetim Y-04): title / url / domain ziyaret edilen sitenin
     // kontrolünde — başlık doğrudan sayfanın <title> etiketinden gelir. Kaçışsız
@@ -244,8 +244,8 @@ function renderLogList(data) {
     const H = window.ilgezdiHtml;
     wrap.innerHTML = data.items.map(log => {
       const d    = new Date(log.timestamp);
-      const time = d.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
-      const date = d.toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit' });
+      const time = window.ilgezdiI18n.formatTime(d, { hour: '2-digit', minute: '2-digit' });
+      const date = window.ilgezdiI18n.formatDate(d, { day: '2-digit', month: '2-digit' });
       return `
         <div class="log-entry" data-url="${H.esc(H.safeUrl(log.url))}">
           <div class="log-entry-top">
@@ -276,7 +276,7 @@ function renderLogList(data) {
 
   // Sayfalama
   const pageInfo = document.getElementById('log-page-info');
-  if (pageInfo) pageInfo.textContent = `${data.page} / ${data.pages || 1}  (${data.total} kayıt)`;
+  if (pageInfo) pageInfo.textContent = T('logs.pageInfo', { page: data.page, pages: data.pages || 1, count: data.total });
 
   const prevBtn = document.getElementById('btn-log-prev');
   const nextBtn = document.getElementById('btn-log-next');
@@ -393,7 +393,7 @@ function initLogPanelEvents() {
 
   // Logları Temizle
   document.getElementById('btn-clear-logs')?.addEventListener('click', async () => {
-    if (confirm('Tüm logları silmek istediğinden emin misin?')) {
+    if (confirm(T('logs.clearConfirm'))) {
       await sb.logs.clearLogs();
       await loadLogPanel();
     }
@@ -419,7 +419,7 @@ function generateHTMLReport(items, stats) {
 
   const rows = items.map(l => {
     const d     = new Date(l.timestamp);
-    const time  = d.toLocaleString('tr-TR');
+    const time  = window.ilgezdiI18n.formatDateTime(d);
     const href  = H.safeUrl(l.url);
     const label = H.esc(String(l.title || l.url || '-').slice(0, 60));
     return `<tr>
@@ -430,17 +430,15 @@ function generateHTMLReport(items, stats) {
     </tr>`;
   }).join('');
 
-  const encNote = stats.encrypted === false
-    ? '⚠ Bu cihazda işletim sistemi şifrelemesi kullanılamadığı için ziyaret günlüğü şifresiz saklanıyor.'
-    : '🔐 Kayıtlar cihazınızda şifreli saklanıyor. Bu rapor dosyası ise ŞİFRESİZDİR ve tarama geçmişinizi içerir — paylaşırken dikkat edin.';
+  const encNote = stats.encrypted === false ? T('logs.report.plainNote') : T('logs.report.encNote');
 
   return `<!DOCTYPE html>
-<html lang="tr">
+<html lang="${H.esc(window.ilgezdiI18n.locale)}">
 <head>
 <meta charset="UTF-8">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:">
 <meta name="referrer" content="no-referrer">
-<title>İlgezdi — Ziyaret Raporu</title>
+<title>${TH('logs.report.title')}</title>
 <style>
   body { background:#0a0e1a; color:#e0e0e0; font-family:'Segoe UI',sans-serif; padding:30px; }
   h1   { color:#e8b84b; }
@@ -455,16 +453,16 @@ function generateHTMLReport(items, stats) {
 </style>
 </head>
 <body>
-<h1>İlgezdi — Ziyaret Raporu</h1>
-<p style="color:#8a93a8;font-size:12px">Oluşturulma: ${H.esc(new Date().toLocaleString('tr-TR'))}</p>
+<h1>${TH('logs.report.title')}</h1>
+<p style="color:#8a93a8;font-size:12px">${TH('logs.report.created', { date: window.ilgezdiI18n.formatDateTime(new Date()) })}</p>
 <div class="stats">
-  <div class="stat"><div class="stat-val">${n(stats.totalVisits)}</div><div class="stat-lbl">Toplam Ziyaret</div></div>
-  <div class="stat"><div class="stat-val">${n(stats.uniqueDomains)}</div><div class="stat-lbl">Benzersiz Alan Adı</div></div>
-  <div class="stat"><div class="stat-val">${n(stats.vpnVisits)}</div><div class="stat-lbl">VPN ile Ziyaret</div></div>
+  <div class="stat"><div class="stat-val">${n(stats.totalVisits)}</div><div class="stat-lbl">${TH('logs.report.totalVisits')}</div></div>
+  <div class="stat"><div class="stat-val">${n(stats.uniqueDomains)}</div><div class="stat-lbl">${TH('logs.report.uniqueDomains')}</div></div>
+  <div class="stat"><div class="stat-val">${n(stats.vpnVisits)}</div><div class="stat-lbl">${TH('logs.report.vpnVisits')}</div></div>
 </div>
 <table>
-  <thead><tr><th>Tarih / Saat</th><th>Alan adı</th><th>Sayfa</th><th>VPN</th></tr></thead>
-  <tbody>${rows || '<tr><td colspan="4" style="text-align:center;color:#8a93a8;padding:30px">Kayıt bulunamadı</td></tr>'}</tbody>
+  <thead><tr><th>${TH('logs.report.colDate')}</th><th>${TH('logs.report.colDomain')}</th><th>${TH('logs.report.colPage')}</th><th>VPN</th></tr></thead>
+  <tbody>${rows || `<tr><td colspan="4" style="text-align:center;color:#8a93a8;padding:30px">${TH('logs.report.empty')}</td></tr>`}</tbody>
 </table>
 <div class="enc-note">${H.esc(encNote)}</div>
 </body></html>`;

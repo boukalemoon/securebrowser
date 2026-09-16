@@ -69,61 +69,52 @@
   function renderDiagTab() {
     return `
       <div class="settings-section">
-        <h3>Hata Raporlama</h3>
-        <p class="s-hint" style="margin-top:0">
-          Rapor yalnızca uygulamanın kendi hata bilgilerini içerir. Gezdiğiniz adresler,
-          sayfa başlıkları, çerezler ve şifreleriniz rapora <strong>girmez</strong> —
-          adresler geri çevrilemez bir etikete dönüştürülür. Aşağıdaki
-          “Gönderilecek raporu göster” düğmesiyle bunu doğrulayabilirsiniz.
-        </p>
+        <h3>${TH('diag.reporting')}</h3>
+        <p class="s-hint" style="margin-top:0">${T('diag.reportingHint')}</p>
         <div id="diag-consent-row" class="diag-row">
-          <span class="diag-k">Otomatik gönderim</span>
+          <span class="diag-k">${TH('diag.autoSend')}</span>
           <span class="diag-v" id="diag-consent-state">…</span>
         </div>
         <div class="diag-btns">
-          <button class="diag-btn" id="diag-consent-on">Otomatik göndermeyi aç</button>
-          <button class="diag-btn" id="diag-consent-off">Kapat</button>
+          <button class="diag-btn" id="diag-consent-on">${TH('diag.autoSendOn')}</button>
+          <button class="diag-btn" id="diag-consent-off">${TH('diag.off')}</button>
         </div>
       </div>
 
       <div class="settings-section">
-        <h3>Sorun Bildir</h3>
-        <p class="s-hint" style="margin-top:0">Ne olduğunu kısaca yazın — hangi adımda, ne beklediniz, ne oldu.</p>
-        <textarea class="diag-note" id="diag-note" placeholder="Örnek: Ayarlar'da temayı değiştirip Kaydet'e bastım, panel boş kaldı."></textarea>
+        <h3>${TH('diag.report')}</h3>
+        <p class="s-hint" style="margin-top:0">${TH('diag.reportHint')}</p>
+        <textarea class="diag-note" id="diag-note" placeholder="${TH('diag.notePlaceholder')}" aria-label="${TH('diag.report')}"></textarea>
         <div class="diag-btns">
-          <button class="diag-btn primary" id="diag-send">Raporu Gönder</button>
-          <button class="diag-btn" id="diag-export">Dosyaya Kaydet</button>
-          <button class="diag-btn" id="diag-preview">Gönderilecek raporu göster</button>
+          <button class="diag-btn primary" id="diag-send">${TH('diag.send')}</button>
+          <button class="diag-btn" id="diag-export">${TH('diag.export')}</button>
+          <button class="diag-btn" id="diag-preview">${TH('diag.preview')}</button>
         </div>
         <div class="diag-status" id="diag-status"></div>
         <div id="diag-preview-box" style="margin-top:10px;display:none"></div>
       </div>
 
       <div class="settings-section">
-        <h3>Sistem Bilgisi</h3>
+        <h3>${TH('diag.system')}</h3>
         <div id="diag-env"></div>
       </div>
 
       <div class="settings-section">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-          <h3 style="margin:0;border:none;padding:0">Son Olaylar</h3>
+          <h3 style="margin:0;border:none;padding:0">${TH('diag.recent')}</h3>
           <div style="display:flex;gap:6px">
-            <button class="diag-btn" id="diag-refresh" style="padding:4px 9px;font-size:11px">Yenile</button>
-            <button class="diag-btn" id="diag-open-folder" style="padding:4px 9px;font-size:11px">Klasörü Aç</button>
+            <button class="diag-btn" id="diag-refresh" style="padding:4px 9px;font-size:11px">${TH('diag.refresh')}</button>
+            <button class="diag-btn" id="diag-open-folder" style="padding:4px 9px;font-size:11px">${TH('diag.openFolder')}</button>
           </div>
         </div>
-        <div class="diag-log" id="diag-log"><div class="diag-empty">Yükleniyor…</div></div>
+        <div class="diag-log" id="diag-log"><div class="diag-empty">${TH('common.loading')}</div></div>
       </div>
 
       <div class="settings-section">
-        <h3>Gizlilik</h3>
-        <p class="s-hint" style="margin-top:0">
-          Kurulumunuza ait kimliksiz bir tanılama kimliği var; aynı kurulumdan gelen raporları
-          birbirine bağlamak için kullanılır ve kimliğinizle ilişkili değildir. Sıfırlarsanız
-          önceki raporlarla bağ kopar.
-        </p>
+        <h3>${TH('diag.privacy')}</h3>
+        <p class="s-hint" style="margin-top:0">${TH('diag.privacyHint')}</p>
         <div class="diag-btns">
-          <button class="diag-btn" id="diag-reset-id">Tanılama kimliğini sıfırla</button>
+          <button class="diag-btn" id="diag-reset-id">${TH('diag.resetId')}</button>
         </div>
       </div>
     `;
@@ -137,7 +128,7 @@
 
     const cs = document.getElementById('diag-consent-state');
     if (cs) {
-      cs.textContent = s.consent === true ? 'Açık' : s.consent === false ? 'Kapalı' : 'Henüz sorulmadı';
+      cs.textContent = s.consent === true ? T('diag.consent.on') : s.consent === false ? T('diag.consent.off') : T('diag.consent.unset');
       cs.style.color = s.consent === true ? 'var(--success)' : 'var(--text-muted)';
     }
 
@@ -145,14 +136,14 @@
     if (env && s.env) {
       const e = s.env;
       const rows = [
-        ['İlgezdi sürümü', e.version],
+        [T('diag.env.version'), e.version],
         ['Electron',       e.electron],
         ['Chromium',       e.chrome],
-        ['İşletim sistemi', e.platform + ' ' + e.osRelease + ' (' + e.arch + ')'],
-        ['Bellek',         e.freeMemMb + ' MB boş / ' + e.totalMemMb + ' MB'],
-        ['Oturum süresi',  e.uptimeSec + ' sn'],
-        ['Bu oturumda',    e.counters.error + ' hata · ' + e.counters.warn + ' uyarı · ' + e.counters.crash + ' çökme'],
-        ['Tanılama kimliği', e.installId],
+        [T('diag.env.os'), e.platform + ' ' + e.osRelease + ' (' + e.arch + ')'],
+        [T('diag.env.memory'), T('diag.env.memoryValue', { free: e.freeMemMb, total: e.totalMemMb })],
+        [T('diag.env.uptime'), T('diag.env.uptimeValue', { sec: e.uptimeSec })],
+        [T('diag.env.session'), T('diag.env.sessionValue', { errors: e.counters.error, warns: e.counters.warn, crashes: e.counters.crash })],
+        [T('diag.env.installId'), e.installId],
       ];
       env.innerHTML = rows.map(([k, v]) =>
         `<div class="diag-row"><span class="diag-k">${esc(k)}</span><span class="diag-v">${esc(v)}</span></div>`
@@ -165,7 +156,7 @@
     if (!box) return;
     let items = [];
     try { items = await sb.diag.getRecent(200) || []; } catch {}
-    if (!items.length) { box.innerHTML = '<div class="diag-empty">Kayıtlı olay yok.</div>'; return; }
+    if (!items.length) { box.innerHTML = '<div class="diag-empty">' + TH('diag.noEvents') + '</div>'; return; }
     // En yeni üstte
     box.innerHTML = items.slice().reverse().map((l) => {
       const t = String(l.ts || '').slice(11, 19);
@@ -199,10 +190,10 @@
     document.getElementById('diag-open-folder')?.addEventListener('click', () => sb.diag.openLogFolder());
 
     document.getElementById('diag-consent-on')?.addEventListener('click', async () => {
-      await sb.diag.setConsent(true); fillSummary(); status('Otomatik gönderim açıldı.', 'ok');
+      await sb.diag.setConsent(true); fillSummary(); status(T('diag.autoSendEnabled'), 'ok');
     });
     document.getElementById('diag-consent-off')?.addEventListener('click', async () => {
-      await sb.diag.setConsent(false); fillSummary(); status('Otomatik gönderim kapatıldı.', 'ok');
+      await sb.diag.setConsent(false); fillSummary(); status(T('diag.autoSendDisabled'), 'ok');
     });
 
     document.getElementById('diag-preview')?.addEventListener('click', async () => {
@@ -219,28 +210,28 @@
     document.getElementById('diag-send')?.addEventListener('click', async (e) => {
       const btn = e.currentTarget;
       const note = document.getElementById('diag-note')?.value || '';
-      btn.disabled = true; const old = btn.textContent; btn.textContent = 'Gönderiliyor…';
-      status('Rapor gönderiliyor…');
+      btn.disabled = true; const old = btn.textContent; btn.textContent = T('diag.sending');
+      status(T('diag.sendingReport'));
       let r = null;
       try { r = await sb.diag.sendReport(note); } catch (err) { r = { ok: false, reason: String(err) }; }
       btn.disabled = false; btn.textContent = old;
-      if (r?.ok) { status('Rapor gönderildi — teşekkürler.', 'ok'); fillSummary(); }
-      else if (r?.reason === 'no_consent')      status('Gönderim izni verilmedi.', 'error');
-      else if (r?.reason === 'no_endpoint')     status('Rapor sunucusu tanımlı değil. Raporu dosyaya kaydedip iletebilirsiniz.', 'error');
-      else if (r?.reason === 'insecure_endpoint') status('Rapor sunucusu HTTPS değil — gönderilmedi.', 'error');
-      else status('Gönderilemedi: ' + (r?.reason || 'bilinmeyen hata'), 'error');
+      if (r?.ok) { status(T('diag.sent'), 'ok'); fillSummary(); }
+      else if (r?.reason === 'no_consent')      status(T('diag.noConsent'), 'error');
+      else if (r?.reason === 'no_endpoint')     status(T('diag.noEndpoint'), 'error');
+      else if (r?.reason === 'insecure_endpoint') status(T('diag.insecureEndpoint'), 'error');
+      else status(T('diag.sendFailed', { reason: r?.reason || T('common.unknownError') }), 'error');
     });
 
     document.getElementById('diag-export')?.addEventListener('click', async () => {
       const note = document.getElementById('diag-note')?.value || '';
       const r = await sb.diag.exportReport(note);
-      if (r?.ok) status('Kaydedildi: ' + r.path, 'ok');
+      if (r?.ok) status(T('diag.saved', { path: r.path }), 'ok');
       else if (r?.canceled) status('');
-      else status('Kaydedilemedi: ' + (r?.reason || ''), 'error');
+      else status(T('diag.saveFailed', { reason: r?.reason || T('common.unknownError') }), 'error');
     });
 
     document.getElementById('diag-reset-id')?.addEventListener('click', async () => {
-      await sb.diag.resetIdentity(); fillSummary(); status('Tanılama kimliği sıfırlandı.', 'ok');
+      await sb.diag.resetIdentity(); fillSummary(); status(T('diag.idReset'), 'ok');
     });
   }
 

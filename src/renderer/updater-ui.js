@@ -93,15 +93,15 @@
       <div class="u-head">
         <span class="u-ico">⬆</span>
         <div>
-          <div class="u-title">Yeni sürüm hazır</div>
-          <div class="u-ver">Sürüm ${esc(version)}</div>
+          <div class="u-title">${TH('updater.available')}</div>
+          <div class="u-ver">${TH('updater.version', { version })}</div>
         </div>
-        <button class="u-close" title="Sonra">✕</button>
+        <button class="u-close" title="${TH('updater.later')}" aria-label="${TH('updater.later')}">✕</button>
       </div>
       ${notes ? `<div class="u-notes">${esc(notes)}</div>` : ''}
       <div class="u-actions">
-        <button class="u-btn primary" data-act="download">Güncelle</button>
-        <button class="u-btn ghost" data-act="later">Sonra</button>
+        <button class="u-btn primary" data-act="download">${TH('updater.update')}</button>
+        <button class="u-btn ghost" data-act="later">${TH('updater.later')}</button>
       </div>`;
     wire();
     show();
@@ -112,11 +112,11 @@
     el.innerHTML = `
       <div class="u-head">
         <span class="u-ico">⬇</span>
-        <div><div class="u-title">İndiriliyor…</div></div>
-        <button class="u-close" title="Gizle">✕</button>
+        <div><div class="u-title">${TH('updater.downloading')}</div></div>
+        <button class="u-close" title="${TH('updater.hide')}" aria-label="${TH('updater.hide')}">✕</button>
       </div>
       <div class="u-bar"><div class="u-bar-fill" style="width:${percent}%"></div></div>
-      <div class="u-prog">%${percent}</div>`;
+      <div class="u-prog">${esc(window.ilgezdiI18n.formatNumber(percent / 100, { style: 'percent', maximumFractionDigits: 0 }))}</div>`;
     wire();
     show();
   }
@@ -127,14 +127,14 @@
       <div class="u-head">
         <span class="u-ico">✓</span>
         <div>
-          <div class="u-title">Güncelleme indirildi</div>
-          <div class="u-ver">Sürüm ${esc(version)} kurulmaya hazır</div>
+          <div class="u-title">${TH('updater.downloaded')}</div>
+          <div class="u-ver">${TH('updater.readyToInstall', { version })}</div>
         </div>
-        <button class="u-close" title="Sonra">✕</button>
+        <button class="u-close" title="${TH('updater.later')}" aria-label="${TH('updater.later')}">✕</button>
       </div>
       <div class="u-actions">
-        <button class="u-btn primary" data-act="install">Yeniden başlat & kur</button>
-        <button class="u-btn ghost" data-act="later">Sonra</button>
+        <button class="u-btn primary" data-act="install">${TH('updater.install')}</button>
+        <button class="u-btn ghost" data-act="later">${TH('updater.later')}</button>
       </div>`;
     wire();
     show();
@@ -147,15 +147,15 @@
         const act = btn.getAttribute('data-act');
         if (act === 'later') { hide(); return; }
         if (act === 'download') {
-          btn.disabled = true; btn.textContent = 'Başlatılıyor…';
+          btn.disabled = true; btn.textContent = T('updater.starting');
           const r = await up.download();
           if (r && r.ok === false) {
-            btn.disabled = false; btn.textContent = 'Yeniden dene';
+            btn.disabled = false; btn.textContent = T('updater.retry');
           }
           return;
         }
         if (act === 'install') {
-          btn.disabled = true; btn.textContent = 'Kapatılıyor…';
+          btn.disabled = true; btn.textContent = T('updater.closing');
           await up.install();
         }
       });
