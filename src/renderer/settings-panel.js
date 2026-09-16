@@ -160,9 +160,11 @@ function injectSettingsPanelStyles() {
     /* İkon üstte, ad altta, eşit sütunlar: 6 sekme 420 px panele sığar. Yan yana
        metinle 434 px tutuyordu, "Tanılama" sağda kesiliyordu (kullanıcı bildirdi). */
     .settings-tabs { display:grid; grid-template-columns:repeat(6, minmax(0, 1fr)); gap:2px; background:var(--bg-surface); border-bottom:1px solid var(--border-color); padding:0 8px; flex-shrink:0; }
+    /* Uzun dillerde (fr "Mots de passe") çok sözcüklü ad iki satıra iner; tek uzun sözcük
+       ("Confidentialité") fitSettingsTabLabels ile biraz küçülür, en son çare üç nokta. */
     .settings-tab { display:flex; flex-direction:column; align-items:center; gap:3px; min-width:0; padding:8px 2px 7px; font-size:10px; font-weight:600; color:var(--text-muted); cursor:pointer; border:none; border-bottom:2px solid transparent; background:none; white-space:nowrap; transition:all .15s; }
     .settings-tab-icon { font-size:14px; line-height:1; }
-    .settings-tab-label { max-width:100%; overflow:hidden; text-overflow:ellipsis; }
+    .settings-tab-label { max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:normal; line-height:1.15; text-align:center; }
     .settings-tab:focus-visible { outline:2px solid var(--accent); outline-offset:-2px; border-radius:4px; }
     .settings-tab.active { color:var(--accent); border-bottom-color:var(--accent); }
     .settings-tab:hover { color:var(--text-main); }
@@ -1469,6 +1471,20 @@ function bindPasswordEvents() {
   populatePwdList();
 }
 
+// Sekme adı sütuna sığmıyorsa (tek uzun sözcük) yazıyı 8 px'e kadar küçült. Panel gizliyken
+// genişlik 0 olduğundan ResizeObserver panel görünür olunca yeniden ölçer.
+function fitSettingsTabLabels() {
+  document.querySelectorAll('.settings-tab-label').forEach((el) => {
+    el.style.fontSize = '';
+    if (!el.clientWidth) return;
+    let size = parseFloat(getComputedStyle(el).fontSize) || 10;
+    while (el.scrollWidth > el.clientWidth + 0.5 && size > 8) {
+      size -= 0.5;
+      el.style.fontSize = size + 'px';
+    }
+  });
+}
+
 // ─── Panel events ─────────────────────────────────────────────────────────────
 // Sekmeyi seç: vurgu, aria-selected ve içerik birlikte (panel her açılışta da çağırır;
 // eskiden içerik Özelleştir'e dönerken vurgu önceki sekmede kalıyordu).
@@ -1495,6 +1511,8 @@ function initSettingsPanelEvents() {
   document.querySelectorAll('.settings-tab').forEach(tab=>{
     tab.addEventListener('click',()=>selectSettingsTab(tab.dataset.tab));
   });
+  const tabsEl = document.querySelector('.settings-tabs');
+  if (tabsEl && typeof ResizeObserver === 'function') new ResizeObserver(() => fitSettingsTabLabels()).observe(tabsEl);
 
   // Giriş/çıkış sonrası Hesap sekmesi açıksa yerinde yenilenir (panel kapanmaz).
   window.addEventListener('ilgezdi-auth-changed', () => {
