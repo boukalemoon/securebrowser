@@ -1623,6 +1623,35 @@ suite('Keşfet — TrendTech yazılımları');
     fs.rmSync(tmpLog, { recursive: true, force: true });
   }
 
+  suite('Şifre denetimi (yerel)');
+  {
+    const G2 = require('../src/main/password-generator.js');
+    eq('zayıf: kısa, yaygın, yaygın + rakam, tek karakter, sıralı, az türlü kısa',
+      ['Ab1!x', '12345678', 'Galatasaray1905', 'sifre123!', 'aaaaaaaaaa', 'abcdefghij', 'qwertyuiop', 'kedimkedim1'].map(G2.isWeakPassword),
+      [true, true, true, true, true, true, true, true]);
+    eq('güçlü: uzun parola cümlesi, dört türlü 11 karakter, karışık 12+, oluşturulan',
+      ['masada üç kırmızı elma var', 'Kedi-Yavru7', 'Kedi-Yavru77x', G2.generatePassword()].map(G2.isWeakPassword),
+      [false, false, false, false]);
+    const audit = G2.auditPasswords([
+      { id: 'a', url: 'https://a.com/', username: 'ali', password: 'Ortak-Sifre-2026' },
+      { id: 'b', url: 'https://b.com/', username: 'ali', password: 'Ortak-Sifre-2026' },
+      { id: 'c', url: 'https://c.com/', username: 'veli', password: '123456' },
+      { id: 'd', url: 'https://d.com/', username: 'can', password: G2.generatePassword() },
+      { id: 'e', url: 'https://e.com/', username: 'bos', password: '' },
+    ]);
+    eq('denetim: toplam boş olmayanlar; tekrar kullanılan 2, zayıf 1; güçlü tekil şifre listede yok',
+      [audit.total, audit.reusedCount, audit.weakCount, audit.items.map((i) => i.id)], [4, 2, 1, ['a', 'b', 'c']]);
+    check('denetim sonucunda şifre yok', !JSON.stringify(audit).includes('Ortak-Sifre-2026') && !JSON.stringify(audit).includes('123456'));
+    eq('tekrar sayısı', audit.items.filter((i) => i.reuseCount).map((i) => i.reuseCount), [2, 2]);
+    const pmA = read('main/password-manager.js');
+    check('IPC kasa hazır olunca yerel denetimi döndürüyor; ağ isteği yok',
+      pmA.includes("ipcMain.handle('pw-audit', async () => { await vaultReady; return auditPasswords(vault); });")
+      && !/fetch\(|https\.request|pwnedpasswords/.test(read('main/password-generator.js')));
+    const spA = read('renderer/settings-panel.js');
+    check('arayüz sonuç metnini kaçışlıyor ve yalnızca http(s) siteyi açıyor',
+      /async function runPasswordAudit\(\) \{[\s\S]{0,1800}_pwEsc\(host\)[\s\S]{0,200}_pwEsc\(it\.username \|\| '—'\)[\s\S]{0,600}if \(\/\^https\?:\\\/\\\/\/i\.test\(url\)\) window\.secureBrowser\?\.newTab\?\.\(url\);/.test(spA));
+  }
+
   suite('Sekme uyutma');
   {
     const bcS = require('../src/main/browser-commands.js');

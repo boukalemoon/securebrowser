@@ -826,6 +826,13 @@ function renderPasswordsTab(cfg = {}) {
         <button class="pwd-btn" id="btn-pwd-import-csv">📄 CSV'den</button>
       </div>
     </div>
+    <div class="settings-section"><h3>Şifre Denetimi</h3>
+      <div class="s-input-row" style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+        <div><div class="s-toggle-label">Zayıf ve tekrar kullanılan şifreler</div><div class="s-toggle-sub">Denetim yalnızca bu bilgisayarda yapılır; şifreler hiçbir yere gönderilmez.</div></div>
+        <button class="folder-btn" id="btn-pw-audit">Denetle</button>
+      </div>
+      <div id="pw-audit-result" aria-live="polite"></div>
+    </div>
     <div class="settings-section"><h3>Yeni Şifre Ekle</h3>
       <div class="s-input-row"><label>Site</label><input type="text" id="pwd-new-site" placeholder="google.com"/></div>
       <div class="s-input-row"><label>Kullanıcı adı</label><input type="text" id="pwd-new-user" placeholder="kullanici@email.com"/></div>
@@ -888,6 +895,33 @@ async function populatePwdList() {
       </div></div>`;
   }).join('');
   box.querySelectorAll('.pwd-btn[data-act]').forEach(b => b.addEventListener('click', onPwdAction));
+}
+
+// Şifre denetimi sonucu: kayıtlar ve nedenleri (şifreler arayüze gelmez). "Siteyi aç" şifreyi
+// değiştirmek için sitenin kökünü yeni sekmede açar.
+async function runPasswordAudit() {
+  const box = document.getElementById('pw-audit-result');
+  if (!box) return;
+  box.innerHTML = '<p class="s-hint">Denetleniyor…</p>';
+  let r = null;
+  try { r = await window.secureBrowser?.passwords?.audit?.(); } catch {}
+  if (!r) { box.innerHTML = '<p class="s-hint">Denetim yapılamadı.</p>'; return; }
+  if (!r.total) { box.innerHTML = '<p class="s-hint">Kasada şifre yok.</p>'; return; }
+  if (!r.items.length) { box.innerHTML = `<p class="s-hint" style="color:var(--success)">${r.total} şifre denetlendi: zayıf ya da tekrar kullanılan şifre yok.</p>`; return; }
+  const parts = [];
+  if (r.weakCount) parts.push(`${r.weakCount} zayıf`);
+  if (r.reusedCount) parts.push(`${r.reusedCount} tekrar kullanılan`);
+  box.innerHTML = `<p class="s-hint" style="color:var(--warning, #e0a040)">${r.total} şifre denetlendi: ${parts.join(', ')}. Bu sitelerde şifrenizi değiştirip yeni şifre oluşturucuyu kullanabilirsiniz.</p>`
+    + r.items.map((it) => {
+      let host = it.url; try { host = new URL(it.url).hostname.replace(/^www\./, ''); } catch {}
+      const reasons = [it.weak ? 'Zayıf' : '', it.reuseCount ? `${it.reuseCount} hesapta aynı` : ''].filter(Boolean).join(' · ');
+      return `<div class="pwd-entry"><div class="pwd-entry-info"><div class="pwd-site">${_pwEsc(host)}</div><div class="pwd-user">${_pwEsc(it.username || '—')} · ${_pwEsc(reasons)}</div></div>
+        <div class="pwd-actions"><button class="pwd-btn" data-audit-open="${_pwEsc(it.url)}">Siteyi aç</button></div></div>`;
+    }).join('');
+  box.querySelectorAll('[data-audit-open]').forEach((b) => b.addEventListener('click', () => {
+    const url = b.getAttribute('data-audit-open');
+    if (/^https?:\/\//i.test(url)) window.secureBrowser?.newTab?.(url);
+  }));
 }
 
 async function onPwdAction(e) {
@@ -1369,6 +1403,7 @@ function bindPasswordEvents() {
     showSettingsToast('Şifre güvenli kasaya kaydedildi!');
     populatePwdList();
   });
+  document.getElementById('btn-pw-audit')?.addEventListener('click', runPasswordAudit);
   // Oluşturulan şifre görünür yazılır: kullanıcı siteye yapıştırmadan önce görebilsin.
   document.getElementById('btn-pwd-generate')?.addEventListener('click', async ()=>{
     const pw = await window.secureBrowser?.passwords?.generate?.();

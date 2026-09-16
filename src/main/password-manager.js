@@ -26,6 +26,7 @@ const crypto = require('crypto');
 const { execFileSync } = require('child_process');
 const { dialog } = require('electron');
 const osCrypto = require('./os-crypto');
+const { auditPasswords } = require('./password-generator');
 const { log: diag } = require('./diagnostics');
 
 let VAULT_PATH = null;
@@ -450,6 +451,8 @@ function setupPasswordManager(ipcMain, options) {
   });
 
   ipcMain.handle('pw-count', async () => { await vaultReady; return vault.length; });
+  // Şifre denetimi yerelde yapılır; arayüze yalnızca hangi kaydın zayıf/tekrar olduğu gider.
+  ipcMain.handle('pw-audit', async () => { await vaultReady; return auditPasswords(vault); });
   ipcMain.handle('pw-encryption-available', async () => { await vaultReady; return encryptionOk && vaultLoadError !== 'decrypt_failed'; });
 
   ipcMain.handle('pw-import-detect',  () => detectSources());

@@ -182,6 +182,7 @@ contextBridge.exposeInMainWorld('secureBrowser', {
     saveDecision:        (offerId, action) => ipcRenderer.invoke('pw-save-decision', { offerId, action }),
     neverList:           ()   => ipcRenderer.invoke('pw-never-list'),
     generate:            ()   => ipcRenderer.invoke('pw-generate'),
+    audit:               ()   => ipcRenderer.invoke('pw-audit'),
     // Oluşturulan şifre form gönderilince kaydedildi (bildirimde parola yok).
     onGeneratedSaved:    (cb) => ipcRenderer.on('pw-generated-saved', (_, d) => cb(d)),
     neverRemove:         (o)  => ipcRenderer.invoke('pw-never-remove', o),
