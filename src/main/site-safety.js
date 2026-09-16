@@ -13,6 +13,8 @@
 
 'use strict';
 
+const { T, locale } = require('./i18n');
+
 const isWebUrl = (u) => /^https?:\/\//i.test(String(u || ''));
 
 function hostOf(url) {
@@ -58,7 +60,7 @@ const SITE_PERMISSIONS = Object.freeze([
   { id: 'third-party-cookies', label: 'Üçüncü taraf çerezler',          ask: false },
 ]);
 const PERMISSION_IDS = new Set(SITE_PERMISSIONS.map((p) => p.id));
-const permissionLabel = (id) => (SITE_PERMISSIONS.find((p) => p.id === id) || {}).label || id;
+const permissionLabel = (id) => (PERMISSION_IDS.has(id) ? T('perm.' + id) : id);
 
 /** Geçerli bir http(s) origin'i döndürür ("https://a.com:8443"), değilse null. */
 function normalizeOrigin(origin) {
@@ -75,11 +77,11 @@ function normalizeOrigin(origin) {
  */
 function validatePermissionChange(input) {
   const origin = normalizeOrigin(input && input.origin);
-  if (!origin) return { ok: false, error: 'Geçersiz site adresi' };
+  if (!origin) return { ok: false, error: T('perm.invalidOrigin') };
   const permission = String((input && input.permission) || '');
-  if (!PERMISSION_IDS.has(permission)) return { ok: false, error: 'Bilinmeyen izin türü' };
+  if (!PERMISSION_IDS.has(permission)) return { ok: false, error: T('perm.unknownType') };
   const decision = input && input.decision;
-  if (decision !== 'allow' && decision !== 'block' && decision !== 'ask') return { ok: false, error: 'Geçersiz karar' };
+  if (decision !== 'allow' && decision !== 'block' && decision !== 'ask') return { ok: false, error: T('perm.invalidDecision') };
   return { ok: true, origin, permission, value: decision === 'ask' ? null : decision === 'allow' };
 }
 
@@ -105,7 +107,7 @@ function decisionsForOrigin(decisions, origin) {
   return SITE_PERMISSIONS.map((p) => {
     const v = decisions && typeof decisions === 'object' ? decisions[origin + '|' + p.id] : undefined;
     const decision = v === true ? 'allow' : v === false ? 'block' : (p.ask ? 'ask' : 'default');
-    return { permission: p.id, label: p.label, decision };
+    return { permission: p.id, label: permissionLabel(p.id), decision };
   });
 }
 
@@ -248,21 +250,10 @@ function hostResolverOptions(value) {
 }
 
 // ─── Sertifika özeti ──────────────────────────────────────────────────────────
+const CERT_ERROR_CODES = new Set([-200, -201, -202, -203, -206, -207, -208, -211, -107, -113, -501]);
 function certErrorText(code) {
-  switch (Number(code)) {
-    case -200: return 'Sertifika bu alan adı için verilmemiş.';
-    case -201: return 'Sertifikanın süresi dolmuş ya da henüz geçerli değil.';
-    case -202: return 'Sertifika güvenilen bir kuruluş tarafından verilmemiş.';
-    case -203: return 'Sertifika hatalı biçimlendirilmiş.';
-    case -206: return 'Sertifika iptal edilmiş.';
-    case -207: return 'Sertifika geçersiz.';
-    case -208: return 'Sertifika zayıf bir imza algoritması kullanıyor.';
-    case -211: return 'Sertifika zayıf bir anahtar kullanıyor.';
-    case -107: return 'Güvenli bağlantı kurulamadı (SSL protokol hatası).';
-    case -113: return 'Site desteklenmeyen bir güvenlik protokolü kullanıyor.';
-    case -501: return 'Sunucudan gelen yanıt güvenli değil.';
-    default:   return 'Sertifika doğrulanamadı.';
-  }
+  const c = Number(code);
+  return T(CERT_ERROR_CODES.has(c) ? 'cert.err.' + c : 'cert.err.default');
 }
 
 /** setCertificateVerifyProc isteğinden panelde gösterilecek özet. Özel veri içermez. */
@@ -294,90 +285,90 @@ const UNREACHABLE_ERRORS = new Set([-7, -15, -100, -101, -102, -104, -109, -118,
 function errorPageModel({ code, description, url, httpsOnly }) {
   const c = Number(code) || 0;
   const host = hostOf(url) || String(url || '').slice(0, 80);
-  const codeName = String(description || '').replace(/[^A-Z0-9_]/g, '').slice(0, 60) || ('HATA ' + c);
+  const codeName = String(description || '').replace(/[^A-Z0-9_]/g, '').slice(0, 60) || T('errorPage.codeFallback', { code: c });
   const base = { code: c, codeName, host, url: isWebUrl(url) ? String(url) : '', canRetry: isWebUrl(url), tips: [] };
   let model;
 
   if (isCertificateError(c)) {
     model = {
       ...base, kind: 'certificate',
-      title: 'Güvenlik uyarısı',
-      heading: 'Bağlantınız gizli değil',
-      message: 'Saldırganlar ' + host + ' üzerinden parola, mesaj ya da kart bilgilerinizi çalmaya çalışıyor olabilir.',
+      title: T('errorPage.cert.title'),
+      heading: T('errorPage.cert.heading'),
+      message: T('errorPage.cert.message', { host }),
       reason: certErrorText(c),
       tips: [
-        'İlgezdi güvenli olmayan bir bağlantıyla devam etmenize izin vermez.',
-        c === -201 ? 'Bilgisayarınızın tarih ve saatinin doğru olduğundan emin olun.' : 'Adresi doğru yazdığınızdan emin olun.',
-        'Kurumsal ağ ya da güvenlik yazılımı HTTPS trafiğini denetliyorsa bu uyarı görülebilir.',
+        T('errorPage.cert.tipNoProceed'),
+        c === -201 ? T('errorPage.cert.tipClock') : T('errorPage.cert.tipAddress'),
+        T('errorPage.cert.tipInspection'),
       ],
     };
   } else if (DNS_ERRORS.has(c)) {
     model = {
       ...base, kind: 'dns',
       title: host,
-      heading: 'Bu siteye ulaşılamıyor',
-      message: host + ' sunucusunun IP adresi bulunamadı.',
+      heading: T('errorPage.unreachable'),
+      message: T('errorPage.dns.message', { host }),
       tips: [
-        'Adreste yazım hatası olup olmadığını kontrol edin.',
-        'İnternet ve VPN bağlantınızı kontrol edin.',
-        'Güvenli DNS belirli bir sağlayıcıya ayarlıysa kurum içi adresler çözümlenemeyebilir; Ayarlar › Gizlilik bölümünden Otomatik seçin.',
+        T('errorPage.dns.tipTypo'),
+        T('errorPage.dns.tipNetwork'),
+        T('errorPage.dns.tipSecureDns'),
       ],
     };
   } else if (OFFLINE_ERRORS.has(c)) {
     model = {
       ...base, kind: 'offline',
-      title: 'Bağlantı yok',
-      heading: 'İnternet bağlantısı yok',
-      message: 'Bilgisayarınız internete bağlı görünmüyor.',
+      title: T('errorPage.offline.title'),
+      heading: T('errorPage.offline.heading'),
+      message: T('errorPage.offline.message'),
       tips: [
-        'Kablo, modem ya da Wi-Fi bağlantınızı kontrol edin.',
-        'VPN tüneli koptuysa ve kill switch açıksa trafik bilinçli olarak durdurulur; VPN panelinden yeniden bağlanın.',
+        T('errorPage.offline.tipCable'),
+        T('errorPage.offline.tipKillSwitch'),
       ],
     };
   } else if (UNREACHABLE_ERRORS.has(c)) {
-    const reason = c === -102 ? host + ' bağlanmayı reddetti.'
-      : (c === -118 || c === -7) ? host + ' zamanında yanıt vermedi.'
-      : (c === -100 || c === -101) ? 'Bağlantı beklenmedik şekilde kesildi.'
-      : c === -324 ? host + ' hiç veri göndermedi.'
-      : c === -130 ? 'Proxy sunucusuna bağlanılamadı.'
-      : host + ' ile bağlantı kurulamadı.';
+    const reason = c === -102 ? T('errorPage.refused', { host })
+      : (c === -118 || c === -7) ? T('errorPage.timedOut', { host })
+      : (c === -100 || c === -101) ? T('errorPage.reset')
+      : c === -324 ? T('errorPage.emptyResponse', { host })
+      : c === -130 ? T('errorPage.proxy')
+      : T('errorPage.connectFailed', { host });
     model = {
       ...base, kind: 'unreachable',
       title: host,
-      heading: 'Bu siteye ulaşılamıyor',
+      heading: T('errorPage.unreachable'),
       message: reason,
-      tips: ['Birkaç dakika sonra yeniden deneyin.', 'VPN kullanıyorsanız tünelin bağlı olduğunu kontrol edin.'],
+      tips: [T('errorPage.tipRetryLater'), T('errorPage.tipVpn')],
     };
   } else if (c === -310) {
     model = {
       ...base, kind: 'redirects',
       title: host,
-      heading: 'Bu sayfa çalışmıyor',
-      message: host + ' sizi çok fazla kez yönlendirdi.',
+      heading: T('errorPage.redirects.heading'),
+      message: T('errorPage.redirects.message', { host }),
       tips: [
-        'Kilit simgesine tıklayıp bu sitenin çerezlerini ve verilerini silmeyi deneyin.',
-        'Giriş yaparken oluyorsa Site Bilgisi panelinden bu site için üçüncü taraf çerezlere izin verin.',
+        T('errorPage.redirects.tipCookies'),
+        T('errorPage.redirects.tipThirdParty'),
       ],
     };
   } else if (c === -20 || c === -27) {
     model = {
       ...base, kind: 'blocked',
       title: host,
-      heading: 'Bu sayfa engellendi',
-      message: 'Sayfa İlgezdi ya da ağ ilkesi tarafından engellendi.',
+      heading: T('errorPage.blocked.heading'),
+      message: T('errorPage.blocked.message'),
     };
   } else {
     model = {
       ...base, kind: 'generic',
       title: host,
-      heading: 'Sayfa yüklenemedi',
-      message: host + ' yüklenirken bir hata oluştu.',
+      heading: T('errorPage.generic.heading'),
+      message: T('errorPage.generic.message', { host }),
     };
   }
 
   const httpsRelated = isCertificateError(c) || UNREACHABLE_ERRORS.has(c);
   if (httpsOnly && httpsRelated && /^https:/i.test(String(url || ''))) {
-    model.tips = ['Yalnızca HTTPS açık: site güvenli bağlantı sunmuyorsa açılmaz. Ayarlar › Gizlilik bölümünden kapatabilirsiniz.', ...model.tips];
+    model.tips = [T('errorPage.tipHttpsOnly'), ...model.tips];
   }
   return model;
 }
@@ -388,12 +379,13 @@ function errorPageModel({ code, description, url, httpsOnly }) {
  * sunucu adı HTML/betik olarak yorumlanamaz. Belge hata belgesi değilse dokunmaz.
  */
 function errorPageScript(model) {
-  const data = JSON.stringify(model);
+  const data = JSON.stringify({ ...model, lang: locale(), labels: { retry: T('errorPage.retry'), back: T('errorPage.back'), proceed: T('errorPage.proceed') } });
   return '(function () {\n' +
     "  if (String(location.href).indexOf('chrome-error://') !== 0) return false;\n" +
     '  var m = ' + data + ';\n' +
     '  var el = function (tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };\n' +
     '  document.title = m.title;\n' +
+    '  document.documentElement.lang = m.lang;\n' +
     '  var css = el("style");\n' +
     '  css.textContent = ' + JSON.stringify(ERROR_PAGE_CSS) + ';\n' +
     '  var main = el("main", "w " + m.kind);\n' +
@@ -403,12 +395,12 @@ function errorPageScript(model) {
     '  if (m.reason) main.appendChild(el("p", "reason", m.reason));\n' +
     '  if (m.tips && m.tips.length) { var ul = el("ul"); m.tips.forEach(function (t) { ul.appendChild(el("li", null, t)); }); main.appendChild(ul); }\n' +
     '  var row = el("div", "row");\n' +
-    '  if (m.canRetry) { var r = el("button", "primary", "Yeniden dene"); r.type = "button"; r.onclick = function () { location.replace(m.url); }; row.appendChild(r); }\n' +
-    '  if (history.length > 1) { var b = el("button", m.kind === "threat" ? "primary" : null, "Geri dön"); b.type = "button"; b.onclick = function () { history.back(); }; row.appendChild(b); }\n' +
+    '  if (m.canRetry) { var r = el("button", "primary", m.labels.retry); r.type = "button"; r.onclick = function () { location.replace(m.url); }; row.appendChild(r); }\n' +
+    '  if (history.length > 1) { var b = el("button", m.kind === "threat" ? "primary" : null, m.labels.back); b.type = "button"; b.onclick = function () { history.back(); }; row.appendChild(b); }\n' +
     '  main.appendChild(row);\n' +
     // Zararlı site uyarısı: "devam et" isteği ana sürece belirteçli konsol mesajıyla
     // gider (threat-lists.js PROCEED_PREFIX); belirteç yalnızca bu betikte bulunur.
-    '  if (m.proceedMessage) { var p = el("button", "proceed", "Riski anlıyorum, bu siteye devam et"); p.type = "button"; p.onclick = function () { p.disabled = true; console.info(m.proceedMessage); }; main.appendChild(p); }\n' +
+    '  if (m.proceedMessage) { var p = el("button", "proceed", m.labels.proceed); p.type = "button"; p.onclick = function () { p.disabled = true; console.info(m.proceedMessage); }; main.appendChild(p); }\n' +
     '  main.appendChild(el("p", "code", m.codeName));\n' +
     '  document.head.appendChild(css);\n' +
     '  document.body.replaceChildren(main);\n' +

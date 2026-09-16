@@ -36,6 +36,7 @@ const path   = require('path');
 const os     = require('os');
 const crypto = require('crypto');
 const { app, dialog, BrowserWindow } = require('electron');
+const { T } = require('./i18n');
 
 // ─── Sabitler ─────────────────────────────────────────────────────────────────
 const LEVELS      = { debug: 10, info: 20, warn: 30, error: 40, fatal: 50 };
@@ -315,18 +316,13 @@ async function ensureConsent() {
     const win = deps?.getMainWindow?.();
     const r = await dialog.showMessageBox(win && !win.isDestroyed() ? win : null, {
       type:      'question',
-      buttons:   ['Gönderme', 'Otomatik Gönder'],
+      buttons:   [T('diagConsent.dontSend'), T('diagConsent.autoSend')],
       defaultId: 1,
       cancelId:  0,
-      title:     'Hata Raporlama',
-      message:   'İlgezdi bir sorunla karşılaştı. Hata raporu gönderilsin mi?',
-      detail:
-        'Rapor yalnızca uygulamanın kendi hata bilgilerini içerir: sürüm, işletim\n' +
-        'sistemi, hata mesajı ve son olaylar.\n\n' +
-        'Gezdiğiniz adresler, sayfa başlıkları, çerezler ve şifreleriniz\n' +
-        'RAPORA GİRMEZ — adresler geri çevrilemez bir etikete dönüştürülür.\n\n' +
-        'Kararınız hatırlanır; Ayarlar → Gizlilik bölümünden değiştirebilirsiniz.',
-      checkboxLabel: 'Kararımı hatırla',
+      title:     T('diagConsent.title'),
+      message:   T('diagConsent.message'),
+      detail:    T('diagConsent.detail'),
+      checkboxLabel: T('diagConsent.remember'),
       checkboxChecked: true,
     });
     const allow = r.response === 1;
@@ -543,7 +539,7 @@ function setupDiagnostics(ipcMain, options) {
   ipcMain.handle('diag-export-report', async (e, note) => {
     const win = deps?.getMainWindow?.();
     const r = await dialog.showSaveDialog(win && !win.isDestroyed() ? win : null, {
-      title: 'Tanılama raporunu kaydet',
+      title: T('diagExport.title'),
       defaultPath: `ilgezdi-tanilama-${today()}.json`,
       filters: [{ name: 'JSON', extensions: ['json'] }],
     });

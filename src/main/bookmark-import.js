@@ -21,6 +21,7 @@ const path = require('path');
 const os   = require('os');
 const { dialog } = require('electron');
 const { toDataUrl } = require('./favicon-cache');
+const { T } = require('./i18n');
 
 const HOME        = os.homedir();
 const LOCALAPPDATA = process.env.LOCALAPPDATA || path.join(HOME, 'AppData', 'Local');
@@ -72,7 +73,7 @@ function parseChromium(json) {
       node.children.forEach((c) => walk(c, fname));
     }
   };
-  const TOP = { bookmark_bar:'Yer İmi Çubuğu', other:'Diğer Yer İmleri', synced:'Senkronize' };
+  const TOP = { bookmark_bar: T('bmImport.bar'), other: T('bmImport.other'), synced: T('bmImport.synced') };
   Object.keys(TOP).forEach((k) => {
     const r = roots[k];
     if (r) (r.children || []).forEach((c) => walk(c, r.name || TOP[k]));
@@ -90,19 +91,19 @@ function parseNetscape(html) {
   while ((m = re.exec(html))) {
     const tok = m[0];
     if (/^<DL>/i.test(tok)) {
-      stack.push(pending || (stack.length ? stack[stack.length - 1] : 'İçe Aktarılan'));
+      stack.push(pending || (stack.length ? stack[stack.length - 1] : T('bmImport.imported')));
       pending = null;
     } else if (/^<\/DL>/i.test(tok)) {
       stack.pop();
     } else if (m[1] !== undefined) { // <H3> klasör
-      pending = decodeHtml(m[1].trim()) || 'İçe Aktarılan';
+      pending = decodeHtml(m[1].trim()) || T('bmImport.imported');
     } else if (m[2]) {               // <A HREF> bağlantı
       const url = m[2];
       if (/^https?:\/\//i.test(url)) {
         items.push({
           url,
           title: decodeHtml((m[3] || '').trim()) || url,
-          folder: stack[stack.length - 1] || 'İçe Aktarılan',
+          folder: stack[stack.length - 1] || T('bmImport.imported'),
         });
       }
     }
@@ -197,8 +198,8 @@ async function importFavicons(urls) {
 
 async function importFile(win) {
   const r = await dialog.showOpenDialog(win, {
-    title: 'Yer imi dosyası seçin (tarayıcıdan dışa aktarılan HTML)',
-    filters: [{ name: 'Yer imleri', extensions: ['html', 'htm'] }],
+    title: T('bmImport.dialogTitle'),
+    filters: [{ name: T('bmImport.filterName'), extensions: ['html', 'htm'] }],
     properties: ['openFile'],
   });
   if (r.canceled || !r.filePaths[0]) return { items: [] };

@@ -19,6 +19,7 @@ const os   = require('os');
 const execFileAsync = promisify(execFile);
 const PLATFORM      = process.platform;
 const { log: diag } = require('./diagnostics');
+const { T } = require('./i18n');
 
 // ─── Profil Alanı Doğrulama ───────────────────────────────────────────────────
 // İki ayrı saldırı yüzeyini birlikte kapatır:
@@ -79,20 +80,20 @@ function cleanLabel(s, max = 60) {
 /** Profil geçerliyse null, değilse kullanıcıya gösterilecek hata metni döner. */
 function validateProfileInput(p) {
   if (!parseEndpoint(p.endpoint)) {
-    return 'Sunucu adresi geçersiz. Beklenen biçim: sunucu.adresi:51820';
+    return T('vpn.err.endpoint');
   }
   if (!RE_WG_KEY.test(String(p.publicKey || '').trim())) {
-    return 'Sunucu public key geçersiz. 44 karakterlik base64 bir WireGuard anahtarı bekleniyor.';
+    return T('vpn.err.publicKey');
   }
   const priv = String(p.privateKey || '').trim();
   if (priv && priv !== '••••••••' && !RE_WG_KEY.test(priv)) {
-    return 'Private key geçersiz. 44 karakterlik base64 bir WireGuard anahtarı bekleniyor.';
+    return T('vpn.err.privateKey');
   }
   if (p.clientIp && !isAddrCidr(String(p.clientIp).trim())) {
-    return 'İstemci IP geçersiz. Örnek: 10.8.0.2/32';
+    return T('vpn.err.clientIp');
   }
   if (p.dns && !isDnsList(p.dns)) {
-    return 'DNS geçersiz. Örnek: 1.1.1.1 veya 1.1.1.1, 1.0.0.1';
+    return T('vpn.err.dns');
   }
   return null;
 }
@@ -207,7 +208,7 @@ class VpnManager {
 
     const err = validateProfileInput(candidate);
     if (err) throw new Error(err);
-    if (!candidate.privateKey) throw new Error('Private key zorunludur.');
+    if (!candidate.privateKey) throw new Error(T('vpn.err.privateKeyRequired'));
 
     const newProfile = {
       id:         `vpn_${Date.now()}`,
@@ -217,7 +218,7 @@ class VpnManager {
       privateKey: await this._encryptKey(candidate.privateKey),
       clientIp:   candidate.clientIp,
       dns:        candidate.dns,
-      location:   cleanLabel(profile.location, 40) || '🌐 Bilinmiyor',
+      location:   cleanLabel(profile.location, 40) || T('vpn.unknownLocation'),
       isActive:   false,
       ping:       null,
     };
@@ -228,7 +229,7 @@ class VpnManager {
 
   removeProfile(id) {
     if (this.activeProfile?.id === id) {
-      throw new Error('Aktif bağlantıyı silmeden önce bağlantıyı kes.');
+      throw new Error(T('vpn.err.activeDelete'));
     }
     this.profiles = this.profiles.filter(p => p.id !== id);
     this._saveProfiles();
@@ -240,17 +241,17 @@ class VpnManager {
     // vpn-profiles.json buraya doğrudan gelebilir. Yazmadan önce yine doğrula:
     // bu dosya yükseltilmiş yetkiyle işlenecek.
     const err = validateProfileInput(profile);
-    if (err) throw new Error('Profil güvenlik doğrulamasından geçemedi: ' + err);
+    if (err) throw new Error(T('vpn.err.validation', { error: err }));
 
     const privateKey = await this._decryptKey(profile.privateKey);
     if (!RE_WG_KEY.test(privateKey)) {
-      throw new Error('Private key geçersiz — yapılandırma oluşturulmadı.');
+      throw new Error(T('vpn.err.privateKeyConfig'));
     }
 
     // Doğrulanmış alanlar satır sonu içeremez; yine de son bir kontrol yapalım.
     const fields = [privateKey, profile.clientIp, profile.dns, profile.publicKey, profile.endpoint];
     if (fields.some(f => /[\r\n]/.test(String(f)))) {
-      throw new Error('Profil alanlarında satır sonu var — yapılandırma oluşturulmadı.');
+      throw new Error(T('vpn.err.lineBreak'));
     }
 
     return `[Interface]
@@ -268,9 +269,9 @@ PersistentKeepalive = 25
 
   async connect(profileId) {
     const profile = this.profiles.find(p => p.id === profileId);
-    if (!profile) throw new Error('Profil bulunamadı.');
+    if (!profile) throw new Error(T('vpn.err.profileNotFound'));
     if (!profile.privateKey || profile.privateKey === '••••••••') {
-      throw new Error('Profil bilgileri eksik.');
+      throw new Error(T('vpn.err.profileIncomplete'));
     }
 
     if (this.activeProfile) await this.disconnect().catch(() => {});
@@ -295,10 +296,7 @@ PersistentKeepalive = 25
         // Kurulu ama çalışmayan servis kalmasın; hiç kurulmadıysa temizlik gereksiz.
         if (state !== 'missing') await this.disconnect().catch(() => {});
         this.activeProfile = null;
-        throw new Error(
-          'Tünel başlatıldı ama bağlantı doğrulanamadı.\n\n' +
-          'WireGuard kurulumunu ve sunucu bilgilerini (endpoint, public key) kontrol edin.'
-        );
+        throw new Error(T('vpn.err.notVerified'));
       }
 
       this._setStatus('connected');
@@ -315,7 +313,7 @@ PersistentKeepalive = 25
   }
 
   async _connectWindows(profile) {
-    if (!WG_EXE) throw new Error('WireGuard (wg.exe) bulunamadı. Lütfen WireGuard kurun.');
+    if (!WG_EXE) throw new Error(T('vpn.err.noWireGuard'));
 
     const confPath = path.join(os.tmpdir(), `sb-vpn.conf`);
     const psPath   = path.join(os.tmpdir(), 'sb-wg-install.ps1');
@@ -343,10 +341,7 @@ PersistentKeepalive = 25
       } catch (e) {
         // UAC iptal edilmiş olabilir. NOT: Eskiden bu mesaj kullanıcıyı temp
         // dosyayı elle içe aktarmaya yönlendirip private key'i diskte bırakıyordu.
-        throw new Error(
-          'WireGuard bağlantısı için yönetici yetkisi gerekiyor.\n\n' +
-          'Yükseltme isteğini onayladığınızdan emin olup yeniden deneyin.'
-        );
+        throw new Error(T('vpn.err.admin'));
       }
 
       await new Promise(r => setTimeout(r, 2000));
@@ -407,7 +402,7 @@ PersistentKeepalive = 25
     const stillUp = await this._verifyTunnelOnce().catch(() => false);
     if (stillUp) {
       diag.warn('vpn', 'Bağlantı kesme tamamlanamadı, tünel hâlâ açık', { platform: PLATFORM });
-      throw new Error('Bağlantı kesilemedi — tünel hâlâ açık. Yönetici onayını verdiğinizden emin olup yeniden deneyin.');
+      throw new Error(T('vpn.err.stillUp'));
     }
 
     this._stopMonitor();
@@ -585,7 +580,7 @@ PersistentKeepalive = 25
     const up = await this._verifyTunnelOnce().catch(() => false);
     if (!up || this.activeProfile) return;
     this.activeProfile = {
-      id: null, name: 'Önceki oturumdan kalan tünel', endpoint: '—',
+      id: null, name: T('vpn.leftoverTunnel'), endpoint: '—',
       location: '🌐', publicKey: '', privateKey: '', clientIp: '', dns: '',
     };
     diag.warn('vpn', 'Açılışta önceki oturumdan kalan açık tünel bulundu', { platform: PLATFORM });
@@ -601,7 +596,7 @@ PersistentKeepalive = 25
     // koşulda Google'ın IP'sini görüyor ve hiçbir sızıntıyı yakalayamıyordu.
     const dnsp = require('dns').promises;
     const withTimeout = (p, ms) => Promise.race([
-      p, new Promise((_, rej) => setTimeout(() => rej(new Error('zaman aşımı')), ms)),
+      p, new Promise((_, rej) => setTimeout(() => rej(new Error(T('vpn.err.timeout'))), ms)),
     ]);
 
     let resolverIp = null;
@@ -609,7 +604,7 @@ PersistentKeepalive = 25
       const r = await withTimeout(dnsp.lookup('whoami.akamai.net', { family: 4 }), 6000);
       resolverIp = r && r.address;
     } catch (e) {
-      return { tested: false, error: 'DNS sorgusu başarısız: ' + (e.message || e) };
+      return { tested: false, error: T('vpn.err.dnsQuery', { error: e.message || e }) };
     }
 
     const connected = this.status === 'connected' && !!this.activeProfile;
@@ -628,15 +623,13 @@ PersistentKeepalive = 25
     let level;
     if (!connected) {
       level = 'info';
-      verdict = 'VPN bağlı değil. DNS sorguları ağınızın çözümleyicisinden geçiyor — bu beklenen durumdur.';
+      verdict = T('vpn.dns.notConnected');
     } else if (endpointIp && resolverIp === endpointIp) {
       level = 'ok';
-      verdict = 'Güvenli: DNS sorguları VPN sunucusu üzerinden çıkıyor.';
+      verdict = T('vpn.dns.safe');
     } else {
       level = 'warn';
-      verdict = 'Kesin doğrulanamadı. Çözümleyici IP: ' + resolverIp +
-        '. Bu IP VPN sağlayıcınıza ya da tünelde tanımlı DNS sunucusuna aitse sorun yok; ' +
-        'internet servis sağlayıcınıza aitse DNS sızıntısı var.';
+      verdict = T('vpn.dns.unsure', { ip: resolverIp });
     }
     diag.info('vpn', 'DNS sızıntı testi yapıldı', { level, vpnConnected: connected });
     return { tested: true, resolverIp, vpnConnected: connected, vpnDns, endpointIp, verdict, level };

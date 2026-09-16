@@ -16,6 +16,8 @@
 
 'use strict';
 
+const { T } = require('./i18n');
+
 const isWebUrl = (u) => /^https?:\/\//i.test(String(u || ''));
 
 // ─── WebRTC IP politikası ─────────────────────────────────────────────────────
@@ -201,28 +203,28 @@ function buildContextMenuModel(p = {}, ctx = {}) {
   // Chrome gibi her sayfa menüsünün sonunda: sağ tıklanan öğe geliştirici araçlarında seçilir.
   const inspect = () => {
     sep();
-    add('inspect', 'İncele', { arg: { x: Number(p.x) || 0, y: Number(p.y) || 0 } });
+    add('inspect', T('menu.inspect'), { arg: { x: Number(p.x) || 0, y: Number(p.y) || 0 } });
   };
 
   if (p.isEditable) {
     if (p.misspelledWord) {
       const suggestions = (p.dictionarySuggestions || []).slice(0, 5);
       if (suggestions.length) suggestions.forEach((s) => add('replace-misspelling', s, { arg: s }));
-      else add('no-suggestions', 'Öneri yok', { enabled: false });
-      add('add-to-dictionary', 'Sözlüğe ekle', { arg: p.misspelledWord });
+      else add('no-suggestions', T('menu.noSuggestions'), { enabled: false });
+      add('add-to-dictionary', T('menu.addToDictionary'), { arg: p.misspelledWord });
       sep();
     }
-    add('undo', 'Geri al', { enabled: !!flags.canUndo });
-    add('redo', 'Yinele', { enabled: !!flags.canRedo });
+    add('undo', T('menu.undo'), { enabled: !!flags.canUndo });
+    add('redo', T('menu.redo'), { enabled: !!flags.canRedo });
     sep();
-    add('cut', 'Kes', { enabled: !!flags.canCut });
-    add('copy', 'Kopyala', { enabled: !!flags.canCopy });
-    add('paste', 'Yapıştır', { enabled: !!flags.canPaste });
-    add('paste-plain', 'Düz metin olarak yapıştır', { enabled: !!flags.canPaste });
-    add('select-all', 'Tümünü seç', { enabled: flags.canSelectAll !== false });
+    add('cut', T('menu.cut'), { enabled: !!flags.canCut });
+    add('copy', T('menu.copy'), { enabled: !!flags.canCopy });
+    add('paste', T('menu.paste'), { enabled: !!flags.canPaste });
+    add('paste-plain', T('menu.pastePlain'), { enabled: !!flags.canPaste });
+    add('select-all', T('menu.selectAll'), { enabled: flags.canSelectAll !== false });
     if (surface === 'page' && hasSelection) {
       sep();
-      add('search-selection', '“' + clip(selection, 24) + '” için ara', { arg: selection });
+      add('search-selection', T('menu.searchFor', { text: clip(selection, 24) }), { arg: selection });
     }
     if (surface === 'page') inspect();
     return finalizeMenu(items, ctx.platform);
@@ -230,61 +232,61 @@ function buildContextMenuModel(p = {}, ctx = {}) {
 
   // Arayüzün kendisinde (adres çubuğu dışı) yalnızca seçili metni kopyalamak anlamlı.
   if (surface === 'ui') {
-    if (hasSelection) add('copy', 'Kopyala');
+    if (hasSelection) add('copy', T('menu.copy'));
     return finalizeMenu(items, ctx.platform);
   }
 
   if (link) {
-    add('open-link-tab', 'Bağlantıyı yeni sekmede aç', { arg: link });
-    if (!ctx.incognito) add('open-link-incognito', 'Bağlantıyı gizli pencerede aç', { arg: link });
-    add('glance-link', 'Bağlantıyı önizlemede aç', { arg: link });
+    add('open-link-tab', T('menu.openLinkTab'), { arg: link });
+    if (!ctx.incognito) add('open-link-incognito', T('menu.openLinkIncognito'), { arg: link });
+    add('glance-link', T('menu.glanceLink'), { arg: link });
     sep();
-    add('save-link', 'Bağlantıyı farklı kaydet…', { arg: link });
-    add('copy-text', 'Bağlantı adresini kopyala', { arg: link });
+    add('save-link', T('menu.saveLink'), { arg: link });
+    add('copy-text', T('menu.copyLink'), { arg: link });
   } else if (/^mailto:/i.test(String(p.linkURL || ''))) {
     const address = String(p.linkURL).replace(/^mailto:/i, '').split('?')[0];
-    if (address) add('copy-text', 'E-posta adresini kopyala', { arg: decodeURIComponentSafe(address) });
+    if (address) add('copy-text', T('menu.copyEmail'), { arg: decodeURIComponentSafe(address) });
   }
 
   const isImage = p.mediaType === 'image';
   const isAv = p.mediaType === 'video' || p.mediaType === 'audio';
   if (isImage && (webSrc || /^data:image\//i.test(src))) {
     sep();
-    if (webSrc) add('open-tab', 'Resmi yeni sekmede aç', { arg: webSrc });
-    add('save-media', 'Resmi farklı kaydet…', { arg: src });
-    add('copy-image', 'Resmi kopyala', { arg: { x: Number(p.x) || 0, y: Number(p.y) || 0 } });
-    if (webSrc) add('copy-text', 'Resim adresini kopyala', { arg: webSrc });
+    if (webSrc) add('open-tab', T('menu.openImageTab'), { arg: webSrc });
+    add('save-media', T('menu.saveImage'), { arg: src });
+    add('copy-image', T('menu.copyImage'), { arg: { x: Number(p.x) || 0, y: Number(p.y) || 0 } });
+    if (webSrc) add('copy-text', T('menu.copyImageAddress'), { arg: webSrc });
   } else if (isAv && webSrc) {
     const video = p.mediaType === 'video';
     sep();
-    add('open-tab', video ? 'Videoyu yeni sekmede aç' : 'Sesi yeni sekmede aç', { arg: webSrc });
-    add('copy-text', video ? 'Video adresini kopyala' : 'Ses adresini kopyala', { arg: webSrc });
+    add('open-tab', video ? T('menu.openVideoTab') : T('menu.openAudioTab'), { arg: webSrc });
+    add('copy-text', video ? T('menu.copyVideoAddress') : T('menu.copyAudioAddress'), { arg: webSrc });
   }
   // Resim içinde resim: blob: adresli videolarda da (YouTube gibi akışlar).
   const mediaFlags = p.mediaFlags || {};
   if (p.mediaType === 'video' && mediaFlags.canShowPictureInPicture !== false) {
     sep();
-    add('video-pip', mediaFlags.isShowingPictureInPicture ? 'Resim içinde resimden çık' : 'Resim içinde resim', {
+    add('video-pip', mediaFlags.isShowingPictureInPicture ? T('menu.pipExit') : T('menu.pip'), {
       arg: { src: /^(https?|blob):/i.test(src) ? src : '', x: Number(p.x) || 0, y: Number(p.y) || 0 },
     });
   }
 
   if (hasSelection) {
     sep();
-    add('copy', 'Kopyala');
-    add('search-selection', '“' + clip(selection, 24) + '” için ara', { arg: selection });
+    add('copy', T('menu.copy'));
+    add('search-selection', T('menu.searchFor', { text: clip(selection, 24) }), { arg: selection });
   }
 
   // Sayfa öğeleri yalnızca boş alana tıklanınca. javascript: ya da file: gibi
   // açılmasına izin verilmeyen bağlantılarda yalnızca İncele kalır.
   if (!p.linkURL && !hasSelection && !isImage && !isAv) {
-    add('back', 'Geri', { enabled: !!ctx.canGoBack });
-    add('forward', 'İleri', { enabled: !!ctx.canGoForward });
-    add('reload', 'Yeniden yükle');
+    add('back', T('menu.back'), { enabled: !!ctx.canGoBack });
+    add('forward', T('menu.forward'), { enabled: !!ctx.canGoForward });
+    add('reload', T('menu.reload'));
     sep();
-    add('print', 'Yazdır…');
-    if (isWebUrl(p.pageURL)) add('screenshot', 'Ekran görüntüsü al');
-    if (isWebUrl(p.pageURL)) add('view-source', 'Sayfa kaynağını görüntüle', { arg: 'view-source:' + p.pageURL });
+    add('print', T('menu.print'));
+    if (isWebUrl(p.pageURL)) add('screenshot', T('menu.screenshot'));
+    if (isWebUrl(p.pageURL)) add('view-source', T('menu.viewSource'), { arg: 'view-source:' + p.pageURL });
   }
 
   inspect();
@@ -488,18 +490,18 @@ const TAB_ACTIONS = Object.freeze(new Set([
 
 function buildTabMenuModel({ index, count, pinned, muted, canReopen, platform } = {}) {
   const items = [
-    { id: 'new-tab-right', label: 'Sağa yeni sekme' },
+    { id: 'new-tab-right', label: T('tabMenu.newTabRight') },
     { type: 'separator' },
-    { id: 'reload', label: 'Yeniden yükle' },
-    { id: 'duplicate', label: 'Çoğalt' },
-    { id: pinned ? 'unpin' : 'pin', label: pinned ? 'Sabitlemeyi kaldır' : 'Sabitle' },
-    { id: muted ? 'unmute' : 'mute', label: muted ? 'Sekmenin sesini aç' : 'Sekmeyi sessize al' },
+    { id: 'reload', label: T('menu.reload') },
+    { id: 'duplicate', label: T('tabMenu.duplicate') },
+    { id: pinned ? 'unpin' : 'pin', label: pinned ? T('tabMenu.unpin') : T('tabMenu.pin') },
+    { id: muted ? 'unmute' : 'mute', label: muted ? T('tabMenu.unmute') : T('tabMenu.mute') },
     { type: 'separator' },
-    { id: 'close', label: 'Kapat' },
-    { id: 'close-others', label: 'Diğer sekmeleri kapat', enabled: count > 1 },
-    { id: 'close-right', label: 'Sağdaki sekmeleri kapat', enabled: index < count - 1 },
+    { id: 'close', label: T('tabMenu.close') },
+    { id: 'close-others', label: T('tabMenu.closeOthers'), enabled: count > 1 },
+    { id: 'close-right', label: T('tabMenu.closeRight'), enabled: index < count - 1 },
     { type: 'separator' },
-    { id: 'reopen-closed', label: 'Kapatılan sekmeyi yeniden aç', enabled: !!canReopen },
+    { id: 'reopen-closed', label: T('tabMenu.reopenClosed'), enabled: !!canReopen },
   ];
   return finalizeMenu(items, platform);
 }

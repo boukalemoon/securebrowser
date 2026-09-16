@@ -1932,7 +1932,8 @@ suite('Keşfet — TrendTech yazılımları');
       && mj6.indexOf('app.disableHardwareAcceleration()') < mj6.indexOf('app.whenReady()'));
     check('sıfırlama onay istiyor, korunanları söylüyor; Kaydet ile aynı etkileri uyguluyor; engelleyici istisnaları temizleniyor',
       /ipcMain\.handle\('reset-settings', async \(event\) => \{[\s\S]{0,1400}if \(!confirmed\) return \{ ok: false, canceled: true \};\s*const previous = configEffectsSnapshot\(\);\s*config = resetConfig\(config, DEFAULT_CONFIG\);\s*saveConfig\(config\);\s*applyConfigEffects\(previous\);\s*updateBlockerConfig\(\{ level: config\.blockLevel \|\| 'medium', whitelist: \[\]/.test(mj6)
-      && mj6.includes("Korunacak: yer imleri, geçmiş, kayıtlı şifreler, Qrtım oturumu, VPN profilleri ve indirme klasörü.")
+      && mj6.includes("detail: T('dialog.resetSettings.detail'),")
+      && JSON.parse(read('locales/tr.json'))['dialog.resetSettings.detail'].includes('Korunacak: yer imleri, geçmiş, kayıtlı şifreler, Qrtım oturumu, VPN profilleri ve indirme klasörü.')
       && /ipcMain\.handle\('save-config'[\s\S]{0,2500}const previous = configEffectsSnapshot\(\);\s*config = \{ \.\.\.config, \.\.\.incoming \};\s*saveConfig\(config\);\s*applyConfigEffects\(previous\);/.test(mj6));
     check('kapatma uyarısı: yalnızca ayar açık, birden çok sekme ve uygulama kapanmıyorken; "bir daha sorma" kaydediliyor',
       mj6.includes("if (!closeConfirmed && !appQuitting && config.warnOnCloseTabs === true && count > 1) {")

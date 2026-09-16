@@ -16,6 +16,7 @@
 'use strict';
 
 const { WebContentsView, BrowserWindow } = require('electron');
+const { T } = require('./i18n');
 
 let glanceView = null;
 let glanceWin  = null;
@@ -38,7 +39,7 @@ function stopPoll() {
 
 // Sayfaya enjekte edilen araç çubuğu. Sayfa bağlamında çalışır (ayrıcalıksız);
 // yine de başlık/host textContent ile yazılır.
-const TOOLBAR_SCRIPT = `
+const toolbarScript = () => `
   (function() {
     if (document.getElementById('__ilgezdi_glance_bar')) return;
 
@@ -67,11 +68,12 @@ const TOOLBAR_SCRIPT = `
     right.style.cssText = 'display:flex;gap:6px;flex-shrink:0';
     var openBtn = document.createElement('button');
     openBtn.style.cssText = 'padding:4px 10px;border:1px solid #1e2d45;border-radius:4px;background:#1c2333;color:#8892a4;font-size:11px;cursor:pointer';
-    openBtn.textContent = '⊕ Sekmeye Aç';
+    openBtn.textContent = ${JSON.stringify(T('glance.openInTab'))};
     openBtn.onclick = function() { window.__glanceOpenTab = true; };
     var closeBtn = document.createElement('button');
     closeBtn.style.cssText = 'width:26px;height:26px;border:1px solid #1e2d45;border-radius:50%;background:#1c2333;color:#8892a4;font-size:12px;cursor:pointer';
     closeBtn.textContent = '✕';
+    closeBtn.setAttribute('aria-label', ${JSON.stringify(T('glance.close'))});
     closeBtn.onclick = function() { window.__glanceClose = true; };
     right.appendChild(openBtn); right.appendChild(closeBtn);
 
@@ -145,7 +147,7 @@ function setupGlance(mainWindow, ipcMain, hooks = {}) {
       if (glanceView !== view) return;       // bu arada kapandı/yenisi açıldı
 
       // Araç çubuğu her yüklemede yeniden gerekir (gezinme DOM'u değiştirir)
-      view.webContents.executeJavaScript(TOOLBAR_SCRIPT).catch(() => {});
+      view.webContents.executeJavaScript(toolbarScript()).catch(() => {});
 
       // Arayüz kaplamasını YALNIZCA ilk yüklemede kur — sonraki gezinmelerde
       // tekrar göndermek üst üste binen kaplamalar oluşturuyordu.

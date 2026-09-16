@@ -23,6 +23,7 @@ const path = require('path');
 const crypto = require('crypto');
 const zlib = require('zlib');
 const tl = require('./threat-lists');
+const { T } = require('./i18n');
 
 const DIR_NAME = 'threat-lists';
 const META_FILE = 'meta.json';
@@ -141,7 +142,7 @@ function setupThreatProtection({ ipcMain, session, userDataPath, getConfig, user
         lastErr = e;
       }
     }
-    const message = lastErr && lastErr.name === 'AbortError' ? 'zaman aşımı' : String((lastErr && lastErr.message) || lastErr || 'adres yok');
+    const message = lastErr && lastErr.name === 'AbortError' ? T('threat.err.timeout') : String((lastErr && lastErr.message) || lastErr || T('threat.err.noAddress'));
     meta.sources[s.id] = { ...prev, lastAttemptAt: now, failures: (Number(prev.failures) || 0) + 1, lastError: message };
     throw lastErr || new Error(message);
   }
@@ -166,16 +167,16 @@ function setupThreatProtection({ ipcMain, session, userDataPath, getConfig, user
       }
       if (!res.ok) throw new Error('HTTP ' + res.status);
       const declared = Number(res.headers.get('content-length')) || 0;
-      if (declared > s.maxBytes) throw new Error('liste beklenenden büyük');
+      if (declared > s.maxBytes) throw new Error(T('threat.err.tooLarge'));
       let buf = Buffer.from(await res.arrayBuffer());
-      if (buf.length > s.maxBytes) throw new Error('liste beklenenden büyük');
+      if (buf.length > s.maxBytes) throw new Error(T('threat.err.tooLarge'));
       // Sıkıştırılmış liste (ör. İlgezdi sunucusundaki usom.txt.gz) gzip imzasından
       // tanınır. Sunucu Content-Encoding ile gönderirse fetch zaten açmıştır, imza olmaz.
       if (buf.length > 2 && buf[0] === 0x1f && buf[1] === 0x8b) buf = zlib.gunzipSync(buf, { maxOutputLength: s.maxBytes * 10 });
       const compiled = await compileTextAsync(buf.toString('utf8'));
       const floor = Math.max(Number(s.minEntries) || 1, matcher.has(s.id) && prev.count ? Math.floor(prev.count * MIN_KEEP_RATIO) : 0);
       if (compiled.index.length < floor) {
-        throw new Error('liste beklenenden küçük (' + compiled.index.length + ' kayıt); biçim değişmiş olabilir');
+        throw new Error(T('threat.err.tooSmall', { count: compiled.index.length }));
       }
       fs.mkdirSync(dir, { recursive: true });
       writeAtomic(path.join(dir, s.id + '.idx'), Buffer.from(tl.indexToBytes(compiled.index)));

@@ -25,6 +25,8 @@
 
 'use strict';
 
+const { T } = require('./i18n');
+
 // ─── Özet ─────────────────────────────────────────────────────────────────────
 // cyrb53 (bryc, kamu malı): hızlı, iyi dağılımlı 53 bitlik dize özeti. Değişirse
 // diskteki derlenmiş dizinler geçersiz olur → HASH_VERSION artırılmalı.
@@ -344,14 +346,14 @@ function threatPageModel({ url, sourceName, kind, token }) {
     host,
     url: safeUrl,
     canRetry: false,
-    title: 'Tehlikeli site',
-    heading: 'Bu site tehlikeli olarak bildirildi',
-    message: (host || 'Bu site') + ' kimlik avı (parola ya da kart bilgisi çalma) veya zararlı yazılım dağıtımıyla ilişkilendirildi.',
-    reason: 'Kaynak: ' + String(sourceName || 'tehdit listesi') + (kind === 'url' ? ' · bu sayfa adresi listede' : ' · bu alan adı listede'),
+    title: T('threatPage.title'),
+    heading: T('threatPage.heading'),
+    message: T('threatPage.message', { host: host || T('threatPage.thisSite') }),
+    reason: T(kind === 'url' ? 'threatPage.reasonUrl' : 'threatPage.reasonDomain', { source: String(sourceName || T('threatPage.sourceFallback')) }),
     tips: [
-      'Denetim cihazınızdaki listelerle yapıldı; ziyaret ettiğiniz adres hiçbir sunucuya gönderilmedi.',
-      'Bu bağlantı bir e-posta, SMS ya da reklamdan geldiyse parola, kart ya da kimlik bilgisi girmeyin.',
-      'Sitenin güvenli olduğundan eminseniz (liste hatalı olabilir) aşağıdan bu oturum için devam edebilirsiniz.',
+      T('threatPage.tipLocal'),
+      T('threatPage.tipNoCredentials'),
+      T('threatPage.tipProceed'),
     ],
     proceedMessage: token ? PROCEED_PREFIX + token : '',
   };

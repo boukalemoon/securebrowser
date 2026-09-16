@@ -1193,7 +1193,15 @@ async function initDiscoverPage() {
     return;
   }
   const part = (tag, cls, text) => { const e = document.createElement(tag); e.className = cls; e.textContent = text || ''; return e; };
-  for (const it of cards) {
+  // Sunucudaki katalog Türkçe; bilinen ürünlerin metinleri diğer dillerde çeviriden gelir.
+  const I = window.ilgezdiI18n;
+  const localized = (it) => {
+    if (I.locale === 'tr') return it;
+    const pick = (field) => (I.has('discover.item.' + it.id + '.' + field) ? T('discover.item.' + it.id + '.' + field) : it[field]);
+    return { ...it, category: pick('category'), tagline: pick('tagline'), description: pick('description') };
+  };
+  for (const raw of cards) {
+    const it = localized(raw);
     const card = document.createElement('button');
     card.type = 'button';
     card.className = 'discover-card';

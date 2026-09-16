@@ -32,12 +32,12 @@ function glanceShowUI(data) {
   glanceBar.innerHTML = `
     <div class="glance-bar-left">
       <span class="glance-icon">👁</span>
-      <span class="glance-url" id="glance-url-text">${shortenUrl(data.url)}</span>
-      <span class="glance-loading" id="glance-loading">Yükleniyor…</span>
+      <span class="glance-url" id="glance-url-text">${window.ilgezdiHtml.esc(shortenUrl(String(data.url || '')))}</span>
+      <span class="glance-loading" id="glance-loading">${TH('common.loading')}</span>
     </div>
     <div class="glance-bar-right">
-      <button class="glance-btn" id="btn-glance-tab" title="Yeni sekmede aç">⊕ Sekmeye Aç</button>
-      <button class="glance-btn glance-btn-close" id="btn-glance-close" title="Kapat (Esc)">✕</button>
+      <button class="glance-btn" id="btn-glance-tab" title="${TH('glance.openInNewTab')}">${TH('glance.openInTab')}</button>
+      <button class="glance-btn glance-btn-close" id="btn-glance-close" title="${TH('glance.closeEsc')}" aria-label="${TH('glance.closeEsc')}">✕</button>
     </div>
   `;
 

@@ -29,6 +29,7 @@ const osCrypto = require('./os-crypto');
 const { auditPasswords } = require('./password-generator');
 const { checkPwnedPasswords } = require('./pwned-check');
 const { log: diag } = require('./diagnostics');
+const { T } = require('./i18n');
 
 let VAULT_PATH = null;
 let vault = [];            // [{ id, url, username, password, createdAt, source }]
@@ -40,19 +41,9 @@ let vaultReady = Promise.resolve();
 let saveChain = Promise.resolve();
 
 // Kullanıcıya gösterilecek mesajlar — IPC'den ham hata kodu sızdırmak yerine.
-const MESSAGES = {
-  not_found:              'Tarayıcı profili bulunamadı.',
-  key_decrypt_failed:     'Tarayıcının şifreleme anahtarı çözülemedi. Tarayıcıyı kapatıp yeniden deneyin.',
-  read_failed:            'Kayıtlı parolalar okunamadı. Tarayıcıyı kapatıp yeniden deneyin.',
-  app_bound_encryption:   'Bu tarayıcı parolalarını ek bir korumayla (Chrome 127+ "app-bound encryption") şifreliyor; ' +
-                          'bunları doğrudan okuyamayız. Tarayıcının Ayarlar → Şifreler bölümünden "Dışa aktar" ile CSV ' +
-                          'dosyası alıp "CSV\'den" seçeneğiyle içe aktarın.',
-  encryption_unavailable: 'İşletim sisteminin anahtar kasası kullanılamıyor; parolalar güvenli saklanamaz.',
-  vault_unreadable:       'Kayıtlı şifre kasası okunamadı. Veri kaybını önlemek için kasaya yazma durduruldu; ' +
-                          'kasanın bir kopyası "passwords.enc.bozuk-*" adıyla saklandı.',
-  invalid_input:          'Site adresi ve şifre zorunludur.',
-};
-const fail = (code, extra) => ({ ok: false, imported: 0, code, error: MESSAGES[code] || code, ...(extra || {}) });
+// Metinler locales/*.json içinde: pwImport.err.<kod>.
+const MESSAGE_CODES = new Set(['not_found', 'key_decrypt_failed', 'read_failed', 'app_bound_encryption', 'encryption_unavailable', 'vault_unreadable', 'invalid_input']);
+const fail = (code, extra) => ({ ok: false, imported: 0, code, error: MESSAGE_CODES.has(code) ? T('pwImport.err.' + code) : code, ...(extra || {}) });
 
 // ─── DPAPI (native modülsüz, PowerShell ProtectedData) ────────────────────────
 // base64 girer, çözülmüş Buffer döner. CurrentUser kapsamı.
@@ -378,7 +369,7 @@ async function importFromCsv(win) {
   if (guard) return guard;
 
   const r = await dialog.showOpenDialog(win, {
-    title: 'Şifre CSV dosyası seçin (tarayıcıdan dışa aktarılan)',
+    title: T('pwImport.csvDialog'),
     filters: [{ name: 'CSV', extensions: ['csv'] }], properties: ['openFile'],
   });
   if (r.canceled || !r.filePaths[0]) return { ok: true, imported: 0, canceled: true };

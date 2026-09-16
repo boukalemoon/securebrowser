@@ -287,12 +287,12 @@ function setupPermissionHandler(ses) {
     const parent = BrowserWindow.getFocusedWindow() || mainWindow;
     dialog.showMessageBox(parent, {
       type:      'question',
-      buttons:   ['Reddet', 'İzin Ver'],
+      buttons:   [T('common.deny'), T('common.allow')],
       defaultId: 0,
       cancelId:  0,
-      title:     'İzin İsteği',
+      title:     T('dialog.permission.title'),
       message:   `${origin}`,
-      detail:    `Bu site şu izni istiyor: ${permissionLabel(permission)}\n\nKararınız bu site için hatırlanır. Kilit simgesindeki Site Bilgisi panelinden değiştirebilirsiniz.`,
+      detail:    T('dialog.permission.detail', { permission: permissionLabel(permission) }),
     }).then(r => {
       const granted = r.response === 1;
       setPermDecision(origin, permission, granted);
@@ -403,10 +403,10 @@ function setupDownloads(ses) {
     if (downloadNeedsWarning({ filename, url: sourceUrl })) {
       const parent = BrowserWindow.getFocusedWindow() || mainWindow;
       const options = {
-        type: 'warning', buttons: ['İndirmeyi iptal et', 'Yine de indir'], defaultId: 0, cancelId: 0,
-        title: 'Güvenli olmayan indirme',
-        message: filename + ' güvenli olmayan bir bağlantıdan (HTTP) indiriliyor',
-        detail: 'Bu tür dosyalar bilgisayarınızda program çalıştırabilir ve indirilirken değiştirilmiş olabilir. Kaynağına güvenmiyorsanız indirmeyin.',
+        type: 'warning', buttons: [T('dialog.insecureDownload.cancel'), T('dialog.insecureDownload.proceed')], defaultId: 0, cancelId: 0,
+        title: T('dialog.insecureDownload.title'),
+        message: T('dialog.insecureDownload.message', { file: filename }),
+        detail: T('dialog.insecureDownload.detail'),
       };
       const choice = parent && !parent.isDestroyed() ? dialog.showMessageBoxSync(parent, options) : dialog.showMessageBoxSync(options);
       if (choice !== 1) {
@@ -460,7 +460,7 @@ function setupDownloads(ses) {
         if (config.notifications !== false) {
           try {
             const { Notification } = require('electron');
-            if (Notification.isSupported()) new Notification({ title: 'İndirme tamamlandı', body: filename }).show();
+            if (Notification.isSupported()) new Notification({ title: T('notify.downloadDone'), body: filename }).show();
           } catch {}
         }
       } else if (state === 'interrupted') {
@@ -668,10 +668,10 @@ function createWindow() {
       event.preventDefault();
       const restore = normalizeStartupMode(config.startupMode) === 'restore';
       const r = dialog.showMessageBoxSync(mainWindow, {
-        type: 'question', buttons: ['Vazgeç', 'Tümünü kapat'], defaultId: 1, cancelId: 0,
-        title: 'İlgezdi kapatılsın mı?', message: `${count} sekme açık. Hepsi kapatılsın mı?`,
-        detail: restore ? 'Sekmeler bir sonraki açılışta geri gelir.' : 'Sekmeleri bir sonraki açılışta geri getirmek için Ayarlar › Genel › Başlangıçta › Kaldığım yerden devam et.',
-        checkboxLabel: 'Bir daha sorma',
+        type: 'question', buttons: [T('common.cancel'), T('dialog.closeTabs.closeAll')], defaultId: 1, cancelId: 0,
+        title: T('dialog.closeTabs.title'), message: T('dialog.closeTabs.message', { count }),
+        detail: restore ? T('dialog.closeTabs.restore') : T('dialog.closeTabs.noRestore'),
+        checkboxLabel: T('dialog.dontAskAgain'),
       });
       if (r.response !== 1) return;
       if (r.checkboxChecked) { config.warnOnCloseTabs = false; saveConfig(config); }
@@ -1415,7 +1415,7 @@ const screenshotPaths = new Set();
 function screenshotFileName(pageUrl, now = new Date()) {
   const pad = (n) => String(n).padStart(2, '0');
   const stamp = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}.${pad(now.getMinutes())}.${pad(now.getSeconds())}`;
-  return safeFileName(`Ekran görüntüsü ${sourceHost(pageUrl) || 'sayfa'} ${stamp}.png`);
+  return safeFileName(T('screenshot.fileName', { host: sourceHost(pageUrl) || T('screenshot.page'), stamp }) + '.png');
 }
 
 async function takeScreenshot(win, wc) {
@@ -1431,10 +1431,10 @@ async function takeScreenshot(win, wc) {
     screenshotPaths.add(file);
     if (screenshotPaths.size > 20) screenshotPaths.delete(screenshotPaths.values().next().value);
     diag.info('screenshot', 'Ekran görüntüsü kaydedildi', { width: image.getSize().width, height: image.getSize().height });
-    note({ text: 'Ekran görüntüsü kaydedildi ve panoya kopyalandı: ' + path.basename(file), reveal: file });
+    note({ text: T('screenshot.saved', { file: path.basename(file) }), reveal: file });
   } catch (e) {
     logError('screenshot', e);
-    note({ text: 'Ekran görüntüsü alınamadı', error: true });
+    note({ text: T('screenshot.failed'), error: true });
   }
 }
 
@@ -1634,10 +1634,10 @@ ipcMain.handle('site-permissions-list', () => listDecisions(config.permissionDec
 ipcMain.handle('site-permissions-reset', async (event) => {
   const parent = BrowserWindow.fromWebContents(event.sender) || mainWindow;
   const r = await dialog.showMessageBox(parent, {
-    type: 'warning', buttons: ['Vazgeç', 'Sıfırla'], defaultId: 0, cancelId: 0,
-    title: 'Site izinlerini sıfırla',
-    message: 'Tüm site izin kararları silinecek',
-    detail: 'Konum, kamera, bildirim, açılır pencere ve üçüncü taraf çerez kararlarının hepsi silinir. Siteler izin istediğinde yeniden sorulursunuz.',
+    type: 'warning', buttons: [T('common.cancel'), T('dialog.resetPerms.reset')], defaultId: 0, cancelId: 0,
+    title: T('dialog.resetPerms.title'),
+    message: T('dialog.resetPerms.message'),
+    detail: T('dialog.resetPerms.detail'),
   }).catch(() => ({ response: 0 }));
   if (r.response !== 1) return { ok: false, canceled: true };
   config.permissionDecisions = {};
@@ -1649,14 +1649,14 @@ ipcMain.handle('site-data-clear', async (event, input) => {
   const { state } = getContextFromEvent(event);
   const origin = normalizeOrigin(input && input.origin);
   const wc = activeTabContents(state);
-  if (!origin || !wc) return { ok: false, error: 'Geçersiz site' };
+  if (!origin || !wc) return { ok: false, error: T('siteData.invalidSite') };
   const host = new URL(origin).hostname;
   const parent = BrowserWindow.fromWebContents(event.sender) || mainWindow;
   const r = await dialog.showMessageBox(parent, {
-    type: 'warning', buttons: ['Vazgeç', 'Sil'], defaultId: 0, cancelId: 0,
-    title: 'Site verilerini sil',
-    message: host + ' için çerezler ve site verileri silinsin mi?',
-    detail: 'Bu sitedeki oturumunuz kapanabilir. Yer imleri, şifreler ve ziyaret günlüğü etkilenmez.',
+    type: 'warning', buttons: [T('common.cancel'), T('common.delete')], defaultId: 0, cancelId: 0,
+    title: T('dialog.siteData.title'),
+    message: T('dialog.siteData.message', { host }),
+    detail: T('dialog.siteData.detail'),
   }).catch(() => ({ response: 0 }));
   if (r.response !== 1) return { ok: false, canceled: true };
   const ses = wc.session;   // gizli penceredeyse gizli oturum
@@ -1671,7 +1671,7 @@ ipcMain.handle('site-data-clear', async (event, input) => {
     return { ok: true, removedCookies: removals.length };
   } catch (e) {
     logError('site-data', e);
-    return { ok: false, error: 'Silinemedi' };
+    return { ok: false, error: T('siteData.failed') };
   }
 });
 
@@ -1905,7 +1905,7 @@ ipcMain.handle('tab-context-menu', (event, payload) => {
 // ─── Tam ekran uyarısı ────────────────────────────────────────────────────────
 // "Çıkmak için Esc" ayrı bir görünümde: sayfa bu katmanı gizleyemez ya da taklit
 // edemez (tam ekran sahteciliğine karşı). Betik çalıştırmaz.
-const FULLSCREEN_NOTICE_HTML = '<!doctype html><meta charset="utf-8"><body style="margin:0;height:100vh;display:grid;place-items:center;background:transparent;font:14px/1.2 Segoe UI,system-ui,sans-serif"><div style="background:rgba(14,20,34,.92);color:#f3ead6;padding:11px 18px;border-radius:8px;border:1px solid rgba(212,168,90,.55)">Tam ekrandan çıkmak için <b>Esc</b> tuşuna basın</div></body>';
+const FULLSCREEN_NOTICE_HTML = '<!doctype html><meta charset="utf-8"><body style="margin:0;height:100vh;display:grid;place-items:center;background:transparent;font:14px/1.2 Segoe UI,system-ui,sans-serif"><div style="background:rgba(14,20,34,.92);color:#f3ead6;padding:11px 18px;border-radius:8px;border:1px solid rgba(212,168,90,.55)">' + i18n.TH('fullscreen.notice', {}, { key: '<b>Esc</b>' }) + '</div></body>';
 
 function positionFullscreenNotice(win) {
   const v = win && win.__fsNotice;
@@ -2079,12 +2079,9 @@ ipcMain.handle('reset-settings', async (event) => {
   let confirmed = false;
   try {
     const r = await dialog.showMessageBox(parent, {
-      type: 'warning', buttons: ['Vazgeç', 'Varsayılana döndür'], defaultId: 0, cancelId: 0,
-      title: 'Ayarları Sıfırla', message: 'Ayarlar varsayılana döndürülsün mü?',
-      detail:
-        'Sıfırlanacak: görünüm, arama motoru, başlangıç ve ana sayfa, gizlilik ve güvenlik ayarları, engelleyici seviyesi ve istisnaları, site izinleri, erişilebilirlik.\n\n' +
-        'Korunacak: yer imleri, geçmiş, kayıtlı şifreler, Qrtım oturumu, VPN profilleri ve indirme klasörü.\n\n' +
-        'Hesap senkronu açıksa sıfırlanan ayarlar diğer cihazlarınıza da gider.',
+      type: 'warning', buttons: [T('common.cancel'), T('dialog.resetSettings.confirm')], defaultId: 0, cancelId: 0,
+      title: T('dialog.resetSettings.title'), message: T('dialog.resetSettings.message'),
+      detail: T('dialog.resetSettings.detail'),
     });
     confirmed = r.response === 1;
   } catch { confirmed = false; }
@@ -2141,7 +2138,7 @@ ipcMain.handle('vpn-disconnect', async () => {
 ipcMain.handle('vpn-get-status',    ()     => vpnManager?.getStatus() || { status: 'disconnected' });
 ipcMain.handle('vpn-ping-all',      async () => vpnManager?.pingAllProfiles() || {});
 ipcMain.handle('vpn-test-dns-leak', async () =>
-  vpnManager ? vpnManager.testDnsLeak() : { tested: false, error: 'VPN modülü hazır değil' });
+  vpnManager ? vpnManager.testDnsLeak() : { tested: false, error: T('vpn.moduleNotReady') });
 
 // Faz 3 — Şifreli Loglar
 ipcMain.handle('logs-get-stats',  ()            => secureLog?.getStats() || {});
@@ -2163,7 +2160,7 @@ ipcMain.handle('logs-sync',       async (e, { serverUrl, apiKey }) => {
 ipcMain.handle('pick-download-folder', async () => {
   const result = await dialog.showOpenDialog(mainWindow, {
     properties: ['openDirectory'],
-    title: 'İndirme klasörü seç',
+    title: T('dialog.downloadFolder.title'),
   });
   if (!result.canceled && result.filePaths.length > 0) {
     config.downloadFolder = result.filePaths[0];
@@ -2202,15 +2199,12 @@ ipcMain.handle('clear-all', async (event) => {
   try {
     const r = await dialog.showMessageBox(parent, {
       type:      'warning',
-      buttons:   ['Vazgeç', 'Tümünü Temizle'],
+      buttons:   [T('common.cancel'), T('dialog.clearData.confirm')],
       defaultId: 0,
       cancelId:  0,
-      title:     'Tüm Tarama Verilerini Temizle',
-      message:   'Tarama verilerinin tümü silinecek',
-      detail:
-        'Silinecek: çerezler, site verileri, önbellek, ziyaret günlüğü, indirme geçmişi (dosyalar değil), site izin kararları ve kayıtlı oturum.\n\n' +
-        'Silinmeyecek: yer imleri, kayıtlı şifreler, ayarlar ve VPN profilleri.\n\n' +
-        'Bu işlem geri alınamaz.',
+      title:     T('dialog.clearData.title'),
+      message:   T('dialog.clearData.message'),
+      detail:    T('dialog.clearData.detail'),
     });
     confirmed = r.response === 1;
   } catch { confirmed = false; }
@@ -2260,14 +2254,14 @@ ipcMain.handle('downloads-list', (event) => {
 
 ipcMain.handle('downloads-open', async (event, id) => {
   const d = downloads.get(Number(id));
-  if (!d || d.state !== 'completed' || !d.savePath || !fs.existsSync(d.savePath)) return { ok: false, error: 'Dosya bulunamadı' };
+  if (!d || d.state !== 'completed' || !d.savePath || !fs.existsSync(d.savePath)) return { ok: false, error: T('downloads.fileMissing') };
   if (isDangerousFile(d.filename)) {
     const parent = BrowserWindow.fromWebContents(event.sender) || mainWindow;
     const r = await dialog.showMessageBox(parent, {
-      type: 'warning', buttons: ['Vazgeç', 'Aç'], defaultId: 0, cancelId: 0,
-      title: 'Dosyayı aç',
-      message: d.filename + ' açılsın mı?',
-      detail: 'Bu dosya bilgisayarınızda program çalıştırır. Yalnızca güvendiğiniz kaynaklardan indirdiğiniz dosyaları açın.',
+      type: 'warning', buttons: [T('common.cancel'), T('common.open')], defaultId: 0, cancelId: 0,
+      title: T('dialog.openFile.title'),
+      message: T('dialog.openFile.message', { file: d.filename }),
+      detail: T('dialog.openFile.detail'),
     }).catch(() => ({ response: 0 }));
     if (r.response !== 1) return { ok: false, canceled: true };
   }
@@ -2394,7 +2388,7 @@ ipcMain.on('pw-capture', (event, data) => {
 
 ipcMain.handle('pw-save-decision', (event, { offerId, action } = {}) => {
   const offer = pwOffers.get(offerId);
-  if (!offer) return { ok: false, error: 'Öneri zaman aşımına uğradı; bir sonraki girişte yeniden sorulur.' };
+  if (!offer) return { ok: false, error: T('pwOffer.expired') };
   // Yalnızca öneriyi alan pencere karar verebilir.
   if (getContextFromEvent(event).state !== offer.state) return { ok: false };
   pwOffers.delete(offerId);
@@ -2451,17 +2445,17 @@ ipcMain.on('pw-field-focus', (event, rect) => {
   };
   const template = [
     ...(offerGenerate ? [
-      { label: 'Güçlü şifre kullan: ' + generated, click: useGenerated },
-      { label: 'Form gönderilince İlgezdi şifre kasasına kaydedilir', enabled: false },
+      { label: T('pwMenu.useGenerated', { password: generated }), click: useGenerated },
+      { label: T('pwMenu.savedOnSubmit'), enabled: false },
       { type: 'separator' },
     ] : []),
     ...(creds.length ? [
-      { label: `${new URL(origin).host} için kayıtlı hesaplar`, enabled: false },
+      { label: T('pwMenu.savedAccounts', { host: new URL(origin).host }), enabled: false },
       { type: 'separator' },
-      ...creds.slice(0, 10).map((c) => ({ label: c.username || '(kullanıcı adı yok)', click: () => fill(c.id) })),
+      ...creds.slice(0, 10).map((c) => ({ label: c.username || T('pwMenu.noUsername'), click: () => fill(c.id) })),
       { type: 'separator' },
     ] : []),
-    { label: 'Şifreleri yönet…', click: () => { if (!ctx.win.isDestroyed()) ctx.win.webContents.send('browser-command', 'passwords'); } },
+    { label: T('pwMenu.manage'), click: () => { if (!ctx.win.isDestroyed()) ctx.win.webContents.send('browser-command', 'passwords'); } },
   ];
   Menu.buildFromTemplate(template).popup({ window: ctx.win, x, y });
 });
@@ -2721,8 +2715,8 @@ app.whenReady().then(async () => {
         const { Notification } = require('electron');
         if (Notification.isSupported()) {
           new Notification({
-            title: 'VPN bağlantısı koptu',
-            body:  'Tünel beklenmedik şekilde kapandı. Trafiğiniz şu anda VPN ile korunmuyor.',
+            title: T('notify.vpnDropped.title'),
+            body:  T('notify.vpnDropped.body'),
             icon:  path.join(__dirname, '../renderer/assets/ilgezdi-logo.png'),
           }).show();
         }
@@ -2856,7 +2850,7 @@ function createIncognitoWindow() {
     width: 1200, height: 800,
     frame: false,
     backgroundColor: '#0a0e1a',
-    title: 'İlgezdi — Gizli Pencere',
+    title: T('window.incognitoTitle'),
     icon: path.join(__dirname, '../renderer/assets/app-icon.png'),
     webPreferences: {
       preload: path.join(__dirname, '../preload/preload.js'),

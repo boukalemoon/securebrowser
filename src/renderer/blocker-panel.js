@@ -277,7 +277,7 @@ function blockerInjectPanelHTML() {
           <span>${TH('blocker.allowedSites', { count: blockerWhitelist.length })}</span>
         </div>
         <div class="bl-add-row">
-          <input type="text" id="bl-add-input" placeholder="ornek.com" />
+          <input type="text" id="bl-add-input" placeholder="${TH('common.exampleDomain')}" aria-label="${TH('blocker.addInputLabel')}" />
           <button class="bl-add-btn" id="btn-bl-add">${TH('blocker.add')}</button>
         </div>
         <div id="blocker-whitelist"></div>

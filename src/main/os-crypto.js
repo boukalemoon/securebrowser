@@ -13,6 +13,8 @@
 
 'use strict';
 
+const { T } = require('./i18n');
+
 const { safeStorage } = require('electron');
 
 function hasApi() {
@@ -27,7 +29,7 @@ async function isAvailable() {
 
 /** Metni şifreler → Buffer. Kullanılamıyorsa hata fırlatır. */
 async function encryptText(text) {
-  if (!hasApi()) throw new Error('İşletim sistemi şifrelemesi kullanılamıyor');
+  if (!hasApi()) throw new Error(T('osCrypto.unavailable'));
   return safeStorage.encryptStringAsync(String(text));
 }
 
@@ -36,7 +38,7 @@ async function encryptText(text) {
  * yenilenmiştir: veri yeni anahtarla yeniden şifrelenip yazılmalı. Çözülemezse hata fırlatır.
  */
 async function decryptBuffer(buffer) {
-  if (!hasApi()) throw new Error('İşletim sistemi şifrelemesi kullanılamıyor');
+  if (!hasApi()) throw new Error(T('osCrypto.unavailable'));
   const r = await safeStorage.decryptStringAsync(buffer);
   return { text: r.result, reencrypt: r.shouldReEncrypt === true };
 }

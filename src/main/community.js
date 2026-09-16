@@ -14,6 +14,7 @@
 'use strict';
 
 const os = require('os');
+const { T } = require('./i18n');
 
 const API_BASE = 'https://www.ilgezdi.com.tr/api';
 const PARTITION = 'ilgezdi-community';   // "persist:" yok → bellek içi
@@ -30,22 +31,16 @@ const FEEDBACK_STATUSES = ['yeni', 'inceleniyor', 'planlandi', 'tamamlandi', 're
 const REVIEW_STATUSES = ['pending', 'approved', 'rejected'];
 
 // Sunucu hata kodları → kullanıcıya gösterilecek metin (ham kod gösterilmez).
-const ERRORS = {
-  unauthorized:    'Qrtım oturumunuz doğrulanamadı. Ayarlar › Hesap’tan yeniden giriş yapın.',
-  rate_limited:    'Kısa sürede çok fazla gönderim yapıldı. Bir saat sonra yeniden deneyin.',
-  invalid_rating:  'Lütfen 1 ile 5 arasında bir puan seçin.',
-  invalid_name:    'Yorumda görünecek adınızı yazın (en az 2 karakter).',
-  invalid_comment: 'Yorum en az 10 karakter olmalı.',
-  invalid_type:    'Ne paylaşmak istediğinizi seçin.',
-  invalid_title:   'Başlık en az 5 karakter olmalı.',
-  invalid_message: 'Açıklama en az 10 karakter olmalı.',
-  too_large:       'Metin çok uzun.',
-  invalid_json:    'Gönderim okunamadı. Yeniden deneyin.',
-  server_error:    'İlgezdi sunucusu şu an yanıt vermiyor. Biraz sonra yeniden deneyin.',
-  network:         'İlgezdi sunucusuna ulaşılamadı. İnternet bağlantınızı denetleyip yeniden deneyin.',
-};
+// Metinler locales/*.json içinde: community.err.<kod>.
+const ERRORS = Object.freeze(new Set([
+  'unauthorized', 'rate_limited', 'invalid_rating', 'invalid_name', 'invalid_comment', 'invalid_type',
+  'invalid_title', 'invalid_message', 'too_large', 'invalid_json', 'server_error', 'network',
+]));
 
-const fail = (code) => ({ ok: false, code, error: ERRORS[code] || ERRORS.server_error });
+const fail = (code) => {
+  const known = ERRORS.has(code) ? code : 'server_error';
+  return { ok: false, code: known, error: T('community.err.' + known) };
+};
 const clean = (v, max) => (typeof v === 'string'
   ? v.replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, '').trim().slice(0, max) : '');
 const validToken = (t) => typeof t === 'string' && /^[A-Za-z0-9._-]{20,4096}$/.test(t);
@@ -112,7 +107,7 @@ function setupCommunity({ ipcMain, session, app, apiBase }) {
     let data = null;
     try { data = await res.json(); } catch {}
     if (!res.ok) {
-      const code = data && typeof data.error === 'string' && ERRORS[data.error] ? data.error
+      const code = data && typeof data.error === 'string' && ERRORS.has(data.error) ? data.error
         : (res.status === 401 ? 'unauthorized' : res.status === 429 ? 'rate_limited' : 'server_error');
       return fail(code);
     }

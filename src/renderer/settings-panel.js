@@ -847,7 +847,7 @@ function renderPasswordsTab(cfg = {}) {
       <div id="pw-pwned-result" aria-live="polite"></div>
     </div>
     <div class="settings-section"><h3>${TH('settings.pw.add')}</h3>
-      <div class="s-input-row"><label>${TH('settings.pw.site')}</label><input type="text" id="pwd-new-site" placeholder="ornek.com"/></div>
+      <div class="s-input-row"><label>${TH('settings.pw.site')}</label><input type="text" id="pwd-new-site" placeholder="${TH('common.exampleDomain')}"/></div>
       <div class="s-input-row"><label>${TH('settings.pw.username')}</label><input type="text" id="pwd-new-user" placeholder="${TH('settings.pw.usernamePlaceholder')}"/></div>
       <div class="s-input-row"><label for="pwd-new-pass">${TH('settings.pw.password')}</label>
         <div class="folder-row">
@@ -1267,12 +1267,13 @@ function renderThreatStatus(st) {
   for (const s of st.sources || []) {
     const item = document.createElement('div');
     item.style.cssText = 'padding:8px 0;border-bottom:1px solid var(--border-color)';
-    item.appendChild(line('s-toggle-label', s.name));
+    const srcText = (field, fallback) => (window.ilgezdiI18n.has('threat.source.' + s.id + '.' + field) ? T('threat.source.' + s.id + '.' + field) : fallback);
+    item.appendChild(line('s-toggle-label', srcText('name', s.name)));
     const when = s.updatedAt ? window.ilgezdiI18n.formatDateTime(s.updatedAt, { dateStyle: 'medium', timeStyle: 'short' }) : '';
     item.appendChild(line('s-toggle-sub', s.entries
       ? `${T('settings.threat.entries', { count: s.entries, when })}${s.stale ? T('settings.threat.stale') : ''}${st.updating ? T('settings.threat.updating') : ''}`
       : (st.updating ? T('settings.threat.downloading') : T('settings.threat.notYet'))));
-    if (s.covers) item.appendChild(line('s-toggle-sub', s.covers + (s.license ? T('settings.threat.license', { license: s.license }) : '')));
+    if (s.covers) item.appendChild(line('s-toggle-sub', srcText('covers', s.covers) + (s.license ? T('settings.threat.license', { license: srcText('license', s.license) }) : '')));
     if (s.lastError) item.appendChild(line('s-toggle-sub', T('settings.threat.lastError', { error: s.lastError }), 'var(--danger)'));
     box.appendChild(item);
   }

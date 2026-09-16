@@ -9,6 +9,7 @@ const crypto = require('crypto');
 const fs     = require('fs');
 const path   = require('path');
 const osCrypto = require('./os-crypto');
+const i18n = require('./i18n');
 
 const ALGO         = 'aes-256-gcm';
 const KEY_FILE     = 'ilgezdi.key';     // ESKİ: düz metin anahtar (taşınıp silinir)
@@ -356,16 +357,18 @@ class SecureLogManager {
   exportCSV(query = {}) {
     const { items } = this.search({ ...query, limit: 99999 });
     const cell = SecureLogManager.csvCell;
-    const headers = ['Tarih', 'Saat', 'Alan adı', 'URL', 'Başlık', 'VPN', 'VPN Profil', 'Süre(ms)'];
+    const { T } = i18n;
+    const headers = [T('logs.csv.date'), T('logs.csv.time'), T('logs.csv.domain'), 'URL', T('logs.csv.title'), 'VPN', T('logs.csv.vpnProfile'), T('logs.csv.duration')];
+    const intl = i18n.intl();
     const rows = items.map(l => {
       const d = new Date(l.timestamp);
       return [
-        d.toLocaleDateString('tr-TR'),
-        d.toLocaleTimeString('tr-TR'),
+        d.toLocaleDateString(intl),
+        d.toLocaleTimeString(intl),
         l.domain || '',
         l.url    || '',
         l.title  || '',
-        l.vpnActive ? 'Evet' : 'Hayır',
+        l.vpnActive ? T('common.yes') : T('common.no'),
         l.vpnProfile || '',
         Number(l.duration) || 0,
       ].map(cell).join(',');
