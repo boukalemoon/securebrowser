@@ -1410,7 +1410,7 @@ suite('Keşfet — TrendTech yazılımları');
     check('senkron sonrası bellekteki yer imleri yeniden yükleniyor', /'ilgezdi-sync-applied', \(\) => \{\s*bmLoad\(\);/.test(bmJs));
 
     const spJs = read('renderer/settings-panel.js');
-    const saveBlock = (spJs.match(/async function saveAllSettings\(\) \{[\s\S]*?showSettingsToast\('Ayarlar kaydedildi!'\)/) || [''])[0];
+    const saveBlock = (spJs.match(/async function saveAllSettings\(\) \{[\s\S]*?showSettingsToast\(T\('settings\.savedToast'\)\)/) || [''])[0];
     check('Kaydet değerleri ekrandaki sekmeden okumuyor (başka sekmedeki kutu varsayılana düşmüyor)',
       saveBlock.length > 100 && !/getElementById\('cfg-[\w-]+'\)\?\.checked/.test(saveBlock) && saveBlock.includes('..._formCfg'));
     check('sekmeler bekleyen form değerleriyle çiziliyor; değişiklik dinleyicisi bir kez bağlanıyor',
@@ -1654,10 +1654,12 @@ suite('Keşfet — TrendTech yazılımları');
     const used = new Set();
     for (const f of walk(path.join(__dirname, '..', 'src')).filter((x) => path.basename(x) !== 'i18n.js')) {
       const src = fs.readFileSync(f, 'utf8');
-      for (const m of src.matchAll(/\b(?:T|TH)\(\s*'([a-zA-Z0-9_.-]+)'/g)) used.add(m[1]);
+      // Yalnızca tam anahtarlar ('a.b'); 'downloads.state.' + durum gibi dinamik önekler ayrıca denetlenir.
+      for (const m of src.matchAll(/\b(?:T|TH)\(\s*'([a-zA-Z0-9_.-]+[a-zA-Z0-9_-])'\s*[,)]/g)) used.add(m[1]);
+      for (const m of src.matchAll(/\b(?:T|TH)\(\s*'([a-zA-Z0-9_.-]+\.)'\s*\+/g)) used.add(m[1] + '*');
       for (const m of src.matchAll(/data-i18n(?:-title|-aria-label|-placeholder)?="([a-zA-Z0-9_.-]+)"/g)) used.add(m[1]);
     }
-    const missing = [...used].filter((k) => !Object.prototype.hasOwnProperty.call(trMsgs, k));
+    const missing = [...used].filter((k) => (k.endsWith('*') ? !Object.keys(trMsgs).some((x) => x.startsWith(k.slice(0, -1))) : !Object.prototype.hasOwnProperty.call(trMsgs, k)));
     check('koddaki her çeviri anahtarı tr.json\'da var (' + used.size + ' anahtar)', missing.length === 0, missing.slice(0, 20).join(', '));
     // Diğer dillerde tr.json'da olmayan anahtar, eksik parametre ya da bozuk çoğul olmamalı.
     const placeholders = (v) => [...new Set((typeof v === 'string' ? v : Object.values(v).join(' ')).match(/\{\w+\}/g) || [])].sort().join(',');
@@ -1705,7 +1707,8 @@ suite('Keşfet — TrendTech yazılımları');
     const spP = read('renderer/settings-panel.js');
     check('arayüz: düğme çalışırken kilitli, site ve kullanıcı adı kaçışlanıyor, açıklama ne gönderildiğini söylüyor',
       /async function runPwnedCheck\(\) \{[\s\S]{0,300}btn\.disabled = true;[\s\S]{0,2600}_pwEsc\(host\)[\s\S]{0,100}_pwEsc\(it\.username \|\| '—'\)/.test(spP)
-      && spP.includes("SHA-1 özetinin yalnızca ilk 5 karakteri api.pwnedpasswords.com'a gönderilir"));
+      && spP.includes("${TH('settings.pw.pwnedHint')}")
+      && /SHA-1 özetinin yalnızca ilk 5 karakteri api\.pwnedpasswords\.com adresine gönderilir/.test(JSON.parse(read('locales/tr.json'))['settings.pw.pwnedHint']));
   }
 
   suite('Yeni sekme — Google kısayolu yok');
@@ -1887,7 +1890,7 @@ suite('Keşfet — TrendTech yazılımları');
       && /function renderTabs\(tabs\) \{\s*currentTabs = tabs;\s*if \(currentScreen === 'tabs'\) renderTabsList\(\);/.test(appT));
     check('şeritte düğme ve kısayol tablosunda satır var',
       read('renderer/index.html').includes('id="btn-tab-search"') && appT.includes("document.getElementById('btn-tab-search')?.addEventListener('click', openTabsScreen);")
-      && read('renderer/settings-panel.js').includes('<tr><td>Sekmelerde ara</td>'));
+      && read('renderer/settings-panel.js').includes("<tr><td>${TH('settings.shortcut.tabSearch')}</td>"));
   }
 
   suite('Sistem — donanım hızlandırma, ayarları sıfırla, geçmişi aralıkla sil, kapatma uyarısı');
@@ -1944,7 +1947,8 @@ suite('Keşfet — TrendTech yazılımları');
       /async function resetAllSettings\(\) \{[\s\S]{0,400}localStorage\.removeItem\('ilgezdi-whitelist'\); localStorage\.removeItem\('ilgezdi-block-level'\);[\s\S]{0,200}await loadSavedTheme\(\);\s*loadSettingsState\(/.test(sp6)
       && sp6.includes('window.ilgezdiSync?.schedulePush();\n  selectSettingsTab(\'general\');'));
     check('geçmiş sayfası: aralık seçimi ve aralığa göre onay metni',
-      read('renderer/app.js').includes('<select class="page-select" id="history-clear-range" aria-label="Silinecek zaman aralığı">') && read('renderer/app.js').includes('await sb.logs.clearRange(range);'));
+      read('renderer/app.js').includes('<select class="page-select" id="history-clear-range" aria-label="${TH(\'history.rangeLabel\')}">') && read('renderer/app.js').includes('await sb.logs.clearRange(range);')
+      && read('renderer/app.js').includes("T('history.confirmRange', { range: sel.selectedOptions[0].textContent })"));
   }
 
   suite('Şifre oluşturucu');
@@ -2068,7 +2072,7 @@ suite('Keşfet — TrendTech yazılımları');
   }
   check('kaynaklardan birebir alıntılar uygulama dışında belgeleniyor', fs.existsSync(path.join(__dirname, '..', 'docs', 'bilgi-kartlari-kaynaklar.json')));
   check('yeni sekme kaynaklı kartları kullanıyor; eski kaynaksız haber havuzu yok', appJs.includes('window.ILGEZDI_INFO_CARDS') && !appJs.includes('const NEWS_POOL'));
-  check('kart metni kaçışlanıyor; kart tıklanınca (ya da Enter) kaynağı açılıyor, orta tıkla yeni sekmede', appJs.includes('H.esc(item.title)') && /\.news-card\[data-source\][\s\S]{0,700}sb\.navigate\([\s\S]{0,300}sb\.newTab\(/.test(appJs) && /news-card\[data-source\][\s\S]{0,700}'Enter'/.test(appJs));
+  check('kart metni kaçışlanıyor (çevirisi de); kart tıklanınca (ya da Enter) kaynağı açılıyor, orta tıkla yeni sekmede', appJs.includes("H.esc(title === 'cards.' + item.id + '.title' ? item.title : title)") && /\.news-card\[data-source\][\s\S]{0,700}sb\.navigate\([\s\S]{0,300}sb\.newTab\(/.test(appJs) && /news-card\[data-source\][\s\S]{0,700}'Enter'/.test(appJs));
   check('ekran kapanışının bekleyen gizleme zamanlayıcısı yeni açılan ekranı gizlemiyor',
     /async function showScreen[\s\S]{0,900}clearTimeout\(screenHideTimer\)[\s\S]{0,200}classList\.remove\('hidden'\)/.test(appJs)
     && /screenHideTimer = setTimeout\(\(\) => \{\s*screenHideTimer = null;\s*if \(!currentScreen\) overlay\.classList\.add\('hidden'\);/.test(appJs));

@@ -72,9 +72,8 @@ let currentScreen = null; // 'newtab' | 'bookmarks' | 'history' | 'downloads' | 
 
 // ─── Yardımcı ─────────────────────────────────────────────────────────────────
 function formatDate(ts) {
-  const d = new Date(ts);
-  return d.toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric' })
-       + ' ' + d.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+  const I = window.ilgezdiI18n;
+  return I.formatDate(ts, { day: '2-digit', month: '2-digit', year: 'numeric' }) + ' ' + I.formatTime(ts, { hour: '2-digit', minute: '2-digit' });
 }
 
 function truncateUrl(url, maxLen = 80) {
@@ -186,7 +185,7 @@ function updateVpnIndicator(enabled) {
   const lbl = document.getElementById('vpn-label');
   if (!el || !lbl) return;
   el.className = enabled ? 'vpn-on' : 'vpn-off';
-  lbl.textContent = enabled ? 'VPN Aktif' : 'VPN Kapalı';
+  lbl.textContent = enabled ? T('ui.vpnOn') : T('ui.vpnOff');
 }
 
 // ─── Sekme Render ─────────────────────────────────────────────────────────────
@@ -203,7 +202,7 @@ function updateReloadButton(activeTab) {
   if (!btn || loading === reloadIsStop) return;
   reloadIsStop = loading;
   btn.innerHTML = loading ? STOP_SVG : RELOAD_SVG;
-  btn.title = loading ? 'Yüklemeyi durdur (Esc)' : 'Yenile (F5)';
+  btn.title = loading ? T('ui.stopLoading') : T('ui.reload');
   btn.setAttribute('aria-label', btn.title);
   btn.classList.toggle('is-loading', loading);
 }
@@ -219,7 +218,7 @@ function renderTabs(tabs) {
   container.innerHTML = '';
 
   tabs.forEach(tab => {
-    const label = tab.title || tab.url || 'Yeni Sekme';
+    const label = tab.title || tab.url || T('tab.new');
     const el = document.createElement('div');
     el.className = 'tab' + (tab.isActive ? ' active' : '') + (tab.pinned ? ' pinned' : '') + (tab.sleeping ? ' sleeping' : '');
     el.dataset.id = tab.id;
@@ -228,7 +227,7 @@ function renderTabs(tabs) {
     let initial = '•';
     try { initial = (new URL(tab.url).hostname.replace(/^www\./, '')[0] || '•').toLocaleUpperCase('tr'); } catch {}
     el.dataset.initial = initial;
-    if (tab.pinned) el.setAttribute('aria-label', label + ' (sabitlenmiş)');
+    if (tab.pinned) el.setAttribute('aria-label', T('tab.pinnedLabel', { title: label }));
     // Erişilebilirlik: sekme şeridi bir tablist. Yalnızca etkin sekme Tab ile
     // odak alır; diğerlerine ok tuşlarıyla geçilir, Enter/Boşluk ile açılır.
     el.setAttribute('role', 'tab');
@@ -267,7 +266,7 @@ function renderTabs(tabs) {
     closeBtn.className = 'tab-close';
     closeBtn.textContent = '×';
     closeBtn.tabIndex = -1;                                   // klavyede Ctrl+W
-    closeBtn.setAttribute('aria-label', 'Sekmeyi kapat: ' + label);
+    closeBtn.setAttribute('aria-label', T('tab.closeLabel', { title: label }));
     closeBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       sb.closeTab(tab.id);
@@ -278,8 +277,8 @@ function renderTabs(tabs) {
       const audio = document.createElement('button');
       audio.className = 'tab-audio' + (tab.muted ? ' muted' : '');
       audio.tabIndex = -1;
-      audio.title = tab.muted ? 'Sekmenin sesini aç' : 'Sekmeyi sessize al';
-      audio.setAttribute('aria-label', (tab.muted ? 'Sesi aç: ' : 'Sessize al: ') + label);
+      audio.title = tab.muted ? T('tab.unmute') : T('tab.mute');
+      audio.setAttribute('aria-label', T(tab.muted ? 'tab.unmuteLabel' : 'tab.muteLabel', { title: label }));
       audio.innerHTML = tab.muted ? TAB_SVG_MUTED : TAB_SVG_SPEAKER;
       audio.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -351,14 +350,14 @@ function updateAddressBar(url) {
   if (icon) {
     if (url?.startsWith('https://')) {
       icon.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>';
-      icon.title = 'Site bilgisi · Bağlantı güvenli (HTTPS)';
+      icon.title = T('ui.siteInfoSecure');
       icon.style.color = 'var(--gold)';
     } else if (url?.startsWith('http://')) {
-      icon.innerHTML = '⚠️'; icon.title = 'Site bilgisi · Bağlantı güvenli değil (HTTP)';
+      icon.innerHTML = '⚠️'; icon.title = T('ui.siteInfoInsecure');
       icon.style.color = 'var(--warning)';
     } else {
       icon.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg>';
-      icon.title = 'Site bilgisi';
+      icon.title = T('ui.siteInfo');
       icon.style.color = 'var(--ink-mute)';
     }
   }
@@ -374,14 +373,14 @@ function updateAddressBar(url) {
 // Bağlantı ve sertifika, bu sitenin izinleri, engellenen açılır pencereler,
 // yakınlaştırma ve site verisini silme. Kararlar ana süreçte doğrulanır.
 const SITE_DECISION_OPTIONS = {
-  ask:     [['ask', 'Sor (varsayılan)'], ['allow', 'İzin ver'], ['block', 'Engelle']],
-  popups:  [['default', 'Yalnızca tıklayınca (varsayılan)'], ['allow', 'Her zaman izin ver'], ['block', 'Her zaman engelle']],
-  cookies: [['default', 'Genel ayarı kullan'], ['allow', 'Bu sitede izin ver']],
+  ask:     [['ask', 'siteInfo.decision.askDefault'], ['allow', 'siteInfo.decision.allow'], ['block', 'siteInfo.decision.block']],
+  popups:  [['default', 'siteInfo.decision.popupsDefault'], ['allow', 'siteInfo.decision.alwaysAllow'], ['block', 'siteInfo.decision.alwaysBlock']],
+  cookies: [['default', 'siteInfo.decision.cookiesDefault'], ['allow', 'siteInfo.decision.allowHere']],
 };
 
 function formatTrDate(ms) {
   if (!ms) return '—';
-  try { return new Date(ms).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' }); } catch { return '—'; }
+  return window.ilgezdiI18n.formatDate(ms, { day: 'numeric', month: 'long', year: 'numeric' }) || '—';
 }
 
 async function loadSiteInfo() {
@@ -391,60 +390,60 @@ async function loadSiteInfo() {
   let info = null;
   try { info = await sb.site?.info?.(); } catch {}
   if (!info || !info.origin) {
-    body.innerHTML = '<p class="si-empty">Bu sekmede bir web sitesi açık değil.</p>';
+    body.innerHTML = `<p class="si-empty">${TH('siteInfo.noSite')}</p>`;
     return;
   }
 
   const secure = info.scheme === 'https';
   const cert = info.certificate;
   const certBad = !!(cert && !cert.ok);
-  const statusText = !secure ? 'Bağlantı güvenli değil' : certBad ? 'Sertifika sorunlu' : 'Bağlantı güvenli';
+  const statusText = !secure ? T('siteInfo.insecure') : certBad ? T('siteInfo.certProblem') : T('siteInfo.secure');
 
   const certHtml = !secure
-    ? '<p class="si-note">Bu site şifrelenmemiş HTTP kullanıyor. Parola ya da kart bilgisi girmeyin.</p>'
+    ? `<p class="si-note">${TH('siteInfo.httpWarning')}</p>`
     : cert
       ? `<dl class="si-dl">
-          <dt>Kime verildi</dt><dd>${H.esc(cert.subject || '—')}</dd>
-          <dt>Veren</dt><dd>${H.esc(cert.issuer || '—')}${cert.issuerOrg ? ' · ' + H.esc(cert.issuerOrg) : ''}</dd>
-          <dt>Geçerlilik</dt><dd>${H.esc(formatTrDate(cert.validFrom))} – ${H.esc(formatTrDate(cert.validTo))}</dd>
-          <dt>Parmak izi</dt><dd class="si-mono">${H.esc(cert.fingerprint || '—')}</dd>
-          ${cert.error ? `<dt>Sorun</dt><dd class="si-bad">${H.esc(cert.error)}</dd>` : ''}
+          <dt>${TH('siteInfo.cert.subject')}</dt><dd>${H.esc(cert.subject || '—')}</dd>
+          <dt>${TH('siteInfo.cert.issuer')}</dt><dd>${H.esc(cert.issuer || '—')}${cert.issuerOrg ? ' · ' + H.esc(cert.issuerOrg) : ''}</dd>
+          <dt>${TH('siteInfo.cert.validity')}</dt><dd>${H.esc(formatTrDate(cert.validFrom))} – ${H.esc(formatTrDate(cert.validTo))}</dd>
+          <dt>${TH('siteInfo.cert.fingerprint')}</dt><dd class="si-mono">${H.esc(cert.fingerprint || '—')}</dd>
+          ${cert.error ? `<dt>${TH('siteInfo.cert.problem')}</dt><dd class="si-bad">${H.esc(cert.error)}</dd>` : ''}
         </dl>`
-      : '<p class="si-note">Sertifika ayrıntısı bu oturumda henüz alınmadı; sayfayı yenileyince görünür.</p>';
+      : `<p class="si-note">${TH('siteInfo.cert.notYet')}</p>`;
 
   const permRows = (info.permissions || []).map((p) => {
     const kind = p.permission === 'popups' ? 'popups' : p.permission === 'third-party-cookies' ? 'cookies' : 'ask';
     let opts = SITE_DECISION_OPTIONS[kind];
-    if (!opts.some(([v]) => v === p.decision)) opts = [...opts, [p.decision, p.decision === 'block' ? 'Engelle' : p.decision]];
+    if (!opts.some(([v]) => v === p.decision)) opts = [...opts, [p.decision, p.decision === 'block' ? 'siteInfo.decision.block' : p.decision]];
     const id = 'si-perm-' + p.permission;
-    const options = opts.map(([v, t]) => `<option value="${H.esc(v)}" ${p.decision === v ? 'selected' : ''}>${H.esc(t)}</option>`).join('');
+    const options = opts.map(([v, key]) => `<option value="${H.esc(v)}" ${p.decision === v ? 'selected' : ''}>${TH(key)}</option>`).join('');
     return `<div class="si-perm"><label for="${H.esc(id)}">${H.esc(p.label)}</label><select id="${H.esc(id)}" data-permission="${H.esc(p.permission)}">${options}</select></div>`;
   }).join('');
 
   const popupsHtml = (info.blockedPopups || []).length
-    ? `<div class="si-sec"><h3>Engellenen açılır pencereler</h3>${info.blockedPopups.map((u, i) => `
+    ? `<div class="si-sec"><h3>${TH('siteInfo.blockedPopups')}</h3>${info.blockedPopups.map((u, i) => `
         <div class="si-popup"><span class="si-mono" title="${H.esc(u)}">${H.esc(truncateUrl(u, 46))}</span>
-        <button type="button" class="si-btn" data-open-popup="${i}">Aç</button></div>`).join('')}</div>`
+        <button type="button" class="si-btn" data-open-popup="${i}">${TH('siteInfo.open')}</button></div>`).join('')}</div>`
     : '';
 
   // Reklam ve izleyici koruması (Brave'in kalkanları gibi): sayaç ve site istisnası.
   const pb = info.pageBlocked || {};
   const blockedTotal = ['ads', 'trackers', 'cookies', 'thirdParty'].reduce((n, k) => n + (Number(pb[k]) || 0), 0);
-  const blockedParts = [[pb.trackers, 'izleyici'], [pb.ads, 'reklam'], [pb.cookies, 'çerez bildirimi'], [pb.thirdParty, 'üçüncü taraf']]
-    .filter(([n]) => Number(n) > 0).map(([n, t]) => `${Number(n)} ${t}`).join(', ');
+  const blockedParts = [[pb.trackers, 'siteInfo.blocked.trackers'], [pb.ads, 'siteInfo.blocked.ads'], [pb.cookies, 'siteInfo.blocked.cookies'], [pb.thirdParty, 'siteInfo.blocked.thirdParty']]
+    .filter(([n]) => Number(n) > 0).map(([n, key]) => T(key, { count: Number(n) })).join(', ');
   const shieldHtml = !info.blocking
-    ? '<div class="si-sec"><h3>Reklam ve izleyici koruması</h3><p class="si-note">Reklam ve izleyici engelleme Ayarlar › Gizlilik\'te kapalı.</p></div>'
-    : `<div class="si-sec"><h3>Reklam ve izleyici koruması</h3>
-        <div class="si-row"><span id="si-blocked">${info.siteAllowed ? 'Bu sitede engelleme kapalı' : blockedTotal ? `Bu sayfada ${blockedTotal} istek engellendi` : 'Bu sayfada engellenen istek yok'}</span></div>
+    ? `<div class="si-sec"><h3>${TH('siteInfo.shield.title')}</h3><p class="si-note">${TH('siteInfo.shield.globalOff')}</p></div>`
+    : `<div class="si-sec"><h3>${TH('siteInfo.shield.title')}</h3>
+        <div class="si-row"><span id="si-blocked">${info.siteAllowed ? TH('siteInfo.shield.siteOff') : blockedTotal ? TH('siteInfo.shield.blocked', { count: blockedTotal }) : TH('siteInfo.shield.none')}</span></div>
         ${!info.siteAllowed && blockedParts ? `<p class="si-note">${H.esc(blockedParts)}</p>` : ''}
-        <div class="si-row"><label for="si-shield">Bu sitede engelle</label><input type="checkbox" id="si-shield" ${info.siteAllowed ? '' : 'checked'}></div>
-        <p class="si-note">Kapatınca bu sitede reklam ve izleyiciler yüklenir; sayfa yenilenir. Siteyi bozan bir engelleme olursa kullanın.</p>
+        <div class="si-row"><label for="si-shield">${TH('siteInfo.shield.toggle')}</label><input type="checkbox" id="si-shield" ${info.siteAllowed ? '' : 'checked'}></div>
+        <p class="si-note">${TH('siteInfo.shield.hint')}</p>
       </div>`;
 
   const pct = Math.round((Number(info.zoom) || 1) * 100);
   const zoomDefaultPct = Math.round((Number(info.zoomDefault) || 1) * 100);
   const zoomHtml = pct !== zoomDefaultPct
-    ? `<div class="si-sec si-row"><span>Yakınlaştırma %${pct}</span><button type="button" class="si-btn" id="si-zoom-reset">Sıfırla</button></div>`
+    ? `<div class="si-sec si-row"><span>${TH('siteInfo.zoom', { percent: pct })}</span><button type="button" class="si-btn" id="si-zoom-reset">${TH('siteInfo.reset')}</button></div>`
     : '';
 
   body.innerHTML = `
@@ -452,15 +451,15 @@ async function loadSiteInfo() {
       <div class="si-host">${H.esc(info.host)}</div>
       <div class="si-status ${secure && !certBad ? 'ok' : 'bad'}">${H.esc(statusText)}</div>
     </div>
-    <div class="si-sec"><h3>Bağlantı ve sertifika</h3>${certHtml}</div>
+    <div class="si-sec"><h3>${TH('siteInfo.connection')}</h3>${certHtml}</div>
     ${shieldHtml}
     ${popupsHtml}
-    <div class="si-sec"><h3>Bu site için izinler</h3>${permRows}
-      <p class="si-note">Değişiklik hemen kaydedilir. Kamera ve konum gibi izinler sitenin bir sonraki isteğinde geçerli olur.</p>
+    <div class="si-sec"><h3>${TH('siteInfo.permissions')}</h3>${permRows}
+      <p class="si-note">${TH('siteInfo.permissionsHint')}</p>
     </div>
     ${zoomHtml}
     <div class="si-sec">
-      <button type="button" class="si-btn danger" id="si-clear-data">Çerezleri ve site verilerini sil</button>
+      <button type="button" class="si-btn danger" id="si-clear-data">${TH('siteInfo.clearData')}</button>
       <div class="si-result" id="si-result" role="status" aria-live="polite"></div>
     </div>`;
 
@@ -474,7 +473,7 @@ async function loadSiteInfo() {
     sel.addEventListener('change', async () => {
       const decision = sel.value === 'default' ? 'ask' : sel.value;
       const r = await sb.site.setPermission(info.origin, sel.dataset.permission, decision);
-      result(r && r.ok ? 'Kaydedildi' : (r && r.error) || 'Kaydedilemedi', !(r && r.ok));
+      result(r && r.ok ? T('siteInfo.saved') : (r && r.error) || T('siteInfo.saveFailed'), !(r && r.ok));
     });
   });
   body.querySelectorAll('[data-open-popup]').forEach((btn) => {
@@ -501,7 +500,7 @@ async function loadSiteInfo() {
   document.getElementById('si-clear-data')?.addEventListener('click', async () => {
     const r = await sb.site.clearData(info.origin);
     if (r && r.canceled) return;
-    result(r && r.ok ? 'Bu sitenin çerezleri ve verileri silindi' : (r && r.error) || 'Silinemedi', !(r && r.ok));
+    result(r && r.ok ? T('siteInfo.dataCleared') : (r && r.error) || T('siteInfo.clearFailed'), !(r && r.ok));
   });
 }
 
@@ -520,17 +519,17 @@ async function loadShield() {
   const vpnOn = vpn?.status === 'connected';
 
   const items = [
-    { name: 'VPN Bağlantısı', on: vpnOn,
-      note: vpnOn ? '' : (vpn?.status === 'dropped' ? 'bağlantı koptu' : 'bağlı değil') },
-    { name: 'Kill Switch', on: !!vpn?.killSwitch,
-      note: vpn?.killSwitchSupported === false ? 'bu platformda yok' : (vpnOn ? '' : 'VPN kapalı') },
-    { name: 'İzleyici Engelleme', on: cfg.blockTrackers !== false },
-    { name: 'Reklam Engelleme',   on: cfg.blockAds !== false },
-    { name: 'Yalnızca HTTPS',     on: !!cfg.httpsOnly },
-    { name: 'Üçüncü Taraf Çerez Engeli', on: cfg.blockThirdPartyCookies !== false },
-    { name: 'Şifreli Ziyaret Günlüğü',
+    { name: T('shield.vpn'), on: vpnOn,
+      note: vpnOn ? '' : (vpn?.status === 'dropped' ? T('shield.vpnDropped') : T('shield.vpnDisconnected')) },
+    { name: T('shield.killSwitch'), on: !!vpn?.killSwitch,
+      note: vpn?.killSwitchSupported === false ? T('shield.notOnPlatform') : (vpnOn ? '' : T('shield.vpnOff')) },
+    { name: T('shield.trackers'), on: cfg.blockTrackers !== false },
+    { name: T('shield.ads'),      on: cfg.blockAds !== false },
+    { name: T('shield.httpsOnly'), on: !!cfg.httpsOnly },
+    { name: T('shield.thirdPartyCookies'), on: cfg.blockThirdPartyCookies !== false },
+    { name: T('shield.encryptedLog'),
       on: cfg.logEnabled !== false && logStats?.encrypted !== false,
-      note: cfg.logEnabled === false ? 'kapalı' : (logStats?.encrypted === false ? 'şifreleme kullanılamıyor' : '') },
+      note: cfg.logEnabled === false ? T('shield.off') : (logStats?.encrypted === false ? T('shield.noEncryption') : '') },
   ];
   const activeCount = items.filter(i => i.on).length;
 
@@ -541,17 +540,17 @@ async function loadShield() {
     <div style="text-align:center;padding:16px 0 24px">
       <div style="font-size:48px;margin-bottom:8px">${activeCount >= 5 ? '🛡️' : activeCount >= 3 ? '⚠️' : '🔓'}</div>
       <div style="font-size:18px;font-weight:700;color:${activeCount >= 5 ? 'var(--success)' : activeCount >= 3 ? 'var(--warning)' : 'var(--danger)'}">
-        ${activeCount}/${items.length} Koruma Aktif
+        ${TH('shield.activeCount', { active: activeCount, total: items.length })}
       </div>
       <div style="font-size:12px;color:var(--text-muted);margin-top:4px">
-        Bugün ${Number(block?.today) || 0} istek engellendi
+        ${TH('shield.blockedToday', { count: Number(block?.today) || 0 })}
       </div>
     </div>
     ${items.map(item => `
       <div class="shield-item">
         <span class="shield-name">${H.esc(item.name)}${item.note ? ` <span style="color:var(--text-muted);font-size:11px">· ${H.esc(item.note)}</span>` : ''}</span>
         <span class="shield-status ${item.on ? 'status-on' : 'status-off'}">
-          ${item.on ? '✓ Aktif' : '✗ Kapalı'}
+          ${item.on ? TH('shield.on') : TH('shield.offStatus')}
         </span>
       </div>
     `).join('')}
@@ -572,7 +571,7 @@ function iconColorFor(key) {
 
 function initialFor(host) {
   const s = String(host || '').replace(/^www\./, '');
-  return (s[0] || '?').toLocaleUpperCase('tr');
+  return (s[0] || '?').toLocaleUpperCase(window.ilgezdiI18n.intl);
 }
 
 function dayLabel(ts) {
@@ -581,9 +580,9 @@ function dayLabel(ts) {
   today.setHours(0, 0, 0, 0);
   const day = new Date(d.getFullYear(), d.getMonth(), d.getDate());
   const diff = Math.round((today - day) / 86400000);
-  if (diff === 0) return 'Bugün';
-  if (diff === 1) return 'Dün';
-  return d.toLocaleDateString('tr-TR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  if (diff === 0) return T('history.today');
+  if (diff === 1) return T('history.yesterday');
+  return window.ilgezdiI18n.formatDate(d, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 }
 
 const historyView = { text: '', page: 1, items: [], total: 0, logEnabled: true };
@@ -593,27 +592,27 @@ function renderHistoryPage() {
     <div class="page fade-up" id="history-page">
       <div class="page-head">
         <div>
-          <h1>Geçmiş</h1>
-          <p class="page-sub">Ziyaret günlüğü yalnızca bu cihazda şifreli saklanır. Gizli pencere kaydedilmez.</p>
+          <h1>${TH('history.title')}</h1>
+          <p class="page-sub">${TH('history.subtitle')}</p>
         </div>
         <div class="right">
           <label class="page-search">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
-            <input type="search" id="history-search" placeholder="Geçmişte ara" aria-label="Geçmişte ara" autocomplete="off">
+            <input type="search" id="history-search" placeholder="${TH('history.search')}" aria-label="${TH('history.search')}" autocomplete="off">
           </label>
-          <select class="page-select" id="history-clear-range" aria-label="Silinecek zaman aralığı">
-            <option value="hour">Son 1 saat</option>
-            <option value="day">Son 24 saat</option>
-            <option value="week">Son 7 gün</option>
-            <option value="month">Son 4 hafta</option>
-            <option value="all" selected>Tüm zamanlar</option>
+          <select class="page-select" id="history-clear-range" aria-label="${TH('history.rangeLabel')}">
+            <option value="hour">${TH('history.range.hour')}</option>
+            <option value="day">${TH('history.range.day')}</option>
+            <option value="week">${TH('history.range.week')}</option>
+            <option value="month">${TH('history.range.month')}</option>
+            <option value="all" selected>${TH('history.range.all')}</option>
           </select>
-          <button type="button" class="page-btn danger" id="history-clear">Temizle</button>
+          <button type="button" class="page-btn danger" id="history-clear">${TH('history.clear')}</button>
         </div>
       </div>
       <div class="http-report" id="history-http-report" hidden></div>
       <div class="list" id="history-list" aria-live="polite"></div>
-      <div class="page-more"><button type="button" class="page-btn" id="history-more" hidden>Daha fazla göster</button></div>
+      <div class="page-more"><button type="button" class="page-btn" id="history-more" hidden>${TH('history.more')}</button></div>
     </div>`;
 }
 
@@ -630,26 +629,26 @@ async function renderHttpReport(boxId) {
     cfg = res[1] || {};
   } catch {}
   if (!report || !report.total) { box.hidden = true; return; }
-  const fmt = new Intl.NumberFormat('tr-TR');
+  const fmt = { format: (n) => window.ilgezdiI18n.formatNumber(n) };
   const title = document.createElement('div');
   title.className = 'http-report-title';
   const body = document.createElement('div');
   body.className = 'http-report-body';
   box.classList.toggle('warn', report.http > 0);
   if (!report.http) {
-    title.textContent = 'Son 7 günde tüm ziyaretleriniz şifreli bağlantıyla (HTTPS) yapıldı';
-    body.textContent = `${fmt.format(report.total)} ziyaret · şifresiz (HTTP) bağlantı yok`;
+    title.textContent = T('httpReport.allSecureTitle');
+    body.textContent = T('httpReport.allSecureBody', { count: report.total });
   } else {
-    title.textContent = `Son 7 günde ${fmt.format(report.http)} ziyaret şifresiz bağlantıyla (HTTP) yapıldı`;
+    title.textContent = T('httpReport.insecureTitle', { count: report.http });
     const names = report.top.map((t) => `${t.domain} (${fmt.format(t.count)})`).join(', ');
-    body.textContent = `${fmt.format(report.httpDomains)} sitede${names ? ': ' + names : ''}. Bu sayfalarda girilen bilgiler aynı ağdaki başkaları tarafından okunabilir.`;
+    body.textContent = `${T('httpReport.siteCount', { count: report.httpDomains })}${names ? ': ' + names : ''}. ${T('httpReport.risk')}`;
   }
   box.replaceChildren(title, body);
   if (report.http && !cfg.httpsOnly) {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'page-btn';
-    btn.textContent = 'Yalnızca HTTPS’i aç';
+    btn.textContent = T('httpReport.enable');
     btn.addEventListener('click', async () => {
       try {
         const current = await sb.getConfig();
@@ -657,7 +656,7 @@ async function renderHttpReport(boxId) {
         window.ilgezdiSync?.schedulePush();
         const done = document.createElement('span');
         done.className = 'http-report-done';
-        done.textContent = 'Yalnızca HTTPS açıldı ✓';
+        done.textContent = T('httpReport.enabled');
         btn.replaceWith(done);
       } catch {}
     });
@@ -681,9 +680,9 @@ function renderHistoryList() {
   if (!box) return;
   const H = window.ilgezdiHtml;
   if (!historyView.items.length) {
-    const msg = historyView.text ? 'Aramayla eşleşen kayıt yok.'
-      : historyView.logEnabled ? 'Henüz geçmiş yok.'
-      : 'Ziyaret günlüğü kapalı. Ayarlar › Gizlilik bölümünden açabilirsiniz.';
+    const msg = historyView.text ? T('history.noMatch')
+      : historyView.logEnabled ? T('history.empty')
+      : T('history.logOff');
     box.innerHTML = `<p class="page-empty">${H.esc(msg)}</p>`;
   } else {
     let html = '';
@@ -692,21 +691,21 @@ function renderHistoryList() {
       if (!isWebHref(it.url)) continue;   // eski sürümlerin günlüğe yazdığı boş sekme kayıtları
       const day = dayLabel(it.timestamp);
       if (day !== lastDay) { html += `<div class="list-day">${H.esc(day)}</div>`; lastDay = day; }
-      const time = new Date(it.timestamp).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+      const time = window.ilgezdiI18n.formatTime(it.timestamp, { hour: '2-digit', minute: '2-digit' });
       const name = it.title || it.url;
       // Şifresiz (HTTP) ziyaret işaretlenir: "Yalnızca HTTPS" kapalı kullanıcı nerede
       // şifresiz bağlantı kullandığını görebilsin (kullanıcı önerisi).
       const insecure = /^http:\/\//i.test(it.url);
       const scheme = insecure
-        ? '<span class="lr-scheme http" title="Şifresiz bağlantı (HTTP): bu sayfaya gönderilen bilgiler ağda okunabilir">HTTP</span>'
-        : '<span class="lr-scheme https" title="Şifreli bağlantı (HTTPS)" aria-label="HTTPS">🔒</span>';
+        ? `<span class="lr-scheme http" title="${TH('history.httpBadge')}">HTTP</span>`
+        : `<span class="lr-scheme https" title="${TH('history.httpsBadge')}" aria-label="HTTPS">🔒</span>`;
       html += `
         <div class="list-row${insecure ? ' is-http' : ''}" role="link" tabindex="0" data-url="${H.esc(it.url)}">
           <span class="lr-icon" style="background:${iconColorFor(it.domain)}" aria-hidden="true">${H.esc(initialFor(it.domain))}</span>
           <span class="lr-title">${H.esc(name)}</span>
           <span class="lr-url">${scheme}${H.esc(it.domain || '')}</span>
           <span class="lr-time">${H.esc(time)}</span>
-          <button type="button" class="lr-more" data-delete="${H.esc(it.id)}" title="Geçmişten sil" aria-label="Geçmişten sil: ${H.esc(name)}">✕</button>
+          <button type="button" class="lr-more" data-delete="${H.esc(it.id)}" title="${TH('history.delete')}" aria-label="${TH('history.deleteLabel', { title: name })}">✕</button>
         </div>`;
     }
     box.innerHTML = html;
@@ -735,8 +734,8 @@ async function initHistoryPage() {
     const sel = document.getElementById('history-clear-range');
     const range = sel ? sel.value : 'all';
     const question = range === 'all'
-      ? 'Tüm ziyaret geçmişi silinsin mi? Bu işlem geri alınamaz.'
-      : `${sel.selectedOptions[0].textContent} içindeki ziyaretler silinsin mi? Bu işlem geri alınamaz.`;
+      ? T('history.confirmAll')
+      : T('history.confirmRange', { range: sel.selectedOptions[0].textContent });
     if (!confirm(question)) return;
     await sb.logs.clearRange(range);
     loadHistory(true);
@@ -796,13 +795,13 @@ function renderTabsPage() {
     <div class="page fade-up" id="tabs-page">
       <div class="page-head">
         <div>
-          <h1>Açık Sekmeler</h1>
-          <p class="page-sub">Başlıkta ya da adreste arayın. Enter ilk sonucu açar; oklarla gezinip Delete ile kapatabilirsiniz.</p>
+          <h1>${TH('tabsPage.title')}</h1>
+          <p class="page-sub">${TH('tabsPage.subtitle')}</p>
         </div>
         <div class="right">
           <label class="page-search">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
-            <input type="search" id="tabs-search" placeholder="Sekmelerde ara" aria-label="Sekmelerde ara" autocomplete="off">
+            <input type="search" id="tabs-search" placeholder="${TH('ui.tabSearchLabel')}" aria-label="${TH('ui.tabSearchLabel')}" autocomplete="off">
           </label>
         </div>
       </div>
@@ -810,11 +809,12 @@ function renderTabsPage() {
     </div>`;
 }
 
-// Her kelime başlıkta ya da adreste geçmeli (Türkçe büyük/küçük harf: İ/i, I/ı).
+// Her kelime başlıkta ya da adreste geçmeli (arayüz dilinin büyük/küçük harf kuralıyla: İ/i, I/ı).
 function tabMatches(tab, query) {
-  const words = String(query || '').toLocaleLowerCase('tr').split(/\s+/).filter(Boolean);
+  const lang = (typeof window !== 'undefined' && window.ilgezdiI18n && window.ilgezdiI18n.locale) || 'tr';
+  const words = String(query || '').toLocaleLowerCase(lang).split(/\s+/).filter(Boolean);
   if (!words.length) return true;
-  const hay = `${tab.title || ''} ${tab.url || ''}`.toLocaleLowerCase('tr');
+  const hay = `${tab.title || ''} ${tab.url || ''}`.toLocaleLowerCase(lang);
   return words.every((w) => hay.includes(w));
 }
 
@@ -825,25 +825,25 @@ function renderTabsList() {
   const focusedIndex = [...list.querySelectorAll('.tab-row')].indexOf(document.activeElement?.closest?.('.tab-row'));
   const rows = currentTabs.filter((t) => tabMatches(t, tabsQuery));
   if (!rows.length) {
-    list.innerHTML = `<p class="page-empty">${tabsQuery ? 'Eşleşen sekme yok.' : 'Açık sekme yok.'}</p>`;
+    list.innerHTML = `<p class="page-empty">${tabsQuery ? TH('tabsPage.noMatch') : TH('tabsPage.empty')}</p>`;
     return;
   }
   list.innerHTML = rows.map((t) => {
     let host = '';
     try { host = new URL(t.url).hostname; } catch {}
     const blank = !t.url || t.url === 'about:blank';
-    const title = t.title || (blank ? 'Yeni Sekme' : host || t.url);
+    const title = t.title || (blank ? T('tab.new') : host || t.url);
     const icon = t.favicon && /^data:image\//.test(t.favicon)
       ? `<img class="lr-icon" src="${H.esc(t.favicon)}" alt="" aria-hidden="true">`
       : `<span class="lr-icon" style="background:${iconColorFor(host || title)}" aria-hidden="true">${H.esc(initialFor(host || title))}</span>`;
-    const state = [t.isActive ? 'Açık' : '', t.sleeping ? 'Uyuyor' : '', t.pinned ? 'Sabit' : '', t.muted ? 'Sessiz' : (t.audible ? 'Ses' : '')].filter(Boolean).join(' · ');
+    const state = [t.isActive ? T('tabsPage.active') : '', t.sleeping ? T('tabsPage.sleeping') : '', t.pinned ? T('tabsPage.pinned') : '', t.muted ? T('tabsPage.muted') : (t.audible ? T('tabsPage.audible') : '')].filter(Boolean).join(' · ');
     return `
       <div class="list-row tab-row${t.isActive ? ' is-active' : ''}" role="button" tabindex="0" data-tab-id="${H.esc(String(t.id))}" data-blank="${blank ? '1' : ''}">
         ${icon}
         <span class="lr-title">${H.esc(title)}</span>
         <span class="lr-url">${H.esc(blank ? '' : host)}</span>
         <span class="lr-time">${H.esc(state)}</span>
-        <button type="button" class="lr-more" data-close-tab="${H.esc(String(t.id))}" title="Sekmeyi kapat" aria-label="Sekmeyi kapat: ${H.esc(title)}">✕</button>
+        <button type="button" class="lr-more" data-close-tab="${H.esc(String(t.id))}" title="${TH('tabsPage.close')}" aria-label="${TH('tab.closeLabel', { title })}">✕</button>
       </div>`;
   }).join('');
   // Kapatılan satırın yerine gelen satır odak alır (klavyeyle art arda kapatma).
@@ -945,18 +945,18 @@ function applyReaderPrefs(page, p) {
 function renderReaderShell() {
   return `
     <div class="reader-page" id="reader-page">
-      <div class="reader-bar" role="toolbar" aria-label="Okuma modu">
-        <button type="button" data-reader-act="close" title="Sayfaya dön (Esc)">← Sayfaya dön</button>
+      <div class="reader-bar" role="toolbar" aria-label="${TH('reader.toolbar')}">
+        <button type="button" data-reader-act="close" title="${TH('reader.backTitle')}">${TH('reader.back')}</button>
         <span class="reader-site" id="reader-site"></span>
-        <button type="button" data-reader-act="smaller" aria-label="Yazıyı küçült" title="Yazıyı küçült">A−</button>
-        <button type="button" data-reader-act="larger" aria-label="Yazıyı büyüt" title="Yazıyı büyüt">A+</button>
-        <button type="button" data-reader-font="serif" title="Tırnaklı yazı">Serif</button>
-        <button type="button" data-reader-font="sans" title="Tırnaksız yazı">Sans</button>
-        <button type="button" data-reader-theme="paper" title="Kâğıt">Kâğıt</button>
-        <button type="button" data-reader-theme="light" title="Açık">Açık</button>
-        <button type="button" data-reader-theme="dark" title="Koyu">Koyu</button>
+        <button type="button" data-reader-act="smaller" aria-label="${TH('reader.smaller')}" title="${TH('reader.smaller')}">A−</button>
+        <button type="button" data-reader-act="larger" aria-label="${TH('reader.larger')}" title="${TH('reader.larger')}">A+</button>
+        <button type="button" data-reader-font="serif" title="${TH('reader.serifTitle')}">Serif</button>
+        <button type="button" data-reader-font="sans" title="${TH('reader.sansTitle')}">Sans</button>
+        <button type="button" data-reader-theme="paper">${TH('reader.paper')}</button>
+        <button type="button" data-reader-theme="light">${TH('reader.light')}</button>
+        <button type="button" data-reader-theme="dark">${TH('reader.dark')}</button>
       </div>
-      <article class="reader-article" id="reader-article" aria-busy="true"><p class="reader-meta">Makale hazırlanıyor…</p></article>
+      <article class="reader-article" id="reader-article" aria-busy="true"><p class="reader-meta">${TH('reader.preparing')}</p></article>
     </div>`;
 }
 
@@ -981,9 +981,7 @@ async function openReader() {
   if (!r || !r.ok) {
     const p = document.createElement('p');
     p.className = 'reader-empty';
-    p.textContent = r && r.reason === 'navigated'
-      ? 'Sayfa bu arada değişti. Okuma modunu yeniden açın.'
-      : 'Bu sayfada okuma moduna uygun bir makale bulunamadı.';
+    p.textContent = r && r.reason === 'navigated' ? T('reader.navigated') : T('reader.noArticle');
     article.append(p);
     return;
   }
@@ -998,7 +996,7 @@ async function openReader() {
   h1.textContent = r.title || host;
   const meta = document.createElement('p');
   meta.className = 'reader-meta';
-  meta.textContent = [r.byline, `yaklaşık ${Number(r.minutes) || 1} dk okuma`].filter(Boolean).join(' · ');
+  meta.textContent = [r.byline, T('reader.minutes', { count: Number(r.minutes) || 1 })].filter(Boolean).join(' · ');
   article.append(h1, meta);
   buildReaderNodes(article, r.nodes);
 }
@@ -1037,17 +1035,14 @@ function initReaderEvents(page) {
 
 // ─── İndirilenler sayfası ─────────────────────────────────────────────────────
 const downloadsView = new Map();   // id → ana süreçteki kayıt
-const DL_STATE_TEXT = {
-  completed: 'Tamamlandı', cancelled: 'İptal edildi', interrupted: 'Yarıda kaldı',
-  progressing: 'İndiriliyor', paused: 'Duraklatıldı',
-};
+const DL_STATES = ['completed', 'cancelled', 'interrupted', 'progressing', 'paused'];
 
 function formatBytes(n) {
   const units = ['B', 'KB', 'MB', 'GB'];
   let x = Number(n) || 0;
   let i = 0;
   while (x >= 1024 && i < units.length - 1) { x /= 1024; i++; }
-  return x.toLocaleString('tr-TR', { maximumFractionDigits: i ? 1 : 0 }) + ' ' + units[i];
+  return window.ilgezdiI18n.formatNumber(x, { maximumFractionDigits: i ? 1 : 0 }) + ' ' + units[i];
 }
 
 function updateDownloadsBadge() {
@@ -1064,7 +1059,7 @@ function updateDownloadsBadge() {
   const active = [...downloadsView.values()].filter((d) => d.state === 'progressing' || d.state === 'paused').length;
   badge.textContent = String(active);
   badge.hidden = active === 0;
-  btn.setAttribute('aria-label', active ? 'İndirmeler, ' + active + ' indirme sürüyor' : 'İndirmeler');
+  btn.setAttribute('aria-label', active ? T('downloads.badgeLabel', { count: active }) : T('ui.downloads'));
 }
 
 function renderDownloadsPage() {
@@ -1072,10 +1067,10 @@ function renderDownloadsPage() {
     <div class="page fade-up" id="downloads-page">
       <div class="page-head">
         <div>
-          <h1>İndirilenler</h1>
-          <p class="page-sub">Liste bu cihazda şifreli saklanır; gizli pencere indirmeleri kaydedilmez. Listeden kaldırmak dosyayı silmez.</p>
+          <h1>${TH('downloads.title')}</h1>
+          <p class="page-sub">${TH('downloads.subtitle')}</p>
         </div>
-        <div class="right"><button type="button" class="page-btn" id="downloads-clear">Listeyi temizle</button></div>
+        <div class="right"><button type="button" class="page-btn" id="downloads-clear">${TH('downloads.clear')}</button></div>
       </div>
       <div id="downloads-list" aria-live="polite"></div>
     </div>`;
@@ -1087,7 +1082,7 @@ function renderDownloadsList() {
   const H = window.ilgezdiHtml;
   const items = [...downloadsView.values()].sort((a, b) => (b.startedAt || 0) - (a.startedAt || 0));
   if (!items.length) {
-    box.innerHTML = '<p class="page-empty">Henüz indirme yok.</p>';
+    box.innerHTML = `<p class="page-empty">${TH('downloads.empty')}</p>`;
     return;
   }
   box.innerHTML = items.map((d) => {
@@ -1097,26 +1092,26 @@ function renderDownloadsList() {
     const pct = d.total ? Math.min(100, Math.round((d.received / d.total) * 100)) : 0;
     const missing = d.state === 'completed' && d.exists === false;
     const sizeText = running ? formatBytes(d.received) + (d.total ? ' / ' + formatBytes(d.total) : '') : formatBytes(d.total || d.received);
-    const status = missing ? 'Dosya taşınmış ya da silinmiş' : (DL_STATE_TEXT[state] || state);
-    const ext = (String(d.filename).includes('.') ? String(d.filename).split('.').pop() : '').slice(0, 4).toUpperCase() || 'DOS';
+    const status = missing ? T('downloads.missing') : (DL_STATES.includes(state) ? T('downloads.state.' + state) : state);
+    const ext = (String(d.filename).includes('.') ? String(d.filename).split('.').pop() : '').slice(0, 4).toUpperCase() || T('downloads.fileExt');
     const actions = [];
     if (running) {
-      actions.push(`<button type="button" class="page-btn sm" data-dl="pause" data-id="${id}">${state === 'paused' ? 'Sürdür' : 'Duraklat'}</button>`);
-      actions.push(`<button type="button" class="page-btn sm" data-dl="cancel" data-id="${id}">İptal</button>`);
+      actions.push(`<button type="button" class="page-btn sm" data-dl="pause" data-id="${id}">${state === 'paused' ? TH('downloads.resume') : TH('downloads.pause')}</button>`);
+      actions.push(`<button type="button" class="page-btn sm" data-dl="cancel" data-id="${id}">${TH('downloads.cancel')}</button>`);
     } else {
       if (d.state === 'completed' && !missing) {
-        actions.push(`<button type="button" class="page-btn sm" data-dl="open" data-id="${id}">Aç</button>`);
-        actions.push(`<button type="button" class="page-btn sm" data-dl="show" data-id="${id}">Klasörde göster</button>`);
+        actions.push(`<button type="button" class="page-btn sm" data-dl="open" data-id="${id}">${TH('downloads.open')}</button>`);
+        actions.push(`<button type="button" class="page-btn sm" data-dl="show" data-id="${id}">${TH('downloads.showInFolder')}</button>`);
       }
-      actions.push(`<button type="button" class="page-btn sm ghost" data-dl="remove" data-id="${id}" title="Listeden kaldır" aria-label="Listeden kaldır: ${H.esc(d.filename)}">✕</button>`);
+      actions.push(`<button type="button" class="page-btn sm ghost" data-dl="remove" data-id="${id}" title="${TH('downloads.remove')}" aria-label="${TH('downloads.removeLabel', { name: d.filename })}">✕</button>`);
     }
     return `
       <div class="dl-row${d.dangerous ? ' dangerous' : ''}" data-row="${id}">
         <div class="file-icon" aria-hidden="true">${H.esc(ext)}</div>
         <div class="dl-main">
           <div class="name">${H.esc(d.filename)}</div>
-          <div class="src">${H.esc(d.sourceHost || '')}${d.dangerous ? ' · <span class="dl-warn">program çalıştırabilir</span>' : ''}</div>
-          ${running ? `<div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}" aria-label="${H.esc(d.filename)} indiriliyor"><i style="width:${pct}%"></i></div>` : ''}
+          <div class="src">${H.esc(d.sourceHost || '')}${d.dangerous ? ` · <span class="dl-warn">${TH('downloads.dangerous')}</span>` : ''}</div>
+          ${running ? `<div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}" aria-label="${TH('downloads.progressLabel', { name: d.filename })}"><i style="width:${pct}%"></i></div>` : ''}
         </div>
         <div class="pct">${H.esc(sizeText)}</div>
         <div class="dl-status ${H.esc(state)}">${H.esc(status)}</div>
@@ -1166,17 +1161,17 @@ function renderDiscoverPage() {
     <div class="page fade-up" id="discover-page">
       <div class="page-head">
         <div>
-          <h1>Keşfet</h1>
-          <p class="page-sub">İlgezdi’yi geliştiren ekibin diğer yazılımları.</p>
+          <h1>${TH('discover.title')}</h1>
+          <p class="page-sub">${TH('discover.subtitle')}</p>
         </div>
       </div>
-      <div class="discover-grid" id="discover-grid" aria-live="polite"><p class="page-empty">Yükleniyor…</p></div>
+      <div class="discover-grid" id="discover-grid" aria-live="polite"><p class="page-empty">${TH('common.loading')}</p></div>
       <section class="community" id="review-section" aria-labelledby="review-title">
         <div class="community-head">
-          <h2 id="review-title">İlgezdi’yi değerlendirin</h2>
-          <p class="page-sub" id="review-summary">Yorumlar ekip onayından sonra ilgezdi.com.tr’de yayınlanır.</p>
+          <h2 id="review-title">${TH('discover.reviewTitle')}</h2>
+          <p class="page-sub" id="review-summary">${TH('discover.reviewTail')}</p>
         </div>
-        <div class="community-body" id="review-body"><p class="page-empty">Yükleniyor…</p></div>
+        <div class="community-body" id="review-body"><p class="page-empty">${TH('common.loading')}</p></div>
         <div class="review-list" id="review-list" aria-live="polite"></div>
       </section>
     </div>`;
@@ -1193,7 +1188,7 @@ async function initDiscoverPage() {
   if (!cards.length) {
     const p = document.createElement('p');
     p.className = 'page-empty';
-    p.textContent = 'Şu an gösterilecek içerik yok.';
+    p.textContent = T('discover.empty');
     grid.appendChild(p);
     return;
   }
@@ -1202,13 +1197,13 @@ async function initDiscoverPage() {
     const card = document.createElement('button');
     card.type = 'button';
     card.className = 'discover-card';
-    card.setAttribute('aria-label', `${it.name}: ${it.tagline}. Siteyi yeni sekmede aç`);
+    card.setAttribute('aria-label', T('discover.cardLabel', { name: it.name, tagline: it.tagline }));
     const mark = part('span', 'discover-mark', it.letter);
     if (/^#[0-9a-f]{6}$/i.test(it.color)) mark.style.background = `linear-gradient(135deg, ${it.color}, color-mix(in srgb, ${it.color} 55%, #000))`;
     const body = document.createElement('span');
     body.className = 'discover-body';
     body.append(part('span', 'discover-cat', it.category), part('span', 'discover-name', it.name),
-      part('span', 'discover-tagline', it.tagline), part('span', 'discover-desc', it.description), part('span', 'discover-cta', 'Siteyi aç →'));
+      part('span', 'discover-tagline', it.tagline), part('span', 'discover-desc', it.description), part('span', 'discover-cta', T('discover.openSite')));
     card.append(mark, body);
     card.addEventListener('click', () => { hideScreen(); sb.newTab(it.url); });
     grid.appendChild(card);
@@ -1220,23 +1215,13 @@ async function initDiscoverPage() {
 // yazmak Qrtım hesabı ister (kullanıcı kararı); öneri anonim de gönderilebilir, hesapla
 // gönderilince durumu ve ekibin yanıtı burada izlenir. Sunucudan ve kullanıcıdan gelen
 // tüm metinler DOM'a textContent ile yazılır.
-const REVIEW_STATUS_UI = { pending: 'onay bekliyor', approved: 'yayında', rejected: 'yayınlanmadı' };
-const FEEDBACK_TYPES_UI = [
-  ['hata',         'Hata bildir',         'Çalışmayan ya da yanlış çalışan bir şey', 'Ne yaptınız, ne olmasını beklediniz, ne oldu? Her seferinde oluyor mu?'],
-  ['eksik',        'Eksik özellik',       'Başka tarayıcılarda olup İlgezdi’de olmayan', 'Hangi özelliği nasıl kullanmak istersiniz? Başka bir tarayıcıda gördüyseniz hangisinde?'],
-  ['ozellestirme', 'Özelleştirme isteği', 'Görünüm, düzen, kısayol, varsayılan ayar', 'Neyi nasıl değiştirmek istersiniz? Bu, işinizi nasıl kolaylaştırır?'],
-  ['elestiri',     'Eleştiri',            'Beğenmediğiniz ya da zorlandığınız bir yer', 'Sizi ne rahatsız etti? Nasıl olsa daha iyi olurdu?'],
-  ['diger',        'Diğer',               'Aklınızdaki başka bir şey', 'Düşüncenizi yazın.'],
-];
-const FEEDBACK_AREAS_UI = [
-  ['genel', 'Genel'], ['sekmeler', 'Sekmeler'], ['adres-arama', 'Adres çubuğu ve arama'],
-  ['yer-imleri', 'Yer imleri'], ['gecmis-indirmeler', 'Geçmiş ve indirmeler'],
-  ['gizlilik-guvenlik', 'Gizlilik ve güvenlik'], ['reklam-engelleme', 'Reklam ve izleyici engelleme'],
-  ['vpn', 'VPN'], ['sifreler', 'Şifreler'], ['ayarlar', 'Ayarlar'], ['yeni-sekme', 'Yeni sekme sayfası'],
-  ['kesfet', 'Keşfet'], ['arku', 'Arku uzak masaüstü'], ['senkron-hesap', 'Qrtım hesabı ve senkron'],
-  ['performans', 'Hız ve performans'], ['gorunum', 'Görünüm ve tema'], ['diger', 'Diğer'],
-];
-const FEEDBACK_STATUS_UI = { yeni: 'Alındı', inceleniyor: 'İnceleniyor', planlandi: 'Planlandı', tamamlandi: 'Tamamlandı', reddedildi: 'Şimdilik planlanmadı' };
+// Değerler sunucuyla paylaşılan kimliklerdir (Türkçe kalır); görünen metinler çeviriden.
+const REVIEW_STATUSES = ['pending', 'approved', 'rejected'];
+const FEEDBACK_TYPES_UI = ['hata', 'eksik', 'ozellestirme', 'elestiri', 'diger'];
+const FEEDBACK_AREAS_UI = ['genel', 'sekmeler', 'adres-arama', 'yer-imleri', 'gecmis-indirmeler', 'gizlilik-guvenlik', 'reklam-engelleme',
+  'vpn', 'sifreler', 'ayarlar', 'yeni-sekme', 'kesfet', 'arku', 'senkron-hesap', 'performans', 'gorunum', 'diger'];
+const FEEDBACK_STATUSES = ['yeni', 'inceleniyor', 'planlandi', 'tamamlandi', 'reddedildi'];
+const feedbackStatusText = (s) => (FEEDBACK_STATUSES.includes(s) ? T('feedback.status.' + s) : T('feedback.status.yeni'));
 
 function communityEl(tag, cls, text) {
   const e = document.createElement(tag);
@@ -1266,7 +1251,7 @@ async function withCommunityToken(fn) {
   return r;
 }
 
-const SESSION_LOST = { ok: false, code: 'unauthorized', error: 'Qrtım oturumunuz yenilenemedi. Ayarlar › Hesap’tan yeniden giriş yapın.' };
+const SESSION_LOST = { ok: false, code: 'unauthorized', get error() { return T('community.sessionLost'); } };
 
 let _reviewRenderSeq = 0;
 async function initReviewSection() {
@@ -1279,8 +1264,8 @@ async function initReviewSection() {
   renderReviewList(r);
   body.replaceChildren();
   if (!session) {
-    body.append(communityEl('p', 'community-note', 'Yorum yazmak için Qrtım hesabınızla giriş yapın. Hesap, yorumların gerçek kullanıcılardan geldiğini doğrulamak için gerekir; e-posta adresiniz yorumda gösterilmez.'));
-    const login = communityEl('button', 'page-btn primary', 'Qrtım ile giriş yap');
+    body.append(communityEl('p', 'community-note', T('review.loginNote')));
+    const login = communityEl('button', 'page-btn primary', T('review.loginButton'));
     login.type = 'button';
     login.id = 'review-login';
     login.addEventListener('click', () => window.ilgezdiAuth?.open?.());
@@ -1295,24 +1280,24 @@ function renderReviewList(r) {
   const summary = document.getElementById('review-summary');
   if (!list || !summary) return;
   list.replaceChildren();
-  const tail = 'Yorumlar ekip onayından sonra ilgezdi.com.tr’de yayınlanır.';
+  const tail = T('discover.reviewTail');
   if (!r || !r.ok) {
     summary.textContent = `${tail} ${(r && r.error) || ''}`.trim();
     return;
   }
   summary.textContent = r.count && r.avgRating
-    ? `Ortalama ${r.avgRating.toLocaleString('tr-TR', { maximumFractionDigits: 1 })} / 5 · ${r.count} yorum. ${tail}`
+    ? `${T('review.average', { rating: window.ilgezdiI18n.formatNumber(r.avgRating, { maximumFractionDigits: 1 }), count: r.count })} ${tail}`
     : tail;
   for (const it of r.items.slice(0, 6)) {
     const card = communityEl('article', 'review-card');
     const head = communityEl('div', 'review-card-head');
-    head.append(communityEl('span', 'review-name', it.name || 'İlgezdi kullanıcısı'));
+    head.append(communityEl('span', 'review-name', it.name || T('review.anonymous')));
     if (it.rating) {
       const stars = communityEl('span', 'review-rating', '★'.repeat(it.rating) + '☆'.repeat(5 - it.rating));
       stars.setAttribute('aria-label', `${it.rating} / 5`);
       head.append(stars);
     }
-    if (it.verified) head.append(communityEl('span', 'review-verified', 'Qrtım hesabı'));
+    if (it.verified) head.append(communityEl('span', 'review-verified', T('review.verified')));
     card.append(head, communityEl('p', 'review-text', it.comment));
     list.append(card);
   }
@@ -1324,11 +1309,11 @@ function buildReviewForm(mine, defaultName) {
   form.noValidate = true;
   if (mine) {
     form.append(communityEl('p', 'review-mine ' + mine.status,
-      `Yorumunuz ${REVIEW_STATUS_UI[mine.status] || 'onay bekliyor'}. Düzenlerseniz yeniden onaya gönderilir.`));
+      T('review.mine', { status: T('review.status.' + (REVIEW_STATUSES.includes(mine.status) ? mine.status : 'pending')) })));
   }
 
   const stars = communityEl('fieldset', 'review-stars');
-  stars.append(communityEl('legend', '', 'Puanınız'));
+  stars.append(communityEl('legend', '', T('review.rating')));
   const row = communityEl('div', 'stars-row');
   // Sağdan sola dizilir (row-reverse): seçilen yıldız ve solundakiler CSS ile boyanır.
   for (let i = 5; i >= 1; i--) {
@@ -1341,29 +1326,29 @@ function buildReviewForm(mine, defaultName) {
     const label = communityEl('label', '', '★');
     label.htmlFor = input.id;
     label.title = `${i} / 5`;
-    label.setAttribute('aria-label', `${i} yıldız`);
+    label.setAttribute('aria-label', T('review.stars', { count: i }));
     row.append(input, label);
   }
   stars.append(row);
 
-  const nameLabel = communityEl('label', 'field-label', 'Yorumda görünecek ad');
+  const nameLabel = communityEl('label', 'field-label', T('review.nameLabel'));
   nameLabel.htmlFor = 'review-name';
   const name = communityEl('input');
   name.type = 'text';
   name.id = 'review-name';
   name.maxLength = 60;
   name.value = (mine && mine.name) || defaultName || '';
-  const commentLabel = communityEl('label', 'field-label', 'Yorumunuz');
+  const commentLabel = communityEl('label', 'field-label', T('review.commentLabel'));
   commentLabel.htmlFor = 'review-comment';
   const comment = communityEl('textarea');
   comment.id = 'review-comment';
   comment.rows = 4;
   comment.maxLength = 1000;
-  comment.placeholder = 'İlgezdi’de neyi beğendiniz, neyi geliştirmemizi istersiniz?';
+  comment.placeholder = T('review.placeholder');
   comment.value = (mine && mine.comment) || '';
 
   const actions = communityEl('div', 'feedback-actions');
-  const submit = communityEl('button', 'page-btn primary', mine ? 'Yorumu güncelle' : 'Yorumu gönder');
+  const submit = communityEl('button', 'page-btn primary', mine ? T('review.update') : T('review.send'));
   submit.type = 'submit';
   submit.id = 'review-submit';
   const status = communityEl('span', 'review-status');
@@ -1377,18 +1362,16 @@ function buildReviewForm(mine, defaultName) {
     const rating = Number(form.querySelector('input[name="review-rating"]:checked')?.value || 0);
     submit.disabled = true;
     status.className = 'review-status';
-    status.textContent = 'Gönderiliyor…';
+    status.textContent = T('community.sending');
     const r = await withCommunityToken((token) => sb.community.sendReview({ token, rating, name: name.value, comment: comment.value }));
     submit.disabled = false;
     if (r && r.ok) {
       status.className = 'review-status ok';
-      status.textContent = r.updated
-        ? 'Yorumunuz güncellendi; onaydan sonra yeniden yayınlanır.'
-        : 'Teşekkürler! Yorumunuz onaydan sonra ilgezdi.com.tr’de yayınlanır.';
-      submit.textContent = 'Yorumu güncelle';
+      status.textContent = r.updated ? T('review.updated') : T('review.thanks');
+      submit.textContent = T('review.update');
     } else {
       status.className = 'review-status err';
-      status.textContent = (r && r.error) || 'Yorum gönderilemedi.';
+      status.textContent = (r && r.error) || T('review.failed');
     }
   });
   return form;
@@ -1399,34 +1382,34 @@ function renderFeedbackPage() {
     <div class="page fade-up" id="feedback-page">
       <div class="page-head">
         <div>
-          <h1>Öneri</h1>
-          <p class="page-sub">İlgezdi’yi birlikte geliştirelim: hata, eksik özellik, özelleştirme isteği ya da eleştiri. Her öneriyi ekip okur.</p>
+          <h1>${TH('feedback.title')}</h1>
+          <p class="page-sub">${TH('feedback.subtitle')}</p>
         </div>
       </div>
       <div class="feedback-layout">
         <form class="feedback-form" id="feedback-form" novalidate>
           <fieldset class="feedback-types">
-            <legend>Ne paylaşmak istiyorsunuz?</legend>
+            <legend>${TH('feedback.whatType')}</legend>
             <div class="feedback-type-grid" id="feedback-types"></div>
           </fieldset>
-          <label class="field-label" for="feedback-area">İlgili bölüm</label>
+          <label class="field-label" for="feedback-area">${TH('feedback.area')}</label>
           <select id="feedback-area"></select>
-          <label class="field-label" for="feedback-title">Kısa başlık</label>
+          <label class="field-label" for="feedback-title">${TH('feedback.shortTitle')}</label>
           <input id="feedback-title" type="text" maxlength="120" autocomplete="off">
-          <label class="field-label" for="feedback-message">Açıklama</label>
+          <label class="field-label" for="feedback-message">${TH('feedback.description')}</label>
           <textarea id="feedback-message" rows="7" maxlength="4000"></textarea>
           <div class="feedback-count" id="feedback-count" aria-live="polite"></div>
-          <label class="check-row"><input type="checkbox" id="feedback-diag" checked> <span>Sürüm ve işletim sistemi bilgisini ekle <small>(ziyaret ettiğiniz adresler ve geçmiş eklenmez)</small></span></label>
-          <label class="check-row" id="feedback-contact-row" hidden><input type="checkbox" id="feedback-contact"> <span>Yanıt için Qrtım e-posta adresimden bana ulaşılabilir</span></label>
+          <label class="check-row"><input type="checkbox" id="feedback-diag" checked> <span>${TH('feedback.includeDiag')} <small>${TH('feedback.includeDiagNote')}</small></span></label>
+          <label class="check-row" id="feedback-contact-row" hidden><input type="checkbox" id="feedback-contact"> <span>${TH('feedback.contactOk')}</span></label>
           <p class="community-note" id="feedback-account-note"></p>
           <div class="feedback-actions">
-            <button type="submit" class="page-btn primary" id="feedback-submit">Gönder</button>
+            <button type="submit" class="page-btn primary" id="feedback-submit">${TH('feedback.send')}</button>
             <span class="review-status" id="feedback-status" role="status"></span>
           </div>
         </form>
         <aside class="feedback-mine" aria-labelledby="feedback-mine-title">
-          <h2 id="feedback-mine-title">Önerilerim</h2>
-          <div id="feedback-mine"><p class="page-empty">Yükleniyor…</p></div>
+          <h2 id="feedback-mine-title">${TH('feedback.mine')}</h2>
+          <div id="feedback-mine"><p class="page-empty">${TH('common.loading')}</p></div>
         </aside>
       </div>
     </div>`;
@@ -1438,7 +1421,9 @@ function initFeedbackPage() {
   const form = document.getElementById('feedback-form');
   if (!form) return;
   const types = document.getElementById('feedback-types');
-  for (const [value, label, hint] of FEEDBACK_TYPES_UI) {
+  for (const value of FEEDBACK_TYPES_UI) {
+    const label = T('feedback.type.' + value);
+    const hint = T('feedback.type.' + value + '.hint');
     const input = communityEl('input');
     input.type = 'radio';
     input.name = 'feedback-type';
@@ -1450,8 +1435,8 @@ function initFeedbackPage() {
     types.append(input, lab);
   }
   const area = document.getElementById('feedback-area');
-  for (const [value, label] of FEEDBACK_AREAS_UI) {
-    const o = communityEl('option', '', label);
+  for (const value of FEEDBACK_AREAS_UI) {
+    const o = communityEl('option', '', T('feedback.area.' + value));
     o.value = value;
     area.append(o);
   }
@@ -1463,8 +1448,7 @@ function initFeedbackPage() {
 
   // Türe göre açıklama kutusu neyin yazılacağını sorar (iyi hata raporu için yol gösterir).
   types.addEventListener('change', (e) => {
-    const t = FEEDBACK_TYPES_UI.find(([v]) => v === e.target.value);
-    if (t) message.placeholder = t[3];
+    if (FEEDBACK_TYPES_UI.includes(e.target.value)) message.placeholder = T('feedback.type.' + e.target.value + '.placeholder');
   });
   message.addEventListener('input', () => { count.textContent = message.value ? `${message.value.length} / 4000` : ''; });
 
@@ -1481,7 +1465,7 @@ function initFeedbackPage() {
     };
     submit.disabled = true;
     status.className = 'review-status';
-    status.textContent = 'Gönderiliyor…';
+    status.textContent = T('community.sending');
     // Hesapla gönderiliyorsa oturum anahtarı zorunlu: yenilenemezse sessizce anonime düşülmez.
     const r = await withCommunityToken((token) => (session && !token
       ? Promise.resolve(SESSION_LOST)
@@ -1489,16 +1473,14 @@ function initFeedbackPage() {
     submit.disabled = false;
     if (r && r.ok) {
       status.className = 'review-status ok';
-      status.textContent = session
-        ? 'Teşekkürler! Öneriniz ekibe ulaştı; durumunu yandaki listeden izleyebilirsiniz.'
-        : 'Teşekkürler! Öneriniz ekibe ulaştı.';
+      status.textContent = session ? T('feedback.thanksTracked') : T('feedback.thanks');
       form.reset();
       count.textContent = '';
       message.placeholder = '';
       if (session) loadMyFeedback();
     } else {
       status.className = 'review-status err';
-      status.textContent = (r && r.error) || 'Öneri gönderilemedi.';
+      status.textContent = (r && r.error) || T('feedback.failed');
     }
   });
   refreshFeedbackAccount();
@@ -1512,16 +1494,18 @@ async function refreshFeedbackAccount() {
   document.getElementById('feedback-contact-row').hidden = !_feedbackSession;
   note.replaceChildren();
   if (_feedbackSession) {
-    note.textContent = 'Qrtım hesabınızla gönderilir; önerinizin durumunu ve ekibin yanıtını bu sayfada görürsünüz.';
+    note.textContent = T('feedback.accountNote');
     loadMyFeedback();
     return;
   }
-  const login = communityEl('button', 'link-btn', 'Qrtım ile giriş yapın');
+  const login = communityEl('button', 'link-btn', T('feedback.loginLink'));
   login.type = 'button';
   login.addEventListener('click', () => window.ilgezdiAuth?.open?.());
-  note.append('Anonim gönderilir. Durumunu izlemek ve yanıt almak için ', login, '.');
+  // Cümle çeviride; düğme {login} yerine DOM düğümü olarak girer (metin kaçışlanmış kalır).
+  const [before, after] = T('feedback.anonymousNote').split('{login}');
+  note.append(before || '', login, after || '');
   document.getElementById('feedback-mine')?.replaceChildren(
-    communityEl('p', 'page-empty', 'Giriş yaptığınızda gönderdiğiniz önerilerin durumu ve ekibin yanıtı burada görünür.'));
+    communityEl('p', 'page-empty', T('feedback.loginToTrack')));
 }
 
 async function loadMyFeedback() {
@@ -1530,24 +1514,35 @@ async function loadMyFeedback() {
   const r = await withCommunityToken((token) => (token ? sb.community.myFeedback(token) : Promise.resolve(SESSION_LOST)));
   if (!box.isConnected) return;
   box.replaceChildren();
-  if (!r || !r.ok) { box.append(communityEl('p', 'page-empty', (r && r.error) || 'Liste yüklenemedi.')); return; }
-  if (!r.items.length) { box.append(communityEl('p', 'page-empty', 'Henüz öneri göndermediniz.')); return; }
+  if (!r || !r.ok) { box.append(communityEl('p', 'page-empty', (r && r.error) || T('feedback.listFailed'))); return; }
+  if (!r.items.length) { box.append(communityEl('p', 'page-empty', T('feedback.none'))); return; }
   for (const it of r.items) {
     const card = communityEl('article', 'feedback-item');
     const head = communityEl('div', 'feedback-item-head');
     head.append(
-      communityEl('span', 'feedback-chip ' + it.status, FEEDBACK_STATUS_UI[it.status] || 'Alındı'),
-      communityEl('span', 'feedback-item-type', (FEEDBACK_TYPES_UI.find(([v]) => v === it.type) || [])[1] || ''));
+      communityEl('span', 'feedback-chip ' + it.status, feedbackStatusText(it.status)),
+      communityEl('span', 'feedback-item-type', FEEDBACK_TYPES_UI.includes(it.type) ? T('feedback.type.' + it.type) : ''));
     card.append(head, communityEl('div', 'feedback-item-title', it.title));
     if (it.reply) {
       const reply = communityEl('p', 'feedback-reply');
-      reply.append(communityEl('strong', '', 'Ekibin yanıtı: '), it.reply);
+      reply.append(communityEl('strong', '', T('feedback.teamReply')), it.reply);
       card.append(reply);
     }
     const when = it.updatedAt || it.createdAt;
-    if (when) card.append(communityEl('div', 'feedback-item-date', new Date(when).toLocaleDateString('tr-TR', { dateStyle: 'medium' })));
+    if (when) card.append(communityEl('div', 'feedback-item-date', window.ilgezdiI18n.formatDate(when, { dateStyle: 'medium' })));
     box.append(card);
   }
+}
+
+// Çeviri cümlesindeki {ad} yerlerine metin ya da DOM düğümü koyar (kullanıcı adı gibi vurgulu
+// parçalar için). Metin parçaları düz metin düğümü olarak girer: HTML işlenmez.
+function richText(template, parts) {
+  return String(template).split(/(\{\w+\})/).filter((s) => s !== '').map((piece) => {
+    const m = /^\{(\w+)\}$/.exec(piece);
+    if (!m || !Object.prototype.hasOwnProperty.call(parts, m[1])) return piece;
+    const v = parts[m[1]];
+    return v instanceof Node ? v : String(v);
+  });
 }
 
 // ─── Şifre kaydetme önerisi ───────────────────────────────────────────────────
@@ -1572,14 +1567,13 @@ function showPasswordOffer(offer) {
   const update = offer.action === 'update';
   const username = typeof offer.username === 'string' ? offer.username : '';
   const text = document.getElementById('pw-offer-text');
-  text.replaceChildren(`${String(offer.host || '')} için `);
-  if (username) text.append(communityEl('strong', 'pw-offer-user', username), ' ');
-  text.append(`${username ? 'şifresi' : 'şifre'} ${update ? 'güncellensin' : 'kaydedilsin'} mi?`);
-  if (offer.insecure) text.append(communityEl('span', 'pw-offer-warn', ' · şifrelenmemiş bağlantı'));
+  const key = 'pwOffer.question.' + (update ? 'update' : 'new') + (username ? 'User' : '');
+  text.replaceChildren(...richText(T(key), { host: String(offer.host || ''), user: communityEl('strong', 'pw-offer-user', username) }));
+  if (offer.insecure) text.append(communityEl('span', 'pw-offer-warn', T('pwOffer.insecure')));
   document.getElementById('pw-offer-status').textContent = '';
   const save = document.getElementById('pw-offer-save');
   save.hidden = false;
-  save.textContent = update ? 'Güncelle' : 'Kaydet';
+  save.textContent = update ? T('pwOffer.update') : T('pwOffer.save');
   document.getElementById('pw-offer-never').hidden = update;
   bar.hidden = false;
   clearTimeout(pwOfferTimer);
@@ -1592,9 +1586,9 @@ function showGeneratedPasswordSaved(d) {
   if (!bar || !d) return;
   pwOfferId = null;
   const text = document.getElementById('pw-offer-text');
-  text.replaceChildren(`${String(d.host || '')} için oluşturulan şifre`);
-  if (typeof d.username === 'string' && d.username) text.append(' (', communityEl('strong', 'pw-offer-user', d.username), ')');
-  text.append(' kasaya kaydedildi');
+  const withUser = typeof d.username === 'string' && d.username;
+  text.replaceChildren(...richText(T(withUser ? 'pwOffer.generatedSavedUser' : 'pwOffer.generatedSaved'),
+    { host: String(d.host || ''), user: communityEl('strong', 'pw-offer-user', withUser ? d.username : '') }));
   document.getElementById('pw-offer-status').textContent = '';
   document.getElementById('pw-offer-save').hidden = true;
   document.getElementById('pw-offer-never').hidden = true;
@@ -1613,11 +1607,11 @@ async function decidePasswordOffer(action) {
   if (action !== 'save') { hidePasswordOffer(); return; }
   const status = document.getElementById('pw-offer-status');
   if (!r || r.ok === false) {
-    status.textContent = (r && r.error) || 'Şifre kaydedilemedi.';
+    status.textContent = (r && r.error) || T('pwOffer.saveFailed');
     pwOfferTimer = setTimeout(hidePasswordOffer, 6000);
     return;
   }
-  status.textContent = r.action === 'updated' ? 'Şifre güncellendi' : 'Şifre kasaya kaydedildi';
+  status.textContent = r.action === 'updated' ? T('pwOffer.updated') : T('pwOffer.saved');
   document.getElementById('pw-offer-save').hidden = true;
   document.getElementById('pw-offer-never').hidden = true;
   pwOfferTimer = setTimeout(hidePasswordOffer, 1800);
@@ -1648,6 +1642,11 @@ function shuffle(arr) {
   return a;
 }
 
+const CARD_CATEGORY_KEYS = {
+  'TARİH': 'cards.category.history', 'OSMANLI': 'cards.category.ottoman', 'CUMHURİYET': 'cards.category.republic',
+  'COĞRAFYA': 'cards.category.geography', 'DİL': 'cards.category.language', 'KÜLTÜR': 'cards.category.culture',
+};
+
 function renderNewTab() {
   // Bilgi kartları (info-cards.js): her bilgi kaynağında doğrulandı. Öne çıkan "günün
   // bilgisi" güne göre değişir (aynı gün aynı kalır); diğer dördü her yeni sekmede, her biri
@@ -1674,23 +1673,27 @@ function renderNewTab() {
 
   const newsHtml = picked.map((item) => {
     const src = H.safeUrl(item.sourceUrl);
-    const link = src ? ` role="link" tabindex="0" data-source="${H.esc(src)}" title="Kaynağı aç: ${H.esc(item.sourceName)}"` : '';
+    const link = src ? ` role="link" tabindex="0" data-source="${H.esc(src)}" title="${TH('cards.openSource', { name: item.sourceName })}"` : '';
+    // Kart metni arayüz dilinde (tr.json'da kaynak metin); çevirisi yoksa Türkçe.
+    const title = T('cards.' + item.id + '.title');
+    const body = T('cards.' + item.id + '.body');
     const text = `
-            <h4>${H.esc(item.title)}</h4>
-            <p>${H.esc(item.body)}</p>
-            <div class="card-source">Kaynak: ${H.esc(item.sourceName)}</div>`;
+            <h4>${H.esc(title === 'cards.' + item.id + '.title' ? item.title : title)}</h4>
+            <p>${H.esc(body === 'cards.' + item.id + '.body' ? item.body : body)}</p>
+            <div class="card-source">${TH('cards.source', { name: item.sourceName })}</div>`;
+    const category = CARD_CATEGORY_KEYS[item.category] ? T(CARD_CATEGORY_KEYS[item.category]) : item.category;
     if (item.feature) {
       return `
         <div class="news-card feature"${link}>
           <div class="feature-img"><span class="feature-emoji">${H.esc(item.icon)}</span></div>
           <div class="body-pad">
-            <div class="meta"><span class="cat">${H.esc(item.category)}</span><span>Günün bilgisi</span></div>${text}
+            <div class="meta"><span class="cat">${H.esc(category)}</span><span>${TH('cards.dayFact')}</span></div>${text}
           </div>
         </div>`;
     }
     return `
       <div class="news-card"${link}>
-        <div class="meta"><span class="cat">${H.esc(item.icon)} ${H.esc(item.category)}</span></div>${text}
+        <div class="meta"><span class="cat">${H.esc(item.icon)} ${H.esc(category)}</span></div>${text}
       </div>`;
   }).join('');
 
@@ -1698,20 +1701,20 @@ function renderNewTab() {
     <div class="newtab fade-up">
       <div class="newtab-greet">
         <div class="runes-greet">𐰚𐰢 𐱅𐰉𐰍𐰢</div>
-        <h2>İyi Yolculuklar, Gezgin</h2>
-        <div class="sub">Bilgi yolu uzun, atın hazır.</div>
+        <h2>${TH('newtab.greeting')}</h2>
+        <div class="sub">${TH('newtab.subgreeting')}</div>
       </div>
       <form class="big-search" id="newtab-search-form">
         <div class="field">
           <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
           <input id="newtab-search-input"
-                 placeholder="İlgezdi ile ara veya bir adres yaz…"
+                 placeholder="${TH('newtab.searchPlaceholder')}"
                  autocomplete="off" spellcheck="false" autofocus />
           <button class="search-go" type="submit">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
           </button>
         </div>
-        <div class="runes-hint">𐰉𐰽𐱃 𐰚𐰢 𐱅𐰢𐰍 · ARA</div>
+        <div class="runes-hint">𐰉𐰽𐱃 𐰚𐰢 𐱅𐰢𐰍 · ${TH('newtab.searchHint')}</div>
       </form>
       <div class="shortcuts">
         ${shortcutsHtml}
@@ -1720,7 +1723,7 @@ function renderNewTab() {
       <div class="section-head">
         <div class="title-block">
           <span class="runes">𐱅𐰇𐰼𐰰</span>
-          <h3>Bilgi Kartları</h3>
+          <h3>${TH('newtab.cardsTitle')}</h3>
         </div>
       </div>
       <div class="news-grid">
@@ -1790,10 +1793,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (brand) {
       const badge = document.createElement('span');
       badge.id = 'incognito-badge';
-      badge.textContent = '🕶 Gizli';
+      badge.textContent = T('ui.incognitoBadge');
       brand.appendChild(badge);
     }
-    document.title = 'İlgezdi — Gizli Pencere';
+    document.title = T('ui.incognitoTitle');
     document.getElementById('btn-bookmark-star')?.style.setProperty('display', 'none');
   }
 
@@ -1866,16 +1869,12 @@ document.addEventListener('DOMContentLoaded', async () => {
       } else if (screen === 'feedback') {
         showScreen('feedback', renderFeedbackPage).then(initFeedbackPage);
       } else {
-        const titles = {
-          bookmarks: 'Yer İşaretleri',
-          discover:  'Keşfet',
-        };
         showScreen(screen, () => `
           <div class="page fade-up">
             <div class="page-head">
-              <h1>${titles[screen] || screen}</h1>
+              <h1>${window.ilgezdiHtml.esc(screen)}</h1>
             </div>
-            <p style="color:var(--text-muted);padding:24px;font-size:14px">Yakında eklenecek…</p>
+            <p style="color:var(--text-muted);padding:24px;font-size:14px">${TH('ui.comingSoon')}</p>
           </div>
         `);
       }
@@ -2008,7 +2007,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Varsayılan sayfa yakınlaştırmasındayken (Ayarlar) gösterge gizli; sıfırla varsayılana döner.
     zoomBtn.hidden = pct === def;
     zoomBtn.textContent = '%' + pct;
-    zoomBtn.setAttribute('aria-label', 'Yakınlaştırma yüzde ' + pct + ', sıfırlamak için tıklayın');
+    zoomBtn.setAttribute('aria-label', T('ui.zoomLabel', { percent: pct }));
   });
 
   // ── Site bilgisi (kilit simgesi) ve engellenen açılır pencereler ───────────
@@ -2026,7 +2025,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     popupBtn.hidden = n === 0;
     const c = document.getElementById('popup-blocked-count');
     if (c) c.textContent = String(n);
-    popupBtn.setAttribute('aria-label', n + ' açılır pencere engellendi, ayrıntı için tıklayın');
+    popupBtn.setAttribute('aria-label', T('ui.popupBlockedLabel', { count: n }));
     if (n && siteInfoOpen()) loadSiteInfo();
   });
 
@@ -2078,7 +2077,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'status-note-btn';
-      btn.textContent = 'Klasörde göster';
+      btn.textContent = T('ui.showInFolder');
       btn.addEventListener('click', () => sb.revealScreenshot?.(d.reveal));
       statusNote.append(btn);
     }
@@ -2108,7 +2107,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Durum çubuğundaki sürüm — eskiden index.html'e sabit "v0.6" yazılıydı (D-02).
   sb.updater?.currentVersion?.().then((v) => {
     const el = document.getElementById('status-version');
-    if (el && v) el.textContent = 'İlgezdi v' + v;
+    if (el && v) el.textContent = T('ui.versionLabel', { version: v });
   }).catch(() => {});
 
   // İlk açılışta yeni sekme ekranını göster. Olaylar içerik eklendikten SONRA bağlanır:

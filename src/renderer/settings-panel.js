@@ -27,19 +27,19 @@ const THEMES = {
 };
 
 const ACCENT_COLORS = [
-  { name:'Bakır',      value:'#d4a85a' },
-  { name:'Parlak Altın', value:'#f0c674' },
-  { name:'Tunç',       value:'#c87f4a' },
-  { name:'Terracotta', value:'#b85c3a' },
-  { name:'Gök Mavisi', value:'#8aa6c8' },
-  { name:'Yeşil',      value:'#68d391' },
-  { name:'Mor',        value:'#9f7aea' },
-  { name:'Kırmızı',    value:'#fc8181' },
+  { key:'settings.accent.copper',     value:'#d4a85a' },
+  { key:'settings.accent.brightGold', value:'#f0c674' },
+  { key:'settings.accent.bronze',     value:'#c87f4a' },
+  { key:'settings.accent.terracotta', value:'#b85c3a' },
+  { key:'settings.accent.skyBlue',    value:'#8aa6c8' },
+  { key:'settings.accent.green',      value:'#68d391' },
+  { key:'settings.accent.purple',     value:'#9f7aea' },
+  { key:'settings.accent.red',        value:'#fc8181' },
 ];
 
 const FONT_FAMILIES = [
-  { name:"Inter (Varsayılan)", value:"'Inter', sans-serif" },
-  { name:"Cinzel (Runik)",     value:"'Cinzel', serif" },
+  { key:"settings.font.interDefault", value:"'Inter', sans-serif" },
+  { key:"settings.font.cinzel",       value:"'Cinzel', serif" },
   { name:"System UI",          value:"system-ui, sans-serif" },
   { name:"Segoe UI",           value:"'Segoe UI', sans-serif" },
   { name:"Georgia",            value:"Georgia, serif" },
@@ -265,23 +265,23 @@ function injectSettingsPanelHTML() {
   const panel = document.getElementById('panel-settings');
   if (!panel) return;
   panel.innerHTML = `
-    <div class="panel-header"><h2>⚙ Ayarlar</h2><button class="panel-close" data-panel="settings">✕</button></div>
-    <div class="settings-tabs" role="tablist" aria-label="Ayar bölümleri">
-      <button class="settings-tab active" data-tab="customization" role="tab" aria-selected="true"><span class="settings-tab-icon" aria-hidden="true">🎨</span><span class="settings-tab-label">Özelleştir</span></button>
-      <button class="settings-tab" data-tab="account" role="tab" aria-selected="false"><span class="settings-tab-icon" aria-hidden="true">👤</span><span class="settings-tab-label">Hesap</span></button>
-      <button class="settings-tab" data-tab="general" role="tab" aria-selected="false"><span class="settings-tab-icon" aria-hidden="true">⚙</span><span class="settings-tab-label">Genel</span></button>
-      <button class="settings-tab" data-tab="privacy" role="tab" aria-selected="false"><span class="settings-tab-icon" aria-hidden="true">🛡</span><span class="settings-tab-label">Gizlilik</span></button>
-      <button class="settings-tab" data-tab="passwords" role="tab" aria-selected="false"><span class="settings-tab-icon" aria-hidden="true">🔑</span><span class="settings-tab-label">Şifreler</span></button>
-      <button class="settings-tab" data-tab="diag" role="tab" aria-selected="false"><span class="settings-tab-icon" aria-hidden="true">🩺</span><span class="settings-tab-label">Tanılama</span></button>
+    <div class="panel-header"><h2>${TH('settings.title')}</h2><button class="panel-close" data-panel="settings" aria-label="${TH('common.closePanel')}">✕</button></div>
+    <div class="settings-tabs" role="tablist" aria-label="${TH('settings.tabsLabel')}">
+      <button class="settings-tab active" data-tab="customization" role="tab" aria-selected="true"><span class="settings-tab-icon" aria-hidden="true">🎨</span><span class="settings-tab-label">${TH('settings.tab.customization')}</span></button>
+      <button class="settings-tab" data-tab="account" role="tab" aria-selected="false"><span class="settings-tab-icon" aria-hidden="true">👤</span><span class="settings-tab-label">${TH('settings.tab.account')}</span></button>
+      <button class="settings-tab" data-tab="general" role="tab" aria-selected="false"><span class="settings-tab-icon" aria-hidden="true">⚙</span><span class="settings-tab-label">${TH('settings.tab.general')}</span></button>
+      <button class="settings-tab" data-tab="privacy" role="tab" aria-selected="false"><span class="settings-tab-icon" aria-hidden="true">🛡</span><span class="settings-tab-label">${TH('settings.tab.privacy')}</span></button>
+      <button class="settings-tab" data-tab="passwords" role="tab" aria-selected="false"><span class="settings-tab-icon" aria-hidden="true">🔑</span><span class="settings-tab-label">${TH('settings.tab.passwords')}</span></button>
+      <button class="settings-tab" data-tab="diag" role="tab" aria-selected="false"><span class="settings-tab-icon" aria-hidden="true">🩺</span><span class="settings-tab-label">${TH('settings.tab.diag')}</span></button>
     </div>
     <div class="settings-unsaved-bar" id="settings-unsaved-bar">
-      <span>⚠ Kaydedilmemiş değişiklikler var</span>
-      <button class="settings-unsaved-discard" id="btn-discard-changes">Geri Al</button>
+      <span>${TH('settings.unsaved')}</span>
+      <button class="settings-unsaved-discard" id="btn-discard-changes">${TH('settings.undo')}</button>
     </div>
     <div class="settings-content" id="settings-content"></div>
     <div class="settings-footer">
-      <button class="btn-discard-settings" id="btn-discard-all" style="display:none">↩ Geri Al</button>
-      <button class="btn-save-settings" id="btn-save-all">💾 Kaydet</button>
+      <button class="btn-discard-settings" id="btn-discard-all" style="display:none">${TH('settings.undoAll')}</button>
+      <button class="btn-save-settings" id="btn-save-all">${TH('settings.save')}</button>
     </div>
   `;
 }
@@ -378,11 +378,11 @@ function formValuesFrom(cfg) {
 }
 
 // Ana süreçteki listeyle aynı (browser-commands.js → normalizeTabSleepMinutes).
-const TAB_SLEEP_UI = [[0, 'Kapalı'], [15, '15 dakika'], [30, '30 dakika'], [60, '1 saat'], [120, '2 saat (varsayılan)']];
+const TAB_SLEEP_UI = [[0, 'settings.off'], [15, 'settings.tabSleep.15'], [30, 'settings.tabSleep.30'], [60, 'settings.tabSleep.60'], [120, 'settings.tabSleep.120']];
 
 // Ana süreçteki listelerle aynı (browser-commands.js → normalizePageZoom / normalizeMinFontSize).
 const PAGE_ZOOMS_UI = [0.8, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2];
-const MIN_FONTS_UI = [[0, 'Kapalı'], [10, '10 px'], [12, '12 px'], [14, '14 px'], [16, '16 px'], [18, '18 px'], [20, '20 px'], [24, '24 px']];
+const MIN_FONTS_UI = [[0, null], [10, '10 px'], [12, '12 px'], [14, '14 px'], [16, '16 px'], [18, '18 px'], [20, '20 px'], [24, '24 px']];
 
 // Erişilebilirlik (Ayarlar › Özelleştir): arayüzde hareketi azalt ve yüksek karşıtlık.
 function applyAccessibility(cfg) {
@@ -465,17 +465,17 @@ function updatePreviewBox() {
   box.innerHTML = `
     <div class="preview-row">
       <div class="preview-swatch" style="background:${th.bg};border:1px solid ${th.border}"></div>
-      <span class="preview-label">Arka Plan</span>
+      <span class="preview-label">${TH('settings.preview.background')}</span>
       <span class="preview-value">${th.bg}</span>
     </div>
     <div class="preview-row">
       <div class="preview-swatch" style="background:${acc}"></div>
-      <span class="preview-label">Vurgu</span>
+      <span class="preview-label">${TH('settings.preview.accent')}</span>
       <span class="preview-value">${acc}</span>
     </div>
     <div class="preview-row">
       <div class="preview-swatch" style="background:${th.textMain}"></div>
-      <span class="preview-label">Metin</span>
+      <span class="preview-label">${TH('settings.preview.text')}</span>
       <span class="preview-value" style="font-size:${_pendingFontSize}px">Aa — ${_pendingFontSize}px</span>
     </div>`;
 }
@@ -483,95 +483,95 @@ function updatePreviewBox() {
 // ─── Tab HTML ─────────────────────────────────────────────────────────────────
 function renderCustomizationTab(cfg) {
   const themeList = [
-    { id:'otuken', label:'Ötüken Kayalıkları', bg:'#0e1a2e', dots:['#1c2e4a','#d4a85a','#8aa6c8'], badge:'Ana' },
-    { id:'hibrit',  label:'Hibrit Altın',       bg:'#0a1422', dots:['#1a2c4a','#f0c674','#88a4d0'], badge:'' },
-    { id:'umay',    label:'Umay Ana Işığı',      bg:'#f5ecd9', dots:['#ebe0c5','#b8893a','#a45a30'], badge:'' },
-    { id:'kagan',   label:'Kağan Otağı',         bg:'#f0e0c4', dots:['#e6d2ae','#b85c3a','#8a3f25'], badge:'' },
+    { id:'otuken', bg:'#0e1a2e', dots:['#1c2e4a','#d4a85a','#8aa6c8'], badge:true },
+    { id:'hibrit', bg:'#0a1422', dots:['#1a2c4a','#f0c674','#88a4d0'], badge:false },
+    { id:'umay',   bg:'#f5ecd9', dots:['#ebe0c5','#b8893a','#a45a30'], badge:false },
+    { id:'kagan',  bg:'#f0e0c4', dots:['#e6d2ae','#b85c3a','#8a3f25'], badge:false },
   ];
   return `
-    <div class="settings-section"><h3>Tema</h3>
+    <div class="settings-section"><h3>${TH('settings.theme.title')}</h3>
       <div class="theme-grid">
         ${themeList.map(th => `
           <div class="theme-card ${_pendingTheme===th.id?'selected':''}" data-theme="${th.id}">
             <div class="theme-preview" style="background:${th.bg}">
               ${th.dots.map(d=>`<div class="theme-dot" style="background:${d}"></div>`).join('')}
-              ${th.badge?`<span class="theme-badge" style="color:${th.dots[1]}">${th.badge}</span>`:''}
+              ${th.badge?`<span class="theme-badge" style="color:${th.dots[1]}">${TH('settings.theme.mainBadge')}</span>`:''}
             </div>
-            <span>${th.label}</span>
+            <span>${TH('settings.theme.' + th.id)}</span>
           </div>`).join('')}
       </div>
     </div>
-    <div class="settings-section"><h3>Vurgu Rengi</h3>
+    <div class="settings-section"><h3>${TH('settings.accent.title')}</h3>
       <div class="accent-grid">
         ${ACCENT_COLORS.map(ac=>`
           <div class="accent-swatch ${_pendingAccent===ac.value?'selected':''}"
-               style="background:${ac.value}" data-accent="${ac.value}" title="${ac.name}">
+               style="background:${ac.value}" data-accent="${ac.value}" title="${TH(ac.key)}">
             ${_pendingAccent===ac.value?'<span style="color:#000;font-size:11px;font-weight:900;pointer-events:none">✓</span>':''}
           </div>`).join('')}
       </div>
       <div class="s-input-row">
-        <label>Özel renk</label>
+        <label>${TH('settings.accent.custom')}</label>
         <input type="color" id="custom-accent" value="${_pendingAccent||'#d4a85a'}" style="height:36px;padding:2px;cursor:pointer;border-radius:6px" />
       </div>
     </div>
-    <div class="settings-section"><h3>Yazı Tipi</h3>
+    <div class="settings-section"><h3>${TH('settings.font.title')}</h3>
       <div class="s-input-row">
-        <label>Font ailesi</label>
+        <label>${TH('settings.font.family')}</label>
         <select id="font-family-select">
-          ${FONT_FAMILIES.map(f=>`<option value="${f.value}" ${_pendingFontFamily===f.value?'selected':''}>${f.name}</option>`).join('')}
+          ${FONT_FAMILIES.map(f=>`<option value="${f.value}" ${_pendingFontFamily===f.value?'selected':''}>${f.key ? TH(f.key) : f.name}</option>`).join('')}
         </select>
       </div>
       <div class="s-input-row">
-        <label>Boyut</label>
+        <label>${TH('settings.font.size')}</label>
         <div class="font-slider-wrap">
           <input type="range" class="font-slider" id="font-size-slider" min="11" max="18" step="1" value="${_pendingFontSize}" />
           <div class="font-size-badge" id="font-size-val">${_pendingFontSize}px</div>
         </div>
         <div class="font-preview" id="font-preview-text" style="font-size:${_pendingFontSize}px;font-family:${_pendingFontFamily}">
-          İlgezdi Browser — Önizleme metni (Bu değişiklik henüz kaydedilmedi)
+          ${TH('settings.font.preview')}
         </div>
       </div>
     </div>
-    <div class="settings-section"><h3>Erişilebilirlik</h3>
+    <div class="settings-section"><h3>${TH('settings.a11y.title')}</h3>
       <div class="s-input-row">
-        <label for="cfg-page-zoom">Sayfa yakınlaştırması (varsayılan)</label>
+        <label for="cfg-page-zoom">${TH('settings.a11y.pageZoom')}</label>
         <select id="cfg-page-zoom">
           ${PAGE_ZOOMS_UI.map((z) => `<option value="${z}" ${String(cfg.defaultPageZoom) === String(z) ? 'selected' : ''}>%${Math.round(z * 100)}</option>`).join('')}
         </select>
       </div>
-      <p class="s-hint">Siteler bu oranda açılır. Bir sitede Ctrl ile yakınlaştırırsanız o site için ayrıca hatırlanır; Ctrl+0 bu orana döndürür.</p>
+      <p class="s-hint">${TH('settings.a11y.pageZoomHint')}</p>
       <div class="s-input-row">
-        <label for="cfg-min-font">En küçük yazı boyutu</label>
+        <label for="cfg-min-font">${TH('settings.a11y.minFont')}</label>
         <select id="cfg-min-font">
-          ${MIN_FONTS_UI.map(([v, t]) => `<option value="${v}" ${String(cfg.minimumFontSize) === String(v) ? 'selected' : ''}>${t}</option>`).join('')}
+          ${MIN_FONTS_UI.map(([v, t]) => `<option value="${v}" ${String(cfg.minimumFontSize) === String(v) ? 'selected' : ''}>${t === null ? TH('settings.off') : t}</option>`).join('')}
         </select>
       </div>
-      <p class="s-hint">Sayfalardaki küçük yazılar bu boyutun altına inmez. Yeni açılan sekmelerde geçerli olur.</p>
+      <p class="s-hint">${TH('settings.a11y.minFontHint')}</p>
       <div class="s-toggle-row">
-        <div><div class="s-toggle-label">Hareketi azalt</div><div class="s-toggle-sub">İlgezdi arayüzündeki geçiş ve animasyonlar kapanır; yükleme halkası yavaş döner. İşletim sisteminde animasyonlar kapalıysa geçişler zaten kısalır.</div></div>
+        <div><div class="s-toggle-label">${TH('settings.a11y.reduceMotion')}</div><div class="s-toggle-sub">${TH('settings.a11y.reduceMotionHint')}</div></div>
         <label class="switch"><input type="checkbox" id="cfg-reduce-motion" ${cfg.reduceMotion ? 'checked' : ''}/><span class="slider"></span></label>
       </div>
       <div class="s-toggle-row">
-        <div><div class="s-toggle-label">Yüksek karşıtlık</div><div class="s-toggle-sub">Arayüzde soluk yazılar ve çizgiler koyulaşır, odak çerçevesi kalınlaşır. İşletim sistemi daha fazla karşıtlık isterse kendiliğinden uygulanır.</div></div>
+        <div><div class="s-toggle-label">${TH('settings.a11y.highContrast')}</div><div class="s-toggle-sub">${TH('settings.a11y.highContrastHint')}</div></div>
         <label class="switch"><input type="checkbox" id="cfg-high-contrast" ${cfg.highContrast ? 'checked' : ''}/><span class="slider"></span></label>
       </div>
     </div>
     <div id="theme-preview-box" class="theme-preview-box"></div>
-    <div class="settings-section"><h3>Yeni Sekme</h3>
+    <div class="settings-section"><h3>${TH('settings.newTab.title')}</h3>
       <div class="s-input-row">
         <select id="new-tab-mode">
-          <option value="blank" ${cfg.newTabMode==='blank'?'selected':''}>Boş sayfa</option>
-          <option value="custom"${cfg.newTabMode==='custom'?'selected':''}>Özel URL</option>
+          <option value="blank" ${cfg.newTabMode==='blank'?'selected':''}>${TH('settings.newTab.blank')}</option>
+          <option value="custom"${cfg.newTabMode==='custom'?'selected':''}>${TH('settings.newTab.custom')}</option>
         </select>
       </div>
       <div id="custom-newtab-wrap" style="${cfg.newTabMode==='custom'?'':'display:none'}">
-        <div class="s-input-row"><label>Özel URL</label><input type="text" id="custom-newtab-url" value="${cfg.customNewTabUrl||''}" placeholder="https://" /></div>
+        <div class="s-input-row"><label>${TH('settings.newTab.custom')}</label><input type="text" id="custom-newtab-url" value="${cfg.customNewTabUrl||''}" placeholder="https://" /></div>
       </div>
     </div>
-    <div class="settings-section"><h3>Arama Motoru</h3>
+    <div class="settings-section"><h3>${TH('settings.search.title')}</h3>
       <div class="s-input-row">
         <select id="search-engine">
-          <option value="duckduckgo" ${cfg.searchEngine==='duckduckgo'?'selected':''}>DuckDuckGo (gizlilik)</option>
+          <option value="duckduckgo" ${cfg.searchEngine==='duckduckgo'?'selected':''}>${TH('settings.search.duckduckgo')}</option>
           <option value="google"     ${cfg.searchEngine==='google'?'selected':''}>Google</option>
           <option value="bing"       ${cfg.searchEngine==='bing'?'selected':''}>Bing</option>
           <option value="yandex"     ${cfg.searchEngine==='yandex'?'selected':''}>Yandex</option>
@@ -581,35 +581,35 @@ function renderCustomizationTab(cfg) {
           <option value="startpage"  ${cfg.searchEngine==='startpage'?'selected':''}>Startpage</option>
         </select>
       </div>
-      <p class="s-hint">Adres çubuğuna yazdığınız kelimeler bu motorda aranır.</p>
+      <p class="s-hint">${TH('settings.search.hint')}</p>
     </div>
-    <div class="settings-section"><h3>Başlangıçta</h3>
+    <div class="settings-section"><h3>${TH('settings.startup.title')}</h3>
       <div class="s-input-row">
-        <label for="cfg-startup-mode">İlgezdi açıldığında</label>
+        <label for="cfg-startup-mode">${TH('settings.startup.label')}</label>
         <select id="cfg-startup-mode">
-          <option value="homepage" ${(cfg.startupMode||'homepage')==='homepage'?'selected':''}>Ana sayfayı aç</option>
-          <option value="restore"  ${cfg.startupMode==='restore'?'selected':''}>Kaldığım yerden devam et</option>
+          <option value="homepage" ${(cfg.startupMode||'homepage')==='homepage'?'selected':''}>${TH('settings.startup.homepage')}</option>
+          <option value="restore"  ${cfg.startupMode==='restore'?'selected':''}>${TH('settings.startup.restore')}</option>
         </select>
       </div>
-      <p class="s-hint">Kaldığım yerden devam et: açık sekmeler (sabitlenenler dahil) geri/ileri geçmişleriyle geri gelir. Liste ziyaret günlüğüyle aynı anahtarla şifreli saklanır; gizli pencere sekmeleri kaydedilmez.</p>
+      <p class="s-hint">${TH('settings.startup.hint')}</p>
     </div>
-    <div class="settings-section"><h3>Ana Sayfa</h3>
-      <div class="s-input-row"><input type="text" id="homepage-input" value="${cfg.homepage && cfg.homepage!=='about:blank' ? cfg.homepage : ''}" placeholder="https://... (boş bırakılırsa İlgezdi başlangıç sayfası)" /></div>
-      <p class="s-hint">Uygulama açıldığında ve Ana Sayfa düğmesine basınca bu adres açılır.</p>
+    <div class="settings-section"><h3>${TH('settings.homepage.title')}</h3>
+      <div class="s-input-row"><input type="text" id="homepage-input" value="${cfg.homepage && cfg.homepage!=='about:blank' ? cfg.homepage : ''}" placeholder="${TH('settings.homepage.placeholder')}" /></div>
+      <p class="s-hint">${TH('settings.homepage.hint')}</p>
     </div>`;
 }
 
 function renderGeneralTab(cfg) {
   return `
-    <div class="settings-section"><h3>Varsayılan Tarayıcı</h3>
+    <div class="settings-section"><h3>${TH('settings.defaultBrowser.title')}</h3>
       <div class="s-input-row" style="display:flex;align-items:center;justify-content:space-between;gap:10px">
         <div>
-          <div class="s-toggle-label">İlgezdi varsayılan tarayıcı mı?</div>
-          <div class="s-toggle-sub" id="default-browser-status" aria-live="polite">Denetleniyor…</div>
+          <div class="s-toggle-label">${TH('settings.defaultBrowser.question')}</div>
+          <div class="s-toggle-sub" id="default-browser-status" aria-live="polite">${TH('settings.defaultBrowser.checking')}</div>
         </div>
-        <button class="folder-btn" id="btn-default-browser" hidden>Varsayılan yap</button>
+        <button class="folder-btn" id="btn-default-browser" hidden>${TH('settings.defaultBrowser.make')}</button>
       </div>
-      <p class="s-hint">Windows, uygulamaların kendini varsayılan yapmasına izin vermez: düğme Ayarlar › Varsayılan uygulamalar sayfasını açar, orada İlgezdi'yi seçin. Sonra başka uygulamalardaki bağlantılar İlgezdi'de yeni sekmede açılır.</p>
+      <p class="s-hint">${TH('settings.defaultBrowser.hint')}</p>
     </div>
     <div class="settings-section"><h3>${TH('settings.language.title')}</h3>
       <div class="s-input-row"><label for="lang-select">${TH('settings.language.label')}</label><select id="lang-select">
@@ -624,133 +624,133 @@ function renderGeneralTab(cfg) {
       </div>
       <p class="s-hint">${TH('settings.language.hint')}</p>
     </div>
-    <div class="settings-section"><h3>İndirme</h3>
-      <div class="s-input-row"><label>İndirme klasörü</label>
+    <div class="settings-section"><h3>${TH('settings.download.title')}</h3>
+      <div class="s-input-row"><label>${TH('settings.download.folder')}</label>
         <div class="folder-row">
-          <input type="text" id="download-folder" value="${cfg.downloadFolder||''}" placeholder="İndirme klasörü..." readonly />
-          <button class="folder-btn" id="btn-pick-folder">📁 Seç</button>
+          <input type="text" id="download-folder" value="${window.ilgezdiHtml.esc(cfg.downloadFolder||'')}" placeholder="${TH('settings.download.folderPlaceholder')}" readonly />
+          <button class="folder-btn" id="btn-pick-folder">${TH('settings.download.pick')}</button>
         </div>
       </div>
       <div class="s-toggle-row">
-        <div><div class="s-toggle-label">Her seferinde sor</div><div class="s-toggle-sub">İndirmeden önce konum seç</div></div>
+        <div><div class="s-toggle-label">${TH('settings.download.ask')}</div><div class="s-toggle-sub">${TH('settings.download.askHint')}</div></div>
         <label class="switch"><input type="checkbox" id="cfg-ask-download" ${cfg.askDownloadLocation?'checked':''}/><span class="slider"></span></label>
       </div>
     </div>
-    <div class="settings-section"><h3>Bildirimler</h3>
+    <div class="settings-section"><h3>${TH('settings.notifications.title')}</h3>
       <div class="s-toggle-row">
-        <div class="s-toggle-label">Site bildirimleri</div>
+        <div class="s-toggle-label">${TH('settings.notifications.site')}</div>
         <label class="switch"><input type="checkbox" id="cfg-notifications" ${cfg.notifications!==false?'checked':''}/><span class="slider"></span></label>
       </div>
       <div class="s-toggle-row">
-        <div><div class="s-toggle-label">VPN bildirimi</div><div class="s-toggle-sub">Bağlanınca/kesilince</div></div>
+        <div><div class="s-toggle-label">${TH('settings.notifications.vpn')}</div><div class="s-toggle-sub">${TH('settings.notifications.vpnHint')}</div></div>
         <label class="switch"><input type="checkbox" id="cfg-vpn-notify" ${cfg.vpnNotify!==false?'checked':''}/><span class="slider"></span></label>
       </div>
     </div>
-    <div class="settings-section"><h3>Medya</h3>
+    <div class="settings-section"><h3>${TH('settings.media.title')}</h3>
       <div class="s-toggle-row">
-        <div><div class="s-toggle-label">Sesli otomatik oynatmayı engelle</div><div class="s-toggle-sub">Videolar ve sesler, siz sayfaya tıklayana ya da bir tuşa basana kadar sesli başlamaz. Sessiz videolar etkilenmez. Yeni açılan sekmelerde geçerli.</div></div>
+        <div><div class="s-toggle-label">${TH('settings.media.autoplay')}</div><div class="s-toggle-sub">${TH('settings.media.autoplayHint')}</div></div>
         <label class="switch"><input type="checkbox" id="cfg-block-autoplay" ${cfg.blockAutoplay!==false?'checked':''}/><span class="slider"></span></label>
       </div>
     </div>
-    <div class="settings-section"><h3>Önbellek & Geçmiş</h3>
+    <div class="settings-section"><h3>${TH('settings.clear.title')}</h3>
       <div class="clear-grid">
-        <button class="clear-btn" id="btn-clear-cache">🗑 Önbellek</button>
-        <button class="clear-btn" id="btn-clear-history">📋 Geçmiş</button>
-        <button class="clear-btn" id="btn-clear-cookies">🍪 Çerezler</button>
-        <button class="clear-btn" id="btn-clear-all" style="border-color:var(--danger);color:var(--danger)">⚠ Tümünü</button>
+        <button class="clear-btn" id="btn-clear-cache">${TH('settings.clear.cache')}</button>
+        <button class="clear-btn" id="btn-clear-history">${TH('settings.clear.history')}</button>
+        <button class="clear-btn" id="btn-clear-cookies">${TH('settings.clear.cookies')}</button>
+        <button class="clear-btn" id="btn-clear-all" style="border-color:var(--danger);color:var(--danger)">${TH('settings.clear.all')}</button>
       </div>
       <div id="clear-status" style="font-size:11px;color:var(--success);margin-top:8px;min-height:14px"></div>
       <div class="s-toggle-row">
-        <div><div class="s-toggle-label">Kapatınca çerezleri ve site verilerini sil</div><div class="s-toggle-sub">Önbellek de silinir; sitelerden çıkış yapılmış olursunuz. Qrtım hesabınız, yer imleri, şifreler ve ayarlar etkilenmez.</div></div>
+        <div><div class="s-toggle-label">${TH('settings.clear.siteDataOnExit')}</div><div class="s-toggle-sub">${TH('settings.clear.siteDataOnExitHint')}</div></div>
         <label class="switch"><input type="checkbox" id="cfg-clear-site-exit" ${cfg.clearSiteDataOnExit===true?'checked':''}/><span class="slider"></span></label>
       </div>
       <div class="s-toggle-row">
-        <div><div class="s-toggle-label">Kapatınca geçmişi sil</div><div class="s-toggle-sub">Ziyaret günlüğü, indirme geçmişi (dosyalar değil) ve site simgeleri. "Kaldığım yerden devam et" seçiliyse açık sekmeler yine geri gelir.</div></div>
+        <div><div class="s-toggle-label">${TH('settings.clear.historyOnExit')}</div><div class="s-toggle-sub">${TH('settings.clear.historyOnExitHint')}</div></div>
         <label class="switch"><input type="checkbox" id="cfg-clear-history-exit" ${cfg.clearHistoryOnExit===true?'checked':''}/><span class="slider"></span></label>
       </div>
     </div>
-    <div class="settings-section"><h3>Kısayollar</h3>
-      <p class="s-hint" style="margin-top:0">Odak sayfadayken de çalışır. Ctrl+B, Ctrl+H, Ctrl+Shift+L, Ctrl+Shift+V ve Ctrl+Shift+S yalnızca İlgezdi arayüzü odaktayken çalışır; sayfalarda kalın yazı, bul-değiştir, hizalama, düz metin yapıştırma ve farklı kaydet için kullanılırlar.</p>
+    <div class="settings-section"><h3>${TH('settings.shortcuts.title')}</h3>
+      <p class="s-hint" style="margin-top:0">${TH('settings.shortcuts.hint')}</p>
       <table class="shortcut-table">
-        <tr><td>Yeni sekme</td><td><span class="kbd">Ctrl</span>+<span class="kbd">T</span></td></tr>
-        <tr><td>Sekmeyi kapat</td><td><span class="kbd">Ctrl</span>+<span class="kbd">W</span></td></tr>
-        <tr><td>Kapatılan sekmeyi yeniden aç</td><td><span class="kbd">Ctrl</span>+<span class="kbd">Shift</span>+<span class="kbd">T</span></td></tr>
-        <tr><td>Sonraki / önceki sekme</td><td><span class="kbd">Ctrl</span>+<span class="kbd">Tab</span> · <span class="kbd">Ctrl</span>+<span class="kbd">Shift</span>+<span class="kbd">Tab</span></td></tr>
-        <tr><td>1.–8. sekme / son sekme</td><td><span class="kbd">Ctrl</span>+<span class="kbd">1</span>…<span class="kbd">8</span> · <span class="kbd">Ctrl</span>+<span class="kbd">9</span></td></tr>
-        <tr><td>Adres çubuğu</td><td><span class="kbd">Ctrl</span>+<span class="kbd">L</span> · <span class="kbd">Alt</span>+<span class="kbd">D</span> · <span class="kbd">F6</span></td></tr>
-        <tr><td>Yenile / önbelleği atlayarak yenile</td><td><span class="kbd">F5</span> · <span class="kbd">Ctrl</span>+<span class="kbd">F5</span></td></tr>
-        <tr><td>Geri / ileri</td><td><span class="kbd">Alt</span>+<span class="kbd">←</span> · <span class="kbd">Alt</span>+<span class="kbd">→</span></td></tr>
-        <tr><td>Sayfada bul / sonraki eşleşme</td><td><span class="kbd">Ctrl</span>+<span class="kbd">F</span> · <span class="kbd">F3</span></td></tr>
-        <tr><td>Yakınlaştır / uzaklaştır / sıfırla</td><td><span class="kbd">Ctrl</span>+<span class="kbd">+</span> · <span class="kbd">Ctrl</span>+<span class="kbd">-</span> · <span class="kbd">Ctrl</span>+<span class="kbd">0</span></td></tr>
-        <tr><td>Yazdır</td><td><span class="kbd">Ctrl</span>+<span class="kbd">P</span></td></tr>
-        <tr><td>Tam ekran</td><td><span class="kbd">F11</span></td></tr>
-        <tr><td>Yer imine ekle</td><td><span class="kbd">Ctrl</span>+<span class="kbd">D</span></td></tr>
-        <tr><td>Yer imleri paneli</td><td><span class="kbd">Ctrl</span>+<span class="kbd">Shift</span>+<span class="kbd">O</span> · <span class="kbd">Ctrl</span>+<span class="kbd">B</span></td></tr>
-        <tr><td>Gizli pencere</td><td><span class="kbd">Ctrl</span>+<span class="kbd">Shift</span>+<span class="kbd">N</span></td></tr>
-        <tr><td>Ayarlar</td><td><span class="kbd">Ctrl</span>+<span class="kbd">,</span></td></tr>
-        <tr><td>Ziyaret günlüğü</td><td><span class="kbd">Ctrl</span>+<span class="kbd">Shift</span>+<span class="kbd">L</span></td></tr>
-        <tr><td>Geçmiş / İndirilenler</td><td><span class="kbd">Ctrl</span>+<span class="kbd">H</span> · <span class="kbd">Ctrl</span>+<span class="kbd">J</span></td></tr>
-        <tr><td>Okuma modu</td><td><span class="kbd">F9</span></td></tr>
-        <tr><td>Sekmelerde ara</td><td><span class="kbd">Ctrl</span>+<span class="kbd">Shift</span>+<span class="kbd">A</span></td></tr>
-        <tr><td>Geliştirici araçları (sayfa)</td><td><span class="kbd">F12</span> · <span class="kbd">Ctrl</span>+<span class="kbd">Shift</span>+<span class="kbd">I</span></td></tr>
-        <tr><td>Ekran görüntüsü (sayfada sağ tık da)</td><td><span class="kbd">Ctrl</span>+<span class="kbd">Shift</span>+<span class="kbd">S</span></td></tr>
+        <tr><td>${TH('settings.shortcut.newTab')}</td><td><span class="kbd">Ctrl</span>+<span class="kbd">T</span></td></tr>
+        <tr><td>${TH('settings.shortcut.closeTab')}</td><td><span class="kbd">Ctrl</span>+<span class="kbd">W</span></td></tr>
+        <tr><td>${TH('settings.shortcut.reopenTab')}</td><td><span class="kbd">Ctrl</span>+<span class="kbd">Shift</span>+<span class="kbd">T</span></td></tr>
+        <tr><td>${TH('settings.shortcut.nextPrevTab')}</td><td><span class="kbd">Ctrl</span>+<span class="kbd">Tab</span> · <span class="kbd">Ctrl</span>+<span class="kbd">Shift</span>+<span class="kbd">Tab</span></td></tr>
+        <tr><td>${TH('settings.shortcut.tabN')}</td><td><span class="kbd">Ctrl</span>+<span class="kbd">1</span>…<span class="kbd">8</span> · <span class="kbd">Ctrl</span>+<span class="kbd">9</span></td></tr>
+        <tr><td>${TH('settings.shortcut.address')}</td><td><span class="kbd">Ctrl</span>+<span class="kbd">L</span> · <span class="kbd">Alt</span>+<span class="kbd">D</span> · <span class="kbd">F6</span></td></tr>
+        <tr><td>${TH('settings.shortcut.reload')}</td><td><span class="kbd">F5</span> · <span class="kbd">Ctrl</span>+<span class="kbd">F5</span></td></tr>
+        <tr><td>${TH('settings.shortcut.backForward')}</td><td><span class="kbd">Alt</span>+<span class="kbd">←</span> · <span class="kbd">Alt</span>+<span class="kbd">→</span></td></tr>
+        <tr><td>${TH('settings.shortcut.find')}</td><td><span class="kbd">Ctrl</span>+<span class="kbd">F</span> · <span class="kbd">F3</span></td></tr>
+        <tr><td>${TH('settings.shortcut.zoom')}</td><td><span class="kbd">Ctrl</span>+<span class="kbd">+</span> · <span class="kbd">Ctrl</span>+<span class="kbd">-</span> · <span class="kbd">Ctrl</span>+<span class="kbd">0</span></td></tr>
+        <tr><td>${TH('settings.shortcut.print')}</td><td><span class="kbd">Ctrl</span>+<span class="kbd">P</span></td></tr>
+        <tr><td>${TH('settings.shortcut.fullscreen')}</td><td><span class="kbd">F11</span></td></tr>
+        <tr><td>${TH('settings.shortcut.bookmark')}</td><td><span class="kbd">Ctrl</span>+<span class="kbd">D</span></td></tr>
+        <tr><td>${TH('settings.shortcut.bookmarksPanel')}</td><td><span class="kbd">Ctrl</span>+<span class="kbd">Shift</span>+<span class="kbd">O</span> · <span class="kbd">Ctrl</span>+<span class="kbd">B</span></td></tr>
+        <tr><td>${TH('settings.shortcut.incognito')}</td><td><span class="kbd">Ctrl</span>+<span class="kbd">Shift</span>+<span class="kbd">N</span></td></tr>
+        <tr><td>${TH('settings.shortcut.settings')}</td><td><span class="kbd">Ctrl</span>+<span class="kbd">,</span></td></tr>
+        <tr><td>${TH('settings.shortcut.logs')}</td><td><span class="kbd">Ctrl</span>+<span class="kbd">Shift</span>+<span class="kbd">L</span></td></tr>
+        <tr><td>${TH('settings.shortcut.historyDownloads')}</td><td><span class="kbd">Ctrl</span>+<span class="kbd">H</span> · <span class="kbd">Ctrl</span>+<span class="kbd">J</span></td></tr>
+        <tr><td>${TH('settings.shortcut.reader')}</td><td><span class="kbd">F9</span></td></tr>
+        <tr><td>${TH('settings.shortcut.tabSearch')}</td><td><span class="kbd">Ctrl</span>+<span class="kbd">Shift</span>+<span class="kbd">A</span></td></tr>
+        <tr><td>${TH('settings.shortcut.devtools')}</td><td><span class="kbd">F12</span> · <span class="kbd">Ctrl</span>+<span class="kbd">Shift</span>+<span class="kbd">I</span></td></tr>
+        <tr><td>${TH('settings.shortcut.screenshot')}</td><td><span class="kbd">Ctrl</span>+<span class="kbd">Shift</span>+<span class="kbd">S</span></td></tr>
       </table>
     </div>
-    <div class="settings-section"><h3>Uygulama Güncellemesi</h3>
+    <div class="settings-section"><h3>${TH('settings.update.title')}</h3>
       <div class="s-input-row" style="align-items:center;justify-content:space-between;display:flex;gap:10px">
         <div>
-          <div class="s-toggle-label">İlgezdi sürümü</div>
+          <div class="s-toggle-label">${TH('settings.update.version')}</div>
           <div class="s-toggle-sub" id="app-version-text">—</div>
         </div>
-        <button class="folder-btn" id="btn-check-updates">↻ Güncellemeleri denetle</button>
+        <button class="folder-btn" id="btn-check-updates">${TH('settings.update.check')}</button>
       </div>
       <div id="update-check-status" style="font-size:11.5px;color:var(--text-muted);margin-top:8px;min-height:15px"></div>
     </div>
-    <div class="settings-section"><h3>Sistem</h3>
+    <div class="settings-section"><h3>${TH('settings.system.title')}</h3>
       <div class="s-toggle-row">
-        <div><div class="s-toggle-label">Donanım hızlandırmayı kullan</div><div class="s-toggle-sub">Ekranda bozulma, titreme ya da siyah alanlar görürseniz kapatın. İlgezdi yeniden başlatılınca geçerli olur.</div></div>
+        <div><div class="s-toggle-label">${TH('settings.system.hwAccel')}</div><div class="s-toggle-sub">${TH('settings.system.hwAccelHint')}</div></div>
         <label class="switch"><input type="checkbox" id="cfg-hw-accel" ${cfg.hardwareAcceleration!==false?'checked':''}/><span class="slider"></span></label>
       </div>
       <div id="relaunch-row" hidden>
         <div class="s-input-row" style="display:flex;align-items:center;justify-content:space-between;gap:10px">
-          <span class="s-hint" style="margin:0">Bu değişiklik yeniden başlatınca geçerli olur.</span>
-          <button class="folder-btn" id="btn-relaunch">Kaydet ve yeniden başlat</button>
+          <span class="s-hint" style="margin:0">${TH('settings.system.relaunchHint')}</span>
+          <button class="folder-btn" id="btn-relaunch">${TH('settings.relaunch.button')}</button>
         </div>
       </div>
       <div class="s-input-row">
-        <label for="cfg-tab-sleep">Kullanılmayan sekmeleri uyut</label>
+        <label for="cfg-tab-sleep">${TH('settings.system.tabSleep')}</label>
         <select id="cfg-tab-sleep">
-          ${TAB_SLEEP_UI.map(([v, t]) => `<option value="${v}" ${String(cfg.tabSleepMinutes ?? '120') === String(v) ? 'selected' : ''}>${t}</option>`).join('')}
+          ${TAB_SLEEP_UI.map(([v, key]) => `<option value="${v}" ${String(cfg.tabSleepMinutes ?? '120') === String(v) ? 'selected' : ''}>${TH(key)}</option>`).join('')}
         </select>
-        <p class="s-hint">Bu süre boyunca açılmayan sekme belleği boşaltır; tıklayınca yeniden yüklenir, geri/ileri geçmişi korunur. Sabitlenmiş, ses çalan, sayfasına yazı yazdığınız ve kamera ya da mikrofon kullanan sekmeler uyutulmaz.</p>
+        <p class="s-hint">${TH('settings.system.tabSleepHint')}</p>
       </div>
       <div class="s-toggle-row">
-        <div><div class="s-toggle-label">Birden çok sekme açıkken kapatmadan önce sor</div></div>
+        <div><div class="s-toggle-label">${TH('settings.system.warnClose')}</div></div>
         <label class="switch"><input type="checkbox" id="cfg-warn-close" ${cfg.warnOnCloseTabs===true?'checked':''}/><span class="slider"></span></label>
       </div>
       <div class="s-input-row" style="display:flex;align-items:center;justify-content:space-between;gap:10px">
-        <div><div class="s-toggle-label">Ayarları sıfırla</div><div class="s-toggle-sub">Yer imleri, geçmiş, şifreler ve hesabınız korunur.</div></div>
-        <button class="clear-btn" id="btn-reset-settings">Varsayılana döndür</button>
+        <div><div class="s-toggle-label">${TH('settings.system.reset')}</div><div class="s-toggle-sub">${TH('settings.system.resetHint')}</div></div>
+        <button class="clear-btn" id="btn-reset-settings">${TH('settings.system.resetButton')}</button>
       </div>
     </div>`;
 }
 
 // Değerler ana süreçte ayrıca doğrulanır (site-safety.js → normalizeSecureDns).
 const SECURE_DNS_CHOICES = [
-  ['automatic',  'Otomatik (önerilir)'],
+  ['automatic',  'settings.dns.automatic'],
   ['cloudflare', 'Cloudflare (1.1.1.1)'],
   ['quad9',      'Quad9 (9.9.9.9)'],
   ['adguard',    'AdGuard DNS'],
   ['google',     'Google Public DNS'],
-  ['off',        'Kapalı'],
+  ['off',        'settings.off'],
 ];
 
 // Değerler ana süreçte ayrıca doğrulanır (browser-commands.js → normalizeWebrtcPolicy).
 const WEBRTC_OPTIONS = [
-  ['default_public_interface_only',         'Yalnızca varsayılan genel arayüz (önerilir)'],
-  ['default_public_and_private_interfaces', 'Varsayılan genel ve özel arayüzler'],
-  ['default',                               'Tüm arayüzler (en uyumlu, IP sızabilir)'],
-  ['disable_non_proxied_udp',               'Proxy dışı UDP kapalı (en katı)'],
+  ['default_public_interface_only',         'settings.webrtc.publicOnly'],
+  ['default_public_and_private_interfaces', 'settings.webrtc.publicPrivate'],
+  ['default',                               'settings.webrtc.all'],
+  ['disable_non_proxied_udp',               'settings.webrtc.noUdp'],
 ];
 
 function renderPrivacyTab(cfg) {
@@ -760,48 +760,48 @@ function renderPrivacyTab(cfg) {
       <label class="switch"><input type="checkbox" id="${id}" ${chk?'checked':''}/><span class="slider"></span></label>
     </div>`;
   return `
-    <div class="settings-section"><h3>Zararlı Site Koruması</h3>
-      ${row('cfg-threat','Tehlikeli siteleri engelle','Kimlik avı ve zararlı yazılım adresleri açık tehdit listeleriyle cihazınızda denetlenir. Ziyaret ettiğiniz adresler Google dahil hiçbir sunucuya gönderilmez.',cfg.threatProtection!==false)}
-      <div id="threat-status" aria-live="polite"><p class="s-hint" style="margin-top:0">Yükleniyor…</p></div>
-      <button class="clear-btn" id="btn-threat-update" style="margin-top:8px">Listeleri şimdi güncelle</button>
-      <p class="s-hint">Liste indirilirken liste sunucusu yalnızca IP adresinizi görür (VPN açıksa VPN adresini). Bir site hatalı engellenirse uyarı sayfasından o oturum için devam edebilirsiniz.</p>
+    <div class="settings-section"><h3>${TH('settings.threat.title')}</h3>
+      ${row('cfg-threat',TH('settings.threat.toggle'),TH('settings.threat.toggleHint'),cfg.threatProtection!==false)}
+      <div id="threat-status" aria-live="polite"><p class="s-hint" style="margin-top:0">${TH('common.loading')}</p></div>
+      <button class="clear-btn" id="btn-threat-update" style="margin-top:8px">${TH('settings.threat.update')}</button>
+      <p class="s-hint">${TH('settings.threat.hint')}</p>
     </div>
-    <div class="settings-section"><h3>Tracker & Reklam</h3>
-      ${row('cfg-tracker','İzleyici Engelleme','Bilinen izleyici alan adlarına istekler engellenir',cfg.blockTrackers!==false)}
-      ${row('cfg-ads','Reklam Engelleme','Reklam sunucuları bloke',cfg.blockAds!==false)}
-      ${row('cfg-3pc','Üçüncü Taraf Çerezleri Engelle','Başka sitelerin sizi siteler arasında çerezle izlemesini engeller. Sorun çıkan sitede kilit simgesinden izin verebilirsiniz.',cfg.blockThirdPartyCookies!==false)}
+    <div class="settings-section"><h3>${TH('settings.blocking.title')}</h3>
+      ${row('cfg-tracker',TH('settings.blocking.trackers'),TH('settings.blocking.trackersHint'),cfg.blockTrackers!==false)}
+      ${row('cfg-ads',TH('settings.blocking.ads'),TH('settings.blocking.adsHint'),cfg.blockAds!==false)}
+      ${row('cfg-3pc',TH('settings.blocking.thirdPartyCookies'),TH('settings.blocking.thirdPartyCookiesHint'),cfg.blockThirdPartyCookies!==false)}
     </div>
-    <div class="settings-section"><h3>Kimlik ve Bağlantılar</h3>
-      ${row('cfg-fp','IP Başlıklarını Gizle','Proxy/IP başlıkları (X-Forwarded-For, Via) gönderilmez',cfg.fingerprintProtection!==false)}
-      ${row('cfg-https-only','Yalnızca HTTPS','HTTP sitelere güvenli bağlan',cfg.httpsOnly)}
-      ${row('cfg-clean-links','Bağlantılardaki izleme kimliklerini temizle','fbclid, gclid, msclkid gibi kişiye özgü tıklama kimlikleri adresten çıkarılır. Google, YouTube ve Facebook yönlendirme sayfaları ile Google AMP atlanıp doğrudan siteye gidilir.',cfg.cleanLinks!==false)}
-      ${row('cfg-gpc','Verilerimi satma isteği (GPC)','Global Privacy Control: sitelere kişisel verilerinizi satmama ve paylaşmama isteği gönderilir. Bazı ülkelerde yasal olarak bağlayıcıdır.',cfg.globalPrivacyControl!==false)}
-      ${row('cfg-dnt','Do Not Track','Takip etme sinyali gönder. Çoğu site dikkate almaz; GPC daha etkilidir.',cfg.doNotTrack)}
+    <div class="settings-section"><h3>${TH('settings.identity.title')}</h3>
+      ${row('cfg-fp',TH('settings.identity.ipHeaders'),TH('settings.identity.ipHeadersHint'),cfg.fingerprintProtection!==false)}
+      ${row('cfg-https-only',TH('settings.identity.httpsOnly'),TH('settings.identity.httpsOnlyHint'),cfg.httpsOnly)}
+      ${row('cfg-clean-links',TH('settings.identity.cleanLinks'),TH('settings.identity.cleanLinksHint'),cfg.cleanLinks!==false)}
+      ${row('cfg-gpc',TH('settings.identity.gpc'),TH('settings.identity.gpcHint'),cfg.globalPrivacyControl!==false)}
+      ${row('cfg-dnt',TH('settings.identity.dnt'),TH('settings.identity.dntHint'),cfg.doNotTrack)}
     </div>
-    <div class="settings-section"><h3>WebRTC IP Koruması</h3>
+    <div class="settings-section"><h3>${TH('settings.webrtc.title')}</h3>
       <div class="s-input-row">
-        <label for="cfg-webrtc">Görüntülü görüşme ve eşler arası bağlantılarda kullanılacak ağ arayüzü</label>
+        <label for="cfg-webrtc">${TH('settings.webrtc.label')}</label>
         <select id="cfg-webrtc">
-          ${WEBRTC_OPTIONS.map(([v, t]) => `<option value="${v}" ${(cfg.webrtcPolicy || 'default_public_interface_only') === v ? 'selected' : ''}>${t}</option>`).join('')}
+          ${WEBRTC_OPTIONS.map(([v, key]) => `<option value="${v}" ${(cfg.webrtcPolicy || 'default_public_interface_only') === v ? 'selected' : ''}>${TH(key)}</option>`).join('')}
         </select>
       </div>
-      <p class="s-hint">VPN açıkken sitelerin WebRTC üzerinden gerçek IP adresinizi görmesini engeller. En katı seçenek bazı görüntülü görüşme sitelerini bozabilir.</p>
+      <p class="s-hint">${TH('settings.webrtc.hint')}</p>
     </div>
-    <div class="settings-section"><h3>Güvenli DNS</h3>
+    <div class="settings-section"><h3>${TH('settings.dns.title')}</h3>
       <div class="s-input-row">
-        <label for="cfg-secure-dns">Alan adı sorgularını şifrele (DNS-over-HTTPS)</label>
+        <label for="cfg-secure-dns">${TH('settings.dns.label')}</label>
         <select id="cfg-secure-dns">
-          ${SECURE_DNS_CHOICES.map(([v, t]) => `<option value="${v}" ${(cfg.secureDns || 'automatic') === v ? 'selected' : ''}>${t}</option>`).join('')}
+          ${SECURE_DNS_CHOICES.map(([v, t]) => `<option value="${v}" ${(cfg.secureDns || 'automatic') === v ? 'selected' : ''}>${t.startsWith('settings.') ? TH(t) : window.ilgezdiHtml.esc(t)}</option>`).join('')}
         </select>
       </div>
-      <p class="s-hint">Belirli bir sağlayıcı seçerseniz kurum içi ağlardaki adresler çözümlenemeyebilir; öyle bir durumda Otomatik seçin.</p>
+      <p class="s-hint">${TH('settings.dns.hint')}</p>
     </div>
-    <div class="settings-section"><h3>Site İzinleri</h3>
-      <div id="site-perm-list"><p class="s-hint" style="margin-top:0">Yükleniyor…</p></div>
-      <button class="clear-btn" id="btn-site-perm-reset" style="margin-top:8px">Tüm site izinlerini sıfırla</button>
+    <div class="settings-section"><h3>${TH('settings.sitePerms.title')}</h3>
+      <div id="site-perm-list"><p class="s-hint" style="margin-top:0">${TH('common.loading')}</p></div>
+      <button class="clear-btn" id="btn-site-perm-reset" style="margin-top:8px">${TH('settings.sitePerms.reset')}</button>
     </div>
-    <div class="settings-section"><h3>Log</h3>
-      ${row('cfg-log','Ziyaret Logları','AES-256 şifreli saklanır',cfg.logEnabled!==false)}
+    <div class="settings-section"><h3>${TH('settings.log.title')}</h3>
+      ${row('cfg-log',TH('settings.log.toggle'),TH('settings.log.toggleHint'),cfg.logEnabled!==false)}
     </div>`;
 }
 
@@ -815,53 +815,53 @@ function renderPasswordsTab(cfg = {}) {
   // Service) ile korunuyor — Chrome, Edge, Brave ve Opera'nın modeli de bu.
   // Durum kullanıcıya #pwd-protection-note içinde dürüstçe bildirilir.
   return `
-    <div class="settings-section"><h3>Kaydetme ve Doldurma</h3>
+    <div class="settings-section"><h3>${TH('settings.pw.saveFill')}</h3>
       <div class="s-toggle-row">
-        <div><div class="s-toggle-label">Şifre kaydetmeyi öner</div><div class="s-toggle-sub">Bir sitede giriş yapınca şifreyi kasaya kaydetmeyi sorar. Kayıtlı hesap, giriş alanına tıklayınca açılan menüden seçilerek doldurulur; sayfa açılınca kendiliğinden doldurulmaz.</div></div>
+        <div><div class="s-toggle-label">${TH('settings.pw.offer')}</div><div class="s-toggle-sub">${TH('settings.pw.offerHint')}</div></div>
         <label class="switch"><input type="checkbox" id="cfg-pw-offer" ${cfg.offerToSavePasswords!==false?'checked':''}/><span class="slider"></span></label>
       </div>
-      <div class="s-toggle-label" style="margin-top:10px">Asla kaydedilmeyecek siteler</div>
-      <div id="pw-never-list"><p class="s-hint" style="margin-top:0">Yükleniyor…</p></div>
+      <div class="s-toggle-label" style="margin-top:10px">${TH('settings.pw.neverSites')}</div>
+      <div id="pw-never-list"><p class="s-hint" style="margin-top:0">${TH('common.loading')}</p></div>
     </div>
     <div class="settings-section">
-      <h3>Kasa Koruması</h3>
-      <div id="pwd-protection-note" class="s-hint" style="margin-top:0">Denetleniyor…</div>
+      <h3>${TH('settings.pw.protection')}</h3>
+      <div id="pwd-protection-note" class="s-hint" style="margin-top:0">${TH('settings.defaultBrowser.checking')}</div>
     </div>
-    <div class="settings-section"><h3>Diğer Tarayıcıdan İçe Aktar</h3>
-      <p class="s-hint" style="margin-top:0">Chrome/Edge/Brave kayıtlı şifrelerinizi ya da tarayıcıdan dışa aktardığınız CSV dosyasını güvenli kasaya aktarın.</p>
+    <div class="settings-section"><h3>${TH('settings.pw.import')}</h3>
+      <p class="s-hint" style="margin-top:0">${TH('settings.pw.importHint')}</p>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <button class="pwd-btn" id="btn-pwd-import-browser">⬇ Tarayıcıdan</button>
-        <button class="pwd-btn" id="btn-pwd-import-csv">📄 CSV'den</button>
+        <button class="pwd-btn" id="btn-pwd-import-browser">${TH('settings.pw.importBrowser')}</button>
+        <button class="pwd-btn" id="btn-pwd-import-csv">${TH('settings.pw.importCsv')}</button>
       </div>
     </div>
-    <div class="settings-section"><h3>Şifre Denetimi</h3>
+    <div class="settings-section"><h3>${TH('settings.pw.audit')}</h3>
       <div class="s-input-row" style="display:flex;align-items:center;justify-content:space-between;gap:10px">
-        <div><div class="s-toggle-label">Zayıf ve tekrar kullanılan şifreler</div><div class="s-toggle-sub">Denetim yalnızca bu bilgisayarda yapılır; şifreler hiçbir yere gönderilmez.</div></div>
-        <button class="folder-btn" id="btn-pw-audit">Denetle</button>
+        <div><div class="s-toggle-label">${TH('settings.pw.auditLabel')}</div><div class="s-toggle-sub">${TH('settings.pw.auditHint')}</div></div>
+        <button class="folder-btn" id="btn-pw-audit">${TH('settings.pw.auditButton')}</button>
       </div>
       <div id="pw-audit-result" aria-live="polite"></div>
       <div class="s-input-row" style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:10px">
-        <div><div class="s-toggle-label">Sızmış şifreler</div><div class="s-toggle-sub">Have I Been Pwned listesinde aranır. Her şifrenin SHA-1 özetinin yalnızca ilk 5 karakteri api.pwnedpasswords.com'a gönderilir; şifreniz ve tam özeti bilgisayarınızdan çıkmaz. Yalnızca bu düğmeye basınca çalışır.</div></div>
-        <button class="folder-btn" id="btn-pw-pwned">Sızıntı listesinde ara</button>
+        <div><div class="s-toggle-label">${TH('settings.pw.pwnedLabel')}</div><div class="s-toggle-sub">${TH('settings.pw.pwnedHint')}</div></div>
+        <button class="folder-btn" id="btn-pw-pwned">${TH('settings.pw.pwnedButton')}</button>
       </div>
       <div id="pw-pwned-result" aria-live="polite"></div>
     </div>
-    <div class="settings-section"><h3>Yeni Şifre Ekle</h3>
-      <div class="s-input-row"><label>Site</label><input type="text" id="pwd-new-site" placeholder="google.com"/></div>
-      <div class="s-input-row"><label>Kullanıcı adı</label><input type="text" id="pwd-new-user" placeholder="kullanici@email.com"/></div>
-      <div class="s-input-row"><label for="pwd-new-pass">Şifre</label>
+    <div class="settings-section"><h3>${TH('settings.pw.add')}</h3>
+      <div class="s-input-row"><label>${TH('settings.pw.site')}</label><input type="text" id="pwd-new-site" placeholder="ornek.com"/></div>
+      <div class="s-input-row"><label>${TH('settings.pw.username')}</label><input type="text" id="pwd-new-user" placeholder="${TH('settings.pw.usernamePlaceholder')}"/></div>
+      <div class="s-input-row"><label for="pwd-new-pass">${TH('settings.pw.password')}</label>
         <div class="folder-row">
           <input type="password" id="pwd-new-pass" placeholder="••••••••" autocomplete="new-password"/>
-          <button type="button" class="folder-btn" id="btn-pwd-generate" title="20 karakterlik rastgele şifre oluşturur ve gösterir">Oluştur</button>
+          <button type="button" class="folder-btn" id="btn-pwd-generate" title="${TH('settings.pw.generateTitle')}">${TH('settings.pw.generate')}</button>
         </div>
       </div>
-      <button class="btn-save-settings" id="btn-pwd-add" style="margin-top:4px">➕ Ekle</button>
+      <button class="btn-save-settings" id="btn-pwd-add" style="margin-top:4px">${TH('settings.pw.addButton')}</button>
     </div>
     <div class="settings-section">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-        <h3 style="margin:0;border:none;padding:0">Kayıtlı (<span id="pwd-count">…</span>)</h3>
+        <h3 style="margin:0;border:none;padding:0" id="pwd-count-title">${TH('settings.pw.saved', {}, { count: '<span id="pwd-count">…</span>' })}</h3>
       </div>
-      <div id="pwd-list-container"><p style="color:var(--text-muted);font-size:12px;text-align:center;padding:16px">Yükleniyor…</p></div>
+      <div id="pwd-list-container"><p style="color:var(--text-muted);font-size:12px;text-align:center;padding:16px">${TH('common.loading')}</p></div>
     </div>`;
 }
 
@@ -890,7 +890,7 @@ async function populatePwdList() {
   const list = await window.secureBrowser?.passwords?.list() || [];
   const cnt = document.getElementById('pwd-count'); if (cnt) cnt.textContent = list.length;
   if (!list.length) {
-    box.innerHTML = '<p style="color:var(--text-muted);font-size:12px;text-align:center;padding:16px">Henüz şifre yok. Diğer tarayıcınızdan içe aktarabilirsiniz.</p>';
+    box.innerHTML = `<p style="color:var(--text-muted);font-size:12px;text-align:center;padding:16px">${TH('settings.pw.empty')}</p>`;
     return;
   }
   box.innerHTML = list.map(v => {
@@ -902,9 +902,9 @@ async function populatePwdList() {
         <div class="pwd-pass" data-pass="${v.id}">••••••••</div>
       </div>
       <div class="pwd-actions">
-        <button class="pwd-btn" data-act="reveal" data-id="${v.id}">👁</button>
-        <button class="pwd-btn" data-act="copy" data-id="${v.id}">📋</button>
-        <button class="pwd-btn danger" data-act="del" data-id="${v.id}">🗑</button>
+        <button class="pwd-btn" data-act="reveal" data-id="${v.id}" title="${TH('settings.pw.reveal')}" aria-label="${TH('settings.pw.reveal')}">👁</button>
+        <button class="pwd-btn" data-act="copy" data-id="${v.id}" title="${TH('settings.pw.copy')}" aria-label="${TH('settings.pw.copy')}">📋</button>
+        <button class="pwd-btn danger" data-act="del" data-id="${v.id}" title="${TH('settings.pw.delete')}" aria-label="${TH('settings.pw.delete')}">🗑</button>
       </div></div>`;
   }).join('');
   box.querySelectorAll('.pwd-btn[data-act]').forEach(b => b.addEventListener('click', onPwdAction));
@@ -915,21 +915,21 @@ async function populatePwdList() {
 async function runPasswordAudit() {
   const box = document.getElementById('pw-audit-result');
   if (!box) return;
-  box.innerHTML = '<p class="s-hint">Denetleniyor…</p>';
+  box.innerHTML = `<p class="s-hint">${TH('pwAudit.checking')}</p>`;
   let r = null;
   try { r = await window.secureBrowser?.passwords?.audit?.(); } catch {}
-  if (!r) { box.innerHTML = '<p class="s-hint">Denetim yapılamadı.</p>'; return; }
-  if (!r.total) { box.innerHTML = '<p class="s-hint">Kasada şifre yok.</p>'; return; }
-  if (!r.items.length) { box.innerHTML = `<p class="s-hint" style="color:var(--success)">${r.total} şifre denetlendi: zayıf ya da tekrar kullanılan şifre yok.</p>`; return; }
+  if (!r) { box.innerHTML = `<p class="s-hint">${TH('pwAudit.failed')}</p>`; return; }
+  if (!r.total) { box.innerHTML = `<p class="s-hint">${TH('pwAudit.emptyVault')}</p>`; return; }
+  if (!r.items.length) { box.innerHTML = `<p class="s-hint" style="color:var(--success)">${TH('pwAudit.clean', { count: r.total })}</p>`; return; }
   const parts = [];
-  if (r.weakCount) parts.push(`${r.weakCount} zayıf`);
-  if (r.reusedCount) parts.push(`${r.reusedCount} tekrar kullanılan`);
-  box.innerHTML = `<p class="s-hint" style="color:var(--warning, #e0a040)">${r.total} şifre denetlendi: ${parts.join(', ')}. Bu sitelerde şifrenizi değiştirip yeni şifre oluşturucuyu kullanabilirsiniz.</p>`
+  if (r.weakCount) parts.push(T('pwAudit.weakCount', { count: r.weakCount }));
+  if (r.reusedCount) parts.push(T('pwAudit.reusedCount', { count: r.reusedCount }));
+  box.innerHTML = `<p class="s-hint" style="color:var(--warning, #e0a040)">${TH('pwAudit.summary', { count: r.total, parts: parts.join(', ') })}</p>`
     + r.items.map((it) => {
       let host = it.url; try { host = new URL(it.url).hostname.replace(/^www\./, ''); } catch {}
-      const reasons = [it.weak ? 'Zayıf' : '', it.reuseCount ? `${it.reuseCount} hesapta aynı` : ''].filter(Boolean).join(' · ');
+      const reasons = [it.weak ? T('pwAudit.weak') : '', it.reuseCount ? T('pwAudit.reused', { count: it.reuseCount }) : ''].filter(Boolean).join(' · ');
       return `<div class="pwd-entry"><div class="pwd-entry-info"><div class="pwd-site">${_pwEsc(host)}</div><div class="pwd-user">${_pwEsc(it.username || '—')} · ${_pwEsc(reasons)}</div></div>
-        <div class="pwd-actions"><button class="pwd-btn" data-audit-open="${_pwEsc(it.url)}">Siteyi aç</button></div></div>`;
+        <div class="pwd-actions"><button class="pwd-btn" data-audit-open="${_pwEsc(it.url)}">${TH('pwAudit.openSite')}</button></div></div>`;
     }).join('');
   box.querySelectorAll('[data-audit-open]').forEach((b) => b.addEventListener('click', () => {
     const url = b.getAttribute('data-audit-open');
@@ -943,25 +943,24 @@ async function runPwnedCheck() {
   const btn = document.getElementById('btn-pw-pwned');
   if (!box || !btn || btn.disabled) return;
   btn.disabled = true;
-  box.innerHTML = '<p class="s-hint">Aranıyor…</p>';
+  box.innerHTML = `<p class="s-hint">${TH('pwned.searching')}</p>`;
   let r = null;
   try { r = await window.secureBrowser?.passwords?.pwnedCheck?.(); } catch {}
   btn.disabled = false;
-  if (!r || r.ok === false) { box.innerHTML = '<p class="s-hint" style="color:var(--danger)">Arama yapılamadı.</p>'; return; }
-  if (!r.total) { box.innerHTML = '<p class="s-hint">Kasada şifre yok.</p>'; return; }
-  if (!r.checked) { box.innerHTML = '<p class="s-hint" style="color:var(--danger)">Sızıntı listesine ulaşılamadı. İnternet bağlantınızı denetleyip yeniden deneyin.</p>'; return; }
+  if (!r || r.ok === false) { box.innerHTML = `<p class="s-hint" style="color:var(--danger)">${TH('pwned.failed')}</p>`; return; }
+  if (!r.total) { box.innerHTML = `<p class="s-hint">${TH('pwAudit.emptyVault')}</p>`; return; }
+  if (!r.checked) { box.innerHTML = `<p class="s-hint" style="color:var(--danger)">${TH('pwned.unreachable')}</p>`; return; }
   const missed = r.total - r.checked;
-  const missedNote = missed ? ` ${missed} şifre bağlantı sorunu yüzünden aranamadı.` : '';
+  const missedNote = missed ? ' ' + T('pwned.missed', { count: missed }) : '';
   if (!r.leaked.length) {
-    box.innerHTML = `<p class="s-hint" style="color:var(--success)">${r.checked} şifre arandı: hiçbiri sızıntı listesinde yok.${_pwEsc(missedNote)}</p>`;
+    box.innerHTML = `<p class="s-hint" style="color:var(--success)">${TH('pwned.clean', { count: r.checked })}${_pwEsc(missedNote)}</p>`;
     return;
   }
-  box.innerHTML = `<p class="s-hint" style="color:var(--danger)">${r.checked} şifreden ${r.leaked.length} tanesi sızıntılarda görülmüş. Bu sitelerde şifrenizi hemen değiştirin; saldırganlar bu listeleri ilk sırada dener.${_pwEsc(missedNote)}</p>`
+  box.innerHTML = `<p class="s-hint" style="color:var(--danger)">${TH('pwned.leaked', { checked: r.checked, count: r.leaked.length })}${_pwEsc(missedNote)}</p>`
     + r.leaked.map((it) => {
       let host = it.url; try { host = new URL(it.url).hostname.replace(/^www\./, ''); } catch {}
-      const times = Number(it.count).toLocaleString('tr-TR');
-      return `<div class="pwd-entry"><div class="pwd-entry-info"><div class="pwd-site">${_pwEsc(host)}</div><div class="pwd-user">${_pwEsc(it.username || '—')} · ${_pwEsc(`Sızıntılarda ${times} kez görüldü`)}</div></div>
-        <div class="pwd-actions"><button class="pwd-btn" data-audit-open="${_pwEsc(it.url)}">Siteyi aç</button></div></div>`;
+      return `<div class="pwd-entry"><div class="pwd-entry-info"><div class="pwd-site">${_pwEsc(host)}</div><div class="pwd-user">${_pwEsc(it.username || '—')} · ${TH('pwned.seen', { count: Number(it.count) })}</div></div>
+        <div class="pwd-actions"><button class="pwd-btn" data-audit-open="${_pwEsc(it.url)}">${TH('pwAudit.openSite')}</button></div></div>`;
     }).join('');
   box.querySelectorAll('[data-audit-open]').forEach((b) => b.addEventListener('click', () => {
     const url = b.getAttribute('data-audit-open');
@@ -976,9 +975,9 @@ async function onPwdAction(e) {
     const cell = document.querySelector(`.pwd-pass[data-pass="${id}"]`); if (!cell) return;
     cell.textContent = cell.textContent === '••••••••' ? (await pw.reveal(id)) : '••••••••';
   } else if (act === 'copy') {
-    navigator.clipboard.writeText(await pw.reveal(id)).then(()=>showSettingsToast('Şifre kopyalandı!'));
+    navigator.clipboard.writeText(await pw.reveal(id)).then(()=>showSettingsToast(T('settings.pw.copied')));
   } else if (act === 'del') {
-    if (!confirm('Bu şifre silinsin mi?')) return;
+    if (!confirm(T('settings.pw.confirmDelete'))) return;
     await pw.delete(id); populatePwdList();
   }
 }
@@ -986,18 +985,18 @@ async function onPwdAction(e) {
 async function pwImportFromBrowser() {
   const pw = window.secureBrowser?.passwords;
   const found = await pw?.importDetect() || [];
-  if (!found.length) { showSettingsToast('Kurulu tarayıcı bulunamadı','error'); return; }
+  if (!found.length) { showSettingsToast(T('settings.pw.noBrowser'),'error'); return; }
   // Basit seçim: tek tarayıcı varsa doğrudan, çoklu ise ilkini sor
-  const pick = found.length === 1 ? found[0] : (found.find(f => confirm(`${f.name} şifrelerini içe aktar?`)) || null);
+  const pick = found.length === 1 ? found[0] : (found.find(f => confirm(T('settings.pw.importConfirm', { name: f.name }))) || null);
   if (!pick) return;
-  showSettingsToast(`${pick.name} içe aktarılıyor…`);
+  showSettingsToast(T('settings.pw.importing', { name: pick.name }));
   const r = await pw.importBrowser(pick.id);
   if (!r) return;
   // Hata mesajı ana süreçten kullanıcıya yönelik metin olarak gelir (ham kod değil).
-  if (r.ok === false) { showSettingsToast(r.error || 'İçe aktarma başarısız', 'error'); return; }
-  let msg = `${r.imported} şifre içe aktarıldı`;
-  if (r.appBound) msg += ` · ${r.appBound} kayıt tarayıcının ek koruması nedeniyle alınamadı; bunlar için CSV ile içe aktarın`;
-  if (r.failed)   msg += ` · ${r.failed} kayıt çözülemedi`;
+  if (r.ok === false) { showSettingsToast(r.error || T('settings.pw.importFailed'), 'error'); return; }
+  let msg = T('settings.pw.imported', { count: r.imported });
+  if (r.appBound) msg += ' · ' + T('settings.pw.appBound', { count: r.appBound });
+  if (r.failed)   msg += ' · ' + T('settings.pw.importUndecrypted', { count: r.failed });
   showSettingsToast(msg, r.imported ? 'success' : 'error');
   if (r.imported) populatePwdList();
 }
@@ -1025,7 +1024,7 @@ function renderSettingsTab(tabId, cfg) {
   else if (tabId==='privacy')       content.innerHTML = renderPrivacyTab(cfg);
   else if (tabId==='passwords')     content.innerHTML = renderPasswordsTab(cfg);
   else if (tabId==='diag')          content.innerHTML = window.ilgezdiDiagPanel?.render?.()
-                                      || '<p class="s-hint">Tanılama modülü yüklenemedi.</p>';
+                                      || `<p class="s-hint">${TH('settings.diag.loadFailed')}</p>`;
   if (tabId==='customization') { bindCustomizationEvents(); updatePreviewBox(); }
   if (tabId==='account')       bindAccountEvents();
   if (tabId==='general')       bindGeneralEvents();
@@ -1038,14 +1037,13 @@ function renderSettingsTab(tabId, cfg) {
 function renderAccountTab() {
   return `
     <div class="settings-section">
-      <h3>👤 Hesap</h3>
+      <h3>${TH('settings.account.title')}</h3>
       <div class="account-card" id="account-info" style="padding:14px;border:1px solid var(--border-color);border-radius:12px;background:var(--bg-surface);margin-bottom:14px;font-size:13px;color:var(--text-secondary)">
-        Yükleniyor…
+        ${TH('common.loading')}
       </div>
       <div class="account-actions" id="account-actions" style="display:flex;gap:8px;flex-wrap:wrap"></div>
       <p style="font-size:11.5px;color:var(--text-muted);margin-top:12px;line-height:1.5">
-        QRtım hesabınızla giriş yaparak yer imlerinizi ve ayarlarınızı senkronlayın.
-        E-posta ile giriş / kayıt ya da QR kod ile giriş desteklenir.
+        ${TH('settings.account.hint')}
       </p>
     </div>`;
 }
@@ -1059,23 +1057,24 @@ async function bindAccountEvents() {
   try { session = await window.ilgezdiAuth?.getSession?.(); } catch {}
 
   if (session && (session.userId || session.email)) {
-    const name = session.displayName || session.email || 'Kullanıcı';
+    const E = window.ilgezdiHtml.esc;
+    const name = session.displayName || session.email || T('settings.account.user');
     info.innerHTML = `
       <div style="display:flex;align-items:center;gap:12px">
-        <div style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,var(--gold),var(--copper));display:grid;place-items:center;color:#0e1a2e;font-weight:800;font-size:18px">${(name[0]||'K').toUpperCase()}</div>
+        <div style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,var(--gold),var(--copper));display:grid;place-items:center;color:#0e1a2e;font-weight:800;font-size:18px">${E((name[0]||'K').toUpperCase())}</div>
         <div>
-          <div style="color:var(--text-primary);font-weight:600">${name}</div>
-          <div style="color:var(--text-muted);font-size:12px">${session.email || ''} · ${session.plan || 'free'} · ${session.loginMethod || ''}</div>
+          <div style="color:var(--text-primary);font-weight:600">${E(name)}</div>
+          <div style="color:var(--text-muted);font-size:12px">${E(session.email || '')} · ${E(session.plan || 'free')} · ${E(session.loginMethod || '')}</div>
         </div>
       </div>`;
-    actions.innerHTML = `<button class="btn-ghost" id="acc-logout">Çıkış Yap</button>`;
+    actions.innerHTML = `<button class="btn-ghost" id="acc-logout">${TH('settings.account.logout')}</button>`;
     document.getElementById('acc-logout')?.addEventListener('click', async () => {
       // Panel kapatılmaz; çıkış 'ilgezdi-auth-changed' ile bu sekmeyi yeniler.
       await window.ilgezdiAuth?.logout?.();
     });
   } else {
-    info.innerHTML = `<span style="color:var(--text-muted)">Henüz giriş yapılmadı.</span>`;
-    actions.innerHTML = `<button class="btn-primary" id="acc-open">Giriş Yap / Kayıt Ol</button>`;
+    info.innerHTML = `<span style="color:var(--text-muted)">${TH('settings.account.notLoggedIn')}</span>`;
+    actions.innerHTML = `<button class="btn-primary" id="acc-open">${TH('settings.account.loginRegister')}</button>`;
     document.getElementById('acc-open')?.addEventListener('click', () => {
       // Ayarlar açık kalır: giriş penceresi üstte açılır, kapanınca Hesap sekmesine
       // dönülür. Eskiden önce tüm paneller kapatılıyordu (kullanıcı bildirdi).
@@ -1179,20 +1178,20 @@ async function populateSitePermissions() {
   let list = [];
   try { list = (await window.secureBrowser?.site?.listPermissions?.()) || []; } catch {}
   if (!list.length) {
-    box.innerHTML = '<p class="s-hint" style="margin-top:0">Henüz bir site için izin kararı verilmedi.</p>';
+    box.innerHTML = `<p class="s-hint" style="margin-top:0">${TH('settings.sitePerms.none')}</p>`;
     return;
   }
   box.innerHTML = list.map((p, i) => `
     <div class="s-toggle-row">
       <div><div class="s-toggle-label">${H.esc(p.origin.replace(/^https?:\/\//, ''))}</div>
-      <div class="s-toggle-sub">${H.esc(p.label)} · ${p.decision === 'allow' ? 'İzin verildi' : 'Engellendi'}</div></div>
-      <button class="folder-btn" data-perm-index="${i}">Kaldır</button>
+      <div class="s-toggle-sub">${H.esc(p.label)} · ${p.decision === 'allow' ? TH('settings.sitePerms.allowed') : TH('settings.sitePerms.blocked')}</div></div>
+      <button class="folder-btn" data-perm-index="${i}">${TH('settings.sitePerms.remove')}</button>
     </div>`).join('');
   box.querySelectorAll('[data-perm-index]').forEach((btn) => {
     btn.addEventListener('click', async () => {
       const p = list[Number(btn.dataset.permIndex)];
       const r = await window.secureBrowser?.site?.setPermission?.(p.origin, p.permission, 'ask');
-      if (r && r.ok === false) showSettingsToast(r.error || 'Kaldırılamadı', 'error');
+      if (r && r.ok === false) showSettingsToast(r.error || T('settings.sitePerms.removeFailed'), 'error');
       populateSitePermissions();
     });
   });
@@ -1203,7 +1202,7 @@ function bindPrivacyEvents() {
   populateThreatStatus();
   document.getElementById('btn-site-perm-reset')?.addEventListener('click', async () => {
     const r = await window.secureBrowser?.site?.resetPermissions?.();
-    if (r?.ok) showSettingsToast('Tüm site izinleri sıfırlandı');
+    if (r?.ok) showSettingsToast(T('settings.sitePerms.resetDone'));
     populateSitePermissions();
   });
   document.getElementById('btn-threat-update')?.addEventListener('click', async (e) => {
@@ -1211,22 +1210,22 @@ function bindPrivacyEvents() {
     const old = btn.textContent;
     const before = _lastThreatStatus;
     btn.disabled = true;
-    btn.textContent = 'Denetleniyor…';
+    btn.textContent = T('pwAudit.checking');
     let st = null;
     try { st = await window.secureBrowser?.threats?.updateNow?.(); } catch {}
     btn.disabled = false;
     btn.textContent = old;
     renderThreatStatus(st);
     if (!st) return;
-    const fmt = new Intl.NumberFormat('tr-TR');
+    const fmt = { format: (n) => window.ilgezdiI18n.formatNumber(n) };
     const changed = !before || st.sources.some((s) => {
       const b = before.sources.find((x) => x.id === s.id);
       return !b || b.updatedAt !== s.updatedAt || b.lastError !== s.lastError;
     });
-    if (!st.enabled) showSettingsToast('Koruma kapalıyken listeler güncellenmez');
-    else if (st.sources.some((s) => s.lastError)) showSettingsToast('Bazı listeler indirilemedi; ayrıntı aşağıda');
-    else if (!changed) showSettingsToast('Listeler birkaç dakika önce denetlendi, güncel');
-    else showSettingsToast('Listeler denetlendi: ' + st.sources.map((s) => fmt.format(s.entries)).join(' + ') + ' kayıt');
+    if (!st.enabled) showSettingsToast(T('settings.threat.disabledToast'));
+    else if (st.sources.some((s) => s.lastError)) showSettingsToast(T('settings.threat.someFailed'));
+    else if (!changed) showSettingsToast(T('settings.threat.recent'));
+    else showSettingsToast(T('settings.threat.checked', { counts: st.sources.map((s) => fmt.format(s.entries)).join(' + ') }));
   });
 }
 
@@ -1263,22 +1262,22 @@ function renderThreatStatus(st) {
     d.textContent = text;
     return d;
   };
-  if (!st) { box.appendChild(line('s-hint', 'Koruma durumu alınamadı.', 'var(--danger)')); return; }
-  const fmt = new Intl.NumberFormat('tr-TR');
+  if (!st) { box.appendChild(line('s-hint', T('settings.threat.statusFailed'), 'var(--danger)')); return; }
+  const fmt = { format: (n) => window.ilgezdiI18n.formatNumber(n) };
   for (const s of st.sources || []) {
     const item = document.createElement('div');
     item.style.cssText = 'padding:8px 0;border-bottom:1px solid var(--border-color)';
     item.appendChild(line('s-toggle-label', s.name));
-    const when = s.updatedAt ? new Date(s.updatedAt).toLocaleString('tr-TR', { dateStyle: 'medium', timeStyle: 'short' }) : '';
+    const when = s.updatedAt ? window.ilgezdiI18n.formatDateTime(s.updatedAt, { dateStyle: 'medium', timeStyle: 'short' }) : '';
     item.appendChild(line('s-toggle-sub', s.entries
-      ? `${fmt.format(s.entries)} kayıt · son denetim ${when}${s.stale ? ' · güncel değil' : ''}${st.updating ? ' · denetleniyor…' : ''}`
-      : (st.updating ? 'Liste indiriliyor…' : 'Liste henüz indirilmedi')));
-    if (s.covers) item.appendChild(line('s-toggle-sub', s.covers + (s.license ? ' · lisans ' + s.license : '')));
-    if (s.lastError) item.appendChild(line('s-toggle-sub', 'Son deneme başarısız: ' + s.lastError, 'var(--danger)'));
+      ? `${T('settings.threat.entries', { count: s.entries, when })}${s.stale ? T('settings.threat.stale') : ''}${st.updating ? T('settings.threat.updating') : ''}`
+      : (st.updating ? T('settings.threat.downloading') : T('settings.threat.notYet'))));
+    if (s.covers) item.appendChild(line('s-toggle-sub', s.covers + (s.license ? T('settings.threat.license', { license: s.license }) : '')));
+    if (s.lastError) item.appendChild(line('s-toggle-sub', T('settings.threat.lastError', { error: s.lastError }), 'var(--danger)'));
     box.appendChild(item);
   }
   if (st.blockedPages || st.blockedResources) {
-    box.appendChild(line('s-hint', `Bu açılışta ${fmt.format(st.blockedPages)} sayfa ve ${fmt.format(st.blockedResources)} kaynak engellendi.`));
+    box.appendChild(line('s-hint', T('settings.threat.blockedSession', { pages: Number(st.blockedPages) || 0, resources: Number(st.blockedResources) || 0 })));
   }
 }
 
@@ -1296,16 +1295,16 @@ async function populateDefaultBrowser() {
   try { st = await window.secureBrowser?.defaultBrowser?.status?.(); } catch {}
   if (!el.isConnected) return;
   el.style.color = '';
-  if (!st) { el.textContent = 'Durum okunamadı.'; return; }
+  if (!st) { el.textContent = T('settings.defaultBrowser.unreadable'); return; }
   if (st.isDefault) {
-    el.textContent = 'Evet: başka uygulamalardaki bağlantılar İlgezdi\'de açılıyor.';
+    el.textContent = T('settings.defaultBrowser.yes');
     el.style.color = 'var(--success)';
     if (btn) btn.hidden = true;
     return;
   }
   const name = (BROWSER_PROGIDS.find(([re]) => re.test(st.current || '')) || [])[1];
-  el.textContent = name ? `Hayır: şu an ${name} varsayılan.` : 'Hayır: bağlantılar başka bir uygulamada açılıyor.';
-  if (st.platform === 'win32' && !st.packaged) el.textContent += ' (Geliştirme kopyası: Windows kaydı kurulumla yapılır.)';
+  el.textContent = name ? T('settings.defaultBrowser.noNamed', { name }) : T('settings.defaultBrowser.no');
+  if (st.platform === 'win32' && !st.packaged) el.textContent += T('settings.defaultBrowser.devCopy');
   if (btn) btn.hidden = false;
 }
 
@@ -1335,32 +1334,32 @@ function bindGeneralEvents() {
   const st=(msg)=>{const el=document.getElementById('clear-status');if(el){el.textContent=msg;setTimeout(()=>el.textContent='',3000);}};
   // Sonucu kontrol et — başarısız ya da iptal edilmiş işlemi "temizlendi" diye bildirmeyelim.
   const report = (r, okMsg) => {
-    if (r?.canceled)      st('İşlem iptal edildi');
+    if (r?.canceled)      st(T('settings.clear.canceled'));
     else if (r?.success)   st(okMsg);
-    else                   st('Temizlenemedi: ' + (r?.error || 'bilinmeyen hata'));
+    else                   st(T('settings.clear.failed', { error: r?.error || T('settings.clear.unknownError') }));
   };
-  document.getElementById('btn-clear-cache')?.addEventListener('click',   async()=>{report(await window.secureBrowser?.clearCache?.(),   'Önbellek temizlendi ✓');});
-  document.getElementById('btn-clear-cookies')?.addEventListener('click', async()=>{report(await window.secureBrowser?.clearCookies?.(), 'Çerezler temizlendi ✓');});
-  document.getElementById('btn-clear-all')?.addEventListener('click',     async()=>{report(await window.secureBrowser?.clearAll?.(),     'Tüm tarama verileri temizlendi ✓');});
-  document.getElementById('btn-clear-history')?.addEventListener('click', async()=>{await window.secureBrowser?.logs?.clearLogs?.();     st('Geçmiş temizlendi ✓');});
+  document.getElementById('btn-clear-cache')?.addEventListener('click',   async()=>{report(await window.secureBrowser?.clearCache?.(),   T('settings.clear.cacheDone'));});
+  document.getElementById('btn-clear-cookies')?.addEventListener('click', async()=>{report(await window.secureBrowser?.clearCookies?.(), T('settings.clear.cookiesDone'));});
+  document.getElementById('btn-clear-all')?.addEventListener('click',     async()=>{report(await window.secureBrowser?.clearAll?.(),     T('settings.clear.allDone'));});
+  document.getElementById('btn-clear-history')?.addEventListener('click', async()=>{await window.secureBrowser?.logs?.clearLogs?.();     st(T('settings.clear.historyDone'));});
 
   // ── Uygulama güncellemesi ────────────────────────────────────────────────────
   const up = window.secureBrowser?.updater;
   const verEl = document.getElementById('app-version-text');
-  if (up && verEl) up.currentVersion().then(v => { verEl.textContent = v ? `Sürüm ${v}` : 'Sürüm —'; }).catch(()=>{});
+  if (up && verEl) up.currentVersion().then(v => { verEl.textContent = T('settings.update.versionText', { version: v || '—' }); }).catch(()=>{});
   document.getElementById('btn-check-updates')?.addEventListener('click', async (e) => {
     const btn = e.currentTarget;
     const us = document.getElementById('update-check-status');
-    if (!up) { if (us) us.textContent = 'Güncelleme modülü kullanılamıyor.'; return; }
-    btn.disabled = true; const old = btn.textContent; btn.textContent = 'Denetleniyor…';
-    if (us) { us.style.color = 'var(--text-muted)'; us.textContent = 'Sunucu denetleniyor…'; }
+    if (!up) { if (us) us.textContent = T('settings.update.unavailable'); return; }
+    btn.disabled = true; const old = btn.textContent; btn.textContent = T('pwAudit.checking');
+    if (us) { us.style.color = 'var(--text-muted)'; us.textContent = T('settings.update.serverCheck'); }
     const r = await up.check();
     btn.disabled = false; btn.textContent = old;
     if (!us) return;
-    if (r?.reason === 'dev')      us.textContent = 'Geliştirme modunda güncelleme denetlenmez.';
-    else if (r?.ok === false)     { us.style.color = 'var(--danger)'; us.textContent = 'Denetlenemedi: ' + (r.reason || 'bilinmeyen hata'); }
-    else if (r?.version)          { us.style.color = 'var(--success)'; us.textContent = `Yeni sürüm bulundu: ${r.version} — bildirim şeridinden güncelleyin.`; }
-    else                          { us.style.color = 'var(--success)'; us.textContent = 'En güncel sürümü kullanıyorsunuz ✓'; }
+    if (r?.reason === 'dev')      us.textContent = T('settings.update.dev');
+    else if (r?.ok === false)     { us.style.color = 'var(--danger)'; us.textContent = T('settings.update.checkFailed', { reason: r.reason || T('settings.clear.unknownError') }); }
+    else if (r?.version)          { us.style.color = 'var(--success)'; us.textContent = T('settings.update.found', { version: r.version }); }
+    else                          { us.style.color = 'var(--success)'; us.textContent = T('settings.update.latest'); }
   });
 }
 
@@ -1382,19 +1381,13 @@ async function showVaultProtectionState() {
   let available = false;
   try { available = await window.secureBrowser?.passwords?.encryptionAvailable?.(); } catch {}
 
-  const osName = navigator.userAgent.includes('Mac')   ? 'macOS Anahtar Zinciri'
-               : navigator.userAgent.includes('Linux') ? 'sistem anahtar kasası'
-               :                                         'Windows DPAPI';
+  const osName = navigator.userAgent.includes('Mac')   ? T('settings.vault.osMac')
+               : navigator.userAgent.includes('Linux') ? T('settings.vault.osLinux')
+               :                                         T('settings.vault.osWindows');
   if (available) {
-    el.innerHTML = `<span style="color:var(--success)">🔐 Kasa şifreli.</span> Parolalar diskte
-      ${osName} ile, işletim sistemi hesabınıza bağlı olarak şifrelenir. Chrome, Edge ve
-      Brave de aynı modeli kullanır. Bilgisayarınızda oturumunuz açıkken bu hesapla çalışan
-      programlar kasaya erişebilir — bu yüzden cihaz parolanızı güçlü tutun.`;
+    el.innerHTML = `<span style="color:var(--success)">${TH('settings.vault.encrypted')}</span> ${TH('settings.vault.encryptedBody', { os: osName })}`;
   } else {
-    el.innerHTML = `<span style="color:var(--danger)">⚠ Kasa şifrelenemiyor.</span> İşletim
-      sisteminin anahtar kasası bu makinede kullanılamıyor, bu yüzden parolalar
-      <strong>kaydedilmez</strong>. Linux kullanıyorsanız bir anahtar kasası
-      (gnome-keyring / kwallet) kurmanız gerekir.`;
+    el.innerHTML = `<span style="color:var(--danger)">${TH('settings.vault.unavailable')}</span> ${TH('settings.vault.unavailableBody')}`;
   }
 }
 
@@ -1410,7 +1403,7 @@ async function populatePwNeverList() {
     const p = document.createElement('p');
     p.className = 's-hint';
     p.style.marginTop = '0';
-    p.textContent = 'Yok. Kaydetme önerisinde "Bu sitede asla" denen siteler burada listelenir.';
+    p.textContent = T('settings.pw.neverEmpty');
     box.append(p);
     return;
   }
@@ -1422,7 +1415,7 @@ async function populatePwNeverList() {
     label.textContent = String(origin).replace(/^https?:\/\//, '');
     const btn = document.createElement('button');
     btn.className = 'folder-btn';
-    btn.textContent = 'Kaldır';
+    btn.textContent = T('settings.sitePerms.remove');
     btn.addEventListener('click', async () => {
       await window.secureBrowser?.passwords?.neverRemove?.(origin);
       populatePwNeverList();
@@ -1440,13 +1433,13 @@ function bindPasswordEvents() {
     const site=document.getElementById('pwd-new-site')?.value.trim();
     const user=document.getElementById('pwd-new-user')?.value.trim();
     const pass=document.getElementById('pwd-new-pass')?.value;
-    if(!site||!pass){showSettingsToast('Site ve şifre zorunlu','error');return;}
+    if(!site||!pass){showSettingsToast(T('settings.pw.required'),'error');return;}
     // Ana süreç reddedebilir (geçersiz adres, okunamayan kasa) — sonucu kontrol et.
     const addRes = await window.secureBrowser?.passwords?.add({ url: site, username: user, password: pass });
-    if (addRes && addRes.ok === false) { showSettingsToast(addRes.error || 'Şifre kaydedilemedi', 'error'); return; }
+    if (addRes && addRes.ok === false) { showSettingsToast(addRes.error || T('settings.pw.addFailed'), 'error'); return; }
     ['pwd-new-site','pwd-new-user','pwd-new-pass'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
     const passEl=document.getElementById('pwd-new-pass'); if(passEl) passEl.type='password';
-    showSettingsToast('Şifre güvenli kasaya kaydedildi!');
+    showSettingsToast(T('settings.pw.added'));
     populatePwdList();
   });
   document.getElementById('btn-pw-audit')?.addEventListener('click', runPasswordAudit);
@@ -1465,8 +1458,8 @@ function bindPasswordEvents() {
   document.getElementById('btn-pwd-import-csv')?.addEventListener('click', async ()=>{
     const r = await window.secureBrowser?.passwords?.importCsv();
     if (!r || r.canceled) return;
-    if (r.ok === false) { showSettingsToast(r.error || 'İçe aktarma başarısız', 'error'); return; }
-    showSettingsToast(r.imported ? `${r.imported} şifre içe aktarıldı` : 'Yeni şifre bulunamadı — hepsi zaten kasada olabilir');
+    if (r.ok === false) { showSettingsToast(r.error || T('settings.pw.importFailed'), 'error'); return; }
+    showSettingsToast(r.imported ? T('settings.pw.imported', { count: r.imported }) : T('settings.pw.noNew'));
     if (r.imported) populatePwdList();
   });
   // Listeyi güvenli kasadan doldur. (Eskiden bir sessionStorage "kilit" bayrağına
@@ -1545,8 +1538,8 @@ async function saveAllSettings() {
     window._ilgezdiCustomNewTab = finalCfg.customNewTabUrl || '';
     updateUnsavedBar();
     const btn=document.getElementById('btn-save-all');
-    if(btn){btn.textContent='✓ Kaydedildi';setTimeout(()=>btn.textContent='💾 Kaydet',2000);}
-    showSettingsToast('Ayarlar kaydedildi!');
+    if(btn){btn.textContent=T('settings.saved');setTimeout(()=>btn.textContent=T('settings.save'),2000);}
+    showSettingsToast(T('settings.savedToast'));
 }
 
 // Ayarlar › Genel › Sistem › Ayarları sıfırla. Onayı ana süreç alır; arayüzdeki kopyalar
@@ -1555,7 +1548,7 @@ async function resetAllSettings() {
   let r = null;
   try { r = await window.secureBrowser?.resetSettings?.(); } catch {}
   if (!r || r.canceled) return;
-  if (r.ok === false) { showSettingsToast(r.error || 'Ayarlar sıfırlanamadı', 'error'); return; }
+  if (r.ok === false) { showSettingsToast(r.error || T('settings.resetFailed'), 'error'); return; }
   try { localStorage.removeItem('ilgezdi-whitelist'); localStorage.removeItem('ilgezdi-block-level'); } catch {}
   if (typeof blockerLoad === 'function') blockerLoad();
   await loadSavedTheme();
@@ -1565,7 +1558,7 @@ async function resetAllSettings() {
   window.ilgezdiSync?.schedulePush();
   selectSettingsTab('general');
   updateUnsavedBar();
-  showSettingsToast('Ayarlar varsayılana döndürüldü');
+  showSettingsToast(T('settings.resetDone'));
 }
 
 // ─── Settings butonu ──────────────────────────────────────────────────────────
