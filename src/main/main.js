@@ -37,13 +37,14 @@ const {
   nextZoomFactor, zoomKeyForUrl, createZoomStore, snapshotHistory, pushClosedTab, isWebUrl,
   normalizePageZoom, normalizeMinFontSize, urlsFromArgv,
   TAB_ACTIONS, moveTabId, orderAfterPin, buildTabMenuModel, normalizeStartupMode, serializeSession, parseSession,
+  resetConfig,
 } = require('./browser-commands');
 const {
   ACTIVATION_EVENTS, popupVerdict, validatePermissionChange, listDecisions, decisionsForOrigin, permissionLabel,
   shouldStripThirdPartyCookies, normalizeSecureDns, hostResolverOptions, DEFAULT_SECURE_DNS,
   certificateSummary, errorPageModel, errorPageScript, normalizeOrigin,
   fileExtension, isDangerousFile, downloadNeedsWarning, sourceHost, sanitizeLogIds, sanitizeDownloadHistory,
-  rewriteNavigation, autoplayPolicyFor, exitCleanupPlan,
+  rewriteNavigation, autoplayPolicyFor, exitCleanupPlan, historyRangeStart,
 } = require('./site-safety');
 
 let incognitoWindow = null;
@@ -116,6 +117,8 @@ const DEFAULT_CONFIG = {
   blockAutoplay:         true,         // sesli otomatik oynatma kullanıcı etkileşimine kadar bekler
   clearSiteDataOnExit:   false,        // kapatınca çerezler, site verileri ve önbellek
   clearHistoryOnExit:    false,        // kapatınca ziyaret günlüğü, indirme geçmişi ve site simgeleri
+  hardwareAcceleration:  true,         // yeniden başlatınca geçerli (bkz. hardwareAccelerationAtStart)
+  warnOnCloseTabs:       false,        // birden çok sekme açıkken pencereyi kapatmadan önce sor
   // WebRTC IP politikası (bkz. browser-commands.js): VPN açıkken gerçek IP'nin
   // WebRTC üzerinden sızmasını önler, görüntülü görüşmeleri bozmaz.
   webrtcPolicy:          DEFAULT_WEBRTC_POLICY,
@@ -177,6 +180,11 @@ function saveConfig(cfg) {
 }
 
 let config = loadConfig();
+
+// Donanım hızlandırma (Ayarlar › Genel › Sistem) uygulama hazır olmadan kapatılmalıdır;
+// değişiklik yeniden başlatınca geçerli olur. Bu oturumun durumu arayüze bildirilir.
+const hardwareAccelerationAtStart = config.hardwareAcceleration !== false;
+if (!hardwareAccelerationAtStart) app.disableHardwareAcceleration();
 let vpnManager = null;
 let secureLog  = null;
 
@@ -617,7 +625,28 @@ function createWindow() {
   hardenChromeWindow(mainWindow);
   bindBrowserInput(mainWindow.webContents, mainWindow, mainState, 'ui');
   // Sekmeler kapanmadan ÖNCE oturum eşzamanlı yazılır (şifreleme eşzamanlı; kapanış beklemez).
-  mainWindow.on('close', () => saveSessionNow());
+  // "Birden çok sekme açıkken sor" açıksa önce onay alınır; güncelleme kurulumu gibi uygulama
+  // kapanışlarında sorulmaz.
+  let closeConfirmed = false;
+  mainWindow.on('close', (event) => {
+    const count = mainState.tabs.size;
+    if (!closeConfirmed && !appQuitting && config.warnOnCloseTabs === true && count > 1) {
+      event.preventDefault();
+      const restore = normalizeStartupMode(config.startupMode) === 'restore';
+      const r = dialog.showMessageBoxSync(mainWindow, {
+        type: 'question', buttons: ['Vazgeç', 'Tümünü kapat'], defaultId: 1, cancelId: 0,
+        title: 'İlgezdi kapatılsın mı?', message: `${count} sekme açık. Hepsi kapatılsın mı?`,
+        detail: restore ? 'Sekmeler bir sonraki açılışta geri gelir.' : 'Sekmeleri bir sonraki açılışta geri getirmek için Ayarlar › Genel › Başlangıçta › Kaldığım yerden devam et.',
+        checkboxLabel: 'Bir daha sorma',
+      });
+      if (r.response !== 1) return;
+      if (r.checkboxChecked) { config.warnOnCloseTabs = false; saveConfig(config); }
+      closeConfirmed = true;
+      setImmediate(() => { if (mainWindow && !mainWindow.isDestroyed()) mainWindow.close(); });
+      return;
+    }
+    saveSessionNow();
+  });
   mainWindow.on('resize', () => resizeActiveView(mainWindow, mainState));
 
   mainWindow.on('minimize', () => {
@@ -1857,10 +1886,21 @@ ipcMain.handle('save-config', (e, newCfg) => {
   if ('reduceMotion' in incoming) incoming.reduceMotion = incoming.reduceMotion === true;
   if ('highContrast' in incoming) incoming.highContrast = incoming.highContrast === true;
   for (const k of ['globalPrivacyControl', 'cleanLinks', 'blockAutoplay']) if (k in incoming) incoming[k] = incoming[k] !== false;
-  for (const k of ['clearSiteDataOnExit', 'clearHistoryOnExit']) if (k in incoming) incoming[k] = incoming[k] === true;
-  const previous = { webrtcPolicy: config.webrtcPolicy, secureDns: config.secureDns, startupMode: config.startupMode, threatProtection: config.threatProtection !== false, defaultPageZoom: normalizePageZoom(config.defaultPageZoom) };
+  for (const k of ['clearSiteDataOnExit', 'clearHistoryOnExit', 'warnOnCloseTabs']) if (k in incoming) incoming[k] = incoming[k] === true;
+  if ('hardwareAcceleration' in incoming) incoming.hardwareAcceleration = incoming.hardwareAcceleration !== false;
+  const previous = configEffectsSnapshot();
   config = { ...config, ...incoming };
   saveConfig(config);
+  applyConfigEffects(previous);
+  return publicConfig();
+});
+
+// Ayar değişikliğinin çalışan uygulamaya etkileri: Kaydet ve Ayarları sıfırla ortak kullanır.
+function configEffectsSnapshot() {
+  return { webrtcPolicy: config.webrtcPolicy, secureDns: config.secureDns, startupMode: config.startupMode, threatProtection: config.threatProtection !== false, defaultPageZoom: normalizePageZoom(config.defaultPageZoom) };
+}
+
+function applyConfigEffects(previous) {
   if (config.webrtcPolicy !== previous.webrtcPolicy) applyWebrtcPolicyToAllTabs();
   if (config.secureDns !== previous.secureDns) applySecureDns();
   if (normalizePageZoom(config.defaultPageZoom) !== previous.defaultPageZoom) applyDefaultZoomToOpenTabs();
@@ -1870,8 +1910,38 @@ ipcMain.handle('save-config', (e, newCfg) => {
     if (normalizeStartupMode(config.startupMode) === 'restore') scheduleSessionSave();
     else deleteSessionFiles();   // kapatılınca açık sekmelerin kaydı diskte tutulmaz
   }
-  return publicConfig();
+}
+
+// Ayarlar › Genel › Sistem › Ayarları sıfırla. Geri alınamaz: açık onay alınır ve neyin
+// korunduğu söylenir (bkz. browser-commands.js → resetConfig).
+ipcMain.handle('reset-settings', async (event) => {
+  const parent = BrowserWindow.fromWebContents(event.sender) || mainWindow;
+  let confirmed = false;
+  try {
+    const r = await dialog.showMessageBox(parent, {
+      type: 'warning', buttons: ['Vazgeç', 'Varsayılana döndür'], defaultId: 0, cancelId: 0,
+      title: 'Ayarları Sıfırla', message: 'Ayarlar varsayılana döndürülsün mü?',
+      detail:
+        'Sıfırlanacak: görünüm, arama motoru, başlangıç ve ana sayfa, gizlilik ve güvenlik ayarları, engelleyici seviyesi ve istisnaları, site izinleri, erişilebilirlik.\n\n' +
+        'Korunacak: yer imleri, geçmiş, kayıtlı şifreler, Qrtım oturumu, VPN profilleri ve indirme klasörü.\n\n' +
+        'Hesap senkronu açıksa sıfırlanan ayarlar diğer cihazlarınıza da gider.',
+    });
+    confirmed = r.response === 1;
+  } catch { confirmed = false; }
+  if (!confirmed) return { ok: false, canceled: true };
+  const previous = configEffectsSnapshot();
+  config = resetConfig(config, DEFAULT_CONFIG);
+  saveConfig(config);
+  applyConfigEffects(previous);
+  updateBlockerConfig({ level: config.blockLevel || 'medium', whitelist: [], enabled: config.blockAds !== false || config.blockTrackers !== false });
+  diag.info('settings', 'Ayarlar varsayılana döndürüldü');
+  return { ok: true, config: publicConfig(), relaunchNeeded: (config.hardwareAcceleration !== false) !== hardwareAccelerationAtStart };
 });
+
+ipcMain.handle('app-runtime-info', () => ({ hardwareAcceleration: hardwareAccelerationAtStart }));
+// "Kaydet ve yeniden başlat" (donanım hızlandırma). Açık sekmeler "Kaldığım yerden devam et"
+// seçiliyse geri gelir.
+ipcMain.handle('app-relaunch', () => { app.relaunch(); app.quit(); return true; });
 
 // VPN
 ipcMain.handle('vpn-get-profiles',   ()           => vpnManager?.getProfiles() || []);
@@ -1918,6 +1988,12 @@ ipcMain.handle('logs-get-stats',  ()            => secureLog?.getStats() || {});
 ipcMain.handle('logs-search',     (e, query)    => secureLog?.search(query) || { items: [], total: 0, pages: 1, page: 1 });
 ipcMain.handle('logs-export-csv', (e, query)    => secureLog?.exportCSV(query) || '');
 ipcMain.handle('logs-clear',      ()            => { secureLog?.clearLogs(); return true; });
+ipcMain.handle('logs-clear-range', (e, range) => {
+  const since = historyRangeStart(range);
+  if (since === null || !secureLog) return { ok: false };
+  if (since === 0) { secureLog.clearLogs(); return { ok: true, all: true }; }
+  return { ok: true, removed: secureLog.clearSince(since) };
+});
 ipcMain.handle('logs-delete',     (e, ids)      => ({ ok: true, removed: secureLog ? secureLog.deleteEntries(sanitizeLogIds(ids)) : 0 }));
 ipcMain.handle('logs-sync',       async (e, { serverUrl, apiKey }) => {
   return await secureLog?.syncToServer(serverUrl, apiKey) || { synced: 0, success: false };
@@ -2551,6 +2627,9 @@ app.whenReady().then(async () => {
 // Kapatınca verileri sil (Ayarlar › Genel). Kapanış bir kez ertelenir, silme bitince
 // (en çok 8 sn) yeniden istenir. Oturum dosyası pencere kapanırken zaten yazıldı:
 // "Kaldığım yerden devam et" açıksa sekmeler geri gelir.
+let appQuitting = false;
+app.on('before-quit', () => { appQuitting = true; });
+
 let exitCleanupStarted = false;
 app.on('before-quit', (event) => {
   if (exitCleanupStarted) return;

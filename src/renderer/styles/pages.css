@@ -370,6 +370,11 @@
 .page-btn.sm { height: 26px; padding: 0 10px; font-size: 12px; }
 .page-btn.ghost { background: transparent; }
 .page-btn[hidden] { display: none; }
+.page-select {
+  height: 32px; padding: 0 8px; border-radius: 8px; border: 1px solid var(--line);
+  background: var(--bg-elev); color: var(--ink-soft); font-size: 12.5px; font-family: var(--font-ui); cursor: pointer;
+}
+.page-select:focus-visible { outline: 2px solid var(--gold); outline-offset: 1px; }
 .page-more { display: flex; justify-content: center; padding: 18px 0; }
 .page-empty { color: var(--ink-mute); font-size: 14px; padding: 28px 14px; }
 .list-row .lr-more { border: none; background: transparent; width: 28px; height: 28px; border-radius: 6px; cursor: pointer; }

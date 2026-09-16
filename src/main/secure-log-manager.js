@@ -314,6 +314,13 @@ class SecureLogManager {
     this._saveSyncQueue();
   }
 
+  /** Geçmiş sayfası › zaman aralığı: verilen andan sonraki ziyaretler silinir. */
+  clearSince(sinceMs) {
+    const since = Number(sinceMs);
+    if (!Number.isFinite(since)) return 0;
+    return this.deleteEntries(this.logs.filter((l) => Number(l.timestamp) >= since).map((l) => l.id));
+  }
+
   /** Geçmiş sayfasından tek tek silme. Senkron kuyruğundan da çıkarılır. */
   deleteEntries(ids) {
     const remove = new Set(Array.isArray(ids) ? ids : []);

@@ -505,7 +505,21 @@ function sanitizeDownloadHistory(list) {
     .slice(-DOWNLOAD_HISTORY_MAX);
 }
 
+// ─── Geçmişi zaman aralığıyla sil ─────────────────────────────────────────────
+const HISTORY_CLEAR_RANGES = Object.freeze({
+  hour: 60 * 60 * 1000, day: 24 * 60 * 60 * 1000, week: 7 * 24 * 60 * 60 * 1000, month: 28 * 24 * 60 * 60 * 1000, all: Infinity,
+});
+
+/** Bu andan sonraki ziyaretler silinir; "tüm zamanlar" 0, bilinmeyen aralık null. */
+function historyRangeStart(range, now = Date.now()) {
+  if (typeof range !== 'string' || !Object.prototype.hasOwnProperty.call(HISTORY_CLEAR_RANGES, range)) return null;
+  const span = HISTORY_CLEAR_RANGES[range];
+  return span === Infinity ? 0 : now - span;
+}
+
 module.exports = {
+  HISTORY_CLEAR_RANGES,
+  historyRangeStart,
   DANGEROUS_EXTENSIONS,
   fileExtension,
   isDangerousFile,

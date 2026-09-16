@@ -60,6 +60,9 @@ contextBridge.exposeInMainWorld('secureBrowser', {
   // ── Ayarlar ─────────────────────────────────────────────────────────────────
   getConfig:  ()    => ipcRenderer.invoke('get-config'),
   saveConfig: (cfg) => ipcRenderer.invoke('save-config', cfg),
+  resetSettings: () => ipcRenderer.invoke('reset-settings'),
+  runtimeInfo:   () => ipcRenderer.invoke('app-runtime-info'),
+  relaunch:      () => ipcRenderer.invoke('app-relaunch'),
 
   // ── İndirmeler ──────────────────────────────────────────────────────────────
   // (Eski getLogs / getBlockedStats kaldırıldı: hiç yazılmayan ölü bir sql.js
@@ -93,6 +96,7 @@ contextBridge.exposeInMainWorld('secureBrowser', {
     search:    (query)       => ipcRenderer.invoke('logs-search', query),
     exportCSV: (query)       => ipcRenderer.invoke('logs-export-csv', query),
     clearLogs: ()            => ipcRenderer.invoke('logs-clear'),
+    clearRange: (range)      => ipcRenderer.invoke('logs-clear-range', range),
     deleteEntries: (ids)     => ipcRenderer.invoke('logs-delete', ids),
     httpReport: ()           => ipcRenderer.invoke('logs-http-report'),
     sync:      (url, apiKey) => ipcRenderer.invoke('logs-sync', { serverUrl: url, apiKey }),

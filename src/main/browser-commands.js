@@ -552,7 +552,25 @@ function parseSession(raw) {
   return { activeIndex: ordered.indexOf(tabs[activeIndex]), tabs: ordered };
 }
 
+// ─── Ayarları sıfırla ─────────────────────────────────────────────────────────
+// Kullanıcının verisi ve verdiği kararlar korunur: Qrtım oturumu, "bu sitede şifre
+// kaydetme" listesi, tanılama izni, son VPN profili, indirme klasörü ve eski günlük
+// senkron sunucusu. Görünüm, arama, başlangıç, gizlilik, engelleyici istisnaları ve site
+// izinleri varsayılana döner. Yer imleri, geçmiş ve şifreler config.json'da değildir.
+const RESET_KEEP_KEYS = Object.freeze([
+  'authSessionEnc', 'passwordNeverSave', 'diagnosticsConsent', 'vpnLastProfileId', 'downloadFolder',
+  'logSyncServer', 'syncEnabled', 'syncServerUrl', 'syncApiKey',
+]);
+
+function resetConfig(current, defaults) {
+  const next = { ...defaults };
+  for (const k of RESET_KEEP_KEYS) if (current && current[k] !== undefined) next[k] = current[k];
+  return next;
+}
+
 module.exports = {
+  RESET_KEEP_KEYS,
+  resetConfig,
   TAB_ACTIONS,
   moveTabId,
   orderAfterPin,

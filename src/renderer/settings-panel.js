@@ -330,6 +330,8 @@ const SETTINGS_FIELDS = {
   'cfg-block-autoplay': ['blockAutoplay', 'checked'],
   'cfg-clear-site-exit': ['clearSiteDataOnExit', 'checked'],
   'cfg-clear-history-exit': ['clearHistoryOnExit', 'checked'],
+  'cfg-hw-accel':      ['hardwareAcceleration', 'checked'],
+  'cfg-warn-close':    ['warnOnCloseTabs', 'checked'],
 };
 let _formBase = {};
 let _formCfg  = {};
@@ -369,6 +371,8 @@ function formValuesFrom(cfg) {
     blockAutoplay:          c.blockAutoplay !== false,
     clearSiteDataOnExit:    c.clearSiteDataOnExit === true,
     clearHistoryOnExit:     c.clearHistoryOnExit === true,
+    hardwareAcceleration:   c.hardwareAcceleration !== false,
+    warnOnCloseTabs:        c.warnOnCloseTabs === true,
   };
 }
 
@@ -399,7 +403,17 @@ function onSettingsFieldChange(e) {
   if (!field) return;
   const [key, prop] = field;
   _formCfg[key] = prop === 'checked' ? !!e.target.checked : String(e.target.value ?? '');
+  if (key === 'hardwareAcceleration') updateRelaunchRow();
   updateUnsavedBar();
+}
+
+// Donanım hızlandırma bu oturumda açık mı başladı (ana süreç bildirir); form değeri
+// bundan farklıysa "Kaydet ve yeniden başlat" gösterilir.
+let _runtimeHwAccel = null;
+function updateRelaunchRow() {
+  const row = document.getElementById('relaunch-row');
+  if (!row || _runtimeHwAccel === null) return;
+  row.hidden = (_formCfg.hardwareAcceleration !== false) === _runtimeHwAccel;
 }
 
 function hasPendingChanges() {
@@ -677,6 +691,26 @@ function renderGeneralTab(cfg) {
         <button class="folder-btn" id="btn-check-updates">↻ Güncellemeleri denetle</button>
       </div>
       <div id="update-check-status" style="font-size:11.5px;color:var(--text-muted);margin-top:8px;min-height:15px"></div>
+    </div>
+    <div class="settings-section"><h3>Sistem</h3>
+      <div class="s-toggle-row">
+        <div><div class="s-toggle-label">Donanım hızlandırmayı kullan</div><div class="s-toggle-sub">Ekranda bozulma, titreme ya da siyah alanlar görürseniz kapatın. İlgezdi yeniden başlatılınca geçerli olur.</div></div>
+        <label class="switch"><input type="checkbox" id="cfg-hw-accel" ${cfg.hardwareAcceleration!==false?'checked':''}/><span class="slider"></span></label>
+      </div>
+      <div id="relaunch-row" hidden>
+        <div class="s-input-row" style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+          <span class="s-hint" style="margin:0">Bu değişiklik yeniden başlatınca geçerli olur.</span>
+          <button class="folder-btn" id="btn-relaunch">Kaydet ve yeniden başlat</button>
+        </div>
+      </div>
+      <div class="s-toggle-row">
+        <div><div class="s-toggle-label">Birden çok sekme açıkken kapatmadan önce sor</div></div>
+        <label class="switch"><input type="checkbox" id="cfg-warn-close" ${cfg.warnOnCloseTabs===true?'checked':''}/><span class="slider"></span></label>
+      </div>
+      <div class="s-input-row" style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+        <div><div class="s-toggle-label">Ayarları sıfırla</div><div class="s-toggle-sub">Yer imleri, geçmiş, şifreler ve hesabınız korunur.</div></div>
+        <button class="clear-btn" id="btn-reset-settings">Varsayılana döndür</button>
+      </div>
     </div>`;
 }
 
@@ -1185,6 +1219,15 @@ async function populateDefaultBrowser() {
 
 function bindGeneralEvents() {
   populateDefaultBrowser();
+  window.secureBrowser?.runtimeInfo?.().then((info) => {
+    _runtimeHwAccel = info ? info.hardwareAcceleration !== false : null;
+    updateRelaunchRow();
+  }).catch(() => {});
+  document.getElementById('btn-relaunch')?.addEventListener('click', async () => {
+    await saveAllSettings();
+    window.secureBrowser?.relaunch?.();
+  });
+  document.getElementById('btn-reset-settings')?.addEventListener('click', resetAllSettings);
   document.getElementById('btn-default-browser')?.addEventListener('click', async () => {
     let r = null;
     try { r = await window.secureBrowser?.defaultBrowser?.set?.(); } catch {}
@@ -1372,7 +1415,17 @@ function initSettingsPanelEvents() {
   });
 
   // KAYDET — pending değerleri commit et, sonra API'ye yaz
-  document.getElementById('btn-save-all')?.addEventListener('click', async()=>{
+  document.getElementById('btn-save-all')?.addEventListener('click', () => saveAllSettings());
+
+  // GERİ AL
+  document.getElementById('btn-discard-all')?.addEventListener('click', discardPendingChanges);
+  document.getElementById('btn-discard-changes')?.addEventListener('click', discardPendingChanges);
+
+  // Panel kapat
+  document.querySelector('#panel-settings [data-panel="settings"]')?.addEventListener('click',()=>window.ilgezdiCloseAllPanels?.());
+}
+
+async function saveAllSettings() {
     commitTheme(_pendingTheme, _pendingAccent, _pendingFontSize, _pendingFontFamily);
 
     // Değerler ekrandaki sekmeden değil _formCfg'den (bkz. SETTINGS_FIELDS).
@@ -1399,14 +1452,25 @@ function initSettingsPanelEvents() {
     const btn=document.getElementById('btn-save-all');
     if(btn){btn.textContent='✓ Kaydedildi';setTimeout(()=>btn.textContent='💾 Kaydet',2000);}
     showSettingsToast('Ayarlar kaydedildi!');
-  });
+}
 
-  // GERİ AL
-  document.getElementById('btn-discard-all')?.addEventListener('click', discardPendingChanges);
-  document.getElementById('btn-discard-changes')?.addEventListener('click', discardPendingChanges);
-
-  // Panel kapat
-  document.querySelector('#panel-settings [data-panel="settings"]')?.addEventListener('click',()=>window.ilgezdiCloseAllPanels?.());
+// Ayarlar › Genel › Sistem › Ayarları sıfırla. Onayı ana süreç alır; arayüzdeki kopyalar
+// (tema, engelleyici istisnaları, form) yeni yapılandırmadan yeniden yüklenir.
+async function resetAllSettings() {
+  let r = null;
+  try { r = await window.secureBrowser?.resetSettings?.(); } catch {}
+  if (!r || r.canceled) return;
+  if (r.ok === false) { showSettingsToast(r.error || 'Ayarlar sıfırlanamadı', 'error'); return; }
+  try { localStorage.removeItem('ilgezdi-whitelist'); localStorage.removeItem('ilgezdi-block-level'); } catch {}
+  if (typeof blockerLoad === 'function') blockerLoad();
+  await loadSavedTheme();
+  loadSettingsState(r.config || await window.secureBrowser?.getConfig() || {});
+  window._ilgezdiNewTabMode   = settingsConfig.newTabMode || 'blank';
+  window._ilgezdiCustomNewTab = settingsConfig.customNewTabUrl || '';
+  window.ilgezdiSync?.schedulePush();
+  selectSettingsTab('general');
+  updateUnsavedBar();
+  showSettingsToast('Ayarlar varsayılana döndürüldü');
 }
 
 // ─── Settings butonu ──────────────────────────────────────────────────────────
@@ -1421,6 +1485,26 @@ window.ilgezdiOpenSettings = (tab) => {
   document.getElementById('btn-settings')?.click();
 };
 
+// Kaydedilmiş yapılandırmadan panelin durumunu kurar (açılışta ve sıfırlamadan sonra).
+function loadSettingsState(cfg) {
+  settingsConfig = cfg || {};
+  if (!settingsConfig.theme) settingsConfig.theme = 'otuken';
+
+  // Kaydedilmiş değerleri yükle
+  _savedTheme      = settingsConfig.theme;
+  _savedAccent     = settingsConfig.accentColor || THEMES[_savedTheme]?.accent || '#d4a85a';
+  if (_savedAccent && LEGACY_DEFAULT_ACCENTS.includes(_savedAccent.toLowerCase()))
+    _savedAccent = THEME_DEFAULT_ACCENTS[_savedTheme] || '#d4a85a';
+  _savedFontSize   = settingsConfig.fontSize    || 13;
+  _savedFontFamily = settingsConfig.fontFamily  || "'Inter', sans-serif";
+  if (/DM Sans/i.test(_savedFontFamily)) _savedFontFamily = "'Inter', sans-serif";
+  currentLang      = settingsConfig.language    || 'tr';
+
+  // Pending'i saved ile başlat
+  initPendingState();
+  initFormState(settingsConfig);
+}
+
 function upgradeSettingsButton() {
   const btn = document.getElementById('btn-settings');
   if (!btn) return;
@@ -1433,22 +1517,7 @@ function upgradeSettingsButton() {
       window.ilgezdiCloseAllPanels?.();
     } else {
       window.ilgezdiCloseAllPanels?.();
-      settingsConfig = await window.secureBrowser?.getConfig() || {};
-      if (!settingsConfig.theme) settingsConfig.theme = 'otuken';
-
-      // Kaydedilmiş değerleri yükle
-      _savedTheme      = settingsConfig.theme;
-      _savedAccent     = settingsConfig.accentColor || THEMES[_savedTheme]?.accent || '#d4a85a';
-      if (_savedAccent && LEGACY_DEFAULT_ACCENTS.includes(_savedAccent.toLowerCase()))
-        _savedAccent = THEME_DEFAULT_ACCENTS[_savedTheme] || '#d4a85a';
-      _savedFontSize   = settingsConfig.fontSize    || 13;
-      _savedFontFamily = settingsConfig.fontFamily  || "'Inter', sans-serif";
-      if (/DM Sans/i.test(_savedFontFamily)) _savedFontFamily = "'Inter', sans-serif";
-      currentLang      = settingsConfig.language    || 'tr';
-
-      // Pending'i saved ile başlat
-      initPendingState();
-      initFormState(settingsConfig);
+      loadSettingsState(await window.secureBrowser?.getConfig() || {});
 
       panel.classList.remove('hidden');
       requestAnimationFrame(()=>panel.classList.add('visible'));

@@ -913,7 +913,8 @@ suite('Oturum geri yükleme');
   check('oturuma yalnızca ana pencere yazılıyor (gizli pencere asla)', snapBody.includes('mainState.tabs') && !snapBody.includes('incognitoState'));
   check('oturum dosyası ziyaret günlüğü anahtarıyla şifreleniyor',
     mainJs.includes('writeProtectedJson(SESSION_ENC, SESSION_PLAIN, sessionSnapshot())') && mainJs.includes('write(encPath, secureLog._encrypt(data));'));
-  check('pencere kapanırken sekmeler kapanmadan önce eşzamanlı kaydediliyor', mainJs.includes("mainWindow.on('close', () => saveSessionNow());"));
+  check('pencere kapanırken sekmeler kapanmadan önce eşzamanlı kaydediliyor (onay istenirse onaydan sonra)',
+    /mainWindow\.on\('close', \(event\) => \{[\s\S]{0,1600}\n    saveSessionNow\(\);\n  \}\);/.test(mainJs));
   check('"Kaldığım yerden" kapatılınca ve "Tüm verileri temizle"de oturum dosyası siliniyor', (mainJs.match(/deleteSessionFiles\(\);/g) || []).length >= 2);
   check('arka plan sekmeleri ilk açılışta yükleniyor', mainJs.includes('lazy: i !== saved.activeIndex') && mainJs.includes('if (tab.pendingLoad) {'));
 }
@@ -1401,7 +1402,7 @@ suite('Keşfet — TrendTech yazılımları');
     check('senkron sonrası bellekteki yer imleri yeniden yükleniyor', /'ilgezdi-sync-applied', \(\) => \{\s*bmLoad\(\);/.test(bmJs));
 
     const spJs = read('renderer/settings-panel.js');
-    const saveBlock = (spJs.match(/btn-save-all'\)\?\.addEventListener\('click'[\s\S]*?showSettingsToast\('Ayarlar kaydedildi!'\)/) || [''])[0];
+    const saveBlock = (spJs.match(/async function saveAllSettings\(\) \{[\s\S]*?showSettingsToast\('Ayarlar kaydedildi!'\)/) || [''])[0];
     check('Kaydet değerleri ekrandaki sekmeden okumuyor (başka sekmedeki kutu varsayılana düşmüyor)',
       saveBlock.length > 100 && !/getElementById\('cfg-[\w-]+'\)\?\.checked/.test(saveBlock) && saveBlock.includes('..._formCfg'));
     check('sekmeler bekleyen form değerleriyle çiziliyor; değişiklik dinleyicisi bir kez bağlanıyor',
@@ -1410,7 +1411,7 @@ suite('Keşfet — TrendTech yazılımları');
     const fields = [...spJs.matchAll(/^\s*'([\w-]+)':\s*\['(\w+)', '(value|checked)'\]/gm)];
     const valuesFn = spJs.slice(spJs.indexOf('function formValuesFrom'), spJs.indexOf('function initFormState'));
     check('form alan listesi sekmelerdeki kimliklerle ve varsayılan değerlerle eşleşiyor',
-      fields.length === 29
+      fields.length === 31
       && fields.every(([, id]) => spJs.includes(`id="${id}"`) || spJs.includes(`row('${id}'`))
       && fields.every(([, , key]) => new RegExp(`\\n\\s*${key}:\\s`).test(valuesFn)), fields.length);
 
@@ -1622,6 +1623,63 @@ suite('Keşfet — TrendTech yazılımları');
     fs.rmSync(tmpLog, { recursive: true, force: true });
   }
 
+  suite('Sistem — donanım hızlandırma, ayarları sıfırla, geçmişi aralıkla sil, kapatma uyarısı');
+  {
+    const BC = require('../src/main/browser-commands.js');
+    const S2 = require('../src/main/site-safety.js');
+    const defaults = { theme: 'otuken', searchEngine: 'duckduckgo', whitelist: [], downloadFolder: '', hardwareAcceleration: true, diagnosticsConsent: undefined };
+    const current = {
+      theme: 'kagan', searchEngine: 'google', whitelist: ['a.com'], permissionDecisions: { 'https://a.com|media': true },
+      authSessionEnc: 'ENC', passwordNeverSave: ['https://b.com'], diagnosticsConsent: false, vpnLastProfileId: 'p1',
+      downloadFolder: 'D:/indir', hardwareAcceleration: false, blockLevel: 'full',
+    };
+    const reset = BC.resetConfig(current, defaults);
+    eq('sıfırlama: görünüm, arama, istisnalar, site izinleri ve donanım hızlandırma varsayılana döner',
+      [reset.theme, reset.searchEngine, reset.whitelist, reset.permissionDecisions, reset.hardwareAcceleration, reset.blockLevel], ['otuken', 'duckduckgo', [], undefined, true, undefined]);
+    eq('sıfırlama: Qrtım oturumu, "asla" listesi, tanılama kararı, VPN profili ve indirme klasörü korunur',
+      [reset.authSessionEnc, reset.passwordNeverSave, reset.diagnosticsConsent, reset.vpnLastProfileId, reset.downloadFolder], ['ENC', ['https://b.com'], false, 'p1', 'D:/indir']);
+    check('sıfırlama varsayılan nesnesini değiştirmiyor', defaults.theme === 'otuken' && !('authSessionEnc' in defaults));
+    const now = 1_800_000_000_000;
+    eq('geçmiş aralıkları', [S2.historyRangeStart('hour', now), S2.historyRangeStart('day', now), S2.historyRangeStart('week', now), S2.historyRangeStart('month', now), S2.historyRangeStart('all', now)],
+      [now - 3600000, now - 86400000, now - 7 * 86400000, now - 28 * 86400000, 0]);
+    eq('bilinmeyen aralık reddediliyor', [S2.historyRangeStart('year', now), S2.historyRangeStart('__proto__', now), S2.historyRangeStart(undefined, now), S2.historyRangeStart(3600, now)], [null, null, null, null]);
+
+    const { SecureLogManager: SLM3 } = require('../src/main/secure-log-manager.js');
+    const tmp3 = fs.mkdtempSync(path.join(require('os').tmpdir(), 'ilg-log3-'));
+    const lm = new SLM3(tmp3);
+    lm.logs = [
+      { id: 'a', timestamp: now - 10 * 60000 }, { id: 'b', timestamp: now - 2 * 3600000 }, { id: 'c', timestamp: now - 3 * 86400000 },
+    ];
+    lm.syncQueue = ['a', 'b', 'c'];
+    const removed = lm.clearSince(S2.historyRangeStart('hour', now));
+    eq('son 1 saat: yalnızca o aralıktaki ziyaret ve senkron kuyruğu kaydı siliniyor', [removed, lm.logs.map((l) => l.id), lm.syncQueue], [1, ['b', 'c'], ['b', 'c']]);
+    eq('geçersiz zaman hiçbir şey silmiyor', [lm.clearSince('x'), lm.logs.length], [0, 2]);
+    fs.rmSync(tmp3, { recursive: true, force: true });
+
+    const mj6 = read('main/main.js');
+    check('donanım hızlandırma kapalıysa uygulama hazır olmadan kapatılıyor',
+      /const hardwareAccelerationAtStart = config\.hardwareAcceleration !== false;\s*if \(!hardwareAccelerationAtStart\) app\.disableHardwareAcceleration\(\);/.test(mj6)
+      && mj6.indexOf('app.disableHardwareAcceleration()') < mj6.indexOf('app.whenReady()'));
+    check('sıfırlama onay istiyor, korunanları söylüyor; Kaydet ile aynı etkileri uyguluyor; engelleyici istisnaları temizleniyor',
+      /ipcMain\.handle\('reset-settings', async \(event\) => \{[\s\S]{0,1400}if \(!confirmed\) return \{ ok: false, canceled: true \};\s*const previous = configEffectsSnapshot\(\);\s*config = resetConfig\(config, DEFAULT_CONFIG\);\s*saveConfig\(config\);\s*applyConfigEffects\(previous\);\s*updateBlockerConfig\(\{ level: config\.blockLevel \|\| 'medium', whitelist: \[\]/.test(mj6)
+      && mj6.includes("Korunacak: yer imleri, geçmiş, kayıtlı şifreler, Qrtım oturumu, VPN profilleri ve indirme klasörü.")
+      && /ipcMain\.handle\('save-config'[\s\S]{0,2500}const previous = configEffectsSnapshot\(\);\s*config = \{ \.\.\.config, \.\.\.incoming \};\s*saveConfig\(config\);\s*applyConfigEffects\(previous\);/.test(mj6));
+    check('kapatma uyarısı: yalnızca ayar açık, birden çok sekme ve uygulama kapanmıyorken; "bir daha sorma" kaydediliyor',
+      mj6.includes("if (!closeConfirmed && !appQuitting && config.warnOnCloseTabs === true && count > 1) {")
+      && mj6.includes("if (r.checkboxChecked) { config.warnOnCloseTabs = false; saveConfig(config); }")
+      && mj6.includes("app.on('before-quit', () => { appQuitting = true; });"));
+    check('geçmiş aralıkla silme ana süreçte doğrulanıyor', /ipcMain\.handle\('logs-clear-range', \(e, range\) => \{\s*const since = historyRangeStart\(range\);\s*if \(since === null \|\| !secureLog\) return \{ ok: false \};/.test(mj6));
+    const sp6 = read('renderer/settings-panel.js');
+    check('Kaydet tek fonksiyonda; "Kaydet ve yeniden başlat" önce kaydediyor',
+      sp6.includes("document.getElementById('btn-save-all')?.addEventListener('click', () => saveAllSettings());")
+      && /btn-relaunch'\)\?\.addEventListener\('click', async \(\) => \{\s*await saveAllSettings\(\);\s*window\.secureBrowser\?\.relaunch\?\.\(\);/.test(sp6));
+    check('sıfırlama sonrası arayüz kopyaları yenileniyor (engelleyici localStorage, tema, form, senkron)',
+      /async function resetAllSettings\(\) \{[\s\S]{0,400}localStorage\.removeItem\('ilgezdi-whitelist'\); localStorage\.removeItem\('ilgezdi-block-level'\);[\s\S]{0,200}await loadSavedTheme\(\);\s*loadSettingsState\(/.test(sp6)
+      && sp6.includes('window.ilgezdiSync?.schedulePush();\n  selectSettingsTab(\'general\');'));
+    check('geçmiş sayfası: aralık seçimi ve aralığa göre onay metni',
+      read('renderer/app.js').includes('<select class="page-select" id="history-clear-range" aria-label="Silinecek zaman aralığı">') && read('renderer/app.js').includes('await sb.logs.clearRange(range);'));
+  }
+
   suite('Şifre oluşturucu');
   {
     const G = require('../src/main/password-generator.js');
@@ -1721,7 +1779,7 @@ suite('Keşfet — TrendTech yazılımları');
       && mj5.includes('setTimeout(resolve, 8000)') && mj5.includes('Promise.race([work, limit]).finally(() => app.quit());'));
     check('ayarlar ana süreçte boolean olarak doğrulanıyor',
       mj5.includes("for (const k of ['globalPrivacyControl', 'cleanLinks', 'blockAutoplay']) if (k in incoming) incoming[k] = incoming[k] !== false;")
-      && mj5.includes("for (const k of ['clearSiteDataOnExit', 'clearHistoryOnExit']) if (k in incoming) incoming[k] = incoming[k] === true;"));
+      && mj5.includes("for (const k of ['clearSiteDataOnExit', 'clearHistoryOnExit', 'warnOnCloseTabs']) if (k in incoming) incoming[k] = incoming[k] === true;"));
     const pp5 = read('preload/page-preload.js');
     check('navigator.globalPrivacyControl yalnızca bayrakla ve sayfa dünyasında tanımlanıyor',
       /if \(process\.argv\.includes\('--ilgezdi-gpc'\)\) \{\s*webFrame\.executeJavaScript\("Object\.defineProperty\(Navigator\.prototype, 'globalPrivacyControl'/.test(pp5));

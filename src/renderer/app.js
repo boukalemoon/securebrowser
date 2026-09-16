@@ -570,7 +570,14 @@ function renderHistoryPage() {
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
             <input type="search" id="history-search" placeholder="Geçmişte ara" aria-label="Geçmişte ara" autocomplete="off">
           </label>
-          <button type="button" class="page-btn danger" id="history-clear">Tümünü temizle</button>
+          <select class="page-select" id="history-clear-range" aria-label="Silinecek zaman aralığı">
+            <option value="hour">Son 1 saat</option>
+            <option value="day">Son 24 saat</option>
+            <option value="week">Son 7 gün</option>
+            <option value="month">Son 4 hafta</option>
+            <option value="all" selected>Tüm zamanlar</option>
+          </select>
+          <button type="button" class="page-btn danger" id="history-clear">Temizle</button>
         </div>
       </div>
       <div class="http-report" id="history-http-report" hidden></div>
@@ -694,8 +701,13 @@ async function initHistoryPage() {
     loadHistory(false);
   });
   document.getElementById('history-clear')?.addEventListener('click', async () => {
-    if (!confirm('Tüm ziyaret geçmişi silinsin mi? Bu işlem geri alınamaz.')) return;
-    await sb.logs.clearLogs();
+    const sel = document.getElementById('history-clear-range');
+    const range = sel ? sel.value : 'all';
+    const question = range === 'all'
+      ? 'Tüm ziyaret geçmişi silinsin mi? Bu işlem geri alınamaz.'
+      : `${sel.selectedOptions[0].textContent} içindeki ziyaretler silinsin mi? Bu işlem geri alınamaz.`;
+    if (!confirm(question)) return;
+    await sb.logs.clearRange(range);
     loadHistory(true);
   });
 
