@@ -833,6 +833,11 @@ function renderPasswordsTab(cfg = {}) {
         <button class="folder-btn" id="btn-pw-audit">Denetle</button>
       </div>
       <div id="pw-audit-result" aria-live="polite"></div>
+      <div class="s-input-row" style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:10px">
+        <div><div class="s-toggle-label">Sızmış şifreler</div><div class="s-toggle-sub">Have I Been Pwned listesinde aranır. Her şifrenin SHA-1 özetinin yalnızca ilk 5 karakteri api.pwnedpasswords.com'a gönderilir; şifreniz ve tam özeti bilgisayarınızdan çıkmaz. Yalnızca bu düğmeye basınca çalışır.</div></div>
+        <button class="folder-btn" id="btn-pw-pwned">Sızıntı listesinde ara</button>
+      </div>
+      <div id="pw-pwned-result" aria-live="polite"></div>
     </div>
     <div class="settings-section"><h3>Yeni Şifre Ekle</h3>
       <div class="s-input-row"><label>Site</label><input type="text" id="pwd-new-site" placeholder="google.com"/></div>
@@ -917,6 +922,38 @@ async function runPasswordAudit() {
       let host = it.url; try { host = new URL(it.url).hostname.replace(/^www\./, ''); } catch {}
       const reasons = [it.weak ? 'Zayıf' : '', it.reuseCount ? `${it.reuseCount} hesapta aynı` : ''].filter(Boolean).join(' · ');
       return `<div class="pwd-entry"><div class="pwd-entry-info"><div class="pwd-site">${_pwEsc(host)}</div><div class="pwd-user">${_pwEsc(it.username || '—')} · ${_pwEsc(reasons)}</div></div>
+        <div class="pwd-actions"><button class="pwd-btn" data-audit-open="${_pwEsc(it.url)}">Siteyi aç</button></div></div>`;
+    }).join('');
+  box.querySelectorAll('[data-audit-open]').forEach((b) => b.addEventListener('click', () => {
+    const url = b.getAttribute('data-audit-open');
+    if (/^https?:\/\//i.test(url)) window.secureBrowser?.newTab?.(url);
+  }));
+}
+
+// Have I Been Pwned: kasadaki şifreler sızıntı listesinde aranır (ayrıntı: main/pwned-check.js).
+async function runPwnedCheck() {
+  const box = document.getElementById('pw-pwned-result');
+  const btn = document.getElementById('btn-pw-pwned');
+  if (!box || !btn || btn.disabled) return;
+  btn.disabled = true;
+  box.innerHTML = '<p class="s-hint">Aranıyor…</p>';
+  let r = null;
+  try { r = await window.secureBrowser?.passwords?.pwnedCheck?.(); } catch {}
+  btn.disabled = false;
+  if (!r || r.ok === false) { box.innerHTML = '<p class="s-hint" style="color:var(--danger)">Arama yapılamadı.</p>'; return; }
+  if (!r.total) { box.innerHTML = '<p class="s-hint">Kasada şifre yok.</p>'; return; }
+  if (!r.checked) { box.innerHTML = '<p class="s-hint" style="color:var(--danger)">Sızıntı listesine ulaşılamadı. İnternet bağlantınızı denetleyip yeniden deneyin.</p>'; return; }
+  const missed = r.total - r.checked;
+  const missedNote = missed ? ` ${missed} şifre bağlantı sorunu yüzünden aranamadı.` : '';
+  if (!r.leaked.length) {
+    box.innerHTML = `<p class="s-hint" style="color:var(--success)">${r.checked} şifre arandı: hiçbiri sızıntı listesinde yok.${_pwEsc(missedNote)}</p>`;
+    return;
+  }
+  box.innerHTML = `<p class="s-hint" style="color:var(--danger)">${r.checked} şifreden ${r.leaked.length} tanesi sızıntılarda görülmüş. Bu sitelerde şifrenizi hemen değiştirin; saldırganlar bu listeleri ilk sırada dener.${_pwEsc(missedNote)}</p>`
+    + r.leaked.map((it) => {
+      let host = it.url; try { host = new URL(it.url).hostname.replace(/^www\./, ''); } catch {}
+      const times = Number(it.count).toLocaleString('tr-TR');
+      return `<div class="pwd-entry"><div class="pwd-entry-info"><div class="pwd-site">${_pwEsc(host)}</div><div class="pwd-user">${_pwEsc(it.username || '—')} · ${_pwEsc(`Sızıntılarda ${times} kez görüldü`)}</div></div>
         <div class="pwd-actions"><button class="pwd-btn" data-audit-open="${_pwEsc(it.url)}">Siteyi aç</button></div></div>`;
     }).join('');
   box.querySelectorAll('[data-audit-open]').forEach((b) => b.addEventListener('click', () => {
@@ -1405,6 +1442,7 @@ function bindPasswordEvents() {
     populatePwdList();
   });
   document.getElementById('btn-pw-audit')?.addEventListener('click', runPasswordAudit);
+  document.getElementById('btn-pw-pwned')?.addEventListener('click', runPwnedCheck);
   // Oluşturulan şifre görünür yazılır: kullanıcı siteye yapıştırmadan önce görebilsin.
   document.getElementById('btn-pwd-generate')?.addEventListener('click', async ()=>{
     const pw = await window.secureBrowser?.passwords?.generate?.();

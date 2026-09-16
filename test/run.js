@@ -1631,6 +1631,36 @@ suite('Keşfet — TrendTech yazılımları');
     fs.rmSync(tmpLog, { recursive: true, force: true });
   }
 
+  suite('Sızmış şifre denetimi (Have I Been Pwned)');
+  {
+    const PW = require('../src/main/pwned-check.js');
+    eq('SHA-1 özeti büyük harf onaltılık', PW.passwordHash('password'), '5BAA61E4C9B93F3F0682250B6CF8331B7EE68FD8');
+    const parsed = PW.parseRange('1E4C9B93F3F0682250B6CF8331B7EE68FD8:52372427\r\n0000000000000000000000000000000000A:0\r\nKISA:3\r\nzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz:9\r\n');
+    eq('yanıt ayrıştırma: dolgu (0) ve bozuk satırlar atlanıyor', [...parsed.entries()], [['1E4C9B93F3F0682250B6CF8331B7EE68FD8', 52372427]]);
+    let pw = null;
+    try {
+      pw = JSON.parse(require('child_process').execFileSync(process.execPath, [path.join(__dirname, 'helpers', 'pwned-check.js')], { encoding: 'utf8', timeout: 30000 }));
+    } catch (e) { pw = { error: e.message }; }
+    const r = pw && pw.r;
+    check('yalnızca 5 karakterlik ön ekler istendi; aynı ön eke tek istek', !!r && pw.requested.every((x) => /^[0-9A-F]{5}$/.test(x)) && pw.requested.length === 4 && r.requests === 4, pw && pw.requested);
+    eq('iki hesapta sızmış şifre bulundu, sayısıyla; güçlü şifre temiz; bağlantısı kopan şifre "aranamadı" sayılıyor',
+      r && [r.total, r.checked, r.failedRequests, r.leaked.map((x) => [x.id, x.count])], [5, 4, 1, [['a', 52372427], ['b', 52372427]]]);
+    check('sonuçta şifre ve özet yok', !!pw.json && !/password|Ortak-Sifre|5BAA6|1E4C9B93/.test(pw.json));
+    const mjP = read('main/main.js');
+    check('istek: ön ek doğrulanıyor, bellek içi ayrı oturum, çerezsiz, önbelleksiz, dolgulu; sahte sunucu yalnızca paketlenmemiş kopyada',
+      mjP.includes("if (!/^[0-9A-F]{5}$/.test(String(prefix))) throw new Error('geçersiz ön ek');")
+      && mjP.includes("const base = (!app.isPackaged && process.env.ILGEZDI_PWNED_BASE) || PWNED_RANGE_URL;")
+      && mjP.includes("session.fromPartition('ilgezdi-pwned').fetch(base + prefix, {")
+      && mjP.includes("headers: { 'Add-Padding': 'true' }, credentials: 'omit', cache: 'no-store'"));
+    check('yalnızca kullanıcı düğmeye basınca: açılışta ya da zamanlayıcıyla çağrı yok',
+      (read('main/password-manager.js').match(/checkPwnedPasswords\(/g) || []).length === 1 && read('main/password-manager.js').includes("ipcMain.handle('pw-pwned-check'")
+      && !/setInterval|setTimeout/.test(read('main/pwned-check.js')) && PW.PWNED_RANGE_URL === 'https://api.pwnedpasswords.com/range/');
+    const spP = read('renderer/settings-panel.js');
+    check('arayüz: düğme çalışırken kilitli, site ve kullanıcı adı kaçışlanıyor, açıklama ne gönderildiğini söylüyor',
+      /async function runPwnedCheck\(\) \{[\s\S]{0,300}btn\.disabled = true;[\s\S]{0,2600}_pwEsc\(host\)[\s\S]{0,100}_pwEsc\(it\.username \|\| '—'\)/.test(spP)
+      && spP.includes("SHA-1 özetinin yalnızca ilk 5 karakteri api.pwnedpasswords.com'a gönderilir"));
+  }
+
   suite('Yeni sekme — Google kısayolu yok');
   {
     const appQ = read('renderer/app.js');

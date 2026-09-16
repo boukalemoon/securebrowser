@@ -20,6 +20,7 @@ const { setupBookmarkImport } = require('./bookmark-import');
 const { setupPasswordManager, getForOrigin, classifyCapture, canSavePasswords, saveCapturedCredential } = require('./password-manager');
 const { generatePassword } = require('./password-generator');
 const reader = require('./reader');
+const { PWNED_RANGE_URL } = require('./pwned-check');
 const { setupAutoUpdater } = require('./auto-updater');
 const { setupDiagnostics, log: diag, logError } = require('./diagnostics');
 const { setupThreatProtection } = require('./threat-protection');
@@ -2739,7 +2740,21 @@ app.whenReady().then(async () => {
 
   // Arku Uzak Masaüstü eklentisi: arka plan sürüm denetimi + kullanıcı onaylı güncelleme
   setupBookmarkImport(ipcMain, () => mainWindow);
-  setupPasswordManager(ipcMain, { userDataPath: USER_DATA, getMainWindow: () => mainWindow });
+  setupPasswordManager(ipcMain, {
+    userDataPath: USER_DATA,
+    getMainWindow: () => mainWindow,
+    // Sızmış şifre denetimi: çerezsiz, bellek içi ayrı oturum. Paketlenmemiş kopyada sonda
+    // sahte sunucuya yönlendirebilir; kurulu uygulamada adres sabittir.
+    fetchPwnedRange: async (prefix) => {
+      if (!/^[0-9A-F]{5}$/.test(String(prefix))) throw new Error('geçersiz ön ek');
+      const base = (!app.isPackaged && process.env.ILGEZDI_PWNED_BASE) || PWNED_RANGE_URL;
+      const res = await session.fromPartition('ilgezdi-pwned').fetch(base + prefix, {
+        headers: { 'Add-Padding': 'true' }, credentials: 'omit', cache: 'no-store', signal: AbortSignal.timeout(10000),
+      });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return res.text();
+    },
+  });
 
   // Otomatik güncelleme: arka planda denetim + kullanıcı onaylı indirme/kurulum
   setupAutoUpdater(() => mainWindow);

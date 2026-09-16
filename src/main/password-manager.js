@@ -27,6 +27,7 @@ const { execFileSync } = require('child_process');
 const { dialog } = require('electron');
 const osCrypto = require('./os-crypto');
 const { auditPasswords } = require('./password-generator');
+const { checkPwnedPasswords } = require('./pwned-check');
 const { log: diag } = require('./diagnostics');
 
 let VAULT_PATH = null;
@@ -453,6 +454,19 @@ function setupPasswordManager(ipcMain, options) {
   ipcMain.handle('pw-count', async () => { await vaultReady; return vault.length; });
   // Şifre denetimi yerelde yapılır; arayüze yalnızca hangi kaydın zayıf/tekrar olduğu gider.
   ipcMain.handle('pw-audit', async () => { await vaultReady; return auditPasswords(vault); });
+  // Sızmış şifre denetimi (Have I Been Pwned): yalnızca kullanıcı düğmeye basınca. Dışarı
+  // yalnızca özetlerin ilk 5 karakteri gider (pwned-check.js); arayüze şifre gitmez.
+  let pwnedRunning = null;
+  ipcMain.handle('pw-pwned-check', async () => {
+    await vaultReady;
+    if (typeof options.fetchPwnedRange !== 'function') return { ok: false };
+    if (!pwnedRunning) {
+      pwnedRunning = checkPwnedPasswords(vault, options.fetchPwnedRange).finally(() => { pwnedRunning = null; });
+    }
+    const r = await pwnedRunning;
+    diag.info('passwords', 'Sızıntı listesi denetimi', { total: r.total, checked: r.checked, leaked: r.leaked.length, failed: r.failedRequests });
+    return { ok: true, ...r };
+  });
   ipcMain.handle('pw-encryption-available', async () => { await vaultReady; return encryptionOk && vaultLoadError !== 'decrypt_failed'; });
 
   ipcMain.handle('pw-import-detect',  () => detectSources());
