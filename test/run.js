@@ -1389,7 +1389,7 @@ suite('Keşfet — TrendTech yazılımları');
     const fields = [...spJs.matchAll(/^\s*'([\w-]+)':\s*\['(\w+)', '(value|checked)'\]/gm)];
     const valuesFn = spJs.slice(spJs.indexOf('function formValuesFrom'), spJs.indexOf('function initFormState'));
     check('form alan listesi sekmelerdeki kimliklerle ve varsayılan değerlerle eşleşiyor',
-      fields.length === 24
+      fields.length === 29
       && fields.every(([, id]) => spJs.includes(`id="${id}"`) || spJs.includes(`row('${id}'`))
       && fields.every(([, , key]) => new RegExp(`\\n\\s*${key}:\\s`).test(valuesFn)), fields.length);
 
@@ -1598,6 +1598,72 @@ suite('Keşfet — TrendTech yazılımları');
     const inst = new SLM(tmpLog);
     check('yapıcıyla kurulan günlük (testler) şifresiz ve boş başlıyor', inst.canEncrypt === false && inst.key === null && inst.logs.length === 0);
     fs.rmSync(tmpLog, { recursive: true, force: true });
+  }
+
+  suite('Gizlilik — bağlantı temizliği, GPC, otomatik oynatma, kapatınca sil');
+  {
+    const S = require('../src/main/site-safety.js');
+    const { isThirdParty: tp } = require('../src/main/blocker-main.js');
+    eq('tıklama kimlikleri çıkarılıyor, kalan parametreler ve kodlamaları olduğu gibi kalıyor',
+      S.stripTrackingParams('https://ornek.com.tr/urun?id=5&fbclid=IwAR1&q=a%20b+c&gclid=x#yorum'),
+      'https://ornek.com.tr/urun?id=5&q=a%20b+c#yorum');
+    eq('yalnızca kimlik varsa soru işareti de gidiyor', S.stripTrackingParams('https://ornek.com/?msclkid=1&srsltid=2'), 'https://ornek.com/');
+    eq('utm_* kampanya parametrelerine dokunulmuyor', S.stripTrackingParams('https://ornek.com/?utm_source=bulten&utm_campaign=eylul'), null);
+    eq('büyük/küçük harf farklı ad (FBCLID) sitenin kendi parametresi sayılıyor', S.stripTrackingParams('https://ornek.com/?FBCLID=1'), null);
+    eq('parametresiz ve http(s) olmayan adres değişmiyor', [S.stripTrackingParams('https://ornek.com/a'), S.stripTrackingParams('ftp://ornek.com/?fbclid=1')], [null, null]);
+    eq('Google yönlendirmesi atlanıyor', S.skipRedirector('https://www.google.com/url?sa=t&q=https://ornek.com/a%3Fb%3D1&ved=0'), 'https://ornek.com/a?b=1');
+    eq('Google AMP (google.com.tr dahil) asıl siteye gidiyor', [S.skipRedirector('https://www.google.com.tr/amp/s/haber.ornek.com/yazi/1?x=1'), S.skipRedirector('https://google.co.uk/amp/haber.ornek.com/y')],
+      ['https://haber.ornek.com/yazi/1?x=1', 'http://haber.ornek.com/y']);
+    eq('YouTube, Facebook ve Instagram yönlendiricileri', [
+      S.skipRedirector('https://www.youtube.com/redirect?event=video&q=https%3A%2F%2Fornek.com%2F'),
+      S.skipRedirector('https://l.facebook.com/l.php?u=https%3A%2F%2Fornek.com%2Fa&h=AT0'),
+      S.skipRedirector('https://l.instagram.com/?u=https%3A%2F%2Fornek.com%2F&e=1'),
+    ], ['https://ornek.com/', 'https://ornek.com/a', 'https://ornek.com/']);
+    eq('hedefi web adresi olmayan yönlendirme atlanmıyor (javascript:, göreli, boş, sahte alan adı, arama)', [
+      S.skipRedirector('https://www.google.com/url?q=javascript:alert(1)'), S.skipRedirector('https://www.google.com/url?q=/search'),
+      S.skipRedirector('https://www.google.com/url'), S.skipRedirector('https://google.evil.com/url?q=https://ornek.com'),
+      S.skipRedirector('https://www.google.com/amp/s/'), S.skipRedirector('https://www.google.com/search?q=https://ornek.com'),
+    ], [null, null, null, null, null, null]);
+    const nav = (o) => S.rewriteNavigation({ method: 'GET', resourceType: 'mainFrame', cleanLinks: true, httpsOnly: false, thirdParty: tp, ...o });
+    eq('başka siteden ya da adres çubuğundan gelinince kimlik çıkarılıyor; sitenin kendi bağlantısında kalıyor', [
+      nav({ url: 'https://ornek.com/?fbclid=1', referrer: 'https://facebook.com/' }),
+      nav({ url: 'https://ornek.com/?fbclid=1', referrer: '' }),
+      nav({ url: 'https://ornek.com/?fbclid=1', referrer: 'https://www.ornek.com/liste' }),
+    ], ['https://ornek.com/', 'https://ornek.com/', null]);
+    eq('yönlendirici + AMP + kimlik + HTTPS-Only tek adımda', nav({
+      url: 'https://www.google.com/url?q=https://www.google.com/amp/s/ornek.com/a%3Fgclid%3D9%26id%3D2', referrer: 'https://www.google.com/', httpsOnly: true,
+    }), 'https://ornek.com/a?id=2');
+    eq('HTTPS-Only temizlik kapalıyken de çalışıyor', nav({ url: 'http://ornek.com/?fbclid=1', cleanLinks: false, httpsOnly: true }), 'https://ornek.com/?fbclid=1');
+    eq('alt çerçeve, POST ve kapalı ayar dokunulmuyor', [
+      nav({ url: 'https://ornek.com/?fbclid=1', resourceType: 'subFrame' }), nav({ url: 'https://ornek.com/?fbclid=1', method: 'POST' }),
+      nav({ url: 'https://www.google.com/url?q=https://ornek.com/', cleanLinks: false }),
+    ], [null, null, null]);
+    eq('otomatik oynatma: varsayılan engelli, kapatılınca serbest', [S.autoplayPolicyFor({}), S.autoplayPolicyFor({ blockAutoplay: false }), S.autoplayPolicyFor(null)],
+      ['document-user-activation-required', 'no-user-gesture-required', 'document-user-activation-required']);
+    eq('kapatınca sil: varsayılan hiçbir şey; ayarlar ayrı ayrı; yalnızca gerçek true', [S.exitCleanupPlan({}), S.exitCleanupPlan({ clearSiteDataOnExit: true }), S.exitCleanupPlan({ clearHistoryOnExit: true }), S.exitCleanupPlan({ clearSiteDataOnExit: 'true' })],
+      [[], ['cache', 'siteData'], ['history', 'downloads', 'favicons'], []]);
+
+    const mj5 = read('main/main.js');
+    check('GPC başlığı varsayılan açık; ana çerçeve yeniden yazımı tek dinleyicide, tehdit denetiminden sonra',
+      mj5.includes("if (config.globalPrivacyControl !== false) headers['Sec-GPC'] = '1';")
+      && /threats\.check\(details\.url, ses\)[\s\S]{0,1500}shouldBlockUrl[\s\S]{0,900}rewriteNavigation\(\{[\s\S]{0,300}thirdParty: isThirdParty/.test(mj5)
+      && !mj5.includes("details.resourceType === 'mainFrame' && details.url.startsWith('http://')"));
+    check('sekme: otomatik oynatma politikası ve GPC bayrağı açılışta veriliyor',
+      mj5.includes('autoplayPolicy: autoplayPolicyFor(config),') && mj5.includes("additionalArguments: config.globalPrivacyControl !== false ? ['--ilgezdi-gpc'] : [],"));
+    check('kapanış bir kez erteleniyor, silme en çok 8 sn bekleniyor, sonra yeniden kapanıyor',
+      /app\.on\('before-quit', \(event\) => \{\s*if \(exitCleanupStarted\) return;\s*const steps = exitCleanupPlan\(config\);\s*if \(!steps\.length\) return;\s*exitCleanupStarted = true;\s*event\.preventDefault\(\);/.test(mj5)
+      && mj5.includes('setTimeout(resolve, 8000)') && mj5.includes('Promise.race([work, limit]).finally(() => app.quit());'));
+    check('ayarlar ana süreçte boolean olarak doğrulanıyor',
+      mj5.includes("for (const k of ['globalPrivacyControl', 'cleanLinks', 'blockAutoplay']) if (k in incoming) incoming[k] = incoming[k] !== false;")
+      && mj5.includes("for (const k of ['clearSiteDataOnExit', 'clearHistoryOnExit']) if (k in incoming) incoming[k] = incoming[k] === true;"));
+    const pp5 = read('preload/page-preload.js');
+    check('navigator.globalPrivacyControl yalnızca bayrakla ve sayfa dünyasında tanımlanıyor',
+      /if \(process\.argv\.includes\('--ilgezdi-gpc'\)\) \{\s*webFrame\.executeJavaScript\("Object\.defineProperty\(Navigator\.prototype, 'globalPrivacyControl'/.test(pp5));
+    const sp5 = read('renderer/settings-panel.js');
+    check('İngilizce seçeneği hazır olmadığını söylüyor ve seçilemiyor; dil her zaman tr kaydediliyor',
+      sp5.includes('<option value="en" disabled>🇬🇧 English (hazırlanıyor)</option>') && /\n\s*language:\s*'tr',/.test(sp5));
+    check('yeni gizlilik ayarları senkronlanıyor',
+      read('renderer/sync-manager.js').includes("'globalPrivacyControl', 'cleanLinks', 'blockAutoplay', 'clearSiteDataOnExit', 'clearHistoryOnExit',"));
   }
   const cardsJs = read('renderer/info-cards.js');
   let cards = null;

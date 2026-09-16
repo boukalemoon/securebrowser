@@ -123,6 +123,107 @@ function shouldStripThirdPartyCookies({ enabled, resourceType, thirdParty, siteA
   return true;
 }
 
+// ─── Gezinme adresi temizliği ─────────────────────────────────────────────────
+// Reklam ağları bağlantıya kişiye özgü tıklama kimliği ekler (fbclid, gclid,
+// msclkid…); açılan sayfa bunu ağa geri bildirir ve ziyaret o tıklamaya bağlanır.
+// Liste Brave'in sorgu süzgecinden alındı. Kampanya adı taşıyan utm_* kişiye özgü
+// değildir ve bazı siteler kullanır: dokunulmaz.
+const TRACKING_PARAMS = Object.freeze(new Set([
+  '__hsfp', '__hssc', '__hstc', '__s', '_branch_match_id', '_branch_referrer', '_gl', '_hsenc',
+  '_kx', '_openstat', 'at_recipient_id', 'at_recipient_list', 'bbeml', 'bsft_clkid', 'bsft_uid',
+  'dclid', 'et_rid', 'fb_action_ids', 'fb_comment_id', 'fbclid', 'gbraid', 'gclid', 'guce_referrer',
+  'guce_referrer_sig', 'hsCtaTracking', 'igshid', 'irclickid', 'mc_eid', 'ml_subscriber',
+  'ml_subscriber_hash', 'msclkid', 'mtm_cid', 'oft_c', 'oft_ck', 'oft_d', 'oft_id', 'oft_ids',
+  'oft_k', 'oft_lk', 'oft_sk', 'oly_anon_id', 'oly_enc_id', 'pk_cid', 'rb_clickid', 's_cid',
+  'sc_customer', 'sc_eh', 'sc_uid', 'srsltid', 'ss_email_id', 'ttclid', 'twclid', 'unicorn_click_id',
+  'vero_conv', 'vero_id', 'vgo_ee', 'wbraid', 'wickedid', 'yclid', 'ymclid', 'ysclid',
+]));
+
+/** Kimlik parametreleri ayıklanmış adres; değişecek bir şey yoksa null. */
+function stripTrackingParams(url) {
+  let u;
+  try { u = new URL(String(url)); } catch { return null; }
+  if (!/^https?:$/.test(u.protocol) || !u.search) return null;
+  const keep = [];
+  let removed = false;
+  // URLSearchParams ile yeniden yazmak kalan parametrelerin kodlamasını değiştirirdi
+  // (ör. %20 → +); yalnızca çıkarılanlar atlanır, kalanlar olduğu gibi kalır.
+  for (const part of u.search.slice(1).split('&')) {
+    let name = part.split('=')[0];
+    try { name = decodeURIComponent(name.replace(/\+/g, ' ')); } catch {}
+    if (TRACKING_PARAMS.has(name)) removed = true; else keep.push(part);
+  }
+  if (!removed) return null;
+  u.search = keep.length ? '?' + keep.join('&') : '';
+  return u.toString();
+}
+
+// Tıklamayı kaydetmek için araya giren yönlendirme adresleri: hedef adres zaten
+// bağlantının içinde, doğrudan oraya gidilir. Google AMP önbelleği sayfayı Google
+// sunucusundan açar; asıl sitenin adresine gidilir.
+const GOOGLE_HOST = /^(www\.)?google\.(com|[a-z]{2}|com?\.[a-z]{2})$/;
+function skipRedirector(url) {
+  let u;
+  try { u = new URL(String(url)); } catch { return null; }
+  if (!/^https?:$/.test(u.protocol)) return null;
+  const host = u.hostname.toLowerCase();
+  const web = (v) => (v && /^https?:\/\/[^/\s]/i.test(v) ? v : null);
+  if (GOOGLE_HOST.test(host)) {
+    if (u.pathname === '/url') return web(u.searchParams.get('q')) || web(u.searchParams.get('url'));
+    const amp = /^\/amp\/(s\/)?(.+)$/.exec(u.pathname);
+    if (amp && /^[a-z0-9.-]+\.[a-z]{2,}(\/|$)/i.test(amp[2])) {
+      return (amp[1] ? 'https://' : 'http://') + amp[2] + u.search + u.hash;
+    }
+    return null;
+  }
+  if ((host === 'www.youtube.com' || host === 'youtube.com') && u.pathname === '/redirect') return web(u.searchParams.get('q'));
+  if ((host === 'l.facebook.com' || host === 'lm.facebook.com') && u.pathname === '/l.php') return web(u.searchParams.get('u'));
+  if (host === 'l.instagram.com' && u.pathname === '/') return web(u.searchParams.get('u'));
+  return null;
+}
+
+/**
+ * Ana çerçeve isteğinin gideceği adres; değişiklik yoksa null.
+ * @param {{ url: string, method?: string, resourceType: string, referrer?: string,
+ *           httpsOnly?: boolean, cleanLinks?: boolean, thirdParty: (a: string, b: string) => boolean }} req
+ * Kimlik parametreleri yalnızca başka siteden gelinince (ya da adres çubuğundan, yer
+ * iminden) ayıklanır: sitenin kendi iç bağlantısındaki parametre sitenin işidir.
+ */
+function rewriteNavigation({ url, method, resourceType, referrer, httpsOnly, cleanLinks, thirdParty }) {
+  if (resourceType !== 'mainFrame') return null;
+  let next = String(url || '');
+  if (cleanLinks && (!method || method === 'GET')) {
+    for (let i = 0; i < 3; i++) {             // google.com/url → google.com/amp/s/… → site
+      const target = skipRedirector(next);
+      if (!target) break;
+      next = target;
+    }
+    if (!referrer || thirdParty(next, referrer)) next = stripTrackingParams(next) || next;
+  }
+  if (httpsOnly && next.startsWith('http://')) next = 'https://' + next.slice('http://'.length);
+  return next !== url ? next : null;
+}
+
+// ─── Otomatik oynatma ─────────────────────────────────────────────────────────
+// Sesli video ve ses, kullanıcı sayfayla etkileşmeden başlamaz; sessiz otomatik
+// oynatma Chromium'da her iki politikada da serbesttir. Sekme açılırken verilir.
+function autoplayPolicyFor(cfg) {
+  return cfg && cfg.blockAutoplay === false ? 'no-user-gesture-required' : 'document-user-activation-required';
+}
+
+// ─── Kapatınca verileri sil ───────────────────────────────────────────────────
+/**
+ * Uygulama kapanırken silinecekler (sıra önemsiz). Açık sekmelerin oturum dosyası
+ * yalnızca "Kaldığım yerden devam et" seçiliyken yazılır; kullanıcının o seçimi
+ * geçmiş silme ayarından ayrı bir karardır, dokunulmaz.
+ */
+function exitCleanupPlan(cfg) {
+  const steps = [];
+  if (cfg && cfg.clearSiteDataOnExit === true) steps.push('cache', 'siteData');
+  if (cfg && cfg.clearHistoryOnExit === true) steps.push('history', 'downloads', 'favicons');
+  return steps;
+}
+
 // ─── Güvenli DNS (DNS-over-HTTPS) ─────────────────────────────────────────────
 const SECURE_DNS_OPTIONS = Object.freeze([
   { id: 'automatic',  label: 'Otomatik (sistem DNS sağlayıcısı destekliyorsa şifreli)' },
@@ -423,6 +524,12 @@ module.exports = {
   listDecisions,
   decisionsForOrigin,
   shouldStripThirdPartyCookies,
+  TRACKING_PARAMS,
+  stripTrackingParams,
+  skipRedirector,
+  rewriteNavigation,
+  autoplayPolicyFor,
+  exitCleanupPlan,
   SECURE_DNS_OPTIONS,
   DEFAULT_SECURE_DNS,
   normalizeSecureDns,

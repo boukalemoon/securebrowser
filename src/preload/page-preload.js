@@ -20,7 +20,16 @@
 
 'use strict';
 
-const { ipcRenderer } = require('electron');
+const { ipcRenderer, webFrame } = require('electron');
+
+// Global Privacy Control: Sec-GPC başlığını ana süreç ekler; sayfa betikleri
+// navigator.globalPrivacyControl'ü okur. Özellik sayfanın kendi dünyasında tanımlanmalı
+// (bu betik yalıtılmış dünyada). Bayrak sekme açılırken ayardan gelir. Betik değer
+// döndürmemeli: executeJavaScript sonucu seri hale getirir, Navigator.prototype'ın
+// alıcıları orada "Illegal invocation" hatası verir.
+if (process.argv.includes('--ilgezdi-gpc')) {
+  webFrame.executeJavaScript("Object.defineProperty(Navigator.prototype, 'globalPrivacyControl', { get() { return true; }, configurable: true, enumerable: true }); void 0;");
+}
 
 const USER_HINT = /user|mail|login|kullan|eposta|e-posta|account|hesap|uid|phone|tel|gsm|kimlik/i;
 

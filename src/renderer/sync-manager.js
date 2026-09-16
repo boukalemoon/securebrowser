@@ -21,6 +21,7 @@
     'newTabMode', 'customNewTabUrl', 'blockTrackers', 'blockAds',
     'fingerprintProtection', 'httpsOnly', 'doNotTrack', 'userAgentRotation',
     'notifications', 'askDownloadLocation', 'blockLevel', 'whitelist',
+    'globalPrivacyControl', 'cleanLinks', 'blockAutoplay', 'clearSiteDataOnExit', 'clearHistoryOnExit',
   ];
   const PUSH_DEBOUNCE_MS = 4000;
 

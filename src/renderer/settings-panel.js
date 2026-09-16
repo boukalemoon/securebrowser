@@ -325,6 +325,11 @@ const SETTINGS_FIELDS = {
   'cfg-min-font':      ['minimumFontSize', 'value'],
   'cfg-reduce-motion': ['reduceMotion', 'checked'],
   'cfg-high-contrast': ['highContrast', 'checked'],
+  'cfg-gpc':           ['globalPrivacyControl', 'checked'],
+  'cfg-clean-links':   ['cleanLinks', 'checked'],
+  'cfg-block-autoplay': ['blockAutoplay', 'checked'],
+  'cfg-clear-site-exit': ['clearSiteDataOnExit', 'checked'],
+  'cfg-clear-history-exit': ['clearHistoryOnExit', 'checked'],
 };
 let _formBase = {};
 let _formCfg  = {};
@@ -338,7 +343,8 @@ function formValuesFrom(cfg) {
     searchEngine:           c.searchEngine || 'duckduckgo',
     startupMode:            c.startupMode === 'restore' ? 'restore' : 'homepage',
     homepage:               c.homepage && c.homepage !== 'about:blank' ? c.homepage : '',
-    language:               c.language === 'en' ? 'en' : 'tr',
+    // Çeviri altyapısı yok: İngilizce seçilse de arayüz Türkçe kalıyordu. Hazır olana kadar tr.
+    language:               'tr',
     downloadFolder:         c.downloadFolder || '',
     askDownloadLocation:    !!c.askDownloadLocation,
     notifications:          c.notifications !== false,
@@ -358,6 +364,11 @@ function formValuesFrom(cfg) {
     minimumFontSize:        MIN_FONTS_UI.some(([v]) => v === Number(c.minimumFontSize)) ? String(Number(c.minimumFontSize)) : '0',
     reduceMotion:           c.reduceMotion === true,
     highContrast:           c.highContrast === true,
+    globalPrivacyControl:   c.globalPrivacyControl !== false,
+    cleanLinks:             c.cleanLinks !== false,
+    blockAutoplay:          c.blockAutoplay !== false,
+    clearSiteDataOnExit:    c.clearSiteDataOnExit === true,
+    clearHistoryOnExit:     c.clearHistoryOnExit === true,
   };
 }
 
@@ -582,9 +593,10 @@ function renderGeneralTab(cfg) {
     </div>
     <div class="settings-section"><h3>Dil</h3>
       <div class="s-input-row"><select id="lang-select">
-        <option value="tr" ${!cfg.language||cfg.language==='tr'?'selected':''}>🇹🇷 Türkçe</option>
-        <option value="en" ${cfg.language==='en'?'selected':''}>🇬🇧 English</option>
+        <option value="tr" selected>🇹🇷 Türkçe</option>
+        <option value="en" disabled>🇬🇧 English (hazırlanıyor)</option>
       </select></div>
+      <p class="s-hint">Arayüz şimdilik yalnızca Türkçe. İngilizce çeviri hazır olduğunda burada seçilebilecek.</p>
     </div>
     <div class="settings-section"><h3>İndirme</h3>
       <div class="s-input-row"><label>İndirme klasörü</label>
@@ -608,6 +620,12 @@ function renderGeneralTab(cfg) {
         <label class="switch"><input type="checkbox" id="cfg-vpn-notify" ${cfg.vpnNotify!==false?'checked':''}/><span class="slider"></span></label>
       </div>
     </div>
+    <div class="settings-section"><h3>Medya</h3>
+      <div class="s-toggle-row">
+        <div><div class="s-toggle-label">Sesli otomatik oynatmayı engelle</div><div class="s-toggle-sub">Videolar ve sesler, siz sayfaya tıklayana ya da bir tuşa basana kadar sesli başlamaz. Sessiz videolar etkilenmez. Yeni açılan sekmelerde geçerli.</div></div>
+        <label class="switch"><input type="checkbox" id="cfg-block-autoplay" ${cfg.blockAutoplay!==false?'checked':''}/><span class="slider"></span></label>
+      </div>
+    </div>
     <div class="settings-section"><h3>Önbellek & Geçmiş</h3>
       <div class="clear-grid">
         <button class="clear-btn" id="btn-clear-cache">🗑 Önbellek</button>
@@ -616,6 +634,14 @@ function renderGeneralTab(cfg) {
         <button class="clear-btn" id="btn-clear-all" style="border-color:var(--danger);color:var(--danger)">⚠ Tümünü</button>
       </div>
       <div id="clear-status" style="font-size:11px;color:var(--success);margin-top:8px;min-height:14px"></div>
+      <div class="s-toggle-row">
+        <div><div class="s-toggle-label">Kapatınca çerezleri ve site verilerini sil</div><div class="s-toggle-sub">Önbellek de silinir; sitelerden çıkış yapılmış olursunuz. Qrtım hesabınız, yer imleri, şifreler ve ayarlar etkilenmez.</div></div>
+        <label class="switch"><input type="checkbox" id="cfg-clear-site-exit" ${cfg.clearSiteDataOnExit===true?'checked':''}/><span class="slider"></span></label>
+      </div>
+      <div class="s-toggle-row">
+        <div><div class="s-toggle-label">Kapatınca geçmişi sil</div><div class="s-toggle-sub">Ziyaret günlüğü, indirme geçmişi (dosyalar değil) ve site simgeleri. "Kaldığım yerden devam et" seçiliyse açık sekmeler yine geri gelir.</div></div>
+        <label class="switch"><input type="checkbox" id="cfg-clear-history-exit" ${cfg.clearHistoryOnExit===true?'checked':''}/><span class="slider"></span></label>
+      </div>
     </div>
     <div class="settings-section"><h3>Kısayollar</h3>
       <p class="s-hint" style="margin-top:0">Odak sayfadayken de çalışır. Ctrl+B, Ctrl+H, Ctrl+Shift+L ve Ctrl+Shift+V yalnızca İlgezdi arayüzü odaktayken çalışır; sayfalarda kalın yazı, bul-değiştir, hizalama ve düz metin yapıştırma için kullanılırlar.</p>
@@ -688,10 +714,12 @@ function renderPrivacyTab(cfg) {
       ${row('cfg-ads','Reklam Engelleme','Reklam sunucuları bloke',cfg.blockAds!==false)}
       ${row('cfg-3pc','Üçüncü Taraf Çerezleri Engelle','Başka sitelerin sizi siteler arasında çerezle izlemesini engeller. Sorun çıkan sitede kilit simgesinden izin verebilirsiniz.',cfg.blockThirdPartyCookies!==false)}
     </div>
-    <div class="settings-section"><h3>Fingerprint & Kimlik</h3>
+    <div class="settings-section"><h3>Kimlik ve Bağlantılar</h3>
       ${row('cfg-fp','IP Başlıklarını Gizle','Proxy/IP başlıkları (X-Forwarded-For, Via) gönderilmez',cfg.fingerprintProtection!==false)}
       ${row('cfg-https-only','Yalnızca HTTPS','HTTP sitelere güvenli bağlan',cfg.httpsOnly)}
-      ${row('cfg-dnt','Do Not Track','Takip etme sinyali gönder',cfg.doNotTrack)}
+      ${row('cfg-clean-links','Bağlantılardaki izleme kimliklerini temizle','fbclid, gclid, msclkid gibi kişiye özgü tıklama kimlikleri adresten çıkarılır. Google, YouTube ve Facebook yönlendirme sayfaları ile Google AMP atlanıp doğrudan siteye gidilir.',cfg.cleanLinks!==false)}
+      ${row('cfg-gpc','Verilerimi satma isteği (GPC)','Global Privacy Control: sitelere kişisel verilerinizi satmama ve paylaşmama isteği gönderilir. Bazı ülkelerde yasal olarak bağlayıcıdır.',cfg.globalPrivacyControl!==false)}
+      ${row('cfg-dnt','Do Not Track','Takip etme sinyali gönder. Çoğu site dikkate almaz; GPC daha etkilidir.',cfg.doNotTrack)}
     </div>
     <div class="settings-section"><h3>WebRTC IP Koruması</h3>
       <div class="s-input-row">

@@ -42,6 +42,7 @@ const {
   shouldStripThirdPartyCookies, normalizeSecureDns, hostResolverOptions, DEFAULT_SECURE_DNS,
   certificateSummary, errorPageModel, errorPageScript, normalizeOrigin,
   fileExtension, isDangerousFile, downloadNeedsWarning, sourceHost, sanitizeLogIds, sanitizeDownloadHistory,
+  rewriteNavigation, autoplayPolicyFor, exitCleanupPlan,
 } = require('./site-safety');
 
 let incognitoWindow = null;
@@ -107,6 +108,13 @@ const DEFAULT_CONFIG = {
   vpnNotify:             true,
   httpsOnly:             false,
   doNotTrack:            false,
+  // Global Privacy Control: sitelere "verimi satma/paylaşma" isteği (Sec-GPC başlığı ve
+  // navigator.globalPrivacyControl). DNT'den farklı olarak bazı yasalarda bağlayıcı.
+  globalPrivacyControl:  true,
+  cleanLinks:            true,         // bağlantılardaki tıklama kimliklerini ve yönlendiricileri atla
+  blockAutoplay:         true,         // sesli otomatik oynatma kullanıcı etkileşimine kadar bekler
+  clearSiteDataOnExit:   false,        // kapatınca çerezler, site verileri ve önbellek
+  clearHistoryOnExit:    false,        // kapatınca ziyaret günlüğü, indirme geçmişi ve site simgeleri
   // WebRTC IP politikası (bkz. browser-commands.js): VPN açıkken gerçek IP'nin
   // WebRTC üzerinden sızmasını önler, görüntülü görüşmeleri bozmaz.
   webrtcPolicy:          DEFAULT_WEBRTC_POLICY,
@@ -472,6 +480,7 @@ function configureSession(ses) {
       delete headers['X-WebRTC-IP'];
     }
     if (config.doNotTrack) headers['DNT'] = '1';
+    if (config.globalPrivacyControl !== false) headers['Sec-GPC'] = '1';
     callback({ requestHeaders: headers });
   });
 
@@ -495,10 +504,13 @@ function configureSession(ses) {
         pageUrl:      pageUrlOf(details),
       })) return callback({ cancel: true });
     }
-    // HTTPS-Only: ana çerçeve http isteklerini https'e yükselt
-    if (config.httpsOnly && details.resourceType === 'mainFrame' && details.url.startsWith('http://')) {
-      return callback({ redirectURL: 'https://' + details.url.slice('http://'.length) });
-    }
+    // Ana çerçeve: tıklama kimlikleri ve araya giren yönlendiriciler atlanır (bkz.
+    // site-safety.js), HTTPS-Only açıksa http https'e yükseltilir.
+    const next = rewriteNavigation({
+      url: details.url, method: details.method, resourceType: details.resourceType, referrer: details.referrer,
+      httpsOnly: config.httpsOnly, cleanLinks: config.cleanLinks !== false, thirdParty: isThirdParty,
+    });
+    if (next) return callback({ redirectURL: next });
     callback({});
   });
 
@@ -653,6 +665,9 @@ function createTab(win, state, url = config.homepage, opts = {}) {
       preload: path.join(__dirname, '../preload/page-preload.js'),
       // En küçük yazı boyutu (Ayarlar › Erişilebilirlik); yalnızca sekme açılırken verilebilir.
       minimumFontSize: normalizeMinFontSize(config.minimumFontSize),
+      // Otomatik oynatma ve GPC de yalnızca sekme açılırken verilebilir (ön yükleme argv'den okur).
+      autoplayPolicy: autoplayPolicyFor(config),
+      additionalArguments: config.globalPrivacyControl !== false ? ['--ilgezdi-gpc'] : [],
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
@@ -1783,6 +1798,8 @@ ipcMain.handle('save-config', (e, newCfg) => {
   if ('minimumFontSize' in incoming) incoming.minimumFontSize = normalizeMinFontSize(incoming.minimumFontSize);
   if ('reduceMotion' in incoming) incoming.reduceMotion = incoming.reduceMotion === true;
   if ('highContrast' in incoming) incoming.highContrast = incoming.highContrast === true;
+  for (const k of ['globalPrivacyControl', 'cleanLinks', 'blockAutoplay']) if (k in incoming) incoming[k] = incoming[k] !== false;
+  for (const k of ['clearSiteDataOnExit', 'clearHistoryOnExit']) if (k in incoming) incoming[k] = incoming[k] === true;
   const previous = { webrtcPolicy: config.webrtcPolicy, secureDns: config.secureDns, startupMode: config.startupMode, threatProtection: config.threatProtection !== false, defaultPageZoom: normalizePageZoom(config.defaultPageZoom) };
   config = { ...config, ...incoming };
   saveConfig(config);
@@ -2438,6 +2455,29 @@ app.whenReady().then(async () => {
     const id = createTab(mainWindow, mainState, homepageUrl());
     setActiveTab(mainWindow, mainState, id);
   }, 800);
+});
+
+// Kapatınca verileri sil (Ayarlar › Genel). Kapanış bir kez ertelenir, silme bitince
+// (en çok 8 sn) yeniden istenir. Oturum dosyası pencere kapanırken zaten yazıldı:
+// "Kaldığım yerden devam et" açıksa sekmeler geri gelir.
+let exitCleanupStarted = false;
+app.on('before-quit', (event) => {
+  if (exitCleanupStarted) return;
+  const steps = exitCleanupPlan(config);
+  if (!steps.length) return;
+  exitCleanupStarted = true;
+  event.preventDefault();
+  const ses = browsingSession();
+  const run = {
+    cache:     () => ses.clearCache(),
+    siteData:  () => ses.clearStorageData(),
+    history:   () => secureLog?.clearLogs(),
+    downloads: () => { for (const [id, d] of downloads) if (!d.item) downloads.delete(id); saveDownloadHistoryNow(); },
+    favicons:  () => faviconCache?.clear(),
+  };
+  const work = Promise.all(steps.map((s) => Promise.resolve().then(run[s]).catch((e) => logError('exit-cleanup', e))));
+  const limit = new Promise((resolve) => setTimeout(resolve, 8000));
+  Promise.race([work, limit]).finally(() => app.quit());
 });
 
 app.on('window-all-closed', async () => {
