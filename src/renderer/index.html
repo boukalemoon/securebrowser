@@ -30,18 +30,18 @@
 
     <!-- macOS trafik ışıkları -->
     <div class="traffic-lights" id="wc-macos">
-      <button class="dot close" id="mac-btn-close"    title="Kapat"></button>
-      <button class="dot min"   id="mac-btn-minimize" title="Küçült"></button>
-      <button class="dot max"   id="mac-btn-maximize" title="Büyüt"></button>
+      <button class="dot close" id="mac-btn-close"    title="Kapat" data-i18n-title="common.close"></button>
+      <button class="dot min"   id="mac-btn-minimize" title="Küçült" data-i18n-title="common.minimize"></button>
+      <button class="dot max"   id="mac-btn-maximize" title="Büyüt" data-i18n-title="common.maximize"></button>
     </div>
 
     <!-- Sekmeler (flex:1 → soldan sağa dolar) -->
     <div class="tab-strip">
-      <div id="tabs-container" role="tablist" aria-label="Sekmeler"></div>
-      <button class="tab-add" id="btn-new-tab" title="Yeni Sekme (Ctrl+T)">
+      <div id="tabs-container" role="tablist" aria-label="Sekmeler" data-i18n-aria-label="ui.tabs"></div>
+      <button class="tab-add" id="btn-new-tab" title="Yeni Sekme (Ctrl+T)" data-i18n-title="ui.newTab">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
       </button>
-      <button class="tab-add" id="btn-tab-search" title="Sekmelerde ara (Ctrl+Shift+A)" aria-label="Sekmelerde ara">
+      <button class="tab-add" id="btn-tab-search" title="Sekmelerde ara (Ctrl+Shift+A)" aria-label="Sekmelerde ara" data-i18n-title="ui.tabSearch" data-i18n-aria-label="ui.tabSearchLabel">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
       </button>
     </div>
@@ -50,13 +50,13 @@
     <div class="window-actions" id="titlebar-right">
       <div id="vpn-indicator" class="vpn-off" role="status">
         <span class="vpn-dot"></span>
-        <span id="vpn-label">VPN Kapalı</span>
+        <span id="vpn-label" data-i18n="ui.vpnOff">VPN Kapalı</span>
       </div>
       <!-- Windows kontrolleri (macOS modunda CSS ile gizlenir) -->
       <div id="wc-windows">
-        <button id="btn-minimize" title="Küçült">─</button>
-        <button id="btn-maximize" title="Büyüt">□</button>
-        <button id="btn-close"    title="Kapat">✕</button>
+        <button id="btn-minimize" title="Küçült" data-i18n-title="common.minimize">─</button>
+        <button id="btn-maximize" title="Büyüt" data-i18n-title="common.maximize">□</button>
+        <button id="btn-close"    title="Kapat" data-i18n-title="common.close">✕</button>
       </div>
     </div>
 
@@ -75,17 +75,17 @@
     </div>
 
     <!-- Navigasyon -->
-    <div id="nav-buttons" role="navigation" aria-label="Sayfa gezinmesi">
-      <button class="nav-btn" id="btn-back"    title="Geri (Alt+Sol)">
+    <div id="nav-buttons" role="navigation" aria-label="Sayfa gezinmesi" data-i18n-aria-label="ui.navigation">
+      <button class="nav-btn" id="btn-back"    title="Geri (Alt+Sol)" data-i18n-title="ui.back">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
       </button>
-      <button class="nav-btn" id="btn-forward" title="İleri (Alt+Sağ)">
+      <button class="nav-btn" id="btn-forward" title="İleri (Alt+Sağ)" data-i18n-title="ui.forward">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
       </button>
-      <button class="nav-btn" id="btn-reload"  title="Yenile (F5)">
+      <button class="nav-btn" id="btn-reload"  title="Yenile (F5)" data-i18n-title="ui.reload">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 15.5-6.3L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15.5 6.3L3 16"/><path d="M3 21v-5h5"/></svg>
       </button>
-      <button class="nav-btn" id="btn-home"    title="Ana Sayfa">
+      <button class="nav-btn" id="btn-home"    title="Ana Sayfa" data-i18n-title="ui.home">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/></svg>
       </button>
     </div>
@@ -94,28 +94,28 @@
     <form id="address-bar-form" style="flex:1;display:flex;" role="search">
       <div id="address-bar-wrapper">
         <!-- Site bilgisi: bağlantı, sertifika, site izinleri (app.js → panel-siteinfo) -->
-        <button type="button" id="security-icon" title="Site bilgisi">
+        <button type="button" id="security-icon" title="Site bilgisi" data-i18n-title="ui.siteInfo">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
         </button>
         <input type="text" id="address-bar"
-               placeholder="Bir adres yaz veya İlgezdi ile ara…"
-               aria-label="Adres veya arama"
+               placeholder="Bir adres yaz veya İlgezdi ile ara…" data-i18n-placeholder="ui.addressPlaceholder"
+               aria-label="Adres veya arama" data-i18n-aria-label="ui.addressLabel"
                spellcheck="false" autocomplete="off" />
         <div class="addr-actions">
           <!-- Engellenen açılır pencere varsa görünür; tıklayınca Site Bilgisi paneli açılır -->
-          <button type="button" id="popup-blocked-indicator" title="Açılır pencere engellendi" hidden>
+          <button type="button" id="popup-blocked-indicator" title="Açılır pencere engellendi" data-i18n-title="ui.popupBlocked" hidden>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="14" height="12" rx="2"/><path d="M21 9v10a2 2 0 0 1-2 2H9"/><path d="M5 5l12 12"/></svg>
             <span id="popup-blocked-count">1</span>
           </button>
           <!-- Yakınlaştırma %100 değilken görünür; tıklayınca sıfırlar (Ctrl+0) -->
-          <button type="button" id="zoom-indicator" title="Yakınlaştırmayı sıfırla (Ctrl+0)" hidden>%100</button>
-          <button type="button" id="btn-reader" title="Okuma modu (F9)" aria-label="Okuma modu" hidden>
+          <button type="button" id="zoom-indicator" title="Yakınlaştırmayı sıfırla (Ctrl+0)" data-i18n-title="ui.zoomReset" hidden>%100</button>
+          <button type="button" id="btn-reader" title="Okuma modu (F9)" aria-label="Okuma modu" data-i18n-title="ui.reader" data-i18n-aria-label="ui.readerLabel" hidden>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 5.5C5.5 4 8.5 4 12 6c3.5-2 6.5-2 9-.5V19c-2.5-1.5-5.5-1.5-9 .5-3.5-2-6.5-2-9-.5z"/><path d="M12 6v13.5"/></svg>
           </button>
-          <button type="button" id="btn-bookmark-star" title="Yer imine ekle (Ctrl+D)">
+          <button type="button" id="btn-bookmark-star" title="Yer imine ekle (Ctrl+D)" data-i18n-title="ui.bookmarkAdd">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l2.7 6 6.3.5-4.8 4.2 1.5 6.3L12 16.8 6.3 20l1.5-6.3L3 9.5 9.3 9z"/></svg>
           </button>
-          <button type="submit" id="btn-search" title="Git">
+          <button type="submit" id="btn-search" title="Git" data-i18n-title="ui.go">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
           </button>
         </div>
@@ -124,7 +124,7 @@
 
     <!-- Sağ araçlar -->
     <div id="toolbar-right">
-      <button class="nav-btn" id="btn-incognito" title="Gizli Pencere (Ctrl+Shift+N)">
+      <button class="nav-btn" id="btn-incognito" title="Gizli Pencere (Ctrl+Shift+N)" data-i18n-title="ui.incognito">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/><line x1="4" y1="4" x2="20" y2="20" stroke-width="2"/></svg>
       </button>
       <!-- vpn-panel.js bu div'e VPN butonunu inject eder -->
@@ -141,11 +141,11 @@
     <svg class="pw-offer-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="15" r="4"/><path d="M10.8 12.2 20 3"/><path d="m16 7 3 3"/><path d="m18.5 4.5 2 2"/></svg>
     <span class="pw-offer-text" id="pw-offer-text"></span>
     <span class="pw-offer-status" id="pw-offer-status" role="status"></span>
-    <button type="button" class="pw-offer-btn primary" id="pw-offer-save" data-pw-action="save">Kaydet</button>
-    <button type="button" class="pw-offer-btn" id="pw-offer-never" data-pw-action="never">Bu sitede asla</button>
-    <button type="button" class="pw-offer-close" id="pw-offer-dismiss" data-pw-action="dismiss" aria-label="Şimdi değil" title="Şimdi değil">✕</button>
+    <button type="button" class="pw-offer-btn primary" id="pw-offer-save" data-pw-action="save" data-i18n="pwOffer.save">Kaydet</button>
+    <button type="button" class="pw-offer-btn" id="pw-offer-never" data-pw-action="never" data-i18n="pwOffer.never">Bu sitede asla</button>
+    <button type="button" class="pw-offer-close" id="pw-offer-dismiss" data-pw-action="dismiss" aria-label="Şimdi değil" title="Şimdi değil" data-i18n-aria-label="pwOffer.notNow" data-i18n-title="pwOffer.notNow">✕</button>
   </div>
-  <div id="bookmarks-bar" role="navigation" aria-label="Yer imleri çubuğu">
+  <div id="bookmarks-bar" role="navigation" aria-label="Yer imleri çubuğu" data-i18n-aria-label="ui.bookmarksBar">
     <div id="bookmarks-bar-items">
       <!-- bookmarks-panel.js / app.js tarafından doldurulur -->
     </div>
@@ -155,17 +155,17 @@
        SAYFADA BUL (Ctrl+F) — yer imleri satırının sağına biner.
        Sekme görünümü bu satırın altında başladığı için sayfa kaymaz.
        ══════════════════════════════════════════════════════ -->
-  <div id="find-bar" role="search" aria-label="Sayfada bul" hidden>
-    <input type="text" id="find-input" placeholder="Sayfada bul" aria-label="Sayfada aranacak metin"
+  <div id="find-bar" role="search" aria-label="Sayfada bul" data-i18n-aria-label="find.label" hidden>
+    <input type="text" id="find-input" placeholder="Sayfada bul" aria-label="Sayfada aranacak metin" data-i18n-placeholder="find.placeholder" data-i18n-aria-label="find.inputLabel"
            spellcheck="false" autocomplete="off" maxlength="500" />
     <span id="find-count" aria-live="polite"></span>
-    <button type="button" id="find-prev" title="Önceki eşleşme (Shift+Enter)">
+    <button type="button" id="find-prev" title="Önceki eşleşme (Shift+Enter)" data-i18n-title="find.prev">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 15l-6-6-6 6"/></svg>
     </button>
-    <button type="button" id="find-next" title="Sonraki eşleşme (Enter)">
+    <button type="button" id="find-next" title="Sonraki eşleşme (Enter)" data-i18n-title="find.next">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
     </button>
-    <button type="button" id="find-close" title="Kapat (Esc)">
+    <button type="button" id="find-close" title="Kapat (Esc)" data-i18n-title="find.close">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
     </button>
   </div>
@@ -176,23 +176,23 @@
   <div id="main">
 
     <!-- ── Kenar Çubuğu (Tasarım: sidebar) ──────────────── -->
-    <aside class="sidebar" id="sidebar" aria-label="Kenar çubuğu">
+    <aside class="sidebar" id="sidebar" aria-label="Kenar çubuğu" data-i18n-aria-label="ui.sidebar">
 
       <!-- Sayfa geçişi butonları -->
       <button class="sidebar-btn active" id="sb-home"
-              data-screen="newtab" title="Ana Sayfa">
+              data-screen="newtab" title="Ana Sayfa" data-i18n-title="ui.home">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/></svg>
       </button>
       <!-- id="btn-bookmarks" — bookmarks-panel.js bu butonu yönetir -->
-      <button class="sidebar-btn" id="btn-bookmarks" title="Yer İşaretleri (Ctrl+B)">
+      <button class="sidebar-btn" id="btn-bookmarks" title="Yer İşaretleri (Ctrl+B)" data-i18n-title="ui.bookmarks">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l2.7 6 6.3.5-4.8 4.2 1.5 6.3L12 16.8 6.3 20l1.5-6.3L3 9.5 9.3 9z"/></svg>
       </button>
       <button class="sidebar-btn" id="sb-history"
-              data-screen="history" title="Geçmiş">
+              data-screen="history" title="Geçmiş" data-i18n-title="ui.history">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3 2"/></svg>
       </button>
       <button class="sidebar-btn" id="sb-downloads"
-              data-screen="downloads" title="İndirmeler">
+              data-screen="downloads" title="İndirmeler" data-i18n-title="ui.downloads">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg>
       </button>
 
@@ -200,34 +200,34 @@
 
       <!-- Araç / panel butonları -->
       <button class="sidebar-btn" id="sb-discover"
-              data-screen="discover" title="Keşfet">
+              data-screen="discover" title="Keşfet" data-i18n-title="ui.discover">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76" fill="currentColor"/></svg>
       </button>
       <!-- id="btn-shield" — app.js bu butonu yönetir -->
-      <button class="sidebar-btn" id="btn-shield" title="Koruma Durumu">
+      <button class="sidebar-btn" id="btn-shield" title="Koruma Durumu" data-i18n-title="ui.shield">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 5-4 8-8 9-4-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/></svg>
       </button>
       <!-- id="btn-blocker" — blocker-panel.js bu butonu yönetir -->
-      <button class="sidebar-btn" id="btn-blocker" title="Reklam & Tracker Engelleme">
+      <button class="sidebar-btn" id="btn-blocker" title="Reklam ve İzleyici Engelleme" data-i18n-title="ui.blocker">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M4.93 4.93l14.14 14.14"/></svg>
       </button>
       <!-- id="btn-arku" — arku-panel.js bu butonu yönetir -->
-      <button class="sidebar-btn" id="btn-arku" title="Arku Uzak Masaüstü">
+      <button class="sidebar-btn" id="btn-arku" title="Arku Uzak Masaüstü" data-i18n-title="ui.arku">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
       </button>
       <!-- id="btn-logs" — log-panel.js bu butonu yönetir -->
-      <button class="sidebar-btn" id="btn-logs" title="Ziyaret Günlüğü (Ctrl+Shift+L)">
+      <button class="sidebar-btn" id="btn-logs" title="Ziyaret Günlüğü (Ctrl+Shift+L)" data-i18n-title="ui.logs">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
       </button>
 
       <div class="sidebar-foot">
         <!-- Öneri ve geri bildirim sayfası (app.js → renderFeedbackPage) -->
         <button class="sidebar-btn" id="sb-feedback"
-                data-screen="feedback" title="Öneri ve geri bildirim" aria-label="Öneri ve geri bildirim">
+                data-screen="feedback" title="Öneri ve geri bildirim" aria-label="Öneri ve geri bildirim" data-i18n-title="ui.feedback" data-i18n-aria-label="ui.feedback">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6"/><path d="M10 21h4"/><path d="M12 3a6 6 0 0 0-3.6 10.8c.6.5 1 1.2 1 2V16h5.2v-.2c0-.8.4-1.5 1-2A6 6 0 0 0 12 3z"/></svg>
         </button>
         <!-- id="btn-settings" — settings-panel.js bu butonu yönetir -->
-        <button class="sidebar-btn" id="btn-settings" title="Ayarlar (Ctrl+,)">
+        <button class="sidebar-btn" id="btn-settings" title="Ayarlar (Ctrl+,)" data-i18n-title="ui.settings">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
         </button>
       </div>
@@ -255,10 +255,10 @@
       <div id="panel-blocker"   class="side-panel hidden"></div>
 
       <!-- Site bilgisi paneli: kilit simgesi (app.js tarafından yönetilir) -->
-      <div id="panel-siteinfo" class="side-panel hidden" role="region" aria-label="Site bilgisi">
+      <div id="panel-siteinfo" class="side-panel hidden" role="region" aria-label="Site bilgisi" data-i18n-aria-label="ui.siteInfo">
         <div class="panel-header">
-          <h2>Site Bilgisi</h2>
-          <button class="panel-close" aria-label="Paneli kapat">✕</button>
+          <h2 data-i18n="siteInfo.title">Site Bilgisi</h2>
+          <button class="panel-close" aria-label="Paneli kapat" data-i18n-aria-label="common.closePanel">✕</button>
         </div>
         <div class="panel-body" id="siteinfo-body"></div>
       </div>
@@ -266,8 +266,8 @@
       <!-- Koruma durumu paneli (app.js tarafından yönetilir) -->
       <div id="panel-shield" class="side-panel hidden">
         <div class="panel-header">
-          <h2>Koruma Durumu</h2>
-          <button class="panel-close" aria-label="Paneli kapat">✕</button>
+          <h2 data-i18n="shield.title">Koruma Durumu</h2>
+          <button class="panel-close" aria-label="Paneli kapat" data-i18n-aria-label="common.closePanel">✕</button>
         </div>
         <div class="panel-body">
           <div id="shield-stats"></div>
@@ -283,12 +283,12 @@
   <!-- ══════════════════════════════════════════════════════
        DURUM ÇUBUĞU
        ══════════════════════════════════════════════════════ -->
-  <div class="statusbar" id="statusbar" role="contentinfo" aria-label="Durum çubuğu">
+  <div class="statusbar" id="statusbar" role="contentinfo" aria-label="Durum çubuğu" data-i18n-aria-label="ui.statusbar">
     <span id="status-security"></span>
     <span>·</span>
     <span id="status-url"></span>
     <span id="status-note" class="status-note" role="status" aria-live="polite" hidden></span>
-    <span class="rune-stripe" id="status-runes" title="Göktürk Runik Yazısı" aria-hidden="true">𐱅𐰢 𐰉 𐰽 𐱆 𐰚𐰢 𐱅𐰉𐰍</span>
+    <span class="rune-stripe" id="status-runes" title="Göktürk Runik Yazısı" data-i18n-title="ui.runes" aria-hidden="true">𐱅𐰢 𐰉 𐰽 𐱆 𐰚𐰢 𐱅𐰉𐰍</span>
     <span id="status-version">İlgezdi</span>
   </div>
 
@@ -297,8 +297,8 @@
        (auth-screen.js tarafından yönetilir)
        ══════════════════════════════════════════════════════ -->
   <div id="auth-screen" class="hidden">
-    <div class="auth-modal" role="dialog" aria-modal="true" aria-label="İlgezdi hesabı">
-      <button class="auth-skip" id="auth-skip" title="Misafir olarak devam et">✕</button>
+    <div class="auth-modal" role="dialog" aria-modal="true" aria-label="İlgezdi hesabı" data-i18n-aria-label="auth.dialog">
+      <button class="auth-skip" id="auth-skip" title="Misafir olarak devam et" data-i18n-title="auth.skip">✕</button>
 
       <div class="auth-brand">
         <span id="auth-brand-mark"></span>
@@ -306,8 +306,8 @@
       </div>
 
       <div class="auth-tabs">
-        <button class="auth-tab active" id="auth-tab-login">Giriş Yap</button>
-        <button class="auth-tab"        id="auth-tab-register">Kayıt Ol</button>
+        <button class="auth-tab active" id="auth-tab-login" data-i18n="auth.login">Giriş Yap</button>
+        <button class="auth-tab"        id="auth-tab-register" data-i18n="auth.register">Kayıt Ol</button>
       </div>
 
       <!-- GİRİŞ PANELİ -->
@@ -315,34 +315,34 @@
 
         <!-- Form görünümü -->
         <div class="form-section" id="form-section">
-          <div class="auth-hint" style="font-size:11.5px;color:var(--ink-mute);text-align:center;margin-bottom:12px;">
+          <div class="auth-hint" style="font-size:11.5px;color:var(--ink-mute);text-align:center;margin-bottom:12px;" data-i18n="auth.loginHint">
             Qrtım hesabınla giriş yap — ayarların ve yer imlerin otomatik senkronize edilir
           </div>
           <form id="auth-login-form" autocomplete="on">
             <div class="auth-field">
-              <label>E-POSTA</label>
-              <input type="email" id="login-email" placeholder="ornek@eposta.com" autocomplete="email" />
+              <label for="login-email" data-i18n="common.email">E-POSTA</label>
+              <input type="email" id="login-email" placeholder="ornek@eposta.com" data-i18n-placeholder="common.emailPlaceholder" autocomplete="email" />
             </div>
             <div class="auth-field">
-              <label>ŞİFRE</label>
+              <label for="login-password" data-i18n="common.password">ŞİFRE</label>
               <input type="password" id="login-password" placeholder="••••••••" autocomplete="current-password" />
             </div>
-            <button type="submit" class="auth-btn" id="auth-login-btn">Giriş Yap</button>
+            <button type="submit" class="auth-btn" id="auth-login-btn" data-i18n="auth.login">Giriş Yap</button>
           </form>
-          <div class="auth-divider">veya</div>
+          <div class="auth-divider" data-i18n="common.or">veya</div>
           <button class="auth-qr-btn" id="show-qr-btn">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="15" y="15" width="2" height="2"/><rect x="19" y="15" width="2" height="2"/><rect x="15" y="19" width="2" height="2"/><rect x="19" y="19" width="2" height="2"/></svg>
-            QRtım ile Giriş
+            <span data-i18n="auth.qrLogin">QRtım ile Giriş</span>
           </button>
         </div>
 
         <!-- QR görünümü -->
         <div class="qr-section hidden" id="qr-section">
           <img id="qr-img" alt="QR Kod" />
-          <div class="qr-status" id="qr-status">Yükleniyor...</div>
+          <div class="qr-status" id="qr-status" data-i18n="common.loading">Yükleniyor...</div>
           <div class="qr-actions">
-            <button class="qr-refresh-btn" id="qr-refresh">↺ Yenile</button>
-            <button class="qr-back-btn"    id="show-form-btn">← E-posta ile giriş</button>
+            <button class="qr-refresh-btn" id="qr-refresh" data-i18n="common.refresh">↺ Yenile</button>
+            <button class="qr-back-btn"    id="show-form-btn" data-i18n="auth.backToEmail">← E-posta ile giriş</button>
           </div>
         </div>
       </div>
@@ -351,22 +351,22 @@
       <div class="auth-panel hidden" id="auth-panel-register">
         <form id="auth-register-form" autocomplete="on">
           <div class="auth-field">
-            <label>AD SOYAD</label>
-            <input type="text"     id="register-name"      placeholder="Adınız Soyadınız"   autocomplete="name" />
+            <label for="register-name" data-i18n="auth.fullName">AD SOYAD</label>
+            <input type="text"     id="register-name"      placeholder="Adınız Soyadınız" data-i18n-placeholder="auth.fullNamePlaceholder" autocomplete="name" />
           </div>
           <div class="auth-field">
-            <label>E-POSTA</label>
-            <input type="email"    id="register-email"     placeholder="ornek@eposta.com"    autocomplete="email" />
+            <label for="register-email" data-i18n="common.email">E-POSTA</label>
+            <input type="email"    id="register-email"     placeholder="ornek@eposta.com" data-i18n-placeholder="common.emailPlaceholder" autocomplete="email" />
           </div>
           <div class="auth-field">
-            <label>ŞİFRE</label>
-            <input type="password" id="register-password"  placeholder="En az 8 karakter"   autocomplete="new-password" />
+            <label for="register-password" data-i18n="common.password">ŞİFRE</label>
+            <input type="password" id="register-password"  placeholder="En az 8 karakter" data-i18n-placeholder="auth.passwordMin" autocomplete="new-password" />
           </div>
           <div class="auth-field">
-            <label>ŞİFRE TEKRAR</label>
-            <input type="password" id="register-password2" placeholder="Şifreyi tekrar girin" autocomplete="new-password" />
+            <label for="register-password2" data-i18n="auth.passwordRepeat">ŞİFRE TEKRAR</label>
+            <input type="password" id="register-password2" placeholder="Şifreyi tekrar girin" data-i18n-placeholder="auth.passwordRepeatPlaceholder" autocomplete="new-password" />
           </div>
-          <button type="submit" class="auth-btn" id="auth-register-btn">Kayıt Ol</button>
+          <button type="submit" class="auth-btn" id="auth-register-btn" data-i18n="auth.register">Kayıt Ol</button>
         </form>
       </div>
 
@@ -378,6 +378,8 @@
 
 <!-- diag-client HER ŞEYDEN ÖNCE: sonraki betiklerin yükleme hatalarını da yakalar -->
 <script src="diag-client.js"></script>
+<!-- i18n: T / TH ve sabit metinlerin çevirisi — arayüz betiklerinden ÖNCE -->
+<script src="i18n.js"></script>
 <!-- html-safe: panellerin ortak kaçış yardımcısı — panellerden ÖNCE yüklenmeli -->
 <script src="html-safe.js"></script>
 <!-- a11y: panellerin sonradan ürettiği simge düğmelerine de erişilebilir ad verir -->

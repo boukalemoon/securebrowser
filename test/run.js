@@ -162,7 +162,7 @@ suite('IPC sözleşmesi');
   const handlers = new Set();
   for (const m of mainSrc.matchAll(/ipcMain\.(?:handle|on)\(\s*['"`]([^'"`]+)/g)) handlers.add(m[1]);
   const invoked = new Set();
-  for (const m of preSrc.matchAll(/ipcRenderer\.(?:invoke|send)\(\s*['"`]([^'"`]+)/g)) invoked.add(m[1]);
+  for (const m of preSrc.matchAll(/ipcRenderer\.(?:invoke|sendSync|send)\(\s*['"`]([^'"`]+)/g)) invoked.add(m[1]);
 
   const orphanInvokes = [...invoked].filter((c) => !handlers.has(c));
   const unusedHandlers = [...handlers].filter((c) => !invoked.has(c));
@@ -1631,6 +1631,53 @@ suite('Keşfet — TrendTech yazılımları');
     fs.rmSync(tmpLog, { recursive: true, force: true });
   }
 
+  suite('Çok dilli arayüz — altyapı');
+  {
+    const I = require('../src/renderer/i18n.js');
+    eq('diller: Türkçe kaynak; Arapça yok (sonraya bırakıldı)', [I.SOURCE_LANGUAGE, I.LANGUAGES.map((l) => l.code)], ['tr', ['tr', 'en', 'az', 'kk', 'uz', 'tk', 'ky', 'de', 'fr']]);
+    eq('dil seçimi: ayar, sistem dili, desteklenmeyen Türk dili → Türkçe, diğerleri → İngilizce, bilinmeyen ayar → sistem',
+      [I.resolveLanguage('de', ['tr-TR']), I.resolveLanguage('auto', ['kk-KZ', 'ru-RU']), I.resolveLanguage('auto', ['tt-RU']), I.resolveLanguage('auto', ['ja-JP']),
+       I.resolveLanguage('ar', ['ar-SA']), I.resolveLanguage('auto', []), I.resolveLanguage(undefined, ['fr_FR'])],
+      ['de', 'kk', 'tr', 'en', 'en', 'tr', 'fr']);
+    const en = I.createTranslator('en', { 'a.tabs': { one: '{count} tab', other: '{count} tabs' }, 'a.hi': 'Hi {name}{link}' }, { 'a.tabs': '{count} sekme', 'a.only': 'Sadece Türkçe' });
+    eq('çoğul (İngilizce), sayı biçimi, Türkçeye düşme, eksik anahtar görünür kalır',
+      [en.T('a.tabs', { count: 1 }), en.T('a.tabs', { count: 2500 }), en.T('a.only'), en.T('a.yok')], ['1 tab', '2,500 tabs', 'Sadece Türkçe', 'a.yok']);
+    eq('TH: çeviri ve parametre kaçışlanır, yalnızca kodun verdiği HTML olduğu gibi', en.TH('a.hi', { name: '<img onerror=x>' }, { link: '<a href="#">ok</a>' }), 'Hi &lt;img onerror=x&gt;<a href="#">ok</a>');
+    const trT = I.createTranslator('tr', { 'a.tabs': '{count} sekme' }, {});
+    eq('Türkçe tek biçim, binlik nokta', trT.T('a.tabs', { count: 2500 }), '2.500 sekme');
+
+    const localesDir = path.join(__dirname, '..', 'src', 'locales');
+    const trMsgs = JSON.parse(fs.readFileSync(path.join(localesDir, 'tr.json'), 'utf8'));
+    check('tr.json geçerli ve boş değer yok', Object.keys(trMsgs).length > 50 && Object.values(trMsgs).every((v) => (typeof v === 'string' && v.length) || (v && typeof v === 'object' && typeof v.other === 'string')));
+    // Koddaki her T/TH/data-i18n anahtarı tr.json'da olmalı.
+    const walk = (dir) => fs.readdirSync(dir, { withFileTypes: true }).flatMap((d) => d.isDirectory() ? walk(path.join(dir, d.name)) : /\.(js|html)$/.test(d.name) ? [path.join(dir, d.name)] : []);
+    const used = new Set();
+    for (const f of walk(path.join(__dirname, '..', 'src')).filter((x) => path.basename(x) !== 'i18n.js')) {
+      const src = fs.readFileSync(f, 'utf8');
+      for (const m of src.matchAll(/\b(?:T|TH)\(\s*'([a-zA-Z0-9_.-]+)'/g)) used.add(m[1]);
+      for (const m of src.matchAll(/data-i18n(?:-title|-aria-label|-placeholder)?="([a-zA-Z0-9_.-]+)"/g)) used.add(m[1]);
+    }
+    const missing = [...used].filter((k) => !Object.prototype.hasOwnProperty.call(trMsgs, k));
+    check('koddaki her çeviri anahtarı tr.json\'da var (' + used.size + ' anahtar)', missing.length === 0, missing.slice(0, 20).join(', '));
+    // Diğer dillerde tr.json'da olmayan anahtar, eksik parametre ya da bozuk çoğul olmamalı.
+    const placeholders = (v) => [...new Set((typeof v === 'string' ? v : Object.values(v).join(' ')).match(/\{\w+\}/g) || [])].sort().join(',');
+    for (const file of fs.readdirSync(localesDir).filter((f) => f.endsWith('.json') && f !== 'tr.json')) {
+      const msgs = JSON.parse(fs.readFileSync(path.join(localesDir, file), 'utf8'));
+      const extra = Object.keys(msgs).filter((k) => !Object.prototype.hasOwnProperty.call(trMsgs, k));
+      const badParams = Object.keys(msgs).filter((k) => Object.prototype.hasOwnProperty.call(trMsgs, k) && placeholders(msgs[k]) !== placeholders(trMsgs[k]));
+      const badPlural = Object.keys(msgs).filter((k) => msgs[k] && typeof msgs[k] === 'object' && typeof msgs[k].other !== 'string');
+      const markup = Object.keys(msgs).filter((k) => /<[a-z/!]/i.test(typeof msgs[k] === 'string' ? msgs[k] : JSON.stringify(msgs[k])) && !/<[a-z/!]/i.test(typeof trMsgs[k] === 'string' ? trMsgs[k] : JSON.stringify(trMsgs[k])));
+      check(file + ': fazla anahtar, parametre farkı, bozuk çoğul ya da HTML yok',
+        !extra.length && !badParams.length && !badPlural.length && !markup.length, JSON.stringify({ extra: extra.slice(0, 5), badParams: badParams.slice(0, 5), badPlural, markup: markup.slice(0, 5) }));
+    }
+    const mjI = read('main/main.js');
+    check('ana süreç dili açılışta seçiyor; arayüz paketi eşzamanlı; dil değişince yeniden başlatma satırı',
+      mjI.includes("i18n.init(languageAtStart,") && mjI.includes("ipcMain.on('i18n-bundle', (event) => { event.returnValue = i18n.bundle(); });")
+      && read('preload/preload.js').includes("contextBridge.exposeInMainWorld('ilgezdiLocale', ipcRenderer.sendSync('i18n-bundle'));")
+      && /<script src="diag-client\.js"><\/script>\s*<!--[^>]*-->\s*<script src="i18n\.js"><\/script>/.test(read('renderer/index.html')));
+    check('dil senkronlanmıyor (cihaza özgü)', !read('renderer/sync-manager.js').includes("'language'"));
+  }
+
   suite('Sızmış şifre denetimi (Have I Been Pwned)');
   {
     const PW = require('../src/main/pwned-check.js');
@@ -1892,7 +1939,7 @@ suite('Keşfet — TrendTech yazılımları');
     const sp6 = read('renderer/settings-panel.js');
     check('Kaydet tek fonksiyonda; "Kaydet ve yeniden başlat" önce kaydediyor',
       sp6.includes("document.getElementById('btn-save-all')?.addEventListener('click', () => saveAllSettings());")
-      && /btn-relaunch'\)\?\.addEventListener\('click', async \(\) => \{\s*await saveAllSettings\(\);\s*window\.secureBrowser\?\.relaunch\?\.\(\);/.test(sp6));
+      && /querySelectorAll\('#btn-relaunch, #btn-lang-relaunch'\)\.forEach\(\(b\) => b\.addEventListener\('click', async \(\) => \{\s*await saveAllSettings\(\);\s*window\.secureBrowser\?\.relaunch\?\.\(\);/.test(sp6));
     check('sıfırlama sonrası arayüz kopyaları yenileniyor (engelleyici localStorage, tema, form, senkron)',
       /async function resetAllSettings\(\) \{[\s\S]{0,400}localStorage\.removeItem\('ilgezdi-whitelist'\); localStorage\.removeItem\('ilgezdi-block-level'\);[\s\S]{0,200}await loadSavedTheme\(\);\s*loadSettingsState\(/.test(sp6)
       && sp6.includes('window.ilgezdiSync?.schedulePush();\n  selectSettingsTab(\'general\');'));
@@ -2004,8 +2051,9 @@ suite('Keşfet — TrendTech yazılımları');
     check('navigator.globalPrivacyControl yalnızca bayrakla ve sayfa dünyasında tanımlanıyor',
       /if \(process\.argv\.includes\('--ilgezdi-gpc'\)\) \{\s*webFrame\.executeJavaScript\("Object\.defineProperty\(Navigator\.prototype, 'globalPrivacyControl'/.test(pp5));
     const sp5 = read('renderer/settings-panel.js');
-    check('İngilizce seçeneği hazır olmadığını söylüyor ve seçilemiyor; dil her zaman tr kaydediliyor',
-      sp5.includes('<option value="en" disabled>🇬🇧 English (hazırlanıyor)</option>') && /\n\s*language:\s*'tr',/.test(sp5));
+    check('dil seçimi: sistem dili ya da desteklenen diller; bilinmeyen değer "auto"',
+      sp5.includes("<option value=\"auto\" ${(cfg.language || 'auto') === 'auto' ? 'selected' : ''}>${TH('settings.language.auto')}</option>")
+      && sp5.includes("language:               (window.ilgezdiI18n?.languages || []).some((l) => l.code === c.language) ? c.language : 'auto',"));
     check('yeni gizlilik ayarları senkronlanıyor',
       read('renderer/sync-manager.js').includes("'globalPrivacyControl', 'cleanLinks', 'blockAutoplay', 'clearSiteDataOnExit', 'clearHistoryOnExit',"));
   }

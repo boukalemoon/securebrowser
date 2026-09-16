@@ -6,6 +6,10 @@
 
 const { contextBridge, ipcRenderer } = require('electron');
 
+// Arayüz dili: ana süreçteki paket (dil kodu + Türkçeyle tamamlanmış sözlük) sayfa betikleri
+// çalışmadan önce eşzamanlı alınır; i18n.js bunu window.T / window.TH yapar.
+contextBridge.exposeInMainWorld('ilgezdiLocale', ipcRenderer.sendSync('i18n-bundle'));
+
 contextBridge.exposeInMainWorld('secureBrowser', {
 
   blocker: {

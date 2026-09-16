@@ -346,8 +346,7 @@ function formValuesFrom(cfg) {
     searchEngine:           c.searchEngine || 'duckduckgo',
     startupMode:            c.startupMode === 'restore' ? 'restore' : 'homepage',
     homepage:               c.homepage && c.homepage !== 'about:blank' ? c.homepage : '',
-    // Çeviri altyapısı yok: İngilizce seçilse de arayüz Türkçe kalıyordu. Hazır olana kadar tr.
-    language:               'tr',
+    language:               (window.ilgezdiI18n?.languages || []).some((l) => l.code === c.language) ? c.language : 'auto',
     downloadFolder:         c.downloadFolder || '',
     askDownloadLocation:    !!c.askDownloadLocation,
     notifications:          c.notifications !== false,
@@ -408,17 +407,19 @@ function onSettingsFieldChange(e) {
   if (!field) return;
   const [key, prop] = field;
   _formCfg[key] = prop === 'checked' ? !!e.target.checked : String(e.target.value ?? '');
-  if (key === 'hardwareAcceleration') updateRelaunchRow();
+  if (key === 'hardwareAcceleration' || key === 'language') updateRelaunchRow();
   updateUnsavedBar();
 }
 
 // Donanım hızlandırma bu oturumda açık mı başladı (ana süreç bildirir); form değeri
 // bundan farklıysa "Kaydet ve yeniden başlat" gösterilir.
 let _runtimeHwAccel = null;
+let _runtimeLanguage = null;
 function updateRelaunchRow() {
   const row = document.getElementById('relaunch-row');
-  if (!row || _runtimeHwAccel === null) return;
-  row.hidden = (_formCfg.hardwareAcceleration !== false) === _runtimeHwAccel;
+  if (row && _runtimeHwAccel !== null) row.hidden = (_formCfg.hardwareAcceleration !== false) === _runtimeHwAccel;
+  const langRow = document.getElementById('lang-relaunch-row');
+  if (langRow && _runtimeLanguage !== null) langRow.hidden = String(_formCfg.language || 'auto') === _runtimeLanguage;
 }
 
 function hasPendingChanges() {
@@ -610,12 +611,18 @@ function renderGeneralTab(cfg) {
       </div>
       <p class="s-hint">Windows, uygulamaların kendini varsayılan yapmasına izin vermez: düğme Ayarlar › Varsayılan uygulamalar sayfasını açar, orada İlgezdi'yi seçin. Sonra başka uygulamalardaki bağlantılar İlgezdi'de yeni sekmede açılır.</p>
     </div>
-    <div class="settings-section"><h3>Dil</h3>
-      <div class="s-input-row"><select id="lang-select">
-        <option value="tr" selected>🇹🇷 Türkçe</option>
-        <option value="en" disabled>🇬🇧 English (hazırlanıyor)</option>
+    <div class="settings-section"><h3>${TH('settings.language.title')}</h3>
+      <div class="s-input-row"><label for="lang-select">${TH('settings.language.label')}</label><select id="lang-select">
+        <option value="auto" ${(cfg.language || 'auto') === 'auto' ? 'selected' : ''}>${TH('settings.language.auto')}</option>
+        ${(window.ilgezdiI18n?.languages || []).map((l) => `<option value="${l.code}" lang="${l.code}" ${cfg.language === l.code ? 'selected' : ''}>${window.ilgezdiI18n.TH('settings.language.option', { name: l.name })}</option>`).join('')}
       </select></div>
-      <p class="s-hint">Arayüz şimdilik yalnızca Türkçe. İngilizce çeviri hazır olduğunda burada seçilebilecek.</p>
+      <div id="lang-relaunch-row" hidden>
+        <div class="s-input-row" style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+          <span class="s-hint" style="margin:0">${TH('settings.language.relaunchHint')}</span>
+          <button class="folder-btn" id="btn-lang-relaunch">${TH('settings.relaunch.button')}</button>
+        </div>
+      </div>
+      <p class="s-hint">${TH('settings.language.hint')}</p>
     </div>
     <div class="settings-section"><h3>İndirme</h3>
       <div class="s-input-row"><label>İndirme klasörü</label>
@@ -1306,12 +1313,13 @@ function bindGeneralEvents() {
   populateDefaultBrowser();
   window.secureBrowser?.runtimeInfo?.().then((info) => {
     _runtimeHwAccel = info ? info.hardwareAcceleration !== false : null;
+    _runtimeLanguage = info && typeof info.language === 'string' ? info.language : null;
     updateRelaunchRow();
   }).catch(() => {});
-  document.getElementById('btn-relaunch')?.addEventListener('click', async () => {
+  document.querySelectorAll('#btn-relaunch, #btn-lang-relaunch').forEach((b) => b.addEventListener('click', async () => {
     await saveAllSettings();
     window.secureBrowser?.relaunch?.();
-  });
+  }));
   document.getElementById('btn-reset-settings')?.addEventListener('click', resetAllSettings);
   document.getElementById('btn-default-browser')?.addEventListener('click', async () => {
     let r = null;

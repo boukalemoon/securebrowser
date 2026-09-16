@@ -105,7 +105,7 @@ const DEFAULT_CONFIG = {
   syncEnabled:           false,
   syncServerUrl:         '',
   syncApiKey:            '',
-  language:              'tr',
+  language:              'auto',       // 'auto' = sistem dili (bkz. i18n.js); yeniden başlatınca değişir
   downloadFolder:        '',
   askDownloadLocation:   false,
   notifications:         true,
@@ -188,6 +188,13 @@ let config = loadConfig();
 // değişiklik yeniden başlatınca geçerli olur. Bu oturumun durumu arayüze bildirilir.
 const hardwareAccelerationAtStart = config.hardwareAcceleration !== false;
 if (!hardwareAccelerationAtStart) app.disableHardwareAcceleration();
+
+// Arayüz dili açılışta bir kez seçilir; arayüz pencereleri paketi ön yüklemede eşzamanlı alır.
+const i18n = require('./i18n');
+const { T } = i18n;
+const languageAtStart = String(config.language || 'auto');
+i18n.init(languageAtStart, (() => { try { return app.getPreferredSystemLanguages(); } catch { return []; } })());
+ipcMain.on('i18n-bundle', (event) => { event.returnValue = i18n.bundle(); });
 let vpnManager = null;
 let secureLog  = null;
 
@@ -2040,6 +2047,7 @@ ipcMain.handle('save-config', (e, newCfg) => {
   for (const k of ['clearSiteDataOnExit', 'clearHistoryOnExit', 'warnOnCloseTabs']) if (k in incoming) incoming[k] = incoming[k] === true;
   if ('hardwareAcceleration' in incoming) incoming.hardwareAcceleration = incoming.hardwareAcceleration !== false;
   if ('tabSleepMinutes' in incoming) incoming.tabSleepMinutes = normalizeTabSleepMinutes(incoming.tabSleepMinutes);
+  if ('language' in incoming) incoming.language = i18n.LANGUAGES.some((l) => l.code === incoming.language) ? incoming.language : 'auto';
   const previous = configEffectsSnapshot();
   config = { ...config, ...incoming };
   saveConfig(config);
@@ -2090,7 +2098,7 @@ ipcMain.handle('reset-settings', async (event) => {
   return { ok: true, config: publicConfig(), relaunchNeeded: (config.hardwareAcceleration !== false) !== hardwareAccelerationAtStart };
 });
 
-ipcMain.handle('app-runtime-info', () => ({ hardwareAcceleration: hardwareAccelerationAtStart }));
+ipcMain.handle('app-runtime-info', () => ({ hardwareAcceleration: hardwareAccelerationAtStart, language: languageAtStart, locale: i18n.locale() }));
 // "Kaydet ve yeniden başlat" (donanım hızlandırma). Açık sekmeler "Kaldığım yerden devam et"
 // seçiliyse geri gelir.
 ipcMain.handle('app-relaunch', () => { app.relaunch(); app.quit(); return true; });
