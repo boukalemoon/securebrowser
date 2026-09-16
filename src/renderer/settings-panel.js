@@ -1474,11 +1474,17 @@ function bindPasswordEvents() {
 // Sekme adı sütuna sığmıyorsa (tek uzun sözcük) yazıyı 8 px'e kadar küçült. Panel gizliyken
 // genişlik 0 olduğundan ResizeObserver panel görünür olunca yeniden ölçer.
 function fitSettingsTabLabels() {
+  // scrollWidth tam sayıya yuvarlanır; yarım piksellik taşma da üç nokta gösterir.
+  const overflows = (el) => {
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    return range.getBoundingClientRect().width > el.getBoundingClientRect().width + 0.05;
+  };
   document.querySelectorAll('.settings-tab-label').forEach((el) => {
     el.style.fontSize = '';
     if (!el.clientWidth) return;
     let size = parseFloat(getComputedStyle(el).fontSize) || 10;
-    while (el.scrollWidth > el.clientWidth + 0.5 && size > 8) {
+    while (overflows(el) && size > 8) {
       size -= 0.5;
       el.style.fontSize = size + 'px';
     }
@@ -1513,6 +1519,8 @@ function initSettingsPanelEvents() {
   });
   const tabsEl = document.querySelector('.settings-tabs');
   if (tabsEl && typeof ResizeObserver === 'function') new ResizeObserver(() => fitSettingsTabLabels()).observe(tabsEl);
+  // Kiril alt kümesi gibi yazı tipleri ilk kullanımda yüklenir; yüklenince genişlik değişir.
+  document.fonts?.addEventListener?.('loadingdone', () => fitSettingsTabLabels());
 
   // Giriş/çıkış sonrası Hesap sekmesi açıksa yerinde yenilenir (panel kapanmaz).
   window.addEventListener('ilgezdi-auth-changed', () => {

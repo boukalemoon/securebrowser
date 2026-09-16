@@ -1672,6 +1672,14 @@ suite('Keşfet — TrendTech yazılımları');
       check(file + ': fazla anahtar, parametre farkı, bozuk çoğul ya da HTML yok',
         !extra.length && !badParams.length && !badPlural.length && !markup.length, JSON.stringify({ extra: extra.slice(0, 5), badParams: badParams.slice(0, 5), badPlural, markup: markup.slice(0, 5) }));
     }
+    const incomplete = I.LANGUAGES.filter((l) => l.code !== 'tr').map((l) => {
+      const file = path.join(localesDir, l.code + '.json');
+      if (!fs.existsSync(file)) return l.code + ': dosya yok';
+      const msgs = JSON.parse(fs.readFileSync(file, 'utf8'));
+      const missingKeys = Object.keys(trMsgs).filter((k) => !Object.prototype.hasOwnProperty.call(msgs, k));
+      return missingKeys.length ? l.code + ': ' + missingKeys.length + ' eksik (' + missingKeys.slice(0, 5).join(', ') + ')' : null;
+    }).filter(Boolean);
+    check('seçilebilen her dilin çevirisi eksiksiz (' + (I.LANGUAGES.length - 1) + ' dil)', incomplete.length === 0, incomplete);
     const mjI = read('main/main.js');
     check('ana süreç dili açılışta seçiyor; arayüz paketi eşzamanlı; dil değişince yeniden başlatma satırı',
       mjI.includes("i18n.init(languageAtStart,") && mjI.includes("ipcMain.on('i18n-bundle', (event) => { event.returnValue = i18n.bundle(); });")
