@@ -427,6 +427,20 @@ async function loadSiteInfo() {
         <button type="button" class="si-btn" data-open-popup="${i}">Aç</button></div>`).join('')}</div>`
     : '';
 
+  // Reklam ve izleyici koruması (Brave'in kalkanları gibi): sayaç ve site istisnası.
+  const pb = info.pageBlocked || {};
+  const blockedTotal = ['ads', 'trackers', 'cookies', 'thirdParty'].reduce((n, k) => n + (Number(pb[k]) || 0), 0);
+  const blockedParts = [[pb.trackers, 'izleyici'], [pb.ads, 'reklam'], [pb.cookies, 'çerez bildirimi'], [pb.thirdParty, 'üçüncü taraf']]
+    .filter(([n]) => Number(n) > 0).map(([n, t]) => `${Number(n)} ${t}`).join(', ');
+  const shieldHtml = !info.blocking
+    ? '<div class="si-sec"><h3>Reklam ve izleyici koruması</h3><p class="si-note">Reklam ve izleyici engelleme Ayarlar › Gizlilik\'te kapalı.</p></div>'
+    : `<div class="si-sec"><h3>Reklam ve izleyici koruması</h3>
+        <div class="si-row"><span id="si-blocked">${info.siteAllowed ? 'Bu sitede engelleme kapalı' : blockedTotal ? `Bu sayfada ${blockedTotal} istek engellendi` : 'Bu sayfada engellenen istek yok'}</span></div>
+        ${!info.siteAllowed && blockedParts ? `<p class="si-note">${H.esc(blockedParts)}</p>` : ''}
+        <div class="si-row"><label for="si-shield">Bu sitede engelle</label><input type="checkbox" id="si-shield" ${info.siteAllowed ? '' : 'checked'}></div>
+        <p class="si-note">Kapatınca bu sitede reklam ve izleyiciler yüklenir; sayfa yenilenir. Siteyi bozan bir engelleme olursa kullanın.</p>
+      </div>`;
+
   const pct = Math.round((Number(info.zoom) || 1) * 100);
   const zoomDefaultPct = Math.round((Number(info.zoomDefault) || 1) * 100);
   const zoomHtml = pct !== zoomDefaultPct
@@ -439,6 +453,7 @@ async function loadSiteInfo() {
       <div class="si-status ${secure && !certBad ? 'ok' : 'bad'}">${H.esc(statusText)}</div>
     </div>
     <div class="si-sec"><h3>Bağlantı ve sertifika</h3>${certHtml}</div>
+    ${shieldHtml}
     ${popupsHtml}
     <div class="si-sec"><h3>Bu site için izinler</h3>${permRows}
       <p class="si-note">Değişiklik hemen kaydedilir. Kamera ve konum gibi izinler sitenin bir sonraki isteğinde geçerli olur.</p>
@@ -467,6 +482,17 @@ async function loadSiteInfo() {
       await sb.site.openBlockedPopup(Number(btn.dataset.openPopup));
       loadSiteInfo();
     });
+  });
+  document.getElementById('si-shield')?.addEventListener('change', async (e) => {
+    // Engelleyici panelindeki istisna listesiyle aynı (blocker-panel.js); alan adı www'suz.
+    const domain = String(info.host || '').replace(/^www\./, '');
+    if (!domain) return;
+    if (e.target.checked) blockerRemoveWhitelist(domain);
+    else blockerAddWhitelist(domain);
+    blockerCheckCurrentSite?.();
+    await new Promise((r) => setTimeout(r, 150));   // istisna ana sürece ulaşsın
+    sb.reload();
+    setTimeout(loadSiteInfo, 1200);
   });
   document.getElementById('si-zoom-reset')?.addEventListener('click', async () => {
     await sb.zoom?.reset();

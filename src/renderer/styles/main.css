@@ -620,6 +620,7 @@ input, select, textarea { font-family: var(--font-ui); }
   display: flex; align-items: center; justify-content: space-between; gap: 10px;
   padding: 5px 0; font-size: 13px; color: var(--ink-soft);
 }
+.si-row input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--gold); cursor: pointer; }
 .si-perm select {
   max-width: 58%; background: var(--bg-soft); color: var(--ink);
   border: 1px solid var(--line); border-radius: 6px; padding: 4px 6px;

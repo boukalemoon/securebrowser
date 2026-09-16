@@ -1631,6 +1631,27 @@ suite('Keşfet — TrendTech yazılımları');
     fs.rmSync(tmpLog, { recursive: true, force: true });
   }
 
+  suite('Site Bilgisi — reklam ve izleyici koruması');
+  {
+    const blk = require('../src/main/blocker-main.js');
+    blk._resetForTest();
+    eq('engelleyici engellenen isteğin türünü döndürüyor (sayfa sayacı için); engellenmeyende false',
+      [blk.shouldBlockUrl('https://www.google-analytics.com/analytics.js', { resourceType: 'script', pageUrl: 'https://haber.com/' }),
+       blk.shouldBlockUrl('https://ad.doubleclick.net/x.gif', { resourceType: 'image', pageUrl: 'https://haber.com/' }),
+       blk.shouldBlockUrl('https://haber.com/app.js', { resourceType: 'script', pageUrl: 'https://haber.com/' })],
+      ['trackers', 'ads', false]);
+    blk._resetForTest();
+    const mjB = read('main/main.js');
+    check('engellenen istek sekmenin sayfa sayacına türüyle yazılıyor; yeni sayfada sıfırlanıyor',
+      /const blockType = shouldBlockUrl\(details\.url, \{[\s\S]{0,200}\}\);\s*if \(blockType\) \{\s*countPageBlock\(details\.webContentsId, blockType\);\s*return callback\(\{ cancel: true \}\);/.test(mjB)
+      && /tab\.usedMedia = false;\s*tab\.pageBlocked = \{ ads: 0, trackers: 0, cookies: 0, thirdParty: 0 \};/.test(mjB));
+    check('site bilgisi sayacı, istisnayı ve genel ayarı döndürüyor',
+      mjB.includes('siteAllowed:  isWebUrl(url) ? isWhitelisted(url, url) : false,') && mjB.includes('blocking:     config.blockAds !== false || config.blockTrackers !== false,'));
+    const appB = read('renderer/app.js');
+    check('anahtar engelleyici panelinin istisna listesini (www\'suz) kullanıyor ve sayfayı yeniliyor',
+      /getElementById\('si-shield'\)\?\.addEventListener\('change', async \(e\) => \{[\s\S]{0,300}replace\(\/\^www\\\.\/, ''\)[\s\S]{0,120}if \(e\.target\.checked\) blockerRemoveWhitelist\(domain\);\s*else blockerAddWhitelist\(domain\);[\s\S]{0,300}sb\.reload\(\);/.test(appB));
+  }
+
   suite('Okuma modu');
   {
     const RD = require('../src/main/reader.js');

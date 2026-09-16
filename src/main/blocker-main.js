@@ -228,7 +228,8 @@ function attachBlocker(mainWindow) {
 }
 
 /**
- * true dönerse istek engellenmeli (istatistik de kaydedilir).
+ * Engellenmesi gerekiyorsa türü ('ads' | 'trackers' | 'cookies' | 'thirdParty'), değilse
+ * false döner (istatistik de kaydedilir). Tür, Site Bilgisi panelindeki sayfa sayacı içindir.
  * @param {string} url
  * @param {{ resourceType?: string, referrer?: string, pageUrl?: string }} [details]
  *   main.js onBeforeRequest ayrıntıları. Verilmezse üçüncü taraf ve sayfa bazlı
@@ -255,7 +256,7 @@ function shouldBlockUrl(url, details) {
 
   recordBlock(url, type);
   scheduleNotify();
-  return true;
+  return type;
 }
 
 // ─── Yapılandırma (IPC üzerinden) ─────────────────────────────────────────────

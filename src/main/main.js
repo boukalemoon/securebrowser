@@ -517,11 +517,15 @@ function configureSession(ses) {
     // seviyesindeki üçüncü taraf engellemesi ve "bu siteye izin ver" (sayfanın
     // yüklediği tüm kaynaklar için) buna ihtiyaç duyar.
     if (config.blockTrackers !== false || config.blockAds !== false) {
-      if (shouldBlockUrl(details.url, {
+      const blockType = shouldBlockUrl(details.url, {
         resourceType: details.resourceType,
         referrer:     details.referrer,
         pageUrl:      pageUrlOf(details),
-      })) return callback({ cancel: true });
+      });
+      if (blockType) {
+        countPageBlock(details.webContentsId, blockType);
+        return callback({ cancel: true });
+      }
     }
     // Ana çerçeve: tıklama kimlikleri ve araya giren yönlendiriciler atlanır (bkz.
     // site-safety.js), HTTPS-Only açıksa http https'e yükseltilir.
@@ -543,6 +547,18 @@ function configureSession(ses) {
 
 // Zararlı site koruması: app.whenReady içinde kurulur (öncesinde sekme isteği olmaz).
 let threats = null;
+
+// Site Bilgisi › Reklam ve izleyici koruması: sekmedeki sayfada engellenen istekler (türe
+// göre). Yeni sayfaya geçince sıfırlanır (createTabView → did-navigate).
+function countPageBlock(webContentsId, type) {
+  if (webContentsId == null) return;
+  let wc = null;
+  try { wc = webContents.fromId(webContentsId); } catch {}
+  const ctx = wc ? tabFromContents(wc) : null;
+  if (!ctx) return;
+  const counts = ctx.tab.pageBlocked || (ctx.tab.pageBlocked = { ads: 0, trackers: 0, cookies: 0, thirdParty: 0 });
+  if (type in counts) counts[type]++;
+}
 
 // İsteği yapan sekmenin sayfa adresi (engelleyici ve çerez kararı için).
 function pageUrlOf(details) {
@@ -833,6 +849,7 @@ function createTabView(win, state, tabId) {
     if (!tab) return;
     tab.edited = false;
     tab.usedMedia = false;
+    tab.pageBlocked = { ads: 0, trackers: 0, cookies: 0, thirdParty: 0 };
     {
       // Başka siteye geçince eski simge kalmasın; önbellekte varsa hemen gösterilir.
       if (faviconHost(tab.url) !== faviconHost(navUrl)) tab.favicon = faviconCache ? faviconCache.get(navUrl, { incognito: isIncognito }) : '';
@@ -1589,6 +1606,10 @@ ipcMain.handle('site-info', (event) => {
     zoomDefault:  normalizePageZoom(config.defaultPageZoom),
     incognito:    state === incognitoState,
     thirdPartyCookiesBlocked: config.blockThirdPartyCookies !== false,
+    // Reklam ve izleyici koruması: bu sayfada engellenenler ve site istisnası.
+    blocking:     config.blockAds !== false || config.blockTrackers !== false,
+    siteAllowed:  isWebUrl(url) ? isWhitelisted(url, url) : false,
+    pageBlocked:  tab && tab.pageBlocked ? { ...tab.pageBlocked } : { ads: 0, trackers: 0, cookies: 0, thirdParty: 0 },
   };
 });
 
