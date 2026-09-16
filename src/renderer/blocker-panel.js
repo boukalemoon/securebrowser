@@ -75,11 +75,11 @@ function blockerToggleCurrentSite() {
     if (blockerIsWhitelisted(url)) {
       blockerRemoveWhitelist(domain);
       blockerUpdateSiteBtn(false);
-      showBlockerToast('Engelleme yeniden aktif: ' + domain);
+      showBlockerToast(T('blocker.reenabled', { domain }));
     } else {
       blockerAddWhitelist(domain);
       blockerUpdateSiteBtn(true);
-      showBlockerToast('İzin verildi: ' + domain);
+      showBlockerToast(T('blocker.allowed', { domain }));
     }
     if (document.getElementById('panel-blocker')?.classList.contains('visible')) {
       blockerRenderWhitelist();
@@ -90,7 +90,7 @@ function blockerToggleCurrentSite() {
 function blockerUpdateSiteBtn(isWhitelisted) {
   const btn = document.getElementById('btn-blocker-site');
   if (!btn) return;
-  btn.title = isWhitelisted ? 'Bu site için engellemeyi aç' : 'Bu siteye izin ver';
+  btn.title = isWhitelisted ? T('blocker.siteBtnOn') : T('blocker.siteBtnAllow');
   btn.classList.toggle('whitelisted', isWhitelisted);
 }
 
@@ -121,32 +121,32 @@ function blockerRenderStats() {
   if (!el) return;
 
   const level = blockerLevel;
-  const levelLabels = { low: 'Düşük', medium: 'Orta', high: 'Yüksek', full: 'Tam' };
+  const levelLabel = (l) => (['low', 'medium', 'high', 'full'].includes(l) ? T('blocker.level.' + l) : T('blocker.level.medium'));
   const levelColors = { low: 'var(--warning)', medium: 'var(--accent)', high: 'var(--success)', full: '#ff6b6b' };
 
   el.innerHTML = `
     <div class="bl-stat-card accent">
       <div class="bl-stat-value">${blockerStats.today || 0}</div>
-      <div class="bl-stat-label">Bugün Engellendi</div>
+      <div class="bl-stat-label">${TH('blocker.stat.today')}</div>
     </div>
     <div class="bl-stat-card">
       <div class="bl-stat-value">${blockerStats.total || 0}</div>
-      <div class="bl-stat-label">Toplam</div>
+      <div class="bl-stat-label">${TH('blocker.stat.total')}</div>
     </div>
     <div class="bl-stat-card">
       <div class="bl-stat-value">${blockerStats.ads || 0}</div>
-      <div class="bl-stat-label">Reklam</div>
+      <div class="bl-stat-label">${TH('blocker.stat.ads')}</div>
     </div>
     <div class="bl-stat-card">
       <div class="bl-stat-value">${blockerStats.trackers || 0}</div>
-      <div class="bl-stat-label">Tracker</div>
+      <div class="bl-stat-label">${TH('blocker.stat.trackers')}</div>
     </div>
   `;
 
   // Seviye göstergesi
   const levelEl = document.getElementById('blocker-level-display');
   if (levelEl) {
-    levelEl.textContent = levelLabels[level] || 'Orta';
+    levelEl.textContent = levelLabel(level);
     levelEl.style.color = levelColors[level] || 'var(--accent)';
   }
 
@@ -163,7 +163,7 @@ function blockerRenderWhitelist() {
 
   if (blockerWhitelist.length === 0) {
     el.innerHTML = `<p style="color:var(--text-muted);font-size:12px;text-align:center;padding:16px">
-      Tüm siteler engelleniyor
+      ${TH('blocker.allSitesBlocked')}
     </p>`;
     return;
   }
@@ -178,7 +178,7 @@ function blockerRenderWhitelist() {
     <div class="bl-white-item">
       <span aria-hidden="true" style="display:inline-grid;place-items:center;width:14px;height:14px;border-radius:3px;background:var(--bg-input);color:var(--text-muted);font-size:9px;font-weight:700;flex-shrink:0">${H.esc(letter)}</span>
       <span class="bl-white-domain">${H.esc(domain)}</span>
-      <button class="bl-white-remove" data-domain="${H.esc(domain)}" aria-label="${H.esc(domain)} için engellemeyi yeniden aç">✕</button>
+      <button class="bl-white-remove" data-domain="${H.esc(domain)}" aria-label="${TH('blocker.reenableLabel', { domain })}">✕</button>
     </div>`;
   }).join('');
 
@@ -186,7 +186,7 @@ function blockerRenderWhitelist() {
     btn.addEventListener('click', () => {
       blockerRemoveWhitelist(btn.dataset.domain);
       blockerRenderWhitelist();
-      showBlockerToast('Engelleme yeniden aktif: ' + btn.dataset.domain);
+      showBlockerToast(T('blocker.reenabled', { domain: btn.dataset.domain }));
     });
   });
 }
@@ -202,7 +202,7 @@ function blockerRenderTopBlocked() {
 
   if (entries.length === 0) {
     el.innerHTML = `<p style="color:var(--text-muted);font-size:12px;text-align:center;padding:12px">
-      Henüz engellenen yok
+      ${TH('blocker.noneYet')}
     </p>`;
     return;
   }
@@ -231,8 +231,8 @@ function blockerInjectPanelHTML() {
 
   panel.innerHTML = `
     <div class="panel-header">
-      <h2>🛡 Engelleyici</h2>
-      <button class="panel-close" data-panel="blocker">✕</button>
+      <h2>${TH('blocker.title')}</h2>
+      <button class="panel-close" data-panel="blocker" aria-label="${TH('common.closePanel')}">✕</button>
     </div>
 
     <div class="bl-content">
@@ -240,33 +240,33 @@ function blockerInjectPanelHTML() {
       <!-- Engelleme Seviyesi -->
       <div class="bl-section">
         <div class="bl-section-header">
-          <span>Engelleme Seviyesi</span>
-          <span id="blocker-level-display" style="font-weight:700">Orta</span>
+          <span>${TH('blocker.levelTitle')}</span>
+          <span id="blocker-level-display" style="font-weight:700">${TH('blocker.level.medium')}</span>
         </div>
         <div class="bl-level-grid">
-          <button class="bl-level-btn" data-level="low">🟡 Düşük</button>
-          <button class="bl-level-btn active" data-level="medium">🔵 Orta</button>
-          <button class="bl-level-btn" data-level="high">🟢 Yüksek</button>
-          <button class="bl-level-btn" data-level="full">🔴 Tam</button>
+          <button class="bl-level-btn" data-level="low">${TH('blocker.levelBtn.low')}</button>
+          <button class="bl-level-btn active" data-level="medium">${TH('blocker.levelBtn.medium')}</button>
+          <button class="bl-level-btn" data-level="high">${TH('blocker.levelBtn.high')}</button>
+          <button class="bl-level-btn" data-level="full">${TH('blocker.levelBtn.full')}</button>
         </div>
         <div class="bl-level-desc" id="bl-level-desc">
-          Reklamlar ve izleyiciler engellenir. Çoğu site düzgün çalışır.
+          ${TH('blocker.desc.medium')}
         </div>
       </div>
 
       <!-- İstatistikler -->
       <div class="bl-section">
-        <div class="bl-section-header"><span>İstatistikler</span></div>
+        <div class="bl-section-header"><span>${TH('blocker.stats')}</span></div>
         <div class="bl-stats-grid" id="blocker-stats-grid"></div>
       </div>
 
       <!-- Mevcut Sayfa -->
       <div class="bl-section">
-        <div class="bl-section-header"><span>Mevcut Sayfa</span></div>
+        <div class="bl-section-header"><span>${TH('blocker.currentPage')}</span></div>
         <div class="bl-current-site">
           <span id="bl-current-domain" style="font-size:12px;color:var(--text-secondary)">—</span>
           <button class="bl-toggle-site" id="btn-toggle-site">
-            İzin Ver
+            ${TH('blocker.allow')}
           </button>
         </div>
       </div>
@@ -274,18 +274,18 @@ function blockerInjectPanelHTML() {
       <!-- İzin Verilen Siteler -->
       <div class="bl-section">
         <div class="bl-section-header">
-          <span>İzin Verilen Siteler (${blockerWhitelist.length})</span>
+          <span>${TH('blocker.allowedSites', { count: blockerWhitelist.length })}</span>
         </div>
         <div class="bl-add-row">
           <input type="text" id="bl-add-input" placeholder="ornek.com" />
-          <button class="bl-add-btn" id="btn-bl-add">Ekle</button>
+          <button class="bl-add-btn" id="btn-bl-add">${TH('blocker.add')}</button>
         </div>
         <div id="blocker-whitelist"></div>
       </div>
 
       <!-- En Çok Engellenenler -->
       <div class="bl-section">
-        <div class="bl-section-header"><span>En Çok Engellenenler</span></div>
+        <div class="bl-section-header"><span>${TH('blocker.topBlocked')}</span></div>
         <div id="blocker-top-list"></div>
       </div>
 
@@ -316,12 +316,12 @@ function blockerInitPanelEvents() {
       const toggleBtn = document.getElementById('btn-toggle-site');
       if (toggleBtn) {
         const isWhite = blockerIsWhitelisted(url);
-        toggleBtn.textContent = isWhite ? '🚫 Engelle' : '✅ İzin Ver';
+        toggleBtn.textContent = isWhite ? T('blocker.block') : T('blocker.allow');
         toggleBtn.classList.toggle('danger', isWhite);
         toggleBtn.addEventListener('click', () => {
           blockerToggleCurrentSite();
           const nowWhite = blockerIsWhitelisted(document.getElementById('address-bar')?.value);
-          toggleBtn.textContent = nowWhite ? '🚫 Engelle' : '✅ İzin Ver';
+          toggleBtn.textContent = nowWhite ? T('blocker.block') : T('blocker.allow');
           toggleBtn.classList.toggle('danger', nowWhite);
           blockerRenderWhitelist();
         });
@@ -337,7 +337,7 @@ function blockerInitPanelEvents() {
     blockerAddWhitelist(val);
     if (input) input.value = '';
     blockerRenderWhitelist();
-    showBlockerToast('İzin verildi: ' + val);
+    showBlockerToast(T('blocker.allowed', { domain: val }));
   });
 
   document.getElementById('bl-add-input')?.addEventListener('keydown', (e) => {
@@ -353,14 +353,8 @@ function blockerInitPanelEvents() {
 }
 
 function updateLevelDesc() {
-  const descs = {
-    low:    '🟡 Yalnızca büyük reklam ağları engellenir. Siteler tam çalışır.',
-    medium: '🔵 Reklamlar ve izleyiciler engellenir. Çoğu site düzgün çalışır.',
-    high:   '🟢 Agresif engelleme. Bazı siteler bozulabilir.',
-    full:   '🔴 Tüm üçüncü taraf içerik engellenir. Yalnızca birinci taraf yüklenir.',
-  };
   const el = document.getElementById('bl-level-desc');
-  if (el) el.textContent = descs[blockerLevel] || descs.medium;
+  if (el) el.textContent = T('blocker.desc.' + (['low', 'medium', 'high', 'full'].includes(blockerLevel) ? blockerLevel : 'medium'));
 }
 
 // ─── Toast ─────────────────────────────────────────────────────────────────────

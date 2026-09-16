@@ -187,9 +187,10 @@ function bmLoad() {
     bmItems   = JSON.parse(localStorage.getItem('ilgezdi-bm-items')   || '[]');
     if (bmFolders.length === 0) {
       bmFolders = [
-        { id:'default', name:'⭐ Genel',        createdAt: Date.now() },
-        { id:'work',    name:'💼 İş',           createdAt: Date.now() },
-        { id:'reading', name:'📚 Okuma',        createdAt: Date.now() },
+        // Adlar oluşturulurken arayüz dilinde yazılır (kullanıcı verisi; sonradan değişmez).
+        { id:'default', name:T('bookmarks.folder.default'), createdAt: Date.now() },
+        { id:'work',    name:T('bookmarks.folder.work'),    createdAt: Date.now() },
+        { id:'reading', name:T('bookmarks.folder.reading'), createdAt: Date.now() },
       ];
       bmSaveFolders();
     }
@@ -296,7 +297,7 @@ function bmShowQuickPopup() {
 function bmShowSavedToast() {
   const t = document.createElement('div');
   t.className = 'bm-saved-toast';
-  t.textContent = '★ Sık kullanılanlara eklendi';
+  t.textContent = T('bookmarks.addedToast');
   (document.getElementById('app') || document.body).appendChild(t);
   setTimeout(() => t.remove(), 2000);
 }
@@ -305,7 +306,7 @@ function bmUpdateStarBtn(isBookmarked) {
   const btn = document.getElementById('btn-bookmark-star');
   if (!btn) return;
   btn.textContent = isBookmarked ? '★' : '☆';
-  btn.title = isBookmarked ? 'Sık kullanılanları düzenle' : 'Sık kullanılanlara ekle';
+  btn.title = isBookmarked ? T('bookmarks.editStar') : T('bookmarks.addStar');
   btn.style.color = isBookmarked ? 'var(--accent)' : '';
   btn.classList.toggle('bookmarked', isBookmarked);
 }
@@ -319,8 +320,9 @@ function bmCheckCurrentPage() {
 function bmGetFilteredItems() {
   let items = bmCurrentFolder ? bmItems.filter(i => i.folderId === bmCurrentFolder) : bmItems;
   if (bmSearchQuery) {
-    const q = bmSearchQuery.toLowerCase();
-    items = items.filter(i => i.title.toLowerCase().includes(q) || i.url.toLowerCase().includes(q));
+    const lang = window.ilgezdiI18n?.locale || 'tr';
+    const q = bmSearchQuery.toLocaleLowerCase(lang);
+    items = items.filter(i => String(i.title).toLocaleLowerCase(lang).includes(q) || i.url.toLowerCase().includes(q));
   }
   return items;
 }
@@ -334,8 +336,8 @@ function bmRenderPanel() {
     container.innerHTML = `
       <div class="bm-empty">
         <div class="bm-empty-icon">☆</div>
-        <p>${bmSearchQuery ? 'Sonuç bulunamadı' : 'Bu klasörde yer imi yok'}<br>
-        <span style="font-size:10px">Adres çubuğundaki ☆ ile ekleyin</span></p>
+        <p>${bmSearchQuery ? TH('bookmarks.noResults') : TH('bookmarks.emptyFolder')}<br>
+        <span style="font-size:10px">${TH('bookmarks.addHint')}</span></p>
       </div>`;
     return;
   }
@@ -353,7 +355,7 @@ function bmRenderPanel() {
       const folder = bmFolders.find(f => f.id === fid);
       if (!fitems.length) return '';
       return `
-        <div class="bm-section-label">${window.ilgezdiHtml.esc(folder?.name || '⭐ Genel')}</div>
+        <div class="bm-section-label">${window.ilgezdiHtml.esc(folder?.name || T('bookmarks.folder.default'))}</div>
         ${fitems.map(item => bmItemHTML(item)).join('')}
       `;
     }).join('');
@@ -431,7 +433,7 @@ function bmItemHTML(item) {
   const domain = bmGetDomain(item.url).replace(/^www\./, '');
   const icon = fav
     ? `<img class="bm-fav" src="${H.esc(fav)}" alt="">`
-    : `<span aria-hidden="true" style="display:grid;place-items:center;width:18px;height:18px;border-radius:4px;color:#fff;font-size:10px;font-weight:700;background:${bmChipColor(domain)}">${H.esc((domain[0] || '•').toLocaleUpperCase('tr'))}</span>`;
+    : `<span aria-hidden="true" style="display:grid;place-items:center;width:18px;height:18px;border-radius:4px;color:#fff;font-size:10px;font-weight:700;background:${bmChipColor(domain)}">${H.esc((domain[0] || '•').toLocaleUpperCase(window.ilgezdiI18n?.locale || 'tr'))}</span>`;
   return `
     <div class="bm-item" data-id="${H.esc(item.id)}" data-url="${H.esc(item.url)}" tabindex="0" role="link" title="${H.esc(item.title || domain)}">
       <div class="bm-item-icon">
@@ -442,8 +444,8 @@ function bmItemHTML(item) {
         <div class="bm-item-url">${H.esc(bmGetDomain(item.url))}</div>
       </div>
       <div class="bm-item-actions">
-        <button class="bm-action-btn" data-action="edit" data-id="${H.esc(item.id)}" title="Düzenle" aria-label="Düzenle">✎</button>
-        <button class="bm-action-btn danger" data-action="delete" data-id="${H.esc(item.id)}" title="Sil" aria-label="Sil">✕</button>
+        <button class="bm-action-btn" data-action="edit" data-id="${H.esc(item.id)}" title="${TH('bookmarks.edit')}" aria-label="${TH('bookmarks.edit')}">✎</button>
+        <button class="bm-action-btn danger" data-action="delete" data-id="${H.esc(item.id)}" title="${TH('bookmarks.delete')}" aria-label="${TH('bookmarks.delete')}">✕</button>
       </div>
     </div>`;
 }
@@ -454,7 +456,7 @@ function bmRenderFolders() {
 
   list.innerHTML = `
     <button class="bm-folder-item ${!bmCurrentFolder ? 'active' : ''}" data-id="">
-      <span class="bm-folder-name">📚 Tümü</span>
+      <span class="bm-folder-name">${TH('bookmarks.all')}</span>
       <span class="bm-folder-count">${bmItems.length}</span>
     </button>
     ${bmFolders.map(f => {
@@ -471,7 +473,7 @@ function bmRenderFolders() {
           ${!['default','work','reading'].includes(f.id) ? `<span class="bm-folder-del" data-fid="${f.id}">✕</span>` : ''}
         </button>`;
     }).join('')}
-    <button class="bm-folder-add" id="btn-bm-add-folder">+ Klasör</button>
+    <button class="bm-folder-add" id="btn-bm-add-folder">${TH('bookmarks.addFolder')}</button>
   `;
 
   list.querySelectorAll('.bm-folder-item').forEach(btn => {
@@ -485,7 +487,7 @@ function bmRenderFolders() {
   list.querySelectorAll('.bm-folder-del').forEach(btn => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
-      if (confirm('Klasörü sil? Yer imleri Genel\'e taşınır.')) {
+      if (confirm(T('bookmarks.confirmDeleteFolder'))) {
         bmDeleteFolder(btn.dataset.fid);
         if (bmCurrentFolder === btn.dataset.fid) bmCurrentFolder = null;
         bmRenderFolders(); bmRenderPanel();
@@ -494,7 +496,7 @@ function bmRenderFolders() {
   });
 
   document.getElementById('btn-bm-add-folder')?.addEventListener('click', () => {
-    const name = prompt('Klasör adı:');
+    const name = prompt(T('bookmarks.folderNamePrompt'));
     if (name?.trim()) { bmAddFolder(name.trim()); bmRenderFolders(); }
   });
 }
@@ -511,21 +513,21 @@ function bmShowEditModal(id) {
     <div class="bm-modal-overlay">
       <div class="bm-modal">
         <div class="bm-modal-header">
-          <h3>✎ Yer İmini Düzenle</h3>
-          <button class="bm-modal-close">✕</button>
+          <h3>${TH('bookmarks.editTitle')}</h3>
+          <button class="bm-modal-close" aria-label="${TH('common.close')}">✕</button>
         </div>
         <div class="bm-modal-body">
-          <div><label>Başlık</label><input type="text" id="bm-edit-title" value="${window.ilgezdiHtml.esc(item.title)}" /></div>
-          <div><label>URL</label><input type="text" id="bm-edit-url" value="${window.ilgezdiHtml.esc(item.url)}" /></div>
-          <div><label>Klasör</label>
+          <div><label>${TH('bookmarks.fieldTitle')}</label><input type="text" id="bm-edit-title" value="${window.ilgezdiHtml.esc(item.title)}" /></div>
+          <div><label>${TH('bookmarks.fieldUrl')}</label><input type="text" id="bm-edit-url" value="${window.ilgezdiHtml.esc(item.url)}" /></div>
+          <div><label>${TH('bookmarks.fieldFolder')}</label>
             <select id="bm-edit-folder">
               ${bmFolders.map(f => `<option value="${f.id}" ${f.id===item.folderId?'selected':''}>${window.ilgezdiHtml.esc(f.name)}</option>`).join('')}
             </select>
           </div>
         </div>
         <div class="bm-modal-footer">
-          <button class="bm-modal-cancel">İptal</button>
-          <button class="bm-modal-save">💾 Kaydet</button>
+          <button class="bm-modal-cancel">${TH('bookmarks.cancel')}</button>
+          <button class="bm-modal-save">${TH('bookmarks.save')}</button>
         </div>
       </div>
     </div>`;
@@ -609,7 +611,7 @@ function bmMergeImported(items) {
       if (cur && icon && !validIcon(cur.favicon)) { cur.favicon = icon; iconsFilled++; }
       return;
     }
-    const fname = (it.folder || 'İçe Aktarılan').trim() || 'İçe Aktarılan';
+    const fname = (it.folder || T('bookmarks.folder.imported')).trim() || T('bookmarks.folder.imported');
     let fid = folderByName.get(fname);
     if (!fid) {
       const f = { id: bmGenId(), name: fname, createdAt: Date.now() };
@@ -631,7 +633,7 @@ function bmMergeImported(items) {
 // isteği yok). Daha önce içe aktarılmış ama simgesiz gelmiş yer imleri için.
 async function bmImportFavicons() {
   const missing = bmItems.filter((i) => !/^data:image\//.test(String(i.favicon || ''))).map((i) => i.url);
-  if (!missing.length) { alert('Tüm yer imlerinin simgesi zaten var.'); return; }
+  if (!missing.length) { alert(T('bookmarks.iconsAll')); return; }
   try {
     const res = await window.secureBrowser?.bookmarks?.importFavicons?.(missing);
     const map = (res && res.favicons) || {};
@@ -644,9 +646,9 @@ async function bmImportFavicons() {
       }
     }
     if (filled) { bmSaveItems(); bmRenderPanel(); }
-    alert(filled ? `${filled} yer iminin simgesi eklendi.` : 'Tarayıcıların simge önbelleğinde bu yer imleri için simge bulunamadı. Siteleri ziyaret ettikçe simgeler kendiliğinden gelir.');
+    alert(filled ? T('bookmarks.iconsAdded', { count: filled }) : T('bookmarks.iconsNone'));
   } catch (e) {
-    alert('Simgeler alınamadı: ' + (e?.message || e));
+    alert(T('bookmarks.iconsFailed', { error: e?.message || e }));
   }
 }
 
@@ -657,13 +659,11 @@ async function bmRunImport(source) {
       ? await window.secureBrowser?.bookmarks?.importFile()
       : await window.secureBrowser?.bookmarks?.importBrowser(source);
     const items = res?.items || [];
-    if (!items.length) { alert('İçe aktarılacak yer imi bulunamadı.'); return; }
+    if (!items.length) { alert(T('bookmarks.importNone')); return; }
     const added = bmMergeImported(items);
-    alert(added > 0
-      ? `${added} yer imi içe aktarıldı.`
-      : 'Tüm yer imleri zaten mevcuttu (yeni ekleme olmadı).');
+    alert(added > 0 ? T('bookmarks.imported', { count: added }) : T('bookmarks.importNoNew'));
   } catch (e) {
-    alert('İçe aktarma başarısız: ' + (e?.message || e));
+    alert(T('bookmarks.importFailed', { error: e?.message || e }));
   }
 }
 
@@ -677,18 +677,18 @@ async function bmShowImportMenu() {
   menu.className = 'bm-import-menu';
   const rows = [];
   if (detected.length) {
-    rows.push(`<div class="bm-im-head">Kurulu tarayıcılardan</div>`);
+    rows.push(`<div class="bm-im-head">${TH('bookmarks.fromBrowsers')}</div>`);
     detected.forEach(b => rows.push(
       `<button class="bm-im-item" data-src="${b.id}"><span>${window.ilgezdiHtml.esc(b.name)}</span><span class="bm-im-count">${Number(b.count) || 0}</span></button>`
     ));
   } else {
-    rows.push(`<div class="bm-im-head">Kurulu tarayıcı bulunamadı</div>`);
+    rows.push(`<div class="bm-im-head">${TH('bookmarks.noBrowsers')}</div>`);
   }
   rows.push(`<div class="bm-im-sep"></div>`);
-  rows.push(`<button class="bm-im-item" data-src="__file__"><span>📄 HTML dosyasından…</span></button>`);
+  rows.push(`<button class="bm-im-item" data-src="__file__"><span>${TH('bookmarks.fromFile')}</span></button>`);
   if (detected.length) {
     rows.push(`<div class="bm-im-sep"></div>`);
-    rows.push(`<button class="bm-im-item" data-src="__icons__" title="Kurulu tarayıcıların kendi simge önbelleğinden; hiçbir siteye istek atılmaz"><span>🖼 Site simgelerini tarayıcılardan al</span></button>`);
+    rows.push(`<button class="bm-im-item" data-src="__icons__" title="${TH('bookmarks.iconsTitle')}"><span>${TH('bookmarks.iconsFromBrowsers')}</span></button>`);
   }
   menu.innerHTML = rows.join('');
 
@@ -724,15 +724,15 @@ function bmInjectPanelHTML() {
   if (!panel) return;
   panel.innerHTML = `
     <div class="panel-header">
-      <h2>★ Yer İmleri</h2>
+      <h2>${TH('bookmarks.title')}</h2>
       <div style="display:flex;gap:5px;align-items:center">
-        <button class="bm-icon-btn" id="btn-bm-export" title="Dışa Aktar">⬆</button>
-        <button class="bm-icon-btn" id="btn-bm-import" title="Diğer tarayıcılardan içe aktar">⬇</button>
-        <button class="panel-close" data-panel="bookmarks">✕</button>
+        <button class="bm-icon-btn" id="btn-bm-export" title="${TH('bookmarks.export')}" aria-label="${TH('bookmarks.export')}">⬆</button>
+        <button class="bm-icon-btn" id="btn-bm-import" title="${TH('bookmarks.import')}" aria-label="${TH('bookmarks.import')}">⬇</button>
+        <button class="panel-close" data-panel="bookmarks" aria-label="${TH('common.closePanel')}">✕</button>
       </div>
     </div>
     <div class="bm-search-bar">
-      <input type="text" class="bm-search-input" id="bm-search" placeholder="🔍 Yer imi ara..." value="${window.ilgezdiHtml.esc(bmSearchQuery)}" />
+      <input type="text" class="bm-search-input" id="bm-search" placeholder="${TH('bookmarks.search')}" value="${window.ilgezdiHtml.esc(bmSearchQuery)}" />
     </div>
     <div class="bm-layout">
       <div class="bm-sidebar"><div id="bm-folder-list"></div></div>
@@ -813,7 +813,9 @@ function bmOpenPanel() {
 // Tarayıcılar farklı adlar veriyor: Brave/Chrome "Yer işaretleri çubuğu", Edge "Sık
 // kullanılanlar çubuğu", Firefox "Yer imleri araç çubuğu", İngilizce "Bookmarks bar".
 // Kullanıcının Brave'den aktardığı çubuk ilk sürümde tanınmamıştı (tekil ad aranıyordu).
-const BM_BAR_FOLDER_EN = ['bookmarks bar', 'favorites bar', 'favourites bar', 'bookmarks toolbar'];
+// Diğer dillerdeki tarayıcıların çubuk klasörü adları (içe aktarılan klasör o dilde gelir).
+const BM_BAR_FOLDER_EN = ['bookmarks bar', 'favorites bar', 'favourites bar', 'bookmarks toolbar',
+  'lesezeichenleiste', 'favoritenleiste', 'lesezeichen-symbolleiste', 'barre de favoris', 'barre des favoris', 'barre personnelle'];
 
 function bmIsBarFolderName(name) {
   const n = String(name || '').replace(/^[^\p{L}]+/u, '').trim().toLocaleLowerCase('tr');
@@ -842,7 +844,7 @@ function bmRenderBar() {
   if (!items.length) {
     const hint = document.createElement('span');
     hint.className = 'bookmark-bar-hint';
-    hint.textContent = 'Sık kullanılanlar çubuğu boş: bir sayfayı ☆ ile ekleyin ya da Yer İmleri panelinden içe aktarın.';
+    hint.textContent = T('bookmarks.barEmpty');
     box.appendChild(hint);
   }
   for (const item of items) {
@@ -855,7 +857,7 @@ function bmRenderBar() {
     const fav = document.createElement('span');
     fav.className = 'chip-favicon';
     fav.setAttribute('aria-hidden', 'true');
-    const letter = () => { fav.textContent = (domain[0] || '•').toLocaleUpperCase('tr'); fav.style.background = bmChipColor(domain); };
+    const letter = () => { fav.textContent = (domain[0] || '•').toLocaleUpperCase(window.ilgezdiI18n?.locale || 'tr'); fav.style.background = bmChipColor(domain); };
     const iconSrc = bmFaviconFor(item);
     if (iconSrc) {
       const img = document.createElement('img');
@@ -902,7 +904,7 @@ function bmRenderBar() {
   }
   if (all) {
     all.classList.toggle('hidden', !(bmItems.length > items.length));
-    all.title = `Tüm yer imleri ve klasörler (${bmItems.length}) · Ctrl+Shift+O`;
+    all.title = T('bookmarks.allTitle', { count: bmItems.length });
     all.setAttribute('aria-label', all.title);
   }
 }
