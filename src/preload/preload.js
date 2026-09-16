@@ -167,6 +167,11 @@ contextBridge.exposeInMainWorld('secureBrowser', {
     importBrowser:       (id) => ipcRenderer.invoke('pw-import-browser', id),
     importCsv:           ()   => ipcRenderer.invoke('pw-import-csv'),
     forOrigin:           (o)  => ipcRenderer.invoke('pw-for-origin', o),
+    // Kaydetme önerisi: öneride parola yoktur (site, kullanıcı adı, tür); karar kimlikle verilir.
+    onSaveOffer:         (cb) => ipcRenderer.on('pw-save-offer', (_, d) => cb(d)),
+    saveDecision:        (offerId, action) => ipcRenderer.invoke('pw-save-decision', { offerId, action }),
+    neverList:           ()   => ipcRenderer.invoke('pw-never-list'),
+    neverRemove:         (o)  => ipcRenderer.invoke('pw-never-remove', o),
   },
 
   // ── Auth (Üyelik Sistemi) ────────────────────────────────────────────────────

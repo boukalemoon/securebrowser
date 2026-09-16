@@ -319,6 +319,7 @@ const SETTINGS_FIELDS = {
   'cfg-webrtc':        ['webrtcPolicy', 'value'],
   'cfg-secure-dns':    ['secureDns', 'value'],
   'cfg-log':           ['logEnabled', 'checked'],
+  'cfg-pw-offer':      ['offerToSavePasswords', 'checked'],
 };
 let _formBase = {};
 let _formCfg  = {};
@@ -347,6 +348,7 @@ function formValuesFrom(cfg) {
     webrtcPolicy:           c.webrtcPolicy || 'default_public_interface_only',
     secureDns:              c.secureDns || 'automatic',
     logEnabled:             c.logEnabled !== false,
+    offerToSavePasswords:   c.offerToSavePasswords !== false,
   };
 }
 
@@ -663,7 +665,7 @@ function renderPrivacyTab(cfg) {
     </div>`;
 }
 
-function renderPasswordsTab() {
+function renderPasswordsTab(cfg = {}) {
   // NOT: Buradaki eski "ana şifre" ekranı KALDIRILDI. İki nedenle:
   //   1) Şifre btoa() ile saklanıyordu — bu bir özet değil, geri çevrilebilir
   //      Base64; localStorage'ı okuyan biri parolayı düz metin elde ediyordu.
@@ -673,6 +675,14 @@ function renderPasswordsTab() {
   // Service) ile korunuyor — Chrome, Edge, Brave ve Opera'nın modeli de bu.
   // Durum kullanıcıya #pwd-protection-note içinde dürüstçe bildirilir.
   return `
+    <div class="settings-section"><h3>Kaydetme ve Doldurma</h3>
+      <div class="s-toggle-row">
+        <div><div class="s-toggle-label">Şifre kaydetmeyi öner</div><div class="s-toggle-sub">Bir sitede giriş yapınca şifreyi kasaya kaydetmeyi sorar. Kayıtlı hesap, giriş alanına tıklayınca açılan menüden seçilerek doldurulur; sayfa açılınca kendiliğinden doldurulmaz.</div></div>
+        <label class="switch"><input type="checkbox" id="cfg-pw-offer" ${cfg.offerToSavePasswords!==false?'checked':''}/><span class="slider"></span></label>
+      </div>
+      <div class="s-toggle-label" style="margin-top:10px">Asla kaydedilmeyecek siteler</div>
+      <div id="pw-never-list"><p class="s-hint" style="margin-top:0">Yükleniyor…</p></div>
+    </div>
     <div class="settings-section">
       <h3>Kasa Koruması</h3>
       <div id="pwd-protection-note" class="s-hint" style="margin-top:0">Denetleniyor…</div>
@@ -797,7 +807,7 @@ function renderSettingsTab(tabId, cfg) {
   else if (tabId==='account')       content.innerHTML = renderAccountTab();
   else if (tabId==='general')       content.innerHTML = renderGeneralTab(cfg);
   else if (tabId==='privacy')       content.innerHTML = renderPrivacyTab(cfg);
-  else if (tabId==='passwords')     content.innerHTML = renderPasswordsTab();
+  else if (tabId==='passwords')     content.innerHTML = renderPasswordsTab(cfg);
   else if (tabId==='diag')          content.innerHTML = window.ilgezdiDiagPanel?.render?.()
                                       || '<p class="s-hint">Tanılama modülü yüklenemedi.</p>';
   if (tabId==='customization') { bindCustomizationEvents(); updatePreviewBox(); }
@@ -1127,9 +1137,44 @@ async function showVaultProtectionState() {
   }
 }
 
+// "Bu sitede asla" denen siteler (liste ana süreçte; arayüz ayar kaydıyla değiştiremez).
+async function populatePwNeverList() {
+  const box = document.getElementById('pw-never-list');
+  if (!box) return;
+  let list = [];
+  try { list = (await window.secureBrowser?.passwords?.neverList?.()) || []; } catch {}
+  if (!box.isConnected) return;
+  box.replaceChildren();
+  if (!list.length) {
+    const p = document.createElement('p');
+    p.className = 's-hint';
+    p.style.marginTop = '0';
+    p.textContent = 'Yok. Kaydetme önerisinde "Bu sitede asla" denen siteler burada listelenir.';
+    box.append(p);
+    return;
+  }
+  for (const origin of list) {
+    const row = document.createElement('div');
+    row.className = 's-toggle-row';
+    const label = document.createElement('div');
+    label.className = 's-toggle-label';
+    label.textContent = String(origin).replace(/^https?:\/\//, '');
+    const btn = document.createElement('button');
+    btn.className = 'folder-btn';
+    btn.textContent = 'Kaldır';
+    btn.addEventListener('click', async () => {
+      await window.secureBrowser?.passwords?.neverRemove?.(origin);
+      populatePwNeverList();
+    });
+    row.append(label, btn);
+    box.append(row);
+  }
+}
+
 function bindPasswordEvents() {
   purgeLegacyMasterPassword();
   showVaultProtectionState();
+  populatePwNeverList();
   document.getElementById('btn-pwd-add')?.addEventListener('click',async ()=>{
     const site=document.getElementById('pwd-new-site')?.value.trim();
     const user=document.getElementById('pwd-new-user')?.value.trim();
@@ -1228,6 +1273,17 @@ function initSettingsPanelEvents() {
 }
 
 // ─── Settings butonu ──────────────────────────────────────────────────────────
+// Başka yerden Ayarlar'ı belirli bir sekmede açar (ör. şifre menüsündeki "Şifreleri yönet…").
+let _nextSettingsTab = null;
+window.ilgezdiOpenSettings = (tab) => {
+  if (document.getElementById('panel-settings')?.classList.contains('visible')) {
+    selectSettingsTab(tab);
+    return;
+  }
+  _nextSettingsTab = tab;
+  document.getElementById('btn-settings')?.click();
+};
+
 function upgradeSettingsButton() {
   const btn = document.getElementById('btn-settings');
   if (!btn) return;
@@ -1262,7 +1318,10 @@ function upgradeSettingsButton() {
       newBtn.classList.add('active');
       window.secureBrowser?.panelOpened(true);
       initSettingsPanelEvents();
-      selectSettingsTab('customization');
+      const nextTab = _nextSettingsTab;
+      _nextSettingsTab = null;
+      if (nextTab) selectSettingsTab(nextTab);
+      else selectSettingsTab('customization');
       updateUnsavedBar();
     }
   });

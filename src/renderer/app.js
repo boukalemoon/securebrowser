@@ -1249,6 +1249,62 @@ async function loadMyFeedback() {
   }
 }
 
+// ─── Şifre kaydetme önerisi ───────────────────────────────────────────────────
+// Ana süreç (pw-capture) gönderilen girişi kasayla karşılaştırıp öneriyi yollar. Parola
+// arayüze hiç gelmez: yalnızca site, kullanıcı adı ve öneri türü. Şerit yer imleri
+// çubuğunun satırında durur (sayfa görünümü bu satırı örtmez); karar verilmezse 45 sn
+// sonra kendiliğinden kapanır ("şimdi değil").
+let pwOfferId = null;
+let pwOfferTimer = null;
+
+function hidePasswordOffer() {
+  clearTimeout(pwOfferTimer);
+  pwOfferId = null;
+  const bar = document.getElementById('pw-offer');
+  if (bar) bar.hidden = true;
+}
+
+function showPasswordOffer(offer) {
+  const bar = document.getElementById('pw-offer');
+  if (!bar || !offer || typeof offer.offerId !== 'string') return;
+  pwOfferId = offer.offerId;
+  const update = offer.action === 'update';
+  const username = typeof offer.username === 'string' ? offer.username : '';
+  const text = document.getElementById('pw-offer-text');
+  text.replaceChildren(`${String(offer.host || '')} için `);
+  if (username) text.append(communityEl('strong', 'pw-offer-user', username), ' ');
+  text.append(`${username ? 'şifresi' : 'şifre'} ${update ? 'güncellensin' : 'kaydedilsin'} mi?`);
+  if (offer.insecure) text.append(communityEl('span', 'pw-offer-warn', ' · şifrelenmemiş bağlantı'));
+  document.getElementById('pw-offer-status').textContent = '';
+  const save = document.getElementById('pw-offer-save');
+  save.hidden = false;
+  save.textContent = update ? 'Güncelle' : 'Kaydet';
+  document.getElementById('pw-offer-never').hidden = update;
+  bar.hidden = false;
+  clearTimeout(pwOfferTimer);
+  pwOfferTimer = setTimeout(() => decidePasswordOffer('dismiss'), 45000);
+}
+
+async function decidePasswordOffer(action) {
+  const id = pwOfferId;
+  if (!id) return;
+  clearTimeout(pwOfferTimer);
+  let r = null;
+  try { r = await sb.passwords.saveDecision(id, action); } catch {}
+  if (id !== pwOfferId) return;   // bu arada yeni bir öneri geldi
+  if (action !== 'save') { hidePasswordOffer(); return; }
+  const status = document.getElementById('pw-offer-status');
+  if (!r || r.ok === false) {
+    status.textContent = (r && r.error) || 'Şifre kaydedilemedi.';
+    pwOfferTimer = setTimeout(hidePasswordOffer, 6000);
+    return;
+  }
+  status.textContent = r.action === 'updated' ? 'Şifre güncellendi' : 'Şifre kasaya kaydedildi';
+  document.getElementById('pw-offer-save').hidden = true;
+  document.getElementById('pw-offer-never').hidden = true;
+  pwOfferTimer = setTimeout(hidePasswordOffer, 1800);
+}
+
 // Giriş/çıkış olunca açık topluluk sayfası yerinde güncellenir (yazılan öneri kaybolmaz).
 window.addEventListener('ilgezdi-auth-changed', () => {
   if (currentScreen === 'discover') initReviewSection();
@@ -1519,6 +1575,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // ── Main process güncellemeleri ───────────────────────────────────────────
   sb.onTabsUpdate((tabs) => renderTabs(tabs));
+  sb.passwords?.onSaveOffer?.(showPasswordOffer);
+  document.getElementById('pw-offer')?.addEventListener('click', (e) => {
+    const btn = e.target.closest?.('[data-pw-action]');
+    if (btn) decidePasswordOffer(btn.dataset.pwAction);
+  });
   sb.onActiveUrl((url) => {
     updateAddressBar(url);
     if (document.getElementById('panel-siteinfo')?.classList.contains('visible')) loadSiteInfo();
@@ -1669,6 +1730,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       case 'find-prev':        findStep(false); break;
       case 'bookmark-page':    if (!isIncognito) document.getElementById('btn-bookmark-star')?.click(); break;
       case 'settings':         document.getElementById('btn-settings')?.click(); break;
+      case 'passwords':        window.ilgezdiOpenSettings?.('passwords'); break;
       case 'toggle-bookmarks': document.getElementById('btn-bookmarks')?.click(); break;
       case 'logs':             document.getElementById('btn-logs')?.click(); break;
       case 'vpn-panel':        document.getElementById('btn-vpn-panel')?.click(); break;

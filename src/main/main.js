@@ -14,7 +14,7 @@ const { attachBlocker, shouldBlockUrl, updateBlockerConfig, getBlockStats, isThi
 const { setupGlance, closeGlance } = require('./glance-main');
 const { setupArku } = require('./arku-manager');
 const { setupBookmarkImport } = require('./bookmark-import');
-const { setupPasswordManager, getForOrigin } = require('./password-manager');
+const { setupPasswordManager, getForOrigin, classifyCapture, canSavePasswords, saveCapturedCredential } = require('./password-manager');
 const { setupAutoUpdater } = require('./auto-updater');
 const { setupDiagnostics, log: diag, logError } = require('./diagnostics');
 const { setupThreatProtection } = require('./threat-protection');
@@ -59,6 +59,8 @@ const BROWSING_PARTITION = 'persist:securebrowser';
 function browsingSession() { return session.fromPartition(BROWSING_PARTITION); }
 
 const DEFAULT_CONFIG = {
+  offerToSavePasswords:  true,         // giriş yapınca şifreyi kasaya kaydetmeyi öner
+  passwordNeverSave:     [],           // "bu sitede asla" denen site kökleri (yalnızca ana süreç yazar)
   homepage:              '',           // boş = İlgezdi başlangıç sayfası; URL = o sayfa açılır
   searchEngine:          'duckduckgo', // varsayılan; kullanıcı ayarlardan değiştirebilir
   startupMode:           'homepage',   // homepage | restore ("Kaldığım yerden devam et")
@@ -639,6 +641,8 @@ function createTab(win, state, url = config.homepage, opts = {}) {
   // WebContentsView: BrowserView Electron 30'dan beri kullanımdan kaldırılmış durumda.
   const view = new WebContentsView({
     webPreferences: {
+      // Şifre kaydetme önerisi ve doldurma; yalıtılmış dünyada, sayfaya bir şey açmaz.
+      preload: path.join(__dirname, '../preload/page-preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
@@ -812,31 +816,10 @@ function createTab(win, state, url = config.homepage, opts = {}) {
       } catch {}
     }
 
-    // ── Şifre otomatik doldurma ──
-    // Bu origin için kasada TEK eşleşen kimlik varsa login formunu doldur.
-    // Yalnızca doldurur (asla göndermez); gizli modda ve incognito'da devre dışı.
-    // getForOrigin: HTTPS kimliği HTTP sayfasına asla verilmez, port eşleşmeli (Y-11).
-    // Kullanıcı adı alanı için genel `input[type=text]` yedeği kaldırıldı: arama
-    // kutusu gibi alakasız bir alana kullanıcı adı yazılıyordu.
-    if (!isIncognito) {
-      try {
-        const creds = getForOrigin(tab.url);
-        if (creds.length === 1 && creds[0].password) {
-          const u = JSON.stringify(creds[0].username || '');
-          const p = JSON.stringify(creds[0].password);
-          view.webContents.executeJavaScript(`(function(){
-            try {
-              var pw = document.querySelector('input[type=password]:not([disabled]):not([readonly])');
-              if(!pw || pw.offsetParent===null) return;
-              var scope = pw.closest('form') || document;
-              var user = scope.querySelector('input[type=email],input[autocomplete=username],input[name*=user i],input[name*=email i],input[id*=user i],input[id*=email i]');
-              if(user && ${u}){ user.value=${u}; user.dispatchEvent(new Event('input',{bubbles:true})); user.dispatchEvent(new Event('change',{bubbles:true})); }
-              pw.value=${p}; pw.dispatchEvent(new Event('input',{bubbles:true})); pw.dispatchEvent(new Event('change',{bubbles:true}));
-            } catch(e){}
-          })();`).catch(() => {});
-        }
-      } catch {}
-    }
+    // Şifre doldurma artık sayfa yüklenince kendiliğinden YAPILMAZ: kullanıcı bir giriş
+    // alanına tıklayınca kayıtlı hesaplar menüde listelenir (page-preload.js →
+    // 'pw-field-focus'). Eskiden tek kayıtlı hesap, kullanıcı hiçbir şeye dokunmadan
+    // sayfanın ana dünyasına yazılıyordu; görünmez ya da sahte bir form parolayı toplayabilirdi.
 
     // ── Glance: Alt+tıklama yakalama script'i inject et ──
     view.webContents.executeJavaScript(`
@@ -1744,7 +1727,7 @@ ipcMain.handle('reload', (event) => {
 // Ana sürecin yazdığı alanlar arayüze gönderilmez ve arayüzden yazılamaz. Ayarlar
 // paneli kaydederken tüm yapılandırmayı geri gönderiyor; panel açıkken verilen
 // bir site izni ya da yenilenen oturum eski değerle eziliyordu.
-const MAIN_OWNED_KEYS = ['permissionDecisions', 'authSessionEnc'];
+const MAIN_OWNED_KEYS = ['permissionDecisions', 'authSessionEnc', 'passwordNeverSave'];
 function publicConfig() {
   const c = { ...config };
   for (const k of MAIN_OWNED_KEYS) delete c[k];
@@ -1990,6 +1973,113 @@ ipcMain.handle('blocker-get-stats', () => getBlockStats());
 ipcMain.handle('blocker-update-config', (event, blockerCfg) => {
   updateBlockerConfig(blockerCfg);
   return { ok: true };
+});
+
+// ─── Şifre kaydetme önerisi ve doldurma (preload/page-preload.js) ─────────────
+// Sekme ön yüklemesi giriş gönderimini ve giriş alanına tıklamayı bildirir. Site adresi
+// her zaman gönderen sekmenin kendisinden okunur; sayfanın beyanına güvenilmez.
+const PW_OFFER_DELAY_MS = 2500;          // girişten sonra sayfa değişsin; tek sayfalık uygulamada da gelsin
+const PW_OFFER_TTL_MS   = 2 * 60 * 1000;
+const pwOffers = new Map();              // offerId → { url, origin, username, password, action, existingId, state }
+
+function tabFromContents(wc) {
+  for (const [state, win] of [[mainState, mainWindow], [incognitoState, incognitoWindow]]) {
+    if (!state || !state.tabs) continue;
+    for (const [tabId, tab] of state.tabs) {
+      if (tab.view && tab.view.webContents === wc) return { tab, tabId, state, win, incognito: state === incognitoState };
+    }
+  }
+  return null;
+}
+
+function webOrigin(url) {
+  try {
+    const u = new URL(url);
+    return u.protocol === 'https:' || u.protocol === 'http:' ? u.origin : '';
+  } catch { return ''; }
+}
+
+ipcMain.on('pw-capture', (event, data) => {
+  const ctx = tabFromContents(event.sender);
+  if (!ctx || ctx.incognito || config.offerToSavePasswords === false) return;
+  const pageUrl = event.sender.getURL();
+  const origin = webOrigin(pageUrl);
+  if (!origin || (Array.isArray(config.passwordNeverSave) && config.passwordNeverSave.includes(origin))) return;
+  const username = data && typeof data.username === 'string' ? data.username.trim().slice(0, 200) : '';
+  const password = data && typeof data.password === 'string' ? data.password.slice(0, 500) : '';
+  if (!password || !canSavePasswords()) return;
+  const kind = classifyCapture(pageUrl, username, password);
+  if (kind.action === 'same') return;
+
+  const offer = {
+    id: require('crypto').randomUUID(), url: pageUrl, origin, username, password,
+    action: kind.action, existingId: kind.id || null, state: ctx.state,
+  };
+  clearTimeout(ctx.tab.pwOfferTimer);
+  // Öneri hemen değil kısa süre sonra: aynı girişte parola düzeltilip yeniden gönderilirse
+  // yalnızca son hâli önerilir.
+  ctx.tab.pwOfferTimer = setTimeout(() => {
+    ctx.tab.pwOfferTimer = null;
+    const win = ctx.state === incognitoState ? incognitoWindow : mainWindow;
+    if (!win || win.isDestroyed()) return;
+    pwOffers.set(offer.id, offer);
+    setTimeout(() => pwOffers.delete(offer.id), PW_OFFER_TTL_MS);
+    // Arayüze parola GİTMEZ: yalnızca site, kullanıcı adı ve öneri türü.
+    win.webContents.send('pw-save-offer', { offerId: offer.id, host: new URL(origin).host, username, action: offer.action, insecure: origin.startsWith('http:') });
+  }, PW_OFFER_DELAY_MS);
+});
+
+ipcMain.handle('pw-save-decision', (event, { offerId, action } = {}) => {
+  const offer = pwOffers.get(offerId);
+  if (!offer) return { ok: false, error: 'Öneri zaman aşımına uğradı; bir sonraki girişte yeniden sorulur.' };
+  // Yalnızca öneriyi alan pencere karar verebilir.
+  if (getContextFromEvent(event).state !== offer.state) return { ok: false };
+  pwOffers.delete(offerId);
+  if (action === 'save') return saveCapturedCredential(offer);
+  if (action === 'never') {
+    const list = Array.isArray(config.passwordNeverSave) ? config.passwordNeverSave : [];
+    if (!list.includes(offer.origin)) config.passwordNeverSave = [...list, offer.origin].slice(-500);
+    saveConfig(config);
+  }
+  return { ok: true };
+});
+
+ipcMain.handle('pw-never-list', () => (Array.isArray(config.passwordNeverSave) ? config.passwordNeverSave.slice() : []));
+ipcMain.handle('pw-never-remove', (_e, origin) => {
+  const list = Array.isArray(config.passwordNeverSave) ? config.passwordNeverSave : [];
+  config.passwordNeverSave = list.filter((o) => o !== origin);
+  saveConfig(config);
+  return { ok: true };
+});
+
+// Kullanıcı gerçekten bir giriş alanına tıkladı (ön yükleme userActivation ile denetler):
+// bu sitenin kayıtlı hesapları alanın altında yerel menüde listelenir; seçilen doldurulur.
+ipcMain.on('pw-field-focus', (event, rect) => {
+  const ctx = tabFromContents(event.sender);
+  if (!ctx || !ctx.win || ctx.win.isDestroyed() || ctx.state.activeTabId !== ctx.tabId) return;
+  const wc = event.sender;
+  const pageUrl = wc.getURL();
+  const origin = webOrigin(pageUrl);
+  const creds = origin ? getForOrigin(pageUrl) : [];
+  if (!creds.length) return;
+  const b = ctx.tab.view.getBounds();
+  const n = (v) => (Number.isFinite(v) ? Math.round(v) : 0);
+  const x = b.x + Math.min(Math.max(n(rect && rect.x), 0), Math.max(b.width - 40, 0));
+  const y = b.y + Math.min(Math.max(n(rect && rect.y), 0), Math.max(b.height - 40, 0));
+  const fill = (id) => {
+    // Menü açıkken sayfa başka siteye geçtiyse doldurulmaz; hesap o anki adrese göre yeniden alınır.
+    if (wc.isDestroyed() || webOrigin(wc.getURL()) !== origin) return;
+    const c = getForOrigin(wc.getURL()).find((x2) => x2.id === id);
+    if (c) wc.send('pw-fill', { username: c.username || '', password: c.password });
+  };
+  const template = [
+    { label: `${new URL(origin).host} için kayıtlı hesaplar`, enabled: false },
+    { type: 'separator' },
+    ...creds.slice(0, 10).map((c) => ({ label: c.username || '(kullanıcı adı yok)', click: () => fill(c.id) })),
+    { type: 'separator' },
+    { label: 'Şifreleri yönet…', click: () => { if (!ctx.win.isDestroyed()) ctx.win.webContents.send('browser-command', 'passwords'); } },
+  ];
+  Menu.buildFromTemplate(template).popup({ window: ctx.win, x, y });
 });
 
 // Panel & Pencere

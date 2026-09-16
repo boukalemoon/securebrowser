@@ -130,6 +130,15 @@
   <!-- ══════════════════════════════════════════════════════
        YER İŞARETLERİ ÇUBUĞU
        ══════════════════════════════════════════════════════ -->
+  <!-- Şifre kaydetme önerisi (app.js → showPasswordOffer): yer imleri çubuğunun satırını örter -->
+  <div id="pw-offer" class="pw-offer" role="alertdialog" aria-labelledby="pw-offer-text" hidden>
+    <svg class="pw-offer-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="15" r="4"/><path d="M10.8 12.2 20 3"/><path d="m16 7 3 3"/><path d="m18.5 4.5 2 2"/></svg>
+    <span class="pw-offer-text" id="pw-offer-text"></span>
+    <span class="pw-offer-status" id="pw-offer-status" role="status"></span>
+    <button type="button" class="pw-offer-btn primary" id="pw-offer-save" data-pw-action="save">Kaydet</button>
+    <button type="button" class="pw-offer-btn" id="pw-offer-never" data-pw-action="never">Bu sitede asla</button>
+    <button type="button" class="pw-offer-close" id="pw-offer-dismiss" data-pw-action="dismiss" aria-label="Şimdi değil" title="Şimdi değil">✕</button>
+  </div>
   <div id="bookmarks-bar" role="navigation" aria-label="Yer imleri çubuğu">
     <div id="bookmarks-bar-items">
       <!-- bookmarks-panel.js / app.js tarafından doldurulur -->

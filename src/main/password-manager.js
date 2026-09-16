@@ -467,9 +467,57 @@ function getForOrigin(pageUrl) {
     .map(v => ({ id: v.id, username: v.username, password: v.password }));
 }
 
+/**
+ * Sayfada gönderilen giriş bilgisini kasayla karşılaştırır (kaydetme önerisi için).
+ * Karşılaştırma getForOrigin kurallarıyla yapılır (alan adı + port, https→http yok).
+ *   { action: 'same' }         aynı kullanıcı adı ve parola zaten kayıtlı → öneri yok
+ *   { action: 'update', id }   aynı kullanıcı adı, farklı parola → "güncellensin mi?"
+ *   { action: 'new' }          → "kaydedilsin mi?"
+ */
+function classifyCapture(pageUrl, username, password) {
+  const user = String(username || '');
+  const sameUser = getForOrigin(pageUrl).filter((c) => (c.username || '') === user);
+  if (sameUser.some((c) => c.password === password)) return { action: 'same' };
+  if (sameUser.length) return { action: 'update', id: sameUser[0].id };
+  return { action: 'new' };
+}
+
+/** Kasaya yazılabiliyor mu (işletim sistemi şifrelemesi var, kasa okunabildi). */
+function canSavePasswords() {
+  return !writeGuard();
+}
+
+/**
+ * Kullanıcının "Kaydet"/"Güncelle" dediği giriş bilgisini kasaya yazar. Adres sayfanın
+ * kökü (origin) olarak saklanır: aynı sitenin başka giriş sayfasında da doldurulabilir.
+ */
+function saveCapturedCredential({ url, username, password, action, existingId } = {}) {
+  const guard = writeGuard();
+  if (guard) return guard;
+  let origin = '';
+  try { origin = new URL(url).origin; } catch {}
+  const normalized = normalizeSiteUrl(origin);
+  if (!normalized || !password) return fail('invalid_input');
+  if (action === 'update') {
+    const v = vault.find((x) => x.id === existingId);
+    if (v) {
+      v.password = password;
+      v.updatedAt = Date.now();
+      saveVault();
+      return { ok: true, action: 'updated' };
+    }
+  }
+  vault.push({ id: genId(), url: normalized, username: String(username || ''), password, createdAt: Date.now(), source: 'saved' });
+  saveVault();
+  return { ok: true, action: 'added' };
+}
+
 module.exports = {
   setupPasswordManager,
   getForOrigin,
+  classifyCapture,
+  canSavePasswords,
+  saveCapturedCredential,
   _internals: {
     parseCsvPasswords, decryptPassword, blobKind, normalizeSiteUrl, dpapiUnprotectMany,
     // test: kasayı doğrudan kur (dosya/şifreleme olmadan getForOrigin kurallarını sınamak için)

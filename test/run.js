@@ -156,7 +156,7 @@ suite('IPC sözleşmesi');
 {
   const mainFiles = fs.readdirSync(path.join(SRC, 'main')).filter((f) => f.endsWith('.js'));
   const mainSrc = mainFiles.map((f) => read('main/' + f)).join('\n');
-  const preSrc = read('preload/preload.js') + read('preload/popup-preload.js');
+  const preSrc = read('preload/preload.js') + read('preload/popup-preload.js') + read('preload/page-preload.js');
 
   const handlers = new Set();
   for (const m of mainSrc.matchAll(/ipcMain\.(?:handle|on)\(\s*['"`]([^'"`]+)/g)) handlers.add(m[1]);
@@ -763,7 +763,7 @@ suite('Site izinleri');
     [forA.geolocation, forA.media, forA.popups, forA['third-party-cookies']], ['allow', 'ask', 'allow', 'default']);
   const mainJs = read('main/main.js');
   check('arayüz izin kararlarını ve oturumu göremez, geri yazamaz',
-    mainJs.includes("const MAIN_OWNED_KEYS = ['permissionDecisions', 'authSessionEnc'];")
+    mainJs.includes("const MAIN_OWNED_KEYS = ['permissionDecisions', 'authSessionEnc', 'passwordNeverSave'];")
     && mainJs.includes("ipcMain.handle('get-config',  ()          => publicConfig());")
     && mainJs.includes('for (const k of MAIN_OWNED_KEYS) delete incoming[k];'));
   check('site verisi silme ve toplu sıfırlama kullanıcı onayı istiyor',
@@ -1388,7 +1388,7 @@ suite('Keşfet — TrendTech yazılımları');
     const fields = [...spJs.matchAll(/^\s*'([\w-]+)':\s*\['(\w+)', '(value|checked)'\]/gm)];
     const valuesFn = spJs.slice(spJs.indexOf('function formValuesFrom'), spJs.indexOf('function initFormState'));
     check('form alan listesi sekmelerdeki kimliklerle ve varsayılan değerlerle eşleşiyor',
-      fields.length === 19
+      fields.length === 20
       && fields.every(([, id]) => spJs.includes(`id="${id}"`) || spJs.includes(`row('${id}'`))
       && fields.every(([, , key]) => new RegExp(`\\n\\s*${key}:\\s`).test(valuesFn)), fields.length);
 
@@ -1465,6 +1465,43 @@ suite('Keşfet — TrendTech yazılımları');
     check('hesapla gönderilen öneride oturum yenilenemezse sessizce anonime düşülmüyor', /session && !token\s*\?\s*Promise\.resolve\(SESSION_LOST\)/.test(appSrc));
     check('preload topluluk köprüsü ve oturum anahtarı yenileme',
       read('preload/preload.js').includes("ipcRenderer.invoke('community-feedback-send', payload)") && read('renderer/auth-screen.js').includes('getAccessToken: async ({ refresh = false } = {})'));
+  }
+
+  suite('Şifre kaydetme önerisi ve doldurma');
+  {
+    const pwm = require('../src/main/password-manager.js');
+    pwm._internals._setVaultForTest([
+      { id: 'a', url: 'https://giris.example/', username: 'ayse', password: 'eski' },
+      { id: 'b', url: 'https://giris.example/', username: 'mehmet', password: 'm1' },
+    ]);
+    eq('aynı hesap ve parola kayıtlı → öneri yok', pwm.classifyCapture('https://giris.example/login', 'ayse', 'eski'), { action: 'same' });
+    eq('aynı hesap, yeni parola → güncelleme önerisi (www farkı önemsiz)', pwm.classifyCapture('https://www.giris.example/', 'ayse', 'yeni'), { action: 'update', id: 'a' });
+    eq('yeni hesap → kaydetme önerisi', pwm.classifyCapture('https://giris.example/', 'zeynep', 'z1'), { action: 'new' });
+    eq('https kaydı http sayfasında eşleşmiyor (ayrı kimlik)', pwm.classifyCapture('http://giris.example/', 'ayse', 'eski'), { action: 'new' });
+    pwm._internals._setVaultForTest([]);
+
+    const pre = read('preload/page-preload.js');
+    check('sekme ön yüklemesi sayfaya hiçbir şey açmıyor (exposeInMainWorld yok)', !pre.includes('exposeInMainWorld') && !/window\.\w+\s*=/.test(pre));
+    check('doldurma menüsü yalnızca gerçek kullanıcı etkileşimiyle (sayfa betiği focus() ile tetikleyemez)', /navigator\.userActivation \|\| !navigator\.userActivation\.isActive\) return;/.test(pre));
+    check('parola değiştirme/kayıt formları (birden çok dolu parola) öneri doğurmuyor', /filled\.length > 1\) return;/.test(pre));
+    const mj = read('main/main.js');
+    check('sayfa açılınca kendiliğinden doldurma kaldırıldı', !mj.includes('creds.length === 1 && creds[0].password') && !/executeJavaScript\(`\(function\(\)\{\s*try \{\s*var pw = document\.querySelector\('input\[type=password\]/.test(mj));
+    check('sekmeler yalıtılmış şifre ön yüklemesiyle açılıyor', mj.includes("preload: path.join(__dirname, '../preload/page-preload.js')"));
+    const cap = mj.slice(mj.indexOf("ipcMain.on('pw-capture'"), mj.indexOf("ipcMain.handle('pw-save-decision'"));
+    check('kayıt önerisi: adres sekmeden okunuyor; gizli pencere, kapalı ayar ve "asla" listesi atlanıyor',
+      cap.length > 500 && cap.includes('event.sender.getURL()') && cap.includes('ctx.incognito') && cap.includes('offerToSavePasswords === false') && cap.includes('passwordNeverSave'));
+    const offerSend = (cap.match(/send\('pw-save-offer', \{[^}]*\}/) || [''])[0];
+    check('arayüze giden öneride parola yok', offerSend.length > 20 && !/password/.test(offerSend), offerSend);
+    const focusStart = mj.indexOf("ipcMain.on('pw-field-focus'");
+    const focus = mj.slice(focusStart, focusStart + 2200);
+    check('doldurma seçilince adres yeniden denetleniyor; yalnızca etkin sekmede menü', focusStart > 0 && focus.includes('webOrigin(wc.getURL()) !== origin') && focus.includes('activeTabId !== ctx.tabId'));
+    check('karar yalnızca öneriyi alan pencereden; "asla" listesi arayüzün ayar kaydıyla değişmiyor',
+      mj.includes('getContextFromEvent(event).state !== offer.state') && /MAIN_OWNED_KEYS = \[[^\]]*'passwordNeverSave'/.test(mj));
+    const appSrc3 = read('renderer/app.js');
+    const offerFn = appSrc3.slice(appSrc3.indexOf('function showPasswordOffer'), appSrc3.indexOf('async function decidePasswordOffer'));
+    check('öneri şeridi metni textContent/append ile kuruluyor', offerFn.length > 300 && !offerFn.includes('innerHTML'));
+    check('Ayarlar › Şifreler: öneri anahtarı form alanı; "asla" listesi ve Şifreleri yönet bağlantısı',
+      read('renderer/settings-panel.js').includes('populatePwNeverList();') && appSrc3.includes("case 'passwords':        window.ilgezdiOpenSettings?.('passwords')"));
   }
   const cardsJs = read('renderer/info-cards.js');
   let cards = null;

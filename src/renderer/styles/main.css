@@ -667,3 +667,34 @@ input, select, textarea { font-family: var(--font-ui); }
 .tab.pinned::before { content: none; }
 .tab.pinned .tab-icon { width: 16px; height: 16px; }
 .tab.dragging { opacity: .45; }
+
+/* Şifre kaydetme önerisi: yer imleri çubuğunun satırını örter (sekme görünümü bu satırın
+   altından başlar, şerit sayfanın altında kalmaz). */
+.pw-offer {
+  position: fixed; left: 0; right: 0; z-index: 120;
+  top: calc(var(--titlebar-h) + var(--toolbar-h)); height: var(--bookmarks-h);
+  display: flex; align-items: center; gap: 10px; padding: 0 14px;
+  background: color-mix(in srgb, var(--gold) 14%, var(--bg-elev));
+  border-bottom: 1px solid color-mix(in srgb, var(--gold) 45%, var(--line));
+  color: var(--ink); font-size: 12.5px;
+}
+.pw-offer[hidden] { display: none; }
+.pw-offer-icon { color: var(--gold); flex-shrink: 0; }
+.pw-offer-text { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pw-offer-user { font-weight: 600; }
+.pw-offer-warn { color: var(--warning, #e0a040); }
+.pw-offer-status { font-size: 12px; color: var(--success, #4ade80); white-space: nowrap; }
+.pw-offer-status:empty { display: none; }
+.pw-offer-btn {
+  height: 24px; padding: 0 12px; border-radius: 6px; border: 1px solid var(--line);
+  background: var(--bg-elev); color: var(--ink-soft); font-size: 12px; white-space: nowrap; flex-shrink: 0;
+}
+.pw-offer-btn:not(.primary):hover { color: var(--gold); border-color: var(--gold); }
+.pw-offer-btn.primary { background: var(--gold); border-color: var(--gold); color: var(--bg); font-weight: 600; }
+.pw-offer-btn.primary:hover { filter: brightness(1.08); }
+.pw-offer-btn[hidden] { display: none; }
+.pw-offer-close {
+  width: 24px; height: 24px; border-radius: 6px; background: transparent; color: var(--ink-mute); flex-shrink: 0;
+}
+.pw-offer-close:hover { background: var(--bg-soft); color: var(--ink); }
+.pw-offer button:focus-visible { outline: 2px solid var(--gold); outline-offset: 1px; }
