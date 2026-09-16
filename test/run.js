@@ -624,6 +624,14 @@ suite('Sağ tık menüsü');
   eq('seçim menüsü', ids(sel), ['copy', 'search-selection', 'inspect']);
   eq('arama etiketi sadeleşir', sel.find((i) => i.id === 'search-selection').label, '“İlgezdi tarayıcı” için ara');
   eq('sayfa menüsü', ids(page({ pageURL: 'https://ornek.com/' })), ['back', 'forward', 'reload', 'print', 'screenshot', 'view-source', 'inspect']);
+  eq('video: blob adresinde de "Resim içinde resim"; açıkken çıkış; desteklenmiyorsa yok',
+    [ids(page({ mediaType: 'video', srcURL: 'blob:https://ornek.com/1', mediaFlags: {} })),
+     page({ mediaType: 'video', srcURL: 'https://ornek.com/v.mp4', mediaFlags: { isShowingPictureInPicture: true } }).filter((i) => i.id === 'video-pip').map((i) => i.label),
+     ids(page({ mediaType: 'video', srcURL: 'blob:x', mediaFlags: { canShowPictureInPicture: false } })).includes('video-pip'),
+     page({ mediaType: 'video', srcURL: 'javascript:alert(1)', x: 5, y: 6 }).find((i) => i.id === 'video-pip').arg],
+    [['video-pip', 'inspect'], ['Resim içinde resimden çık'], false, { src: '', x: 5, y: 6 }]);
+  check('resim içinde resim: video adresi JSON olarak kaçışlanıyor, nokta yakınlaştırmaya göre, kullanıcı hareketiyle',
+    /function toggleVideoPictureInPicture\(wc, arg\) \{[\s\S]{0,200}const src = JSON\.stringify\(String\(\(arg && arg\.src\) \|\| ''\)\);[\s\S]{0,200}\/ zoom\)[\s\S]{0,900}wc\.executeJavaScript\(code, true\)/.test(read('main/main.js')));
   eq('web sayfası olmayan adreste ekran görüntüsü ve kaynak yok', ids(page({ pageURL: 'about:blank' })), ['back', 'forward', 'reload', 'print', 'inspect']);
   eq('düzenlenebilir alanda İncele en sonda; arayüzde (adres çubuğu) yok',
     [ids(page({ isEditable: true, editFlags: {} })).slice(-1), ids(bc.buildContextMenuModel({ isEditable: true, editFlags: {} }, { surface: 'ui', platform: 'win32' })).includes('inspect')], [['inspect'], false]);

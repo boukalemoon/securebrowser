@@ -1418,6 +1418,27 @@ ipcMain.handle('screenshot-reveal', (_e, file) => {
   return true;
 });
 
+// Sağ tık › Resim içinde resim. Video adresiyle (blob: dahil) ya da tıklanan noktayla
+// bulunur (yakınlaştırma hesaba katılır). Menü tıklaması kullanıcı hareketi olarak iletilir;
+// sayfa betiği bu yolu kendiliğinden tetikleyemez.
+function toggleVideoPictureInPicture(wc, arg) {
+  if (!wc || wc.isDestroyed()) return;
+  const src = JSON.stringify(String((arg && arg.src) || ''));
+  const zoom = wc.getZoomFactor() || 1;
+  const x = Math.round((Number(arg && arg.x) || 0) / zoom);
+  const y = Math.round((Number(arg && arg.y) || 0) / zoom);
+  const code = `(() => {
+    const vids = Array.from(document.querySelectorAll('video'));
+    let v = ${src} ? vids.find((el) => el.currentSrc === ${src}) : null;
+    if (!v) { const hit = document.elementFromPoint(${x}, ${y}); v = hit && hit.closest ? hit.closest('video') : null; }
+    if (!v && vids.length === 1) v = vids[0];
+    if (!v) return 'yok';
+    if (document.pictureInPictureElement === v) return document.exitPictureInPicture().then(() => 'çıktı');
+    return v.requestPictureInPicture().then(() => 'açıldı', (e) => e.name);
+  })()`;
+  wc.executeJavaScript(code, true).catch(() => {});
+}
+
 function runContextAction(win, state, wc, item, params) {
   if (wc.isDestroyed()) return;
   const arg = item.arg;
@@ -1462,6 +1483,7 @@ function runContextAction(win, state, wc, item, params) {
     case 'print':   runBrowserCommand(win, state, 'print'); break;
     case 'screenshot': takeScreenshot(win, wc); break;
     case 'inspect':    inspectElementAt(wc, arg); break;
+    case 'video-pip':  toggleVideoPictureInPicture(wc, arg); break;
   }
 }
 

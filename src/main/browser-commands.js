@@ -259,6 +259,14 @@ function buildContextMenuModel(p = {}, ctx = {}) {
     add('open-tab', video ? 'Videoyu yeni sekmede aç' : 'Sesi yeni sekmede aç', { arg: webSrc });
     add('copy-text', video ? 'Video adresini kopyala' : 'Ses adresini kopyala', { arg: webSrc });
   }
+  // Resim içinde resim: blob: adresli videolarda da (YouTube gibi akışlar).
+  const mediaFlags = p.mediaFlags || {};
+  if (p.mediaType === 'video' && mediaFlags.canShowPictureInPicture !== false) {
+    sep();
+    add('video-pip', mediaFlags.isShowingPictureInPicture ? 'Resim içinde resimden çık' : 'Resim içinde resim', {
+      arg: { src: /^(https?|blob):/i.test(src) ? src : '', x: Number(p.x) || 0, y: Number(p.y) || 0 },
+    });
+  }
 
   if (hasSelection) {
     sep();
