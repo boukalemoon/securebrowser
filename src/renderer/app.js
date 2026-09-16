@@ -700,12 +700,14 @@ async function initHistoryPage() {
   });
 
   const list = document.getElementById('history-list');
-  const open = (row, newTab) => {
+  // Tık: bu sekmede; orta tık ve Ctrl+tık arka planda, Ctrl+Shift+tık önde yeni sekmede (Chrome gibi).
+  const open = (row, mode) => {
     const url = row && row.dataset.url;
     if (!isWebHref(url)) return;
-    if (newTab) sb.newTab(url);
-    else { hideScreen(); sb.navigate(url); }
+    if (mode === 'current') { hideScreen(); sb.navigate(url); }
+    else sb.newTab(url, { background: mode === 'background' });
   };
+  const modeOf = (e) => (e.ctrlKey || e.metaKey ? (e.shiftKey ? 'foreground' : 'background') : 'current');
   list?.addEventListener('click', async (e) => {
     const del = e.target.closest('[data-delete]');
     if (del) {
@@ -718,11 +720,11 @@ async function initHistoryPage() {
       return;
     }
     const row = e.target.closest('.list-row');
-    if (row) open(row, e.ctrlKey || e.metaKey);
+    if (row) open(row, modeOf(e));
   });
   list?.addEventListener('auxclick', (e) => {
     const row = e.button === 1 && e.target.closest('.list-row');
-    if (row) { e.preventDefault(); open(row, true); }
+    if (row) { e.preventDefault(); open(row, 'background'); }
   });
   // Liste kaydırılabilir: orta tuş otomatik kaydırmayı başlatıp auxclick'i yutmasın.
   list?.addEventListener('mousedown', (e) => {
@@ -731,7 +733,7 @@ async function initHistoryPage() {
   list?.addEventListener('keydown', (e) => {
     if (e.key !== 'Enter' || e.target.closest('[data-delete]')) return;
     const row = e.target.closest('.list-row');
-    if (row) open(row, e.ctrlKey);
+    if (row) open(row, modeOf(e));
   });
 }
 
@@ -1428,7 +1430,7 @@ function initNewTabEvents() {
     const url = window.ilgezdiHtml.safeUrl(card.dataset.source);
     if (!url) return;
     card.addEventListener('click', () => { hideScreen(); sb.navigate(url); });
-    card.addEventListener('auxclick', (e) => { if (e.button === 1) { e.preventDefault(); sb.newTab(url); } });
+    card.addEventListener('auxclick', (e) => { if (e.button === 1) { e.preventDefault(); sb.newTab(url, { background: true }); } });
     card.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); hideScreen(); sb.navigate(url); }
     });

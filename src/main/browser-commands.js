@@ -386,6 +386,17 @@ function createZoomStore({ read, write, delayMs = 400, defaultFactor = () => 1 }
   };
 }
 
+/**
+ * Komut satırından açılacak web adresleri: varsayılan tarayıcı olarak başka bir uygulamadan
+ * gelen bağlantı (`"İlgezdi.exe" "https://…"`). Yalnızca http(s); Chromium bayrakları, betik
+ * yolu ve diğer şemalar (javascript:, file:) atılır.
+ */
+function urlsFromArgv(argv) {
+  return (Array.isArray(argv) ? argv : []).slice(1).map(String)
+    .filter((a) => /^https?:\/\//i.test(a) && isWebUrl(a))
+    .slice(0, 10);
+}
+
 // ─── Kapatılan sekmeler ───────────────────────────────────────────────────────
 // Yığın yalnızca bellekte durur (pencere kapanınca gider). Gizli pencerenin
 // yığını kendi durum nesnesindedir ve pencereyle birlikte silinir.
@@ -554,6 +565,7 @@ module.exports = {
   MIN_FONT_CHOICES,
   normalizePageZoom,
   normalizeMinFontSize,
+  urlsFromArgv,
   CLOSED_TABS_MAX,
   snapshotHistory,
   pushClosedTab,

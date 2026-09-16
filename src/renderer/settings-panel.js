@@ -570,6 +570,16 @@ function renderCustomizationTab(cfg) {
 
 function renderGeneralTab(cfg) {
   return `
+    <div class="settings-section"><h3>Varsayılan Tarayıcı</h3>
+      <div class="s-input-row" style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+        <div>
+          <div class="s-toggle-label">İlgezdi varsayılan tarayıcı mı?</div>
+          <div class="s-toggle-sub" id="default-browser-status" aria-live="polite">Denetleniyor…</div>
+        </div>
+        <button class="folder-btn" id="btn-default-browser" hidden>Varsayılan yap</button>
+      </div>
+      <p class="s-hint">Windows, uygulamaların kendini varsayılan yapmasına izin vermez: düğme Ayarlar › Varsayılan uygulamalar sayfasını açar, orada İlgezdi'yi seçin. Sonra başka uygulamalardaki bağlantılar İlgezdi'de yeni sekmede açılır.</p>
+    </div>
     <div class="settings-section"><h3>Dil</h3>
       <div class="s-input-row"><select id="lang-select">
         <option value="tr" ${!cfg.language||cfg.language==='tr'?'selected':''}>🇹🇷 Türkçe</option>
@@ -1111,7 +1121,42 @@ function renderThreatStatus(st) {
   }
 }
 
+// Varsayılan tarayıcı durumu: Windows'ta kullanıcının seçtiği uygulamanın kimliği (ProgId)
+// okunur; bilinen tarayıcılar adıyla gösterilir.
+const BROWSER_PROGIDS = [
+  [/^ChromeHTML/i, 'Google Chrome'], [/^MSEdgeHTM/i, 'Microsoft Edge'], [/^BraveHTML/i, 'Brave'],
+  [/^FirefoxURL/i, 'Firefox'], [/^Opera(GX)?Stable/i, 'Opera'], [/^VivaldiHTM/i, 'Vivaldi'], [/^YandexHTML/i, 'Yandex Browser'],
+];
+async function populateDefaultBrowser() {
+  const el = document.getElementById('default-browser-status');
+  const btn = document.getElementById('btn-default-browser');
+  if (!el) return;
+  let st = null;
+  try { st = await window.secureBrowser?.defaultBrowser?.status?.(); } catch {}
+  if (!el.isConnected) return;
+  el.style.color = '';
+  if (!st) { el.textContent = 'Durum okunamadı.'; return; }
+  if (st.isDefault) {
+    el.textContent = 'Evet: başka uygulamalardaki bağlantılar İlgezdi\'de açılıyor.';
+    el.style.color = 'var(--success)';
+    if (btn) btn.hidden = true;
+    return;
+  }
+  const name = (BROWSER_PROGIDS.find(([re]) => re.test(st.current || '')) || [])[1];
+  el.textContent = name ? `Hayır: şu an ${name} varsayılan.` : 'Hayır: bağlantılar başka bir uygulamada açılıyor.';
+  if (st.platform === 'win32' && !st.packaged) el.textContent += ' (Geliştirme kopyası: Windows kaydı kurulumla yapılır.)';
+  if (btn) btn.hidden = false;
+}
+
 function bindGeneralEvents() {
+  populateDefaultBrowser();
+  document.getElementById('btn-default-browser')?.addEventListener('click', async () => {
+    let r = null;
+    try { r = await window.secureBrowser?.defaultBrowser?.set?.(); } catch {}
+    // Windows'ta Ayarlar açılır; kullanıcı İlgezdi'ye dönünce durum yeniden okunur.
+    if (r?.openedSettings) window.addEventListener('focus', () => populateDefaultBrowser(), { once: true });
+    else populateDefaultBrowser();
+  });
   document.getElementById('btn-pick-folder')?.addEventListener('click', async () => {
     const folder = await window.secureBrowser?.pickDownloadFolder?.();
     if (folder) { document.getElementById('download-folder').value=folder; _formCfg.downloadFolder=folder; updateUnsavedBar(); }

@@ -82,7 +82,8 @@
         "tr_TR",
         "en_US"
       ],
-      "language": "1055"
+      "language": "1055",
+    "include": "build/installer.nsh"
     },
     "mac": {
       "target": [

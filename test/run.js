@@ -1227,7 +1227,7 @@ suite('Sık kullanılanlar çubuğu');
   check('yer imi kaydedilince, senkronda ve başka pencerede değişince çubuk yenileniyor',
     (bmJs.match(/dispatchEvent\(new CustomEvent\('ilgezdi-bookmarks-changed'\)\)/g) || []).length >= 2
     && bmJs.includes("addEventListener('ilgezdi-bookmarks-changed', bmRenderBar)") && bmJs.includes("addEventListener('storage'"));
-  check('orta tık ve Ctrl/Shift+tık yeni sekmede açıyor', bmJs.includes("addEventListener('auxclick'") && /e\.ctrlKey \|\| e\.metaKey \|\| e\.shiftKey\) sb\?\.newTab/.test(bmJs));
+  check('orta tık ve Ctrl/Shift+tık yeni sekmede açıyor', bmJs.includes("addEventListener('auxclick'") && /if \(e\.ctrlKey \|\| e\.metaKey\) sb\?\.newTab\?\.\(url, \{ background: !e\.shiftKey \}\);\s*else if \(e\.shiftKey\) sb\?\.newTab\?\.\(url\);/.test(bmJs));
   check('çubuğun sonunda tüm yer imlerini açan düğme (diğer klasörler panelde)',
     bmJs.includes("'bookmark-chip bookmark-chip-all'") && bmJs.includes("closest?.('.bookmark-chip-all')"));
   check('düğme bağlantı kutusunun dışında, çubuğun sağında; bağlantılar sığmayınca görünür kalıyor',
@@ -1373,7 +1373,7 @@ suite('Keşfet — TrendTech yazılımları');
     const bmJs = read('renderer/bookmarks-panel.js');
     check('yer imleri paneline position verilmiyor (.side-panel sağa sabitler; 0.8.0\'da sayfanın altına düşüyordu)', !/#panel-bookmarks\s*\{[^}]*position/.test(bmJs));
     check('satırın tamamı tıklanıyor; tık → panel kapanıp aynı sekmede, Ctrl/orta tık → yeni sekmede',
-      /function bmOpenUrl\(url, inNewTab\)[\s\S]{0,200}newTab\?\.\(url\)[\s\S]{0,120}ilgezdiCloseAllPanels\?\.\(\)[\s\S]{0,80}navigate\?\.\(url\)/.test(bmJs)
+      /function bmOpenUrl\(url, mode\)[\s\S]{0,300}newTab\?\.\(url, \{ background: mode === 'background' \}\)[\s\S]{0,160}ilgezdiCloseAllPanels\?\.\(\)[\s\S]{0,80}navigate\?\.\(url\)/.test(bmJs)
       && bmJs.includes("list?.addEventListener('auxclick'")
       && bmJs.includes('data-url="${H.esc(item.url)}" tabindex="0" role="link"'));
     check('senkron sonrası bellekteki yer imleri yeniden yükleniyor', /'ilgezdi-sync-applied', \(\) => \{\s*bmLoad\(\);/.test(bmJs));
@@ -1529,6 +1529,48 @@ suite('Keşfet — TrendTech yazılımları');
       css2.includes(':root[data-reduce-motion] .tab-spinner::before { animation-duration: 2.6s !important; animation-iteration-count: infinite !important; }'));
     check('yüksek karşıtlık ayarla ve işletim sistemi tercihiyle', css2.includes(':root[data-contrast="high"] {') && css2.includes('@media (prefers-contrast: more)'));
     check('gösterge ve site bilgisi %100 yerine varsayılan orana göre', read('renderer/app.js').includes('zoomBtn.hidden = pct === def;') && read('renderer/app.js').includes('pct !== zoomDefaultPct'));
+  }
+
+  suite('Varsayılan tarayıcı — başka uygulamalardan gelen bağlantılar');
+  {
+    const bc3 = require('../src/main/browser-commands.js');
+    eq('komut satırından yalnızca http(s) adresleri; bayrak, betik yolu, javascript: ve file: atılır',
+      bc3.urlsFromArgv(['İlgezdi.exe', 'https://a.com/x?y=1', '--flag', 'javascript:alert(1)', 'file:///C:/x.html', 'http://b.com/']),
+      ['https://a.com/x?y=1', 'http://b.com/']);
+    eq('geliştirme komut satırı (electron .) adres içermiyor', bc3.urlsFromArgv(['electron.exe', '.', '--dev']), []);
+    const mj3 = read('main/main.js');
+    check('tek süreç: ikinci başlatma kapanıyor, bağlantı çalışan pencerede yeni sekmede açılıyor',
+      mj3.includes('const isDuplicateInstance = !app.requestSingleInstanceLock();')
+      && /app\.on\('second-instance', \(_event, argv\) => \{[\s\S]{0,400}openExternalUrls\(urls\)/.test(mj3)
+      && mj3.includes('if (isDuplicateInstance) return;'));
+    check('bağlantıyla açılışta ana sayfa yerine bağlantı; oturum geri yüklenince bağlantı da açılıyor',
+      mj3.includes('if (openExternalUrls(external)) return;') && mj3.includes('if (saved && restoreSession(saved)) { openExternalUrls(external); return; }'));
+    check('durum Windows kullanıcı seçiminden (UserChoice); Windows\'ta ayar sayfası açılıyor, kendini zorla varsayılan yapmıyor',
+      mj3.includes('UrlAssociations\\\\https\\\\UserChoice') && mj3.includes('ms-settings:defaultapps?registeredAppUser=Ilgezdi'));
+    const nsh = fs.readFileSync(path.join(__dirname, '..', 'build', 'installer.nsh'), 'utf8');
+    check('kurulum İlgezdi\'yi tarayıcı olarak kaydediyor (http/https → IlgezdiURL, RegisteredApplications) ve kaldırınca siliyor',
+      nsh.includes('URLAssociations" "http" "IlgezdiURL"') && nsh.includes('URLAssociations" "https" "IlgezdiURL"')
+      && nsh.includes('WriteRegStr HKCU "Software\\RegisteredApplications" "Ilgezdi"')
+      && nsh.includes('shell\\open\\command" "" \'"$INSTDIR\\${APP_EXECUTABLE_FILENAME}" "%1"\'')
+      && nsh.includes('DeleteRegKey HKCU "Software\\Classes\\IlgezdiURL"'));
+    check('kurulum betiği UTF-8 BOM\'lu (Türkçe adlar) ve electron-builder\'a bağlı',
+      nsh.charCodeAt(0) === 0xFEFF && require('../package.json').build.nsis.include === 'build/installer.nsh');
+  }
+
+  suite('Orta tık ve Ctrl+tık — arka planda sekme');
+  {
+    const mj4 = read('main/main.js');
+    check('new-tab arka plan seçeneğiyle etkin sekmeyi değiştirmiyor',
+      /ipcMain\.handle\('new-tab', \(event, url, opts\) => \{[\s\S]{0,300}if \(!\(opts && opts\.background === true\)\) setActiveTab/.test(mj4));
+    check('preload yalnızca background: true iletiyor',
+      read('preload/preload.js').includes("newTab:    (url, opts) => ipcRenderer.invoke('new-tab', url, opts && opts.background === true ? { background: true } : undefined)"));
+    const bm4 = read('renderer/bookmarks-panel.js');
+    check('sık kullanılanlar çubuğu: orta tık ve Ctrl+tık arka planda, Ctrl+Shift/Shift+tık önde',
+      bm4.includes('sb?.newTab?.(url, { background: !e.shiftKey })') && bm4.includes('if (url) { e.preventDefault(); sb?.newTab?.(url, { background: true }); }'));
+    check('yer imleri paneli satırı aynı kuralla', bm4.includes('function bmOpenMode(e, middle)') && bm4.includes('bmOpenUrl(url, bmOpenMode(e, true))'));
+    const app4 = read('renderer/app.js');
+    check('geçmiş satırı ve bilgi kartı: orta tık arka planda',
+      app4.includes("if (row) { e.preventDefault(); open(row, 'background'); }") && app4.includes('sb.newTab(url, { background: true })'));
   }
   const cardsJs = read('renderer/info-cards.js');
   let cards = null;

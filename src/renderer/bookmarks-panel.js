@@ -754,9 +754,10 @@ function bmInitPanelEvents() {
   });
 
   // Satırın tamamı tıklanır (eskiden yalnızca başlık alanı): tık ya da Enter → bu sekmede
-  // açılır ve panel kapanır ki sayfa görünsün; Ctrl/Shift+tık ya da orta tık → yeni
-  // sekmede, panel açık kalır. Liste her açılışta yeniden kurulduğu için dinleyiciler
-  // birikmez. Liste kaydırılabilir: orta tuş otomatik kaydırmayı başlatmasın.
+  // açılır ve panel kapanır ki sayfa görünsün; orta tık ve Ctrl+tık → arka planda yeni
+  // sekme, Ctrl+Shift+tık ya da Shift+tık → önde yeni sekme; panel açık kalır. Liste her
+  // açılışta yeniden kurulduğu için dinleyiciler birikmez. Liste kaydırılabilir: orta tuş
+  // otomatik kaydırmayı başlatmasın.
   const list = document.getElementById('bm-list-container');
   const rowUrl = (e) => {
     if (e.target.closest?.('.bm-item-actions')) return '';
@@ -765,23 +766,29 @@ function bmInitPanelEvents() {
   };
   list?.addEventListener('click', (e) => {
     const url = rowUrl(e);
-    if (url) bmOpenUrl(url, e.ctrlKey || e.metaKey || e.shiftKey);
+    if (url) bmOpenUrl(url, bmOpenMode(e, false));
   });
   list?.addEventListener('auxclick', (e) => {
     const url = e.button === 1 ? rowUrl(e) : '';
-    if (url) { e.preventDefault(); bmOpenUrl(url, true); }
+    if (url) { e.preventDefault(); bmOpenUrl(url, bmOpenMode(e, true)); }
   });
   list?.addEventListener('mousedown', (e) => { if (e.button === 1 && rowUrl(e)) e.preventDefault(); });
   list?.addEventListener('keydown', (e) => {
     if (e.key !== 'Enter' || !e.target.classList?.contains('bm-item')) return;
     const url = window.ilgezdiHtml.safeUrl(e.target.dataset.url);
-    if (url) { e.preventDefault(); bmOpenUrl(url, e.ctrlKey || e.metaKey); }
+    if (url) { e.preventDefault(); bmOpenUrl(url, bmOpenMode(e, false)); }
   });
 }
 
-function bmOpenUrl(url, inNewTab) {
+// 'current' bu sekmede · 'background' arka planda yeni sekme · 'foreground' önde yeni sekme
+function bmOpenMode(e, middle) {
+  if (middle || e.ctrlKey || e.metaKey) return e.shiftKey ? 'foreground' : 'background';
+  return e.shiftKey ? 'foreground' : 'current';
+}
+
+function bmOpenUrl(url, mode) {
   const sb = window.secureBrowser;
-  if (inNewTab) { sb?.newTab?.(url); return; }
+  if (mode === 'background' || mode === 'foreground') { sb?.newTab?.(url, { background: mode === 'background' }); return; }
   window.ilgezdiCloseAllPanels?.();
   _bmPanelOpen = false;
   sb?.navigate?.(url);
@@ -916,12 +923,14 @@ function bmInit() {
     if (e.target.closest?.('.bookmark-chip-all')) { document.getElementById('btn-bookmarks')?.click(); return; }
     const url = chipUrl(e);
     if (!url) return;
-    if (e.ctrlKey || e.metaKey || e.shiftKey) sb?.newTab?.(url);
+    // Ctrl+tık arka planda, Ctrl+Shift+tık ya da Shift+tık önde yeni sekme (Chrome gibi).
+    if (e.ctrlKey || e.metaKey) sb?.newTab?.(url, { background: !e.shiftKey });
+    else if (e.shiftKey) sb?.newTab?.(url);
     else sb?.navigate?.(url);
   });
   bar?.addEventListener('auxclick', (e) => {
     const url = e.button === 1 ? chipUrl(e) : '';
-    if (url) { e.preventDefault(); sb?.newTab?.(url); }
+    if (url) { e.preventDefault(); sb?.newTab?.(url, { background: true }); }
   });
   // Yer imi değişince (panel, ☆ açılır penceresi, senkron, başka pencere) çubuk yenilenir.
   window.addEventListener('ilgezdi-bookmarks-changed', bmRenderBar);

@@ -4,9 +4,10 @@
 
 'use strict';
 
-const { app, BrowserWindow, WebContentsView, Menu, clipboard, ipcMain, session, dialog, safeStorage, webContents } = require('electron');
+const { app, BrowserWindow, WebContentsView, Menu, clipboard, ipcMain, session, dialog, safeStorage, webContents, shell } = require('electron');
 const path = require('path');
 const fs   = require('fs');
+const { execFile } = require('child_process');
 
 const { SecureLogManager } = require('./secure-log-manager');
 const { VpnManager } = require('./vpn-manager');
@@ -31,7 +32,7 @@ setupCommunity({ ipcMain, session, app, apiBase: !app.isPackaged ? process.env.I
 const {
   normalizeWebrtcPolicy, DEFAULT_WEBRTC_POLICY, UI_COMMANDS, commandForInput, buildContextMenuModel,
   nextZoomFactor, zoomKeyForUrl, createZoomStore, snapshotHistory, pushClosedTab, isWebUrl,
-  normalizePageZoom, normalizeMinFontSize,
+  normalizePageZoom, normalizeMinFontSize, urlsFromArgv,
   TAB_ACTIONS, moveTabId, orderAfterPin, buildTabMenuModel, normalizeStartupMode, serializeSession, parseSession,
 } = require('./browser-commands');
 const {
@@ -1704,10 +1705,11 @@ ipcMain.handle('zoom-reset', (event) => {
 // ─── IPC Handlers ─────────────────────────────────────────────────────────────
 
 // Sekme — her handler hangi pencereden geldiğini tespit eder
-ipcMain.handle('new-tab', (event, url) => {
+ipcMain.handle('new-tab', (event, url, opts) => {
   const { win, state } = getContextFromEvent(event);
   const id = createTab(win, state, url);
-  setActiveTab(win, state, id);
+  // Orta tık ve Ctrl+tık (yer imleri, geçmiş, kartlar) arka planda açar; Chrome gibi.
+  if (!(opts && opts.background === true)) setActiveTab(win, state, id);
   return id;
 });
 
@@ -2250,7 +2252,64 @@ ipcMain.on('window-close', (event) => {
 });
 
 // ─── Uygulama Yaşam Döngüsü ───────────────────────────────────────────────────
+// ─── Varsayılan tarayıcı: başka uygulamalardan gelen bağlantılar ─────────────
+// Windows bağlantıyı `"İlgezdi.exe" "https://…"` diye başlatır (kayıt: build/installer.nsh).
+// Aynı profille ikinci süreç açılmaz (profil dosyaları iki süreçte bozulurdu): ikinci
+// başlatma kilidi alamayıp kapanır, adres çalışan pencereye iletilir, yeni sekmede açılır.
+const pendingExternalUrls = urlsFromArgv(process.argv);
+const isDuplicateInstance = !app.requestSingleInstanceLock();
+if (isDuplicateInstance) {
+  app.quit();
+} else {
+  app.on('second-instance', (_event, argv) => {
+    const urls = urlsFromArgv(argv);
+    if (!mainWindow || mainWindow.isDestroyed()) { pendingExternalUrls.push(...urls); return; }
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.show();
+    mainWindow.focus();
+    openExternalUrls(urls);
+  });
+}
+
+function openExternalUrls(urls) {
+  if (!mainWindow || mainWindow.isDestroyed() || !urls || !urls.length) return false;
+  let last = null;
+  for (const u of urls) last = createTab(mainWindow, mainState, u);
+  if (last) setActiveTab(mainWindow, mainState, last);
+  return true;
+}
+
+// Varsayılan tarayıcı durumu (Ayarlar › Genel). Windows'ta kullanıcının seçimi (UserChoice)
+// okunur. Windows 10+ uygulamanın kendini varsayılan yapmasına izin vermez: düğme Ayarlar ›
+// Varsayılan uygulamalar sayfasını İlgezdi seçili açar. macOS/Linux'ta doğrudan istenir.
+const DEFAULT_BROWSER_PROGID = 'IlgezdiURL';
+function readUserChoiceProgId() {
+  return new Promise((resolve) => {
+    execFile('reg', ['query', 'HKCU\\Software\\Microsoft\\Windows\\Shell\\Associations\\UrlAssociations\\https\\UserChoice', '/v', 'ProgId'],
+      { windowsHide: true, timeout: 5000 }, (err, stdout) => {
+        const m = !err && String(stdout).match(/ProgId\s+REG_SZ\s+(\S+)/);
+        resolve(m ? m[1] : '');
+      });
+  });
+}
+ipcMain.handle('default-browser-status', async () => {
+  if (process.platform !== 'win32') {
+    return { supported: true, isDefault: app.isDefaultProtocolClient('https'), current: '', packaged: app.isPackaged, platform: process.platform };
+  }
+  const current = await readUserChoiceProgId();
+  return { supported: true, isDefault: current === DEFAULT_BROWSER_PROGID, current: current.slice(0, 80), packaged: app.isPackaged, platform: process.platform };
+});
+ipcMain.handle('default-browser-set', async () => {
+  if (process.platform === 'win32') {
+    await shell.openExternal('ms-settings:defaultapps?registeredAppUser=Ilgezdi');
+    return { ok: true, openedSettings: true };
+  }
+  return { ok: app.setAsDefaultProtocolClient('http') && app.setAsDefaultProtocolClient('https') };
+});
+
 app.whenReady().then(() => {
+  // Aynı profille ikinci başlatma: bağlantı ilk sürece iletildi, bu süreç kapanıyor.
+  if (isDuplicateInstance) return;
   // Windows: görev çubuğu / bildirimlerde doğru uygulama kimliği + ikon eşleşmesi
   if (process.platform === 'win32') app.setAppUserModelId('com.ilgezdi.browser');
 
@@ -2364,10 +2423,13 @@ app.whenReady().then(() => {
   }
 
   setTimeout(() => {
-    if (mainState.tabs.size !== 0) return;
+    if (mainState.tabs.size !== 0) { openExternalUrls(pendingExternalUrls.splice(0)); return; }
     // "Kaldığım yerden devam et": kayıtlı oturum varsa sekmeler geri gelir.
     const saved = normalizeStartupMode(config.startupMode) === 'restore' ? readSessionFile() : null;
-    if (saved && restoreSession(saved)) return;
+    const external = pendingExternalUrls.splice(0);
+    if (saved && restoreSession(saved)) { openExternalUrls(external); return; }
+    // Başka bir uygulamadaki bağlantıyla açıldıysa ana sayfa yerine o bağlantı açılır.
+    if (openExternalUrls(external)) return;
     // Kullanıcının belirlediği anasayfayı aç (boşsa İlgezdi başlangıç sayfası)
     const id = createTab(mainWindow, mainState, homepageUrl());
     setActiveTab(mainWindow, mainState, id);

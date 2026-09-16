@@ -26,7 +26,7 @@ contextBridge.exposeInMainWorld('secureBrowser', {
   },
 
   // ── Sekme Yönetimi ──────────────────────────────────────────────────────────
-  newTab:    (url) => ipcRenderer.invoke('new-tab', url),
+  newTab:    (url, opts) => ipcRenderer.invoke('new-tab', url, opts && opts.background === true ? { background: true } : undefined),
   switchTab: (id)  => ipcRenderer.invoke('switch-tab', id),
   closeTab:  (id)  => ipcRenderer.invoke('close-tab', id),
 
@@ -131,6 +131,12 @@ contextBridge.exposeInMainWorld('secureBrowser', {
     checkUpdate:       ()   => ipcRenderer.invoke('arku-check-update'),
     applyUpdate:       ()   => ipcRenderer.invoke('arku-apply-update'),
     onUpdateAvailable: (cb) => ipcRenderer.on('arku-update-available', (_, info) => cb(info)),
+  },
+
+  // ── Varsayılan tarayıcı (Ayarlar › Genel) ────────────────────────────────────
+  defaultBrowser: {
+    status: () => ipcRenderer.invoke('default-browser-status'),
+    set:    () => ipcRenderer.invoke('default-browser-set'),
   },
 
   // ── QR üretimi (yerel, çevrimdışı) ──────────────────────────────────────────
