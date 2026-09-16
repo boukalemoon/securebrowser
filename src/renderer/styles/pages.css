@@ -134,7 +134,7 @@
 
 /* Quick link tiles — tasarım backup .tile-mark ile */
 .shortcuts {
-  display: grid; grid-template-columns: repeat(8, 1fr);
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(92px, 104px)); justify-content: center;
   gap: 14px; max-width: 880px; margin: 0 auto 48px;
 }
 .shortcut {

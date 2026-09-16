@@ -1631,6 +1631,13 @@ suite('Keşfet — TrendTech yazılımları');
     fs.rmSync(tmpLog, { recursive: true, force: true });
   }
 
+  suite('Yeni sekme — Google kısayolu yok');
+  {
+    const appQ = read('renderer/app.js');
+    const ql = appQ.slice(appQ.indexOf('const QUICK_LINKS = ['), appQ.indexOf('];', appQ.indexOf('const QUICK_LINKS = [')));
+    check('hızlı bağlantılarda Google, Gmail, Haritalar ve YouTube yok', ql.length > 50 && !/google\.|youtube\.|youtu\.be/i.test(ql));
+  }
+
   suite('Site Bilgisi — reklam ve izleyici koruması');
   {
     const blk = require('../src/main/blocker-main.js');

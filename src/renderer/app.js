@@ -1629,13 +1629,12 @@ window.addEventListener('ilgezdi-auth-changed', () => {
   else if (currentScreen === 'feedback') refreshFeedbackAccount();
 });
 
+// Google kısayolları (Haritalar, Gmail, YouTube) kaldırıldı (Burak, 16.09.2026): İlgezdi
+// kullanıcıyı Google uygulamalarına yönlendirmez.
 const QUICK_LINKS = [
-  { name: 'Atlas',  url: 'https://maps.google.com',        color: '#3a6db5', letter: 'A' },
   { name: 'Boy',    url: 'https://tr.wikipedia.org',        color: '#b85c3a', letter: 'B' },
   { name: 'Kurgan', url: 'https://github.com',              color: '#5a7a4a', letter: 'K' },
-  { name: 'Otağ',  url: 'https://mail.google.com',         color: '#8a4a7a', letter: 'O' },
   { name: 'Tamga', url: 'https://duckduckgo.com',          color: '#c89540', letter: 'T' },
-  { name: 'Yıldız',url: 'https://www.youtube.com',         color: '#4a5a8a', letter: 'Y' },
   { name: 'Damga', url: 'https://www.trthaber.com',        color: '#7a4a3a', letter: 'D' },
   { name: 'Arşiv', url: 'https://archive.org',             color: '#3a5a4a', letter: 'A' },
 ];
