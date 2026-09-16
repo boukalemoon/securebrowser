@@ -1623,6 +1623,32 @@ suite('Keşfet — TrendTech yazılımları');
     fs.rmSync(tmpLog, { recursive: true, force: true });
   }
 
+  suite('Sekmelerde ara (Ctrl+Shift+A)');
+  {
+    const bcT = require('../src/main/browser-commands.js');
+    eq('Ctrl+Shift+A sayfada da sekme aramasını açıyor ve arayüze iletiliyor',
+      [bcT.commandForInput({ type: 'keyDown', key: 'A', control: true, shift: true }, { platform: 'win32', surface: 'page' }), bcT.UI_COMMANDS.has('tab-search')], ['tab-search', true]);
+    const appT = read('renderer/app.js');
+    const fnSrc = (appT.match(/function tabMatches\(tab, query\) \{[\s\S]*?\n\}/) || [''])[0];
+    let tabMatches = null;
+    try { tabMatches = new Function(fnSrc + '\nreturn tabMatches;')(); } catch (e) { tabMatches = null; }
+    const tabs = [
+      { title: 'İstanbul Büyükşehir Belediyesi', url: 'https://ibb.istanbul/' },
+      { title: 'Posta', url: 'https://mail.ornek.com.tr/gelen' },
+      { title: '', url: 'about:blank' },
+    ];
+    eq('arama: her kelime başlıkta ya da adreste; Türkçe İ/ı büyük-küçük harf',
+      tabMatches && [tabs.filter((t) => tabMatches(t, 'istanbul')).length, tabs.filter((t) => tabMatches(t, 'BELEDİYESİ')).length,
+        tabs.filter((t) => tabMatches(t, 'ornek gelen')).length, tabs.filter((t) => tabMatches(t, 'ornek istanbul')).length, tabs.filter((t) => tabMatches(t, '  ')).length],
+      [1, 1, 1, 0, 3]);
+    check('liste metni kaçışlanıyor; site simgesi yalnızca data:image; sekmeler değişince liste yenileniyor',
+      /function renderTabsList\(\) \{[\s\S]{0,2600}H\.esc\(title\)[\s\S]{0,600}\}/.test(appT) && appT.includes("const icon = t.favicon && /^data:image\\//.test(t.favicon)")
+      && /function renderTabs\(tabs\) \{\s*currentTabs = tabs;\s*if \(currentScreen === 'tabs'\) renderTabsList\(\);/.test(appT));
+    check('şeritte düğme ve kısayol tablosunda satır var',
+      read('renderer/index.html').includes('id="btn-tab-search"') && appT.includes("document.getElementById('btn-tab-search')?.addEventListener('click', openTabsScreen);")
+      && read('renderer/settings-panel.js').includes('<tr><td>Sekmelerde ara</td>'));
+  }
+
   suite('Sistem — donanım hızlandırma, ayarları sıfırla, geçmişi aralıkla sil, kapatma uyarısı');
   {
     const BC = require('../src/main/browser-commands.js');
@@ -1806,8 +1832,9 @@ suite('Keşfet — TrendTech yazılımları');
     && /screenHideTimer = setTimeout\(\(\) => \{\s*screenHideTimer = null;\s*if \(!currentScreen\) overlay\.classList\.add\('hidden'\);/.test(appJs));
   check('geçmiş listesinde orta tuş otomatik kaydırmayı başlatmıyor', /list\?\.addEventListener\('mousedown', \(e\) => \{\s*if \(e\.button === 1 && e\.target\.closest\('\.list-row'\)\) e\.preventDefault\(\)/.test(appJs));
   check('kartta orta tuş otomatik kaydırmayı başlatmıyor (yeni sekmede açma çalışsın)', /news-card\[data-source\][\s\S]{0,1200}'mousedown', \(e\) => \{ if \(e\.button === 1\) e\.preventDefault\(\)/.test(appJs));
-  check('yeni sekme olayları içerik eklendikten sonra bağlanıyor (her üç açılış yolunda)',
-    (appJs.match(/showScreen\('newtab', renderNewTab\)\.then\(initNewTabEvents\)/g) || []).length === 3 && !appJs.includes('requestAnimationFrame(initNewTabEvents)'));
+  check('yeni sekme olayları içerik eklendikten sonra bağlanıyor (her açılış yolunda)',
+    (appJs.match(/showScreen\('newtab', renderNewTab\)/g) || []).length === (appJs.match(/showScreen\('newtab', renderNewTab\)\.then\(initNewTabEvents\)/g) || []).length
+    && (appJs.match(/showScreen\('newtab', renderNewTab\)\.then\(initNewTabEvents\)/g) || []).length === 4 && !appJs.includes('requestAnimationFrame(initNewTabEvents)'));
   check('bilgi kartları dosyası app.js\'ten önce yükleniyor', /<script src="info-cards\.js"><\/script>\s*<script src="app\.js"><\/script>/.test(read('renderer/index.html')));
   check('yeni sekmede haftalık şifresiz bağlantı özeti (yalnızca HTTP ziyaret varsa)',
     appJs.includes('id="newtab-http-report"') && appJs.includes("renderHttpReport('newtab-http-report')") && /newtab-http-report[\s\S]{0,300}classList\.contains\('warn'\)/.test(appJs));

@@ -208,6 +208,7 @@ function updateReloadButton(activeTab) {
 
 function renderTabs(tabs) {
   currentTabs = tabs;
+  if (currentScreen === 'tabs') renderTabsList();
   updateReloadButton(tabs.find((t) => t.isActive));
   const container = document.getElementById('tabs-container');
   if (!container) return;
@@ -746,6 +747,114 @@ async function initHistoryPage() {
     if (e.key !== 'Enter' || e.target.closest('[data-delete]')) return;
     const row = e.target.closest('.list-row');
     if (row) open(row, modeOf(e));
+  });
+}
+
+// ─── Açık sekmeler (Ctrl+Shift+A) ─────────────────────────────────────────────
+// Sayfa görünümü arayüzün üstünde çizildiği için sekme şeridinin altına açılır liste
+// konamaz; Geçmiş gibi tam sayfa ekran olarak açılır. Liste ana süreçten gelen sekme
+// bilgisinden (currentTabs) çizilir ve sekmeler değişince yenilenir.
+let tabsQuery = '';
+
+function openTabsScreen() {
+  if (currentScreen === 'tabs') { hideScreen(); return; }
+  showScreen('tabs', renderTabsPage).then(initTabsPage);
+}
+
+function renderTabsPage() {
+  return `
+    <div class="page fade-up" id="tabs-page">
+      <div class="page-head">
+        <div>
+          <h1>Açık Sekmeler</h1>
+          <p class="page-sub">Başlıkta ya da adreste arayın. Enter ilk sonucu açar; oklarla gezinip Delete ile kapatabilirsiniz.</p>
+        </div>
+        <div class="right">
+          <label class="page-search">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+            <input type="search" id="tabs-search" placeholder="Sekmelerde ara" aria-label="Sekmelerde ara" autocomplete="off">
+          </label>
+        </div>
+      </div>
+      <div class="list" id="tabs-list" aria-live="polite"></div>
+    </div>`;
+}
+
+// Her kelime başlıkta ya da adreste geçmeli (Türkçe büyük/küçük harf: İ/i, I/ı).
+function tabMatches(tab, query) {
+  const words = String(query || '').toLocaleLowerCase('tr').split(/\s+/).filter(Boolean);
+  if (!words.length) return true;
+  const hay = `${tab.title || ''} ${tab.url || ''}`.toLocaleLowerCase('tr');
+  return words.every((w) => hay.includes(w));
+}
+
+function renderTabsList() {
+  const list = document.getElementById('tabs-list');
+  if (!list) return;
+  const H = window.ilgezdiHtml;
+  const focusedIndex = [...list.querySelectorAll('.tab-row')].indexOf(document.activeElement?.closest?.('.tab-row'));
+  const rows = currentTabs.filter((t) => tabMatches(t, tabsQuery));
+  if (!rows.length) {
+    list.innerHTML = `<p class="page-empty">${tabsQuery ? 'Eşleşen sekme yok.' : 'Açık sekme yok.'}</p>`;
+    return;
+  }
+  list.innerHTML = rows.map((t) => {
+    let host = '';
+    try { host = new URL(t.url).hostname; } catch {}
+    const blank = !t.url || t.url === 'about:blank';
+    const title = t.title || (blank ? 'Yeni Sekme' : host || t.url);
+    const icon = t.favicon && /^data:image\//.test(t.favicon)
+      ? `<img class="lr-icon" src="${H.esc(t.favicon)}" alt="" aria-hidden="true">`
+      : `<span class="lr-icon" style="background:${iconColorFor(host || title)}" aria-hidden="true">${H.esc(initialFor(host || title))}</span>`;
+    const state = [t.isActive ? 'Açık' : '', t.pinned ? 'Sabit' : '', t.muted ? 'Sessiz' : (t.audible ? 'Ses' : '')].filter(Boolean).join(' · ');
+    return `
+      <div class="list-row tab-row${t.isActive ? ' is-active' : ''}" role="button" tabindex="0" data-tab-id="${H.esc(String(t.id))}" data-blank="${blank ? '1' : ''}">
+        ${icon}
+        <span class="lr-title">${H.esc(title)}</span>
+        <span class="lr-url">${H.esc(blank ? '' : host)}</span>
+        <span class="lr-time">${H.esc(state)}</span>
+        <button type="button" class="lr-more" data-close-tab="${H.esc(String(t.id))}" title="Sekmeyi kapat" aria-label="Sekmeyi kapat: ${H.esc(title)}">✕</button>
+      </div>`;
+  }).join('');
+  // Kapatılan satırın yerine gelen satır odak alır (klavyeyle art arda kapatma).
+  if (focusedIndex >= 0) {
+    const all = list.querySelectorAll('.tab-row');
+    (all[Math.min(focusedIndex, all.length - 1)] || document.getElementById('tabs-search'))?.focus();
+  }
+}
+
+function initTabsPage() {
+  tabsQuery = '';
+  renderTabsList();
+  const search = document.getElementById('tabs-search');
+  const list = document.getElementById('tabs-list');
+  search?.focus();
+  const openRow = async (row) => {
+    const id = Number(row && row.dataset.tabId);
+    if (!Number.isFinite(id)) return;
+    await sb.switchTab(id);
+    // Boş sekmede yeni sekme sayfası açılır (etkin sekme adres bildirimi); zaten etkinse elle.
+    if (row.dataset.blank) { if (currentScreen === 'tabs') showScreen('newtab', renderNewTab).then(initNewTabEvents); }
+    else if (currentScreen === 'tabs') hideScreen();
+  };
+  search?.addEventListener('input', () => { tabsQuery = search.value.trim(); renderTabsList(); });
+  search?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); openRow(list?.querySelector('.tab-row')); }
+    else if (e.key === 'ArrowDown') { e.preventDefault(); list?.querySelector('.tab-row')?.focus(); }
+  });
+  list?.addEventListener('click', (e) => {
+    const close = e.target.closest('[data-close-tab]');
+    if (close) { e.stopPropagation(); sb.closeTab(Number(close.dataset.closeTab)); return; }
+    const row = e.target.closest('.tab-row');
+    if (row) openRow(row);
+  });
+  list?.addEventListener('keydown', (e) => {
+    const row = e.target.closest('.tab-row');
+    if (!row || e.target.closest('[data-close-tab]')) return;
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openRow(row); }
+    else if (e.key === 'ArrowDown') { e.preventDefault(); row.nextElementSibling?.focus(); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); (row.previousElementSibling || search)?.focus(); }
+    else if (e.key === 'Delete') { e.preventDefault(); sb.closeTab(Number(row.dataset.tabId)); }
   });
 }
 
@@ -1559,6 +1668,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Gizli pencere
   document.getElementById('btn-incognito')?.addEventListener('click', () => sb.openIncognito());
+  document.getElementById('btn-tab-search')?.addEventListener('click', openTabsScreen);
 
   // ── Kenar çubuğu — sayfa butonları (data-screen) ─────────────────────────
   document.querySelectorAll('.sidebar-btn[data-screen]').forEach(btn => {
@@ -1771,6 +1881,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       case 'vpn-panel':        document.getElementById('btn-vpn-panel')?.click(); break;
       case 'history-page':     document.getElementById('sb-history')?.click(); break;
       case 'downloads-page':   document.getElementById('sb-downloads')?.click(); break;
+      case 'tab-search':       openTabsScreen(); break;
     }
   });
 

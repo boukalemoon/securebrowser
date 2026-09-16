@@ -262,6 +262,9 @@
   border-radius: 10px; cursor: pointer; transition: background 0.12s; font-size: 13px;
 }
 .list-row:hover { background: var(--bg-elev); }
+.list-row.tab-row.is-active .lr-title { color: var(--gold); }
+.list-row.tab-row:focus-visible { outline: 2px solid var(--gold); outline-offset: -2px; }
+img.lr-icon { object-fit: contain; background: transparent; }
 .list-row .lr-icon { width: 22px; height: 22px; border-radius: 4px; display: grid; place-items: center; font-size: 10px; color: white; font-weight: 700; }
 .list-row .lr-title { color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .list-row .lr-url { color: var(--ink-mute); font-family: var(--font-mono); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
