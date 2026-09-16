@@ -1213,5 +1213,8 @@
   "common.exampleDomain": "misol.com",
   "glance.openInNewTab": "Yangi varaqda ochish",
   "glance.closeEsc": "Yopish (Esc)",
-  "blocker.addInputLabel": "Ruxsat beriladigan sayt"
+  "blocker.addInputLabel": "Ruxsat beriladigan sayt",
+  "settings.identity.fingerprint": "Raqamli barmoq izidan himoya",
+  "settings.identity.fingerprintHint": "Saytlar brauzeringizni cookie fayllarsiz taniy olmasligi uchun canvas, audio va videokartadan oʻqiladigan maʼlumotlarga har bir sayt uchun turlicha, sezilmaydigan oʻzgarishlar kiritiladi; protsessor yadrolari soni va videokarta modeli yashiriladi. Biror sayt buzilsa, qulf belgisi orqali oʻsha saytda bloklashni oʻchiring.",
+  "siteInfo.shield.fingerprintNote": "Bloklash oʻchiq boʻlganda bu saytda raqamli barmoq izidan himoya ham qoʻllanilmaydi."
 }

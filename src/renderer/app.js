@@ -437,7 +437,7 @@ async function loadSiteInfo() {
         <div class="si-row"><span id="si-blocked">${info.siteAllowed ? TH('siteInfo.shield.siteOff') : blockedTotal ? TH('siteInfo.shield.blocked', { count: blockedTotal }) : TH('siteInfo.shield.none')}</span></div>
         ${!info.siteAllowed && blockedParts ? `<p class="si-note">${H.esc(blockedParts)}</p>` : ''}
         <div class="si-row"><label for="si-shield">${TH('siteInfo.shield.toggle')}</label><input type="checkbox" id="si-shield" ${info.siteAllowed ? '' : 'checked'}></div>
-        <p class="si-note">${TH('siteInfo.shield.hint')}</p>
+        <p class="si-note">${TH('siteInfo.shield.hint')} ${TH('siteInfo.shield.fingerprintNote')}</p>
       </div>`;
 
   const pct = Math.round((Number(info.zoom) || 1) * 100);

@@ -317,6 +317,7 @@ const SETTINGS_FIELDS = {
   'cfg-ads':           ['blockAds', 'checked'],
   'cfg-3pc':           ['blockThirdPartyCookies', 'checked'],
   'cfg-fp':            ['fingerprintProtection', 'checked'],
+  'cfg-fp-shield':     ['fingerprintShield', 'checked'],
   'cfg-https-only':    ['httpsOnly', 'checked'],
   'cfg-dnt':           ['doNotTrack', 'checked'],
   'cfg-webrtc':        ['webrtcPolicy', 'value'],
@@ -358,6 +359,7 @@ function formValuesFrom(cfg) {
     blockAds:               c.blockAds !== false,
     blockThirdPartyCookies: c.blockThirdPartyCookies !== false,
     fingerprintProtection:  c.fingerprintProtection !== false,
+    fingerprintShield:      c.fingerprintShield !== false,
     httpsOnly:              !!c.httpsOnly,
     doNotTrack:             !!c.doNotTrack,
     webrtcPolicy:           c.webrtcPolicy || 'default_public_interface_only',
@@ -774,6 +776,7 @@ function renderPrivacyTab(cfg) {
       ${row('cfg-3pc',TH('settings.blocking.thirdPartyCookies'),TH('settings.blocking.thirdPartyCookiesHint'),cfg.blockThirdPartyCookies!==false)}
     </div>
     <div class="settings-section"><h3>${TH('settings.identity.title')}</h3>
+      ${row('cfg-fp-shield',TH('settings.identity.fingerprint'),TH('settings.identity.fingerprintHint'),cfg.fingerprintShield!==false)}
       ${row('cfg-fp',TH('settings.identity.ipHeaders'),TH('settings.identity.ipHeadersHint'),cfg.fingerprintProtection!==false)}
       ${row('cfg-https-only',TH('settings.identity.httpsOnly'),TH('settings.identity.httpsOnlyHint'),cfg.httpsOnly)}
       ${row('cfg-clean-links',TH('settings.identity.cleanLinks'),TH('settings.identity.cleanLinksHint'),cfg.cleanLinks!==false)}

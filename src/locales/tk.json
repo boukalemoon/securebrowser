@@ -1219,5 +1219,8 @@
   "common.exampleDomain": "mysal.com",
   "glance.openInNewTab": "Täze tabda aç",
   "glance.closeEsc": "Ýap (Esc)",
-  "blocker.addInputLabel": "Rugsat beriljek saýt"
+  "blocker.addInputLabel": "Rugsat beriljek saýt",
+  "settings.identity.fingerprint": "Sanly barmak yzyndan gorag",
+  "settings.identity.fingerprintHint": "Saýtlar brauzeriňizi kukisiz tanap bilmez ýaly canvas, audio we wideokartadan okalýan maglumatlara her saýt üçin başga-başga, duýulmaýan üýtgeşmeler girizilýär; prosessor ýadrolarynyň sany we wideokartanyň modeli gizlenýär. Haýsydyr bir saýt bozulsa, gulp nyşanyndan şol saýtda petiklemegi öçüriň.",
+  "siteInfo.shield.fingerprintNote": "Petiklemek öçük bolanda, bu saýtda sanly barmak yzyndan gorag hem ulanylmaýar."
 }

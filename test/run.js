@@ -1287,10 +1287,10 @@ suite('Zararlı site koruması — canlı liste durumu');
     read('preload/preload.js').includes("ipcRenderer.on('threats-status-changed'") && /let _threatStatusSubscribed = false;[\s\S]{0,200}if \(_threatStatusSubscribed\) return;/.test(read('renderer/settings-panel.js')));
 }
 
-suite('Yayın — v0.8.1');
+suite('Yayın — v0.8.2');
 {
   const ROOTD = path.join(__dirname, '..');
-  check('paket sürümü 0.8.1', JSON.parse(fs.readFileSync(path.join(ROOTD, 'package.json'), 'utf8')).version === '0.8.1');
+  check('paket sürümü 0.8.2', JSON.parse(fs.readFileSync(path.join(ROOTD, 'package.json'), 'utf8')).version === '0.8.2');
   const wf = fs.readFileSync(path.join(ROOTD, '.github', 'workflows', 'release.yml'), 'utf8');
   check('yayın otomatik güncelleme dosyalarını da yüklüyor (latest*.yml, blockmap)', wf.includes('dist/latest*.yml') && wf.includes('dist/*.blockmap'));
 }
@@ -1427,7 +1427,7 @@ suite('Keşfet — TrendTech yazılımları');
     const fields = [...spJs.matchAll(/^\s*'([\w-]+)':\s*\['(\w+)', '(value|checked)'\]/gm)];
     const valuesFn = spJs.slice(spJs.indexOf('function formValuesFrom'), spJs.indexOf('function initFormState'));
     check('form alan listesi sekmelerdeki kimliklerle ve varsayılan değerlerle eşleşiyor',
-      fields.length === 32
+      fields.length === 33
       && fields.every(([, id]) => spJs.includes(`id="${id}"`) || spJs.includes(`row('${id}'`))
       && fields.every(([, , key]) => new RegExp(`\\n\\s*${key}:\\s`).test(valuesFn)), fields.length);
 
@@ -1702,6 +1702,57 @@ suite('Keşfet — TrendTech yazılımları');
     const fallbackAt = mjU.indexOf('app.userAgentFallback = CLEAN_UA;');
     check('temiz Chrome UA her webContents için varsayılan (Electron ve uygulama adı yok); uygulama hazır olmadan',
       fallbackAt > 0 && fallbackAt < mjU.indexOf('app.whenReady()') && /return `Mozilla\/5\.0 \(\$\{osToken\}\) AppleWebKit\/537\.36 \(KHTML, like Gecko\) Chrome\/\$\{ver\} Safari\/537\.36`;/.test(mjU));
+  }
+
+  suite('Parmak izi koruması');
+  {
+    const FPS = require('../src/main/fingerprint-shield.js');
+    const opaque = (w, h) => { const d = new Uint8ClampedArray(w * h * 4); for (let i = 0; i < d.length; i += 4) { d[i] = 120; d[i + 1] = 80; d[i + 2] = 200; d[i + 3] = 255; } return d; };
+    const a = FPS.installShield({ farble: true, seed: 'site-a' }, {});
+    const b = FPS.installShield({ farble: true, seed: 'site-b' }, {});
+    const d1 = opaque(300, 150), d2 = opaque(300, 150), d3 = opaque(300, 150), base = opaque(300, 150);
+    const changed = a.farblePixels(d1, 300, 150, 0, 0);
+    a.farblePixels(d2, 300, 150, 0, 0); b.farblePixels(d3, 300, 150, 0, 0);
+    let diff = 0, maxDelta = 0;
+    for (let i = 0; i < d1.length; i++) { const x = Math.abs(d1[i] - base[i]); if (x) diff++; maxDelta = Math.max(maxDelta, x); }
+    check('tuval gürültüsü: aynı tohumda aynı, başka tohumda farklı; piksellerin ~%0,3\'ü, en fazla ±1, saydamlık değişmiyor',
+      Buffer.from(d1).equals(Buffer.from(d2)) && !Buffer.from(d1).equals(Buffer.from(d3)) && changed === diff && diff > 45000 * 0.001 && diff < 45000 * 0.01 && maxDelta === 1
+      && [...Array(d1.length / 4).keys()].every((p) => d1[p * 4 + 3] === 255), [changed, diff, maxDelta]);
+    const sub = opaque(100, 60); a.farblePixels(sub, 100, 60, 50, 20);
+    let regionSame = true;
+    for (let y = 0; y < 60 && regionSame; y++) for (let x = 0; x < 100; x++) for (let c = 0; c < 4; c++) if (sub[(y * 100 + x) * 4 + c] !== d1[((y + 20) * 300 + x + 50) * 4 + c]) regionSame = false;
+    check('getImageData bölgesi okununca aynı pikseller aynı biçimde değişiyor (mutlak koordinat)', regionSame);
+    const textOnly = new Uint8ClampedArray(100 * 20 * 4); for (let p = 400; p < 420; p++) { textOnly[p * 4] = 10; textOnly[p * 4 + 3] = 255; }
+    check('yalnızca yazı olan küçük saydam tuvalde de en az bir piksel değişiyor', a.farblePixels(textOnly, 100, 20, 0, 0) >= 1);
+    check('4 milyon pikselden büyük tuvale dokunulmuyor', a.farblePixels(new Uint8ClampedArray(4), 2001, 2000, 0, 0) === 0);
+    const s1 = new Float32Array(1000), s2 = new Float32Array(1000); a.farbleSamples(s1, 0, 0); a.farbleSamples(s2, 0, 0);
+    check('ses gürültüsü tutarlı ve 1e-7 düzeyinde', s1.some((v) => v !== 0) && s1.every((v, i) => v === s2[i] && Math.abs(v) <= 1.0001e-7));
+    eq('ekran kartı modeli gizleniyor, üretici ve arka uç kalıyor',
+      [a.generalizeRenderer('ANGLE (NVIDIA, NVIDIA GeForce GTX 1070 (0x00001B81) Direct3D11 vs_5_0 ps_5_0, D3D11)'), a.generalizeRenderer('ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)'), a.generalizeRenderer('Mesa DRI Intel(R) HD')],
+      ['ANGLE (NVIDIA, NVIDIA Graphics, D3D11)', 'ANGLE (Apple, Apple Graphics, Unspecified Version)', 'ANGLE (Generic Graphics)']);
+    const conc = ['x1', 'x2', 'x3', 'x4', 'x5', 'x6'].map((s) => FPS.installShield({ farble: true, seed: s }, {}).concurrencyFor(8));
+    check('çekirdek sayısı 2 ile gerçek değer arasında, siteden siteye değişiyor; 2 ve altı olduğu gibi', conc.every((n) => n >= 2 && n <= 8) && new Set(conc).size > 1 && a.concurrencyFor(2) === 2 && a.concurrencyFor(1) === 1, conc);
+    const seeder = FPS.createSeeder(); const sesA = {}, sesB = {};
+    check('tohum: oturum+site başına sabit, site ya da oturum değişince farklı (32 onaltılık)',
+      /^[0-9a-f]{32}$/.test(seeder(sesA, 'a.com')) && seeder(sesA, 'a.com') === seeder(sesA, 'a.com') && seeder(sesA, 'a.com') !== seeder(sesA, 'b.com') && seeder(sesA, 'a.com') !== seeder(sesB, 'a.com'));
+    const script = FPS.shieldScript({ farble: true, seed: 'abc' });
+    check('enjekte betik kendi başına: işlev metni + yapılandırma, değer döndürmüyor', script.startsWith('(function installShield(cfg, W)') && script.endsWith(')({"farble":true,"seed":"abc"}); void 0;'));
+
+    const mjF = read('main/main.js');
+    const ppF = read('preload/page-preload.js');
+    check('ana süreç: site ve tohum çerçeve ağacından (alt çerçeve üst siteyi kullanır); ayar ve sitede engelleme kapalıysa gürültü yok',
+      mjF.includes("ipcMain.on('fp-script', (event) => {")
+      && mjF.includes('try { event.returnValue = fingerprintScriptFor(event.senderFrame, event.sender.session); } catch { event.returnValue = \'\'; }')
+      && mjF.includes("const top = frame ? (frame.top || frame) : null;")
+      && mjF.includes("const farble = web && config.fingerprintShield !== false && !isWhitelisted(topUrl, topUrl);")
+      && /\n  fingerprintShield:\s+true,/.test(mjF));
+    check('ön yükleme her çerçevede korumayı sayfa betiklerinden önce kuruyor; şifre yardımcıları yalnızca ana çerçevede',
+      mjF.includes('nodeIntegrationInSubFrames: true,')
+      && ppF.indexOf("ipcRenderer.sendSync('fp-script')") > 0 && ppF.indexOf("ipcRenderer.sendSync('fp-script')") < ppF.indexOf('function setupPasswordHelpers()')
+      && ppF.trimEnd().endsWith('if (process.isMainFrame) setupPasswordHelpers();')
+      && (mjF.match(/if \(!event\.senderFrame \|\| event\.senderFrame\.parent\) return;   \/\/ yalnızca ana çerçeve/g) || []).length === 2);
+    check('Ayarlar › Gizlilik anahtarı ve senkron', read('renderer/settings-panel.js').includes("row('cfg-fp-shield',TH('settings.identity.fingerprint'),TH('settings.identity.fingerprintHint'),cfg.fingerprintShield!==false)")
+      && read('renderer/sync-manager.js').includes("'fingerprintShield',"));
   }
 
   suite('Kurulum sihirbazı dilleri');
@@ -2145,7 +2196,7 @@ suite('Keşfet — TrendTech yazılımları');
       /app\.on\('before-quit', \(event\) => \{\s*if \(exitCleanupStarted\) return;\s*const steps = exitCleanupPlan\(config\);\s*if \(!steps\.length\) return;\s*exitCleanupStarted = true;\s*event\.preventDefault\(\);/.test(mj5)
       && mj5.includes('setTimeout(resolve, 8000)') && mj5.includes('Promise.race([work, limit]).finally(() => app.quit());'));
     check('ayarlar ana süreçte boolean olarak doğrulanıyor',
-      mj5.includes("for (const k of ['globalPrivacyControl', 'cleanLinks', 'blockAutoplay']) if (k in incoming) incoming[k] = incoming[k] !== false;")
+      mj5.includes("for (const k of ['globalPrivacyControl', 'cleanLinks', 'blockAutoplay', 'fingerprintShield']) if (k in incoming) incoming[k] = incoming[k] !== false;")
       && mj5.includes("for (const k of ['clearSiteDataOnExit', 'clearHistoryOnExit', 'warnOnCloseTabs']) if (k in incoming) incoming[k] = incoming[k] === true;"));
     const pp5 = read('preload/page-preload.js');
     check('navigator.globalPrivacyControl yalnızca bayrakla ve sayfa dünyasında tanımlanıyor',

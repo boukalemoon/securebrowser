@@ -13,7 +13,7 @@ const osCrypto = require('./os-crypto');
 
 const { SecureLogManager } = require('./secure-log-manager');
 const { VpnManager } = require('./vpn-manager');
-const { attachBlocker, shouldBlockUrl, updateBlockerConfig, getBlockStats, isThirdParty, isWhitelisted } = require('./blocker-main');
+const { attachBlocker, shouldBlockUrl, updateBlockerConfig, getBlockStats, isThirdParty, isWhitelisted, registrableDomain } = require('./blocker-main');
 const { setupGlance, closeGlance } = require('./glance-main');
 const { setupArku } = require('./arku-manager');
 const { setupBookmarkImport } = require('./bookmark-import');
@@ -29,6 +29,7 @@ const { createFaviconCache, hostKey: faviconHost } = require('./favicon-cache');
 let faviconCache = null;
 const { setupDiscover } = require('./discover-feed');
 const { setupCommunity } = require('./community');
+const { shieldScript, createSeeder } = require('./fingerprint-shield');
 // Keşfet kartları (TrendTech yazılımları): uygulamadaki liste + ilgezdi.com.tr'den günlük tazeleme.
 setupDiscover(ipcMain, session);
 // Keşfet yorumları ve Öneri sayfası (community.js). Paketlenmemiş geliştirme kopyasında
@@ -115,6 +116,8 @@ const DEFAULT_CONFIG = {
   // Global Privacy Control: sitelere "verimi satma/paylaşma" isteği (Sec-GPC başlığı ve
   // navigator.globalPrivacyControl). DNT'den farklı olarak bazı yasalarda bağlayıcı.
   globalPrivacyControl:  true,
+  // Parmak izi koruması (fingerprint-shield.js): tuval/ses/WebGL okumalarına site başına gürültü.
+  fingerprintShield:     true,
   cleanLinks:            true,         // bağlantılardaki tıklama kimliklerini ve yönlendiricileri atla
   blockAutoplay:         true,         // sesli otomatik oynatma kullanıcı etkileşimine kadar bekler
   clearSiteDataOnExit:   false,        // kapatınca çerezler, site verileri ve önbellek
@@ -765,6 +768,10 @@ function createTabView(win, state, tabId) {
       // Otomatik oynatma ve GPC de yalnızca sekme açılırken verilebilir (ön yükleme argv'den okur).
       autoplayPolicy: autoplayPolicyFor(config),
       additionalArguments: config.globalPrivacyControl !== false ? ['--ilgezdi-gpc'] : [],
+      // Ön yükleme alt çerçevelerde de çalışır: parmak izi koruması ve GPC her çerçevede
+      // sayfa betiklerinden önce kurulur. Şifre yardımcıları yalnızca ana çerçevede
+      // (page-preload.js process.isMainFrame; ana süreç de alt çerçeveden geleni reddeder).
+      nodeIntegrationInSubFrames: true,
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
@@ -2073,7 +2080,7 @@ ipcMain.handle('save-config', (e, newCfg) => {
   if ('minimumFontSize' in incoming) incoming.minimumFontSize = normalizeMinFontSize(incoming.minimumFontSize);
   if ('reduceMotion' in incoming) incoming.reduceMotion = incoming.reduceMotion === true;
   if ('highContrast' in incoming) incoming.highContrast = incoming.highContrast === true;
-  for (const k of ['globalPrivacyControl', 'cleanLinks', 'blockAutoplay']) if (k in incoming) incoming[k] = incoming[k] !== false;
+  for (const k of ['globalPrivacyControl', 'cleanLinks', 'blockAutoplay', 'fingerprintShield']) if (k in incoming) incoming[k] = incoming[k] !== false;
   for (const k of ['clearSiteDataOnExit', 'clearHistoryOnExit', 'warnOnCloseTabs']) if (k in incoming) incoming[k] = incoming[k] === true;
   if ('hardwareAcceleration' in incoming) incoming.hardwareAcceleration = incoming.hardwareAcceleration !== false;
   if ('tabSleepMinutes' in incoming) incoming.tabSleepMinutes = normalizeTabSleepMinutes(incoming.tabSleepMinutes);
@@ -2350,6 +2357,25 @@ ipcMain.handle('blocker-update-config', (event, blockerCfg) => {
   return { ok: true };
 });
 
+// ─── Parmak izi koruması (fingerprint-shield.js) ─────────────────────────────
+// Ön yükleme her çerçevede sayfa betiklerinden önce betiği ister. Site ve tohum sayfanın
+// beyanından değil ana süreçteki çerçeve ağacından okunur: alt çerçeveler üst sayfanın
+// sitesini kullanır, tohum oturum başına rastgele anahtarla üretilir (gizli pencerenin
+// oturumu ayrı anahtar alır). Koruma kapalıyken ya da sitede engelleme kapatılmışsa
+// yalnızca deviceMemory sınırı uygulanır.
+const fingerprintSeedFor = createSeeder();
+function fingerprintScriptFor(frame, ses) {
+  const top = frame ? (frame.top || frame) : null;
+  const topUrl = top ? String(top.url || '') : '';
+  const web = /^https?:\/\//i.test(topUrl);
+  const farble = web && config.fingerprintShield !== false && !isWhitelisted(topUrl, topUrl);
+  const site = farble ? registrableDomain(new URL(topUrl).hostname) : '';
+  return shieldScript({ farble, seed: farble ? fingerprintSeedFor(ses, site) : '' });
+}
+ipcMain.on('fp-script', (event) => {
+  try { event.returnValue = fingerprintScriptFor(event.senderFrame, event.sender.session); } catch { event.returnValue = ''; }
+});
+
 // ─── Şifre kaydetme önerisi ve doldurma (preload/page-preload.js) ─────────────
 // Sekme ön yüklemesi giriş gönderimini ve giriş alanına tıklamayı bildirir. Site adresi
 // her zaman gönderen sekmenin kendisinden okunur; sayfanın beyanına güvenilmez.
@@ -2375,6 +2401,7 @@ function webOrigin(url) {
 }
 
 ipcMain.on('pw-capture', (event, data) => {
+  if (!event.senderFrame || event.senderFrame.parent) return;   // yalnızca ana çerçeve
   const ctx = tabFromContents(event.sender);
   if (!ctx || ctx.incognito || config.offerToSavePasswords === false) return;
   const pageUrl = event.sender.getURL();
@@ -2445,6 +2472,7 @@ ipcMain.handle('pw-never-remove', (_e, origin) => {
 // Kullanıcı gerçekten bir giriş alanına tıkladı (ön yükleme userActivation ile denetler):
 // bu sitenin kayıtlı hesapları alanın altında yerel menüde listelenir; seçilen doldurulur.
 ipcMain.on('pw-field-focus', (event, rect) => {
+  if (!event.senderFrame || event.senderFrame.parent) return;   // yalnızca ana çerçeve
   const ctx = tabFromContents(event.sender);
   if (!ctx || !ctx.win || ctx.win.isDestroyed() || ctx.state.activeTabId !== ctx.tabId) return;
   const wc = event.sender;

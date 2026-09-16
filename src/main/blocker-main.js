@@ -280,7 +280,7 @@ function getBlockStats() {
 module.exports = {
   attachBlocker, shouldBlockUrl, updateBlockerConfig, getBlockStats,
   // Üçüncü taraf çerez kararı (main.js) engelleyiciyle aynı site ve beyaz liste tanımını kullanır.
-  isThirdParty, isWhitelisted,
+  isThirdParty, isWhitelisted, registrableDomain,
   _internals: { registrableDomain, isThirdParty, matchesDomainSet, LEVEL_CONFIG },
   _resetForTest: () => {
     blockerConfig = { level: 'medium', whitelist: [], enabled: true };

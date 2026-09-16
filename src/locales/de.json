@@ -1285,5 +1285,8 @@
   "common.exampleDomain": "beispiel.de",
   "glance.openInNewTab": "In neuem Tab öffnen",
   "glance.closeEsc": "Schließen (Esc)",
-  "blocker.addInputLabel": "Zu erlaubende Website"
+  "blocker.addInputLabel": "Zu erlaubende Website",
+  "settings.identity.fingerprint": "Schutz vor Fingerprinting",
+  "settings.identity.fingerprintHint": "Damit Websites Ihren Browser nicht ohne Cookies wiedererkennen, erhalten Canvas-, Audio- und Grafikkartenabfragen kleine, unmerkliche Änderungen, die sich je Website unterscheiden; Anzahl der Prozessorkerne und Grafikkartenmodell werden verborgen. Funktioniert eine Website nicht mehr, schalten Sie das Blockieren für diese Website über das Schloss-Symbol aus.",
+  "siteInfo.shield.fingerprintNote": "Solange das Blockieren aus ist, gilt auf dieser Website auch der Schutz vor Fingerprinting nicht."
 }

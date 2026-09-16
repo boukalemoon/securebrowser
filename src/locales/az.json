@@ -1213,5 +1213,8 @@
   "common.exampleDomain": "numune.az",
   "glance.openInNewTab": "Yeni tabda aç",
   "glance.closeEsc": "Bağla (Esc)",
-  "blocker.addInputLabel": "İcazə veriləcək sayt"
+  "blocker.addInputLabel": "İcazə veriləcək sayt",
+  "settings.identity.fingerprint": "Barmaq izi qoruması",
+  "settings.identity.fingerprintHint": "Saytlar brauzerinizi kukilər olmadan tanıya bilməsin deyə canvas, audio və videokartdan oxunan məlumatlara hər sayt üçün fərqli, hiss olunmayan dəyişikliklər əlavə edilir; prosessor nüvələrinin sayı və videokart modeli gizlədilir. Hansısa saytın işi pozularsa, kilid ikonundan həmin saytda bloklamanı söndürün.",
+  "siteInfo.shield.fingerprintNote": "Bloklama deaktiv olduqda bu saytda barmaq izi qoruması da tətbiq edilmir."
 }
