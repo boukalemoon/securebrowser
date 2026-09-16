@@ -140,6 +140,33 @@ footer a{font-family:var(--font-mono);font-size:12.5px}
 // "En son" etiketi yayınlanmış ilk sürüme verilir.
 const RELEASES = [
   {
+    version: '0.8.1', date: '16 Eylül 2026', title: 'Dokuz dil, şifre güvenliği ve okuma modu', upcoming: true,
+    changes: [
+      { t:'new', d:'<b>Dokuz dilde arayüz.</b> Türkçe, İngilizce, Almanca, Fransızca, Azerbaycanca, Kazakça, Özbekçe, Türkmence ve Kırgızca. Ayarlar › Genel › Dil bölümünden değiştirilir; varsayılan olarak Windows dilinizle açılır.' },
+      { t:'new', d:'<b>Kurulum sihirbazı da dokuz dilde.</b> Kurulumun başında dil seçilir; İlgezdi ilk açılışta aynı dille başlar.' },
+      { t:'sec', d:'<b>Sızmış şifre denetimi.</b> Ayarlar › Şifreler bölümünden kayıtlı şifrelerinizin bilinen veri sızıntılarında görülüp görülmediğini denetleyebilirsiniz. Şifreleriniz cihazdan çıkmaz; yalnızca şifre özetinin ilk 5 karakteri Have I Been Pwned hizmetine gönderilir.' },
+      { t:'sec', d:'<b>Zayıf ve tekrar kullanılan şifreler.</b> Şifre denetimi cihazınızda yapılır ve sorunlu hesapları tek tek gösterir.' },
+      { t:'new', d:'<b>Şifre kaydetme ve doldurma.</b> Bir siteye giriş yaptığınızda şifreyi kaydetmeniz önerilir; şifre alanına tıklayıp kayıtlı hesabınızı seçerek doldurursunuz. Siteler şifrenizi kendiliğinden dolduramaz.' },
+      { t:'new', d:'<b>Güçlü şifre oluşturucu.</b> Kayıt formlarında tek tıkla güçlü şifre; form gönderilince şifre kasasına kaydedilir.' },
+      { t:'new', d:'<b>Okuma modu (F9).</b> Makaleler reklamsız ve sade bir sayfada açılır; yazı boyutu, yazı tipi ve renk seçilebilir.' },
+      { t:'sec', d:'<b>Bağlantı temizliği ve “verilerimi satma” sinyali.</b> Bağlantılardaki izleme kimlikleri (fbclid, gclid…) silinir, Google ve Facebook yönlendiricileri atlanır. Sitelere Global Privacy Control sinyali gönderilir.' },
+      { t:'new', d:'<b>Kapatınca temizle.</b> İsterseniz İlgezdi kapanırken çerezler, site verileri ve geçmiş silinir. Sesli videolar siz tıklamadan oynamaz.' },
+      { t:'imp', d:'<b>Yeni sekmede Google kısayolları kaldırıldı.</b> Yeni sekme, sizi başka şirketlerin uygulamalarına yönlendirmiyor.' },
+      { t:'new', d:'<b>Türk tarihi ve kültürü kartları.</b> Yeni sekmede kaynağı belirtilmiş bilgi kartları.' },
+      { t:'new', d:'<b>Keşfet\'te yorumlar ve Öneri sayfası.</b> QRtım hesabınızla İlgezdi\'yi puanlayıp yorum yazabilir, sol menüdeki Öneri sayfasından hata ve isteklerinizi iletebilirsiniz.' },
+      { t:'new', d:'<b>Varsayılan tarayıcı.</b> İlgezdi Windows\'ta varsayılan tarayıcı olarak seçilebilir; başka uygulamalardan açılan bağlantılar yeni sekmede açılır.' },
+      { t:'new', d:'<b>Sekmelerde ara ve sekme uyutma.</b> Ctrl+Shift+A ile açık sekmeler arasında arama; uzun süre kullanılmayan sekmeler belleği boşaltmak için uyutulur.' },
+      { t:'new', d:'<b>Geliştirici araçları ve ekran görüntüsü.</b> F12 ya da sağ tıkta “İncele”; Ctrl+Shift+S ile sayfanın ekran görüntüsü indirme klasörüne ve panoya.' },
+      { t:'new', d:'<b>Resim içinde resim.</b> Videolarda sağ tık menüsünden.' },
+      { t:'imp', d:'<b>Site Bilgisi\'nde koruma özeti.</b> Bu sayfada engellenen reklam ve izleyiciler; sorun çıkan site için engellemeyi tek tıkla kapatma.' },
+      { t:'new', d:'<b>Erişilebilirlik.</b> Varsayılan sayfa yakınlaştırması, en küçük yazı boyutu, hareketi azalt ve yüksek karşıtlık seçenekleri.' },
+      { t:'new', d:'<b>Sistem ayarları.</b> Donanım hızlandırmayı kapatma, ayarları varsayılana döndürme, geçmişi zaman aralığına göre silme ve çok sekme açıkken kapatma uyarısı.' },
+      { t:'imp', d:'<b>Sekmelerde yükleme göstergesi ve site simgeleri.</b> Geçmiş\'te şifresiz (HTTP) ziyaretlerin haftalık özeti; Esc yüklenen sayfayı durdurur, orta tık ve Ctrl+tık bağlantıyı arka planda açar.' },
+      { t:'fix', d:'<b>Yer imleri paneli ve ayar kaydı.</b> Yer imleri paneli açık sayfanın altında kalıyordu; bazı ayarlar kaydedilmiyordu.' },
+      { t:'fix', d:'<b>Arku uzak masaüstünde yapıştırma.</b> Arku\'nun panoyu okuma izni artık soruluyor.' },
+    ],
+  },
+  {
     version: '0.8.0', date: '15 Eylül 2026', title: 'Güvenlik denetimi, yeni tarayıcı motoru ve günlük kullanım özellikleri',
     changes: [
       { t:'sec', d:'<b>Zararlı site koruması.</b> Kimlik avı ve zararlı yazılım siteleri açılmadan önce uyarı gösterilir. Denetim cihazınızda yapılır; ziyaret ettiğiniz adresler Google dahil hiçbir sunucuya gönderilmez. Türkiye\'yi hedefleyen USOM listesi İlgezdi sunucusunda her gün derlenir ve uygulamaya kendiliğinden iner.' },
