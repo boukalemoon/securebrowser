@@ -1288,9 +1288,26 @@ function showPasswordOffer(offer) {
   pwOfferTimer = setTimeout(() => decidePasswordOffer('dismiss'), 45000);
 }
 
+// Oluşturulan şifre form gönderilince sormadan kaydedildi: yalnızca bilgi verilir.
+function showGeneratedPasswordSaved(d) {
+  const bar = document.getElementById('pw-offer');
+  if (!bar || !d) return;
+  pwOfferId = null;
+  const text = document.getElementById('pw-offer-text');
+  text.replaceChildren(`${String(d.host || '')} için oluşturulan şifre`);
+  if (typeof d.username === 'string' && d.username) text.append(' (', communityEl('strong', 'pw-offer-user', d.username), ')');
+  text.append(' kasaya kaydedildi');
+  document.getElementById('pw-offer-status').textContent = '';
+  document.getElementById('pw-offer-save').hidden = true;
+  document.getElementById('pw-offer-never').hidden = true;
+  bar.hidden = false;
+  clearTimeout(pwOfferTimer);
+  pwOfferTimer = setTimeout(hidePasswordOffer, 6000);
+}
+
 async function decidePasswordOffer(action) {
   const id = pwOfferId;
-  if (!id) return;
+  if (!id) { hidePasswordOffer(); return; }
   clearTimeout(pwOfferTimer);
   let r = null;
   try { r = await sb.passwords.saveDecision(id, action); } catch {}
@@ -1579,6 +1596,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // ── Main process güncellemeleri ───────────────────────────────────────────
   sb.onTabsUpdate((tabs) => renderTabs(tabs));
   sb.passwords?.onSaveOffer?.(showPasswordOffer);
+  sb.passwords?.onGeneratedSaved?.(showGeneratedPasswordSaved);
   document.getElementById('pw-offer')?.addEventListener('click', (e) => {
     const btn = e.target.closest?.('[data-pw-action]');
     if (btn) decidePasswordOffer(btn.dataset.pwAction);

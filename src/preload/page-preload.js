@@ -77,9 +77,10 @@ function filledPassword(scope) {
 
 function capture(pw) {
   if (!pw || !pw.value) return;
-  // Parola değiştirme / kayıt formları (birden çok dolu parola alanı) öneriye konu değil.
+  // Parola değiştirme formları (farklı değerli birden çok parola alanı) öneriye konu değil.
+  // Kayıt formundaki "şifre + tekrar" (aynı değer) kaydedilir: oluşturulan şifre böyle gelir.
   const filled = Array.from((pw.form || document).querySelectorAll('input[type="password"]')).filter((p) => p.value);
-  if (filled.length > 1) return;
+  if (filled.length > 2 || (filled.length === 2 && filled[0].value !== filled[1].value)) return;
   const user = userFieldFor(pw);
   const username = user ? user.value.trim() : '';
   const key = JSON.stringify([username, pw.value]);
@@ -109,6 +110,16 @@ document.addEventListener('keydown', (e) => {
 let target = null;
 let lastAsk = { el: null, at: 0 };
 
+// Yeni şifre alanı (kayıt formu): site belirtmişse ona göre; belirtmemişse formda tam iki
+// görünür parola alanı (şifre + tekrar). Üç alan parola değiştirme formudur, karışmaz.
+function isNewPasswordField(pw) {
+  if (!isPassword(pw)) return false;
+  const ac = String(pw.getAttribute('autocomplete') || '').toLowerCase();
+  if (ac.includes('new-password')) return true;
+  if (ac.includes('current-password')) return false;
+  return Array.from((pw.form || document).querySelectorAll('input[type="password"]')).filter(visible).length === 2;
+}
+
 document.addEventListener('focusin', (e) => {
   const el = e.target;
   if (!(isPassword(el) || isUserField(el)) || !visible(el) || el.value) return;
@@ -122,7 +133,7 @@ document.addEventListener('focusin', (e) => {
   lastAsk = { el, at: now };
   target = { user: isPassword(el) ? userFieldFor(el) : el, pw };
   const r = el.getBoundingClientRect();
-  ipcRenderer.send('pw-field-focus', { x: Math.round(r.left), y: Math.round(r.bottom), width: Math.round(r.width) });
+  ipcRenderer.send('pw-field-focus', { x: Math.round(r.left), y: Math.round(r.bottom), width: Math.round(r.width), newPassword: isNewPasswordField(el) });
 }, true);
 
 function setValue(el, value) {
@@ -135,6 +146,15 @@ function setValue(el, value) {
 
 ipcRenderer.on('pw-fill', (_e, cred) => {
   if (!target || !cred || typeof cred !== 'object') return;
+  if (cred.generated === true) {
+    // Oluşturulan şifre: tıklanan alan ve aynı formdaki boş "tekrar" alanı doldurulur.
+    if (typeof cred.password !== 'string' || !target.pw) return;
+    const scope = target.pw.form || document;
+    const fields = Array.from(scope.querySelectorAll('input[type="password"]')).filter((p) => visible(p) && (p === target.pw || !p.value));
+    for (const p of fields.slice(0, 2)) setValue(p, cred.password);
+    target = null;
+    return;
+  }
   if (target.user && typeof cred.username === 'string' && cred.username) setValue(target.user, cred.username);
   if (target.pw && typeof cred.password === 'string') setValue(target.pw, cred.password);
   // Doldurulan hesap gönderilince yeniden "kaydedilsin mi?" diye sorulmasın.

@@ -782,7 +782,12 @@ function renderPasswordsTab(cfg = {}) {
     <div class="settings-section"><h3>Yeni Şifre Ekle</h3>
       <div class="s-input-row"><label>Site</label><input type="text" id="pwd-new-site" placeholder="google.com"/></div>
       <div class="s-input-row"><label>Kullanıcı adı</label><input type="text" id="pwd-new-user" placeholder="kullanici@email.com"/></div>
-      <div class="s-input-row"><label>Şifre</label><input type="password" id="pwd-new-pass" placeholder="••••••••"/></div>
+      <div class="s-input-row"><label for="pwd-new-pass">Şifre</label>
+        <div class="folder-row">
+          <input type="password" id="pwd-new-pass" placeholder="••••••••" autocomplete="new-password"/>
+          <button type="button" class="folder-btn" id="btn-pwd-generate" title="20 karakterlik rastgele şifre oluşturur ve gösterir">Oluştur</button>
+        </div>
+      </div>
       <button class="btn-save-settings" id="btn-pwd-add" style="margin-top:4px">➕ Ekle</button>
     </div>
     <div class="settings-section">
@@ -1304,8 +1309,19 @@ function bindPasswordEvents() {
     const addRes = await window.secureBrowser?.passwords?.add({ url: site, username: user, password: pass });
     if (addRes && addRes.ok === false) { showSettingsToast(addRes.error || 'Şifre kaydedilemedi', 'error'); return; }
     ['pwd-new-site','pwd-new-user','pwd-new-pass'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+    const passEl=document.getElementById('pwd-new-pass'); if(passEl) passEl.type='password';
     showSettingsToast('Şifre güvenli kasaya kaydedildi!');
     populatePwdList();
+  });
+  // Oluşturulan şifre görünür yazılır: kullanıcı siteye yapıştırmadan önce görebilsin.
+  document.getElementById('btn-pwd-generate')?.addEventListener('click', async ()=>{
+    const pw = await window.secureBrowser?.passwords?.generate?.();
+    const passEl = document.getElementById('pwd-new-pass');
+    if (typeof pw !== 'string' || !passEl) return;
+    passEl.type = 'text';
+    passEl.value = pw;
+    passEl.focus();
+    passEl.select();
   });
   document.getElementById('btn-pwd-import-browser')?.addEventListener('click', pwImportFromBrowser);
   document.getElementById('btn-pwd-import-csv')?.addEventListener('click', async ()=>{

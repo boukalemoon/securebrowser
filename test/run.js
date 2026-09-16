@@ -1505,7 +1505,8 @@ suite('Keşfet — TrendTech yazılımları');
     const pre = read('preload/page-preload.js');
     check('sekme ön yüklemesi sayfaya hiçbir şey açmıyor (exposeInMainWorld yok)', !pre.includes('exposeInMainWorld') && !/window\.\w+\s*=/.test(pre));
     check('doldurma menüsü yalnızca gerçek kullanıcı etkileşimiyle (sayfa betiği focus() ile tetikleyemez)', /navigator\.userActivation \|\| !navigator\.userActivation\.isActive\) return;/.test(pre));
-    check('parola değiştirme/kayıt formları (birden çok dolu parola) öneri doğurmuyor', /filled\.length > 1\) return;/.test(pre));
+    check('parola değiştirme formları (farklı değerli birden çok parola) öneri doğurmuyor; kayıt formundaki şifre + tekrar kaydediliyor',
+      pre.includes("if (filled.length > 2 || (filled.length === 2 && filled[0].value !== filled[1].value)) return;"));
     const mj = read('main/main.js');
     check('sayfa açılınca kendiliğinden doldurma kaldırıldı', !mj.includes('creds.length === 1 && creds[0].password') && !/executeJavaScript\(`\(function\(\)\{\s*try \{\s*var pw = document\.querySelector\('input\[type=password\]/.test(mj));
     check('sekmeler yalıtılmış şifre ön yüklemesiyle açılıyor', mj.includes("preload: path.join(__dirname, '../preload/page-preload.js')"));
@@ -1619,6 +1620,50 @@ suite('Keşfet — TrendTech yazılımları');
     const inst = new SLM(tmpLog);
     check('yapıcıyla kurulan günlük (testler) şifresiz ve boş başlıyor', inst.canEncrypt === false && inst.key === null && inst.logs.length === 0);
     fs.rmSync(tmpLog, { recursive: true, force: true });
+  }
+
+  suite('Şifre oluşturucu');
+  {
+    const G = require('../src/main/password-generator.js');
+    const many = Array.from({ length: 300 }, () => G.generatePassword());
+    check('varsayılan 20 karakter, yalnızca alfabeden; karıştırılabilen karakter ve & yok',
+      many.every((p) => p.length === 20 && [...p].every((c) => G.ALPHABET.includes(c)) && !/[lI1O0&]/.test(p)));
+    check('her şifrede dört türün hepsi var (küçük, büyük, rakam, simge)', many.every((p) => G.CLASSES.every((set) => [...p].some((c) => set.includes(c)))));
+    check('300 şifrenin hepsi farklı', new Set(many).size === 300);
+    eq('uzunluk 12–64 aralığına sıkıştırılıyor; geçersiz değer varsayılana düşüyor',
+      [G.generatePassword({ length: 4 }).length, G.generatePassword({ length: 200 }).length, G.generatePassword({ length: 'x' }).length, G.generatePassword({ length: 32 }).length], [12, 64, 20, 32]);
+    // Zorunlu türler karıştırılıyor: sabit kaynakla ilk dört karakter tür sırasında kalmamalı.
+    let k = 0;
+    const seq = (n) => (k++ * 7919) % n;
+    const fixed = G.generatePassword({ randomInt: seq });
+    check('karıştırma rastgele kaynağı kullanıyor (enjekte edilen kaynakla belirlenimci)', fixed.length === 20 && (k = 0, G.generatePassword({ randomInt: seq })) === fixed);
+    check('işletim sisteminin kriptografik kaynağı kullanılıyor', read('main/password-generator.js').includes('randomInt = crypto.randomInt') && !read('main/password-generator.js').includes('Math.random'));
+
+    const mjg = read('main/main.js');
+    const focus = mjg.slice(mjg.indexOf("ipcMain.on('pw-field-focus'"), mjg.indexOf('// Panel & Pencere'));
+    check('öneri yalnızca kaydedilebilecekse: gizli pencere, kapalı ayar, "asla" listesi ve okunamayan kasada yok',
+      /const offerGenerate = !!\(rect && rect\.newPassword === true\) && !!origin && !ctx\.incognito\s*&& config\.offerToSavePasswords !== false && canSavePasswords\(\)\s*&& !\(Array\.isArray\(config\.passwordNeverSave\) && config\.passwordNeverSave\.includes\(origin\)\);/.test(focus)
+      && focus.includes('if (!creds.length && !offerGenerate) return;'));
+    check('şifre menüde seçilince, sayfa hâlâ aynı sitedeyse doldurulup sekmede hatırlanıyor',
+      /const useGenerated = \(\) => \{\s*if \(wc\.isDestroyed\(\) \|\| webOrigin\(wc\.getURL\(\)\) !== origin\) return;\s*ctx\.tab\.generatedPassword = \{ origin, password: generated \};\s*wc\.send\('pw-fill', \{ password: generated, generated: true \}\);/.test(focus));
+    const capg = mjg.slice(mjg.indexOf("ipcMain.on('pw-capture'"), mjg.indexOf("ipcMain.handle('pw-save-decision'"));
+    check('oluşturulan şifre aynı sitede gönderilince sormadan kaydediliyor; bildirimde parola yok',
+      /const gen = ctx\.tab\.generatedPassword;\s*if \(gen && gen\.origin === origin && gen\.password === password\) \{\s*ctx\.tab\.generatedPassword = null;\s*saveCapturedCredential\(/.test(capg)
+      && capg.includes("win.webContents.send('pw-generated-saved', { host: new URL(origin).host, username });")
+      && capg.indexOf('const gen = ctx.tab.generatedPassword;') > capg.indexOf("if (!ctx || ctx.incognito || config.offerToSavePasswords === false) return;"));
+    const preg = read('preload/page-preload.js');
+    check('yeni şifre alanı: autocomplete ya da tam iki görünür parola alanı; mevcut şifre alanı değil',
+      preg.includes("if (ac.includes('new-password')) return true;") && preg.includes("if (ac.includes('current-password')) return false;")
+      && preg.includes(".filter(visible).length === 2;") && preg.includes('newPassword: isNewPasswordField(el) });'));
+    check('oluşturulan şifre yalnızca tıklanan alana ve aynı formdaki boş tekrar alanına yazılıyor (en çok 2)',
+      /if \(cred\.generated === true\) \{[\s\S]{0,300}filter\(\(p\) => visible\(p\) && \(p === target\.pw \|\| !p\.value\)\);\s*for \(const p of fields\.slice\(0, 2\)\) setValue\(p, cred\.password\);/.test(preg));
+    const appg = read('renderer/app.js');
+    check('kaydedildi bildirimi metni DOM düğümüyle yazıyor; kimliksiz şeritte kapat düğmesi çalışıyor',
+      appg.includes("sb.passwords?.onGeneratedSaved?.(showGeneratedPasswordSaved);") && appg.includes("if (!id) { hidePasswordOffer(); return; }")
+      && !/function showGeneratedPasswordSaved[\s\S]{0,700}innerHTML/.test(appg));
+    check('Ayarlar formunda Oluştur düğmesi ana süreçten şifre alıp gösteriyor',
+      read('renderer/settings-panel.js').includes("const pw = await window.secureBrowser?.passwords?.generate?.();")
+      && mjg.includes("ipcMain.handle('pw-generate', () => generatePassword());") && read('preload/preload.js').includes("generate:            ()   => ipcRenderer.invoke('pw-generate'),"));
   }
 
   suite('Gizlilik — bağlantı temizliği, GPC, otomatik oynatma, kapatınca sil');

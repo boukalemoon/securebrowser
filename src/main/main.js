@@ -18,6 +18,7 @@ const { setupGlance, closeGlance } = require('./glance-main');
 const { setupArku } = require('./arku-manager');
 const { setupBookmarkImport } = require('./bookmark-import');
 const { setupPasswordManager, getForOrigin, classifyCapture, canSavePasswords, saveCapturedCredential } = require('./password-manager');
+const { generatePassword } = require('./password-generator');
 const { setupAutoUpdater } = require('./auto-updater');
 const { setupDiagnostics, log: diag, logError } = require('./diagnostics');
 const { setupThreatProtection } = require('./threat-protection');
@@ -2125,6 +2126,18 @@ ipcMain.on('pw-capture', (event, data) => {
   const kind = classifyCapture(pageUrl, username, password);
   if (kind.action === 'same') return;
 
+  // İlgezdi'nin oluşturduğu şifre gönderildi: sormadan kaydedilir (Chrome gibi). Kullanıcı
+  // şifreyi hiç görmediği için öneri yok sayılırsa hesaba bir daha giremezdi.
+  const gen = ctx.tab.generatedPassword;
+  if (gen && gen.origin === origin && gen.password === password) {
+    ctx.tab.generatedPassword = null;
+    saveCapturedCredential({ url: pageUrl, username, password, action: kind.action, existingId: kind.id || null }).then((r) => {
+      const win = ctx.state === incognitoState ? incognitoWindow : mainWindow;
+      if (r && r.ok && win && !win.isDestroyed()) win.webContents.send('pw-generated-saved', { host: new URL(origin).host, username });
+    }).catch((e) => logError('pw-generated', e));
+    return;
+  }
+
   const offer = {
     id: require('crypto').randomUUID(), url: pageUrl, origin, username, password,
     action: kind.action, existingId: kind.id || null, state: ctx.state,
@@ -2158,6 +2171,9 @@ ipcMain.handle('pw-save-decision', (event, { offerId, action } = {}) => {
   return { ok: true };
 });
 
+// Ayarlar › Şifreler › Yeni Şifre Ekle formundaki "Oluştur" düğmesi.
+ipcMain.handle('pw-generate', () => generatePassword());
+
 ipcMain.handle('pw-never-list', () => (Array.isArray(config.passwordNeverSave) ? config.passwordNeverSave.slice() : []));
 ipcMain.handle('pw-never-remove', (_e, origin) => {
   const list = Array.isArray(config.passwordNeverSave) ? config.passwordNeverSave : [];
@@ -2175,7 +2191,12 @@ ipcMain.on('pw-field-focus', (event, rect) => {
   const pageUrl = wc.getURL();
   const origin = webOrigin(pageUrl);
   const creds = origin ? getForOrigin(pageUrl) : [];
-  if (!creds.length) return;
+  // Kayıt formunda güçlü şifre önerisi: yalnızca şifre kasaya kaydedilebilecekse (gizli
+  // pencerede, ayar kapalıyken ya da "bu sitede asla" denen sitede oluşturulan şifre kaybolurdu).
+  const offerGenerate = !!(rect && rect.newPassword === true) && !!origin && !ctx.incognito
+    && config.offerToSavePasswords !== false && canSavePasswords()
+    && !(Array.isArray(config.passwordNeverSave) && config.passwordNeverSave.includes(origin));
+  if (!creds.length && !offerGenerate) return;
   const b = ctx.tab.view.getBounds();
   const n = (v) => (Number.isFinite(v) ? Math.round(v) : 0);
   const x = b.x + Math.min(Math.max(n(rect && rect.x), 0), Math.max(b.width - 40, 0));
@@ -2186,11 +2207,24 @@ ipcMain.on('pw-field-focus', (event, rect) => {
     const c = getForOrigin(wc.getURL()).find((x2) => x2.id === id);
     if (c) wc.send('pw-fill', { username: c.username || '', password: c.password });
   };
+  const generated = offerGenerate ? generatePassword() : '';
+  const useGenerated = () => {
+    if (wc.isDestroyed() || webOrigin(wc.getURL()) !== origin) return;
+    ctx.tab.generatedPassword = { origin, password: generated };
+    wc.send('pw-fill', { password: generated, generated: true });
+  };
   const template = [
-    { label: `${new URL(origin).host} için kayıtlı hesaplar`, enabled: false },
-    { type: 'separator' },
-    ...creds.slice(0, 10).map((c) => ({ label: c.username || '(kullanıcı adı yok)', click: () => fill(c.id) })),
-    { type: 'separator' },
+    ...(offerGenerate ? [
+      { label: 'Güçlü şifre kullan: ' + generated, click: useGenerated },
+      { label: 'Form gönderilince İlgezdi şifre kasasına kaydedilir', enabled: false },
+      { type: 'separator' },
+    ] : []),
+    ...(creds.length ? [
+      { label: `${new URL(origin).host} için kayıtlı hesaplar`, enabled: false },
+      { type: 'separator' },
+      ...creds.slice(0, 10).map((c) => ({ label: c.username || '(kullanıcı adı yok)', click: () => fill(c.id) })),
+      { type: 'separator' },
+    ] : []),
     { label: 'Şifreleri yönet…', click: () => { if (!ctx.win.isDestroyed()) ctx.win.webContents.send('browser-command', 'passwords'); } },
   ];
   Menu.buildFromTemplate(template).popup({ window: ctx.win, x, y });
