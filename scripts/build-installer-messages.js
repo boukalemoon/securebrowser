@@ -21,6 +21,7 @@ const DIR = path.join(__dirname, '..', 'build', 'installer-lang');
 const LCID = { tr: 1055, en: 1033, az: 1068, kk: 1087, uz: 1091, tk: 1090, ky: 1088, de: 1031, fr: 1036 };
 // İngilizcesini electron-builder'ın ürettiği anahtarlar; İngilizce için burada yazılmaz.
 const APP_KEYS = ['ilgezdiAppDescription', 'ilgezdiUrlName'];
+const BOM = '﻿';
 
 /** NSIS çift tırnaklı dizesi: ${PRODUCT_NAME} derleme sabiti olarak kalır, diğer $ kaçışlanır. */
 function nsisString(text) {
@@ -53,11 +54,16 @@ function render(messages) {
 function main() {
   const messages = JSON.parse(fs.readFileSync(path.join(DIR, 'messages.json'), 'utf8'));
   // UTF-8 BOM: NSIS Türkçe/Kiril karakterleri ancak böyle doğru okur.
-  const output = '﻿' + render(messages);
+  const output = BOM + render(messages);
   const target = path.join(DIR, 'messages.nsh');
   if (process.argv.includes('--check')) {
     const current = fs.existsSync(target) ? fs.readFileSync(target, 'utf8') : '';
-    if (current !== output) { console.error('messages.nsh güncel değil: node scripts/build-installer-messages.js'); process.exit(1); }
+    // Git satır sonlarını çevirebilir (core.autocrlf); karşılaştırma satır sonundan bağımsız.
+    const norm = (t) => t.replace(/\r\n/g, '\n');
+    if (norm(current) !== norm(output)) {
+      console.error('messages.nsh güncel değil: node scripts/build-installer-messages.js');
+      process.exit(1);
+    }
     return;
   }
   fs.writeFileSync(target, output, 'utf8');
