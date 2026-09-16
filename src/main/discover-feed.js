@@ -28,9 +28,9 @@ const BUNDLED = Object.freeze([
     url: 'https://www.arku.com.tr', color: '#3a6db5', letter: 'A',
   },
   {
-    id: 'qartim', name: 'Qartim', category: 'Dijital kartvizit',
+    id: 'qartim', name: 'QRtım', category: 'Dijital kartvizit',
     tagline: 'Dijital kartvizit platformu',
-    description: 'Kartvizitinizi dijitale taşıyın. İlgezdi hesabınız da Qartim hesabıyla açılır.',
+    description: 'Kartvizitinizi dijitale taşıyın. İlgezdi hesabınız da QRtım hesabıyla açılır.',
     url: 'https://www.qartim.com', color: '#b85c3a', letter: 'Q',
   },
   {
