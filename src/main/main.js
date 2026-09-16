@@ -172,6 +172,30 @@ function loadConfig() {
   return { ...DEFAULT_CONFIG };
 }
 
+// Kurulum sihirbazında seçilen dil (build/installer.nsh → HKCU\Software\Ilgezdi\InstallerLanguage).
+// Ayar dosyasında henüz dil yoksa bir kez okunur ve ayara yazılır; sonra kullanıcının seçimi
+// geçerlidir. Değer yoksa (sessiz güncelleme, eski kurulum) "Sistem dili" olarak kaydedilir.
+function savedConfigHasLanguage() {
+  try { return Object.prototype.hasOwnProperty.call(JSON.parse(fs.readFileSync(CFG_PATH, 'utf-8')), 'language'); } catch { return false; }
+}
+function readInstallerLanguageLcid() {
+  try {
+    const out = require('child_process').execFileSync('reg', ['query', 'HKCU\\Software\\Ilgezdi', '/v', 'InstallerLanguage'],
+      { encoding: 'utf8', timeout: 3000, windowsHide: true, stdio: ['ignore', 'pipe', 'ignore'] });
+    const m = /InstallerLanguage\s+REG_\w+\s+(\d+)/.exec(out);
+    return m ? m[1] : null;
+  } catch { return null; }
+}
+function applyInstallerLanguageOnce() {
+  if (process.platform !== 'win32' || !app.isPackaged || savedConfigHasLanguage()) return;
+  const code = require('../renderer/i18n.js').languageFromLcid(readInstallerLanguageLcid());
+  config.language = code || 'auto';
+  try {
+    fs.mkdirSync(USER_DATA, { recursive: true });   // ilk açılışta profil klasörü henüz yok
+    saveConfig(config);
+  } catch (e) { console.error('Kurulum dili kaydedilemedi:', e.message); }
+}
+
 function saveConfig(cfg) {
   // Atomik yazma (denetim O-02): yarım yazılmış config.json, loadConfig'in
   // catch'ine düşüp TÜM ayarları — şifreli oturum, site izin kararları, ana sayfa,
@@ -192,6 +216,7 @@ if (!hardwareAccelerationAtStart) app.disableHardwareAcceleration();
 // Arayüz dili açılışta bir kez seçilir; arayüz pencereleri paketi ön yüklemede eşzamanlı alır.
 const i18n = require('./i18n');
 const { T } = i18n;
+applyInstallerLanguageOnce();
 const languageAtStart = String(config.language || 'auto');
 i18n.init(languageAtStart, (() => { try { return app.getPreferredSystemLanguages(); } catch { return []; } })());
 ipcMain.on('i18n-bundle', (event) => { event.returnValue = i18n.bundle(); });

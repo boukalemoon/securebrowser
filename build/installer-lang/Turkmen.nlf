@@ -1,0 +1,191 @@
+﻿# Header, don't edit
+NLF v6
+# Start editing here
+# Language ID
+1090
+# Font and size - dash (-) means default
+-
+-
+# Codepage - dash (-) means ASCII code page
+1250
+# RTL - anything else than RTL means LTR
+-
+# Translation by İlgezdi
+# ^Branding
+Nullsoft Install System %s
+# ^SetupCaption
+$(^Name) gurnamasy
+# ^UninstallCaption
+$(^Name) aýyrmasy
+# ^LicenseSubCaption
+: Ygtyýarnama ylalaşygy
+# ^ComponentsSubCaption
+: Gurnama sazlamalary
+# ^DirSubCaption
+: Gurnama bukjasy
+# ^InstallingSubCaption
+: Gurnalýar
+# ^CompletedSubCaption
+: Tamamlandy
+# ^UnComponentsSubCaption
+: Aýyrma sazlamalary
+# ^UnDirSubCaption
+: Aýryljak bukja
+# ^ConfirmSubCaption
+: Tassyklama
+# ^UninstallingSubCaption
+: Aýrylýar
+# ^UnCompletedSubCaption
+: Tamamlandy
+# ^BackBtn
+< &Yza
+# ^NextBtn
+&Indiki >
+# ^AgreeBtn
+&Kabul edýärin
+# ^AcceptBtn
+Ygtyýarnama ylalaşygynyň şertlerini &kabul edýärin
+# ^DontAcceptBtn
+Ygtyýarnama ylalaşygynyň şertlerini kabul &etmeýärin
+# ^InstallBtn
+&Gurna
+# ^UninstallBtn
+&Aýyr
+# ^CancelBtn
+Ýatyr
+# ^CloseBtn
+&Ýap
+# ^BrowseBtn
+Gö&zden geçir...
+# ^ShowDetailsBtn
+&Jikme-jiklikleri görkez
+# ^ClickNext
+Dowam etmek üçin «Indiki» düwmesine basyň.
+# ^ClickInstall
+Gurnamany başlamak üçin «Gurna» düwmesine basyň.
+# ^ClickUninstall
+Aýyrmany başlamak üçin «Aýyr» düwmesine basyň.
+# ^Name
+At
+# ^Completed
+Tamamlandy
+# ^LicenseText
+$(^NameDA) programmasyny gurnamazdan öň ygtyýarnama ylalaşygy bilen tanyşyň. Ylalaşygyň ähli şertlerini kabul edýän bolsaňyz, «Kabul edýärin» düwmesine basyň.
+# ^LicenseTextCB
+$(^NameDA) programmasyny gurnamazdan öň ygtyýarnama ylalaşygy bilen tanyşyň. Ylalaşygyň ähli şertlerini kabul edýän bolsaňyz, aşakdaky gutujyga belgi goýuň. $_CLICK
+# ^LicenseTextRB
+$(^NameDA) programmasyny gurnamazdan öň ygtyýarnama ylalaşygy bilen tanyşyň. Ylalaşygyň ähli şertlerini kabul edýän bolsaňyz, aşakdaky birinji görnüşi saýlaň. $_CLICK
+# ^UnLicenseText
+$(^NameDA) programmasyny aýyrmazdan öň ygtyýarnama ylalaşygy bilen tanyşyň. Ylalaşygyň ähli şertlerini kabul edýän bolsaňyz, «Kabul edýärin» düwmesine basyň.
+# ^UnLicenseTextCB
+$(^NameDA) programmasyny aýyrmazdan öň ygtyýarnama ylalaşygy bilen tanyşyň. Ylalaşygyň ähli şertlerini kabul edýän bolsaňyz, aşakdaky gutujyga belgi goýuň. $_CLICK
+# ^UnLicenseTextRB
+$(^NameDA) programmasyny aýyrmazdan öň ygtyýarnama ylalaşygy bilen tanyşyň. Ylalaşygyň ähli şertlerini kabul edýän bolsaňyz, aşakdaky birinji görnüşi saýlaň. $_CLICK
+# ^Custom
+Ýörite
+# ^ComponentsText
+Gurnamak isleýän düzüm bölekleriňizi belläň, gurnamak islemeýän düzüm bölekleriňizden belgini aýyryň. $_CLICK
+# ^ComponentsSubText1
+Gurnamanyň görnüşini saýlaň:
+# ^ComponentsSubText2_NoInstTypes
+Gurnaljak düzüm böleklerini saýlaň:
+# ^ComponentsSubText2
+Ýa-da gurnamak isleýän goşmaça düzüm bölekleriňizi saýlaň:
+# ^UnComponentsText
+Aýyrmak isleýän düzüm bölekleriňizi belläň, aýyrmak islemeýän düzüm bölekleriňizden belgini aýyryň. $_CLICK
+# ^UnComponentsSubText1
+Aýyrmanyň görnüşini saýlaň:
+# ^UnComponentsSubText2_NoInstTypes
+Aýryljak düzüm böleklerini saýlaň:
+# ^UnComponentsSubText2
+Ýa-da aýyrmak isleýän goşmaça düzüm bölekleriňizi saýlaň:
+# ^DirText
+Gurnama ussady $(^NameDA) programmasyny aşakdaky bukja gurnar. Başga bukja gurnamak üçin «Gözden geçir» düwmesine basyp, başga bukjany saýlaň. $_CLICK
+# ^DirSubText
+Gurnaljak bukja
+# ^DirBrowseText
+$(^NameDA) programmasynyň gurnaljak bukjasyny saýlaň:
+# ^UnDirText
+Aýyrma ussady $(^NameDA) programmasyny aşakdaky bukjadan aýyrar. Başga bukjadan aýyrmak üçin «Gözden geçir» düwmesine basyp, başga bukjany saýlaň. $_CLICK
+# ^UnDirSubText
+""
+# ^UnDirBrowseText
+$(^NameDA) programmasynyň aýryljak bukjasyny saýlaň:
+# ^SpaceAvailable
+"Elýeterli ýer: "
+# ^SpaceRequired
+"Gerekli ýer: "
+# ^UninstallingText
+$(^NameDA) aşakdaky bukjadan aýrylar. $_CLICK
+# ^UninstallingSubText
+Şu ýerden aýrylýar:
+# ^FileError
+Faýly ýazmak üçin açyp bolmady: \r\n\r\n$0\r\n\r\nGurnamany bes etmek üçin «Bes et»,\r\ngaýtadan synanyşmak üçin «Gaýtadan synanyş»,\r\nbu faýly geçmek üçin «Äsgerme» düwmesine basyň.
+# ^FileError_NoIgnore
+Faýly ýazmak üçin açyp bolmady: \r\n\r\n$0\r\n\r\nGaýtadan synanyşmak üçin «Gaýtadan synanyş»,\r\ngurnamany bes etmek üçin «Ýatyr» düwmesine basyň.
+# ^CantWrite
+"Ýazyp bolmady: "
+# ^CopyFailed
+Göçürip bolmady
+# ^CopyTo
+"Şu ýere göçürilýär: "
+# ^Registering
+"Hasaba alynýar: "
+# ^Unregistering
+"Hasapdan aýrylýar: "
+# ^SymbolNotFound
+"Simwol tapylmady: "
+# ^CouldNotLoad
+"Ýükläp bolmady: "
+# ^CreateFolder
+"Bukja döredilýär: "
+# ^CreateShortcut
+"Gysga ýol döredilýär: "
+# ^CreatedUninstaller
+"Aýyrma programmasy döredildi: "
+# ^Delete
+"Faýl pozulýar: "
+# ^DeleteOnReboot
+"Gaýtadan başladylanda pozular: "
+# ^ErrorCreatingShortcut
+"Gysga ýol döretmekde ýalňyşlyk: "
+# ^ErrorCreating
+"Döretmekde ýalňyşlyk: "
+# ^ErrorDecompressing
+Maglumatlary arhiwden çykarmakda ýalňyşlyk! Gurnaýjy zaýalanypdyrmy?
+# ^ErrorRegistering
+DLL-i hasaba almakda ýalňyşlyk
+# ^ExecShell
+"ExecShell: "
+# ^Exec
+"Işledilýär: "
+# ^Extract
+"Çykarylýar: "
+# ^ErrorWriting
+"Çykarmak: faýla ýazyp bolmady "
+# ^InvalidOpcode
+Gurnaýjy zaýalanypdyr: nädogry amal kody
+# ^NoOLE
+"OLE ýok: "
+# ^OutputFolder
+"Çykyş bukjasy: "
+# ^RemoveFolder
+"Bukja aýrylýar: "
+# ^RenameOnReboot
+"Gaýtadan başladylanda ady üýtgediler: "
+# ^Rename
+"Ady üýtgedilýär: "
+# ^Skipped
+"Geçildi: "
+# ^CopyDetails
+Jikme-jiklikleri bufere göçür
+# ^LogInstall
+Gurnama gündeligini ýaz
+# ^Byte
+B
+# ^Kilo
+ K
+# ^Mega
+ M
+# ^Giga
+ G

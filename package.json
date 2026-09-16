@@ -1,6 +1,6 @@
 {
   "name": "ilgezdi",
-  "version": "0.8.0",
+  "version": "0.8.1",
   "description": "İlgezdi — Güvenli, gizlilik odaklı web tarayıcısı (Göktürk temalı)",
   "author": "İlgezdi",
   "license": "MIT",
@@ -76,15 +76,15 @@
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "İlgezdi",
-      "uninstallDisplayName": "İlgezdi Tarayıcı ${version}",
+      "uninstallDisplayName": "İlgezdi ${version}",
       "runAfterFinish": true,
       "deleteAppDataOnUninstall": false,
       "installerLanguages": [
-        "tr_TR",
         "en_US"
       ],
       "language": "1055",
-      "include": "build/installer.nsh"
+      "include": "build/installer.nsh",
+      "displayLanguageSelector": true
     },
     "mac": {
       "target": [

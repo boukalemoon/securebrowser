@@ -28,15 +28,16 @@
   if (root) root.ilgezdiI18nCore = api;
 })(typeof window !== 'undefined' ? window : null, function () {
   const LANGUAGES = Object.freeze([
-    { code: 'tr', name: 'Türkçe', intl: 'tr-TR' },
-    { code: 'en', name: 'English', intl: 'en-US' },
-    { code: 'az', name: 'Azərbaycan dili', intl: 'az-Latn-AZ' },
-    { code: 'kk', name: 'Қазақ тілі', intl: 'kk-KZ' },
-    { code: 'uz', name: 'Oʻzbekcha', intl: 'uz-Latn-UZ' },
-    { code: 'tk', name: 'Türkmen dili', intl: 'tk-TM' },
-    { code: 'ky', name: 'Кыргызча', intl: 'ky-KG' },
-    { code: 'de', name: 'Deutsch', intl: 'de-DE' },
-    { code: 'fr', name: 'Français', intl: 'fr-FR' },
+    // lcid: Windows dil kimliği — kurulum sihirbazının dil tabloları (build/installer.nsh) aynı kimlikleri kullanır.
+    { code: 'tr', name: 'Türkçe', intl: 'tr-TR', lcid: 1055 },
+    { code: 'en', name: 'English', intl: 'en-US', lcid: 1033 },
+    { code: 'az', name: 'Azərbaycan dili', intl: 'az-Latn-AZ', lcid: 1068 },
+    { code: 'kk', name: 'Қазақ тілі', intl: 'kk-KZ', lcid: 1087 },
+    { code: 'uz', name: 'Oʻzbekcha', intl: 'uz-Latn-UZ', lcid: 1091 },
+    { code: 'tk', name: 'Türkmen dili', intl: 'tk-TM', lcid: 1090 },
+    { code: 'ky', name: 'Кыргызча', intl: 'ky-KG', lcid: 1088 },
+    { code: 'de', name: 'Deutsch', intl: 'de-DE', lcid: 1031 },
+    { code: 'fr', name: 'Français', intl: 'fr-FR', lcid: 1036 },
   ].map(Object.freeze));
   const SOURCE_LANGUAGE = 'tr';
   // Desteklenmeyen bir Türk dili sistemde Türkçe açılır; diğer desteklenmeyen diller İngilizce.
@@ -53,6 +54,13 @@
     for (const base of bases) if (languageInfo(base)) return base;
     for (const base of bases) if (TURKIC.has(base)) return SOURCE_LANGUAGE;
     return bases.length ? 'en' : SOURCE_LANGUAGE;
+  }
+
+  /** Kurulum sihirbazında seçilen dilin Windows kimliği → dil kodu (bilinmiyorsa null). */
+  function languageFromLcid(lcid) {
+    const n = Number(String(lcid == null ? '' : lcid).trim());
+    const hit = Number.isInteger(n) ? LANGUAGES.find((l) => l.lcid === n) : null;
+    return hit ? hit.code : null;
   }
 
   const HTML_ESC = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;', '`': '&#96;' };
@@ -107,7 +115,7 @@
     }
   }
 
-  return { LANGUAGES, SOURCE_LANGUAGE, resolveLanguage, createTranslator, translateDom, languageInfo, escapeHtml: esc };
+  return { LANGUAGES, SOURCE_LANGUAGE, resolveLanguage, languageFromLcid, createTranslator, translateDom, languageInfo, escapeHtml: esc };
 });
 
 // Arayüz penceresi: ön yükleme ana süreçten dil paketini verir (window.ilgezdiLocale).

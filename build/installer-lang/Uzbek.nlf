@@ -1,0 +1,191 @@
+﻿# Header, don't edit
+NLF v6
+# Start editing here
+# Language ID
+1091
+# Font and size - dash (-) means default
+-
+-
+# Codepage - dash (-) means ASCII code page
+1254
+# RTL - anything else than RTL means LTR
+-
+# Translation by İlgezdi
+# ^Branding
+Nullsoft Install System %s
+# ^SetupCaption
+$(^Name) oʻrnatish dasturi
+# ^UninstallCaption
+$(^Name) oʻchirib tashlash dasturi
+# ^LicenseSubCaption
+: Litsenziya kelishuvi
+# ^ComponentsSubCaption
+: Oʻrnatish parametrlari
+# ^DirSubCaption
+: Oʻrnatish jildi
+# ^InstallingSubCaption
+: Oʻrnatilmoqda
+# ^CompletedSubCaption
+: Yakunlandi
+# ^UnComponentsSubCaption
+: Oʻchirib tashlash parametrlari
+# ^UnDirSubCaption
+: Oʻchirib tashlanadigan jild
+# ^ConfirmSubCaption
+: Tasdiqlash
+# ^UninstallingSubCaption
+: Oʻchirib tashlanmoqda
+# ^UnCompletedSubCaption
+: Yakunlandi
+# ^BackBtn
+< &Orqaga
+# ^NextBtn
+&Keyingi >
+# ^AgreeBtn
+&Roziman
+# ^AcceptBtn
+Litsenziya kelishuvi shartlarini &qabul qilaman
+# ^DontAcceptBtn
+Litsenziya kelishuvi shartlarini qabul qil&mayman
+# ^InstallBtn
+Oʻ&rnatish
+# ^UninstallBtn
+Oʻchirib &tashlash
+# ^CancelBtn
+Bekor qilish
+# ^CloseBtn
+&Yopish
+# ^BrowseBtn
+Koʻrib &chiqish...
+# ^ShowDetailsBtn
+&Tafsilotlarni koʻrsatish
+# ^ClickNext
+Davom etish uchun «Keyingi» tugmasini bosing.
+# ^ClickInstall
+Oʻrnatishni boshlash uchun «Oʻrnatish» tugmasini bosing.
+# ^ClickUninstall
+Oʻchirib tashlashni boshlash uchun «Oʻchirib tashlash» tugmasini bosing.
+# ^Name
+Nomi
+# ^Completed
+Yakunlandi
+# ^LicenseText
+$(^NameDA) brauzerini oʻrnatishdan oldin litsenziya kelishuvi bilan tanishib chiqing. Kelishuvning barcha shartlarini qabul qilsangiz, «Roziman» tugmasini bosing.
+# ^LicenseTextCB
+$(^NameDA) brauzerini oʻrnatishdan oldin litsenziya kelishuvi bilan tanishib chiqing. Kelishuvning barcha shartlarini qabul qilsangiz, quyidagi katakchani belgilang. $_CLICK
+# ^LicenseTextRB
+$(^NameDA) brauzerini oʻrnatishdan oldin litsenziya kelishuvi bilan tanishib chiqing. Kelishuvning barcha shartlarini qabul qilsangiz, quyidagi birinchi variantni tanlang. $_CLICK
+# ^UnLicenseText
+$(^NameDA) brauzerini oʻchirib tashlashdan oldin litsenziya kelishuvi bilan tanishib chiqing. Kelishuvning barcha shartlarini qabul qilsangiz, «Roziman» tugmasini bosing.
+# ^UnLicenseTextCB
+$(^NameDA) brauzerini oʻchirib tashlashdan oldin litsenziya kelishuvi bilan tanishib chiqing. Kelishuvning barcha shartlarini qabul qilsangiz, quyidagi katakchani belgilang. $_CLICK
+# ^UnLicenseTextRB
+$(^NameDA) brauzerini oʻchirib tashlashdan oldin litsenziya kelishuvi bilan tanishib chiqing. Kelishuvning barcha shartlarini qabul qilsangiz, quyidagi birinchi variantni tanlang. $_CLICK
+# ^Custom
+Maxsus
+# ^ComponentsText
+Oʻrnatmoqchi boʻlgan komponentlarni belgilang, oʻrnatishni istamaganlaridan belgini olib tashlang. $_CLICK
+# ^ComponentsSubText1
+Oʻrnatish turini tanlang:
+# ^ComponentsSubText2_NoInstTypes
+Oʻrnatiladigan komponentlarni tanlang:
+# ^ComponentsSubText2
+Yoki oʻrnatmoqchi boʻlgan qoʻshimcha komponentlarni tanlang:
+# ^UnComponentsText
+Oʻchirib tashlamoqchi boʻlgan komponentlarni belgilang, oʻchirib tashlashni istamaganlaridan belgini olib tashlang. $_CLICK
+# ^UnComponentsSubText1
+Oʻchirib tashlash turini tanlang:
+# ^UnComponentsSubText2_NoInstTypes
+Oʻchirib tashlanadigan komponentlarni tanlang:
+# ^UnComponentsSubText2
+Yoki oʻchirib tashlamoqchi boʻlgan qoʻshimcha komponentlarni tanlang:
+# ^DirText
+Oʻrnatish dasturi $(^NameDA) brauzerini quyidagi jildga oʻrnatadi. Boshqa jildga oʻrnatish uchun «Koʻrib chiqish» tugmasini bosing va boshqa jildni tanlang. $_CLICK
+# ^DirSubText
+Oʻrnatish jildi
+# ^DirBrowseText
+$(^NameDA) brauzeri oʻrnatiladigan jildni tanlang:
+# ^UnDirText
+Oʻchirib tashlash dasturi $(^NameDA) brauzerini quyidagi jilddan oʻchirib tashlaydi. Boshqa jilddan oʻchirib tashlash uchun «Koʻrib chiqish» tugmasini bosing va boshqa jildni tanlang. $_CLICK
+# ^UnDirSubText
+""
+# ^UnDirBrowseText
+$(^NameDA) brauzeri oʻchirib tashlanadigan jildni tanlang:
+# ^SpaceAvailable
+"Boʻsh joy: "
+# ^SpaceRequired
+"Kerakli joy: "
+# ^UninstallingText
+$(^NameDA) brauzeri quyidagi jilddan oʻchirib tashlanadi. $_CLICK
+# ^UninstallingSubText
+Oʻchirib tashlanadigan jild:
+# ^FileError
+Faylni yozish uchun ochishda xato: \r\n\r\n$0\r\n\r\nOʻrnatishni toʻxtatish uchun «Toʻxtatish»,\r\nqayta urinish uchun «Qayta urinish»,\r\nbu faylni oʻtkazib yuborish uchun «Eʼtiborsiz qoldirish» tugmasini bosing.
+# ^FileError_NoIgnore
+Faylni yozish uchun ochishda xato: \r\n\r\n$0\r\n\r\nQayta urinish uchun «Qayta urinish»,\r\noʻrnatishni toʻxtatish uchun «Bekor qilish» tugmasini bosing.
+# ^CantWrite
+"Yozib boʻlmadi: "
+# ^CopyFailed
+Nusxalab boʻlmadi
+# ^CopyTo
+"Nusxalash manzili: "
+# ^Registering
+"Roʻyxatdan oʻtkazilmoqda: "
+# ^Unregistering
+"Roʻyxatdan chiqarilmoqda: "
+# ^SymbolNotFound
+"Simvol topilmadi: "
+# ^CouldNotLoad
+"Yuklab boʻlmadi: "
+# ^CreateFolder
+"Jild yaratish: "
+# ^CreateShortcut
+"Yorliq yaratish: "
+# ^CreatedUninstaller
+"Oʻchirib tashlash dasturi yaratildi: "
+# ^Delete
+"Faylni oʻchirish: "
+# ^DeleteOnReboot
+"Qayta ishga tushirilganda oʻchirish: "
+# ^ErrorCreatingShortcut
+"Yorliq yaratishda xato: "
+# ^ErrorCreating
+"Yaratishda xato: "
+# ^ErrorDecompressing
+Maʼlumotlarni arxivdan chiqarishda xato! Oʻrnatish fayli shikastlanganmi?
+# ^ErrorRegistering
+DLL faylini roʻyxatdan oʻtkazishda xato
+# ^ExecShell
+"ExecShell: "
+# ^Exec
+"Ishga tushirish: "
+# ^Extract
+"Chiqarish: "
+# ^ErrorWriting
+"Chiqarish: faylga yozishda xato "
+# ^InvalidOpcode
+Oʻrnatish fayli shikastlangan: notoʻgʻri buyruq kodi
+# ^NoOLE
+"OLE mavjud emas: "
+# ^OutputFolder
+"Chiqish jildi: "
+# ^RemoveFolder
+"Jildni oʻchirish: "
+# ^RenameOnReboot
+"Qayta ishga tushirilganda nomini oʻzgartirish: "
+# ^Rename
+"Nomini oʻzgartirish: "
+# ^Skipped
+"Oʻtkazib yuborildi: "
+# ^CopyDetails
+Tafsilotlarni buferga nusxalash
+# ^LogInstall
+Oʻrnatish jarayonini jurnalga yozish
+# ^Byte
+B
+# ^Kilo
+ K
+# ^Mega
+ M
+# ^Giga
+ G

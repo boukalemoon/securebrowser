@@ -1228,13 +1228,21 @@ suite('Site — sürüm notları');
   check('RELEASES dizisi geçerli JavaScript', Array.isArray(releases), String(releases).slice(0, 120));
   if (Array.isArray(releases)) {
     const versions = releases.map((r) => r.version);
-    check('sürümler yeniden eskiye ve tekrarsız', versions.join() === [...new Set(versions)].join() && versions[0] === '0.8.0');
-    check('0.8.0 yayınlandı ve "En son" etiketi onda', !releases[0].upcoming && releases.find((r) => !r.upcoming).version === '0.8.0');
+    const semver = (v) => v.split('.').map(Number);
+    const newerFirst = versions.every((v, i) => i === 0 || semver(versions[i - 1]).some((n, j) => n !== semver(v)[j]) && (() => { const a = semver(versions[i - 1]), b = semver(v); for (let j = 0; j < 3; j++) if (a[j] !== b[j]) return a[j] > b[j]; return false; })());
     const indexHtml = fs.readFileSync(path.join(__dirname, '..', 'site', 'index.html'), 'utf8');
     const pkgVersion = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8')).version;
-    check('ana sayfadaki sürüm rozeti paket sürümüyle ve sürüm notlarıyla aynı', indexHtml.includes(`const VERSION = '${pkgVersion}';`) && releases[0].version === pkgVersion);
+    check('sürümler yeniden eskiye ve tekrarsız; en üstteki paket sürümü', newerFirst && new Set(versions).size === versions.length && versions[0] === pkgVersion);
+    const latest = releases.find((r) => !r.upcoming);
+    check('yalnızca en üstteki sürüm "Geliştiriliyor" olabilir; "En son" yayınlanmış ilk sürümde', releases.slice(1).every((r) => !r.upcoming) && !!latest);
+    // Rozet kurulum dosyası yayınlanınca güncellenir (sürüm etiketi → CI → site), o zamana kadar son yayın.
+    check('ana sayfadaki sürüm rozeti yayınlanmış son sürümü gösteriyor', !!latest && indexHtml.includes(`const VERSION = '${latest.version}';`));
     check('her değişikliğin türü tanımlı ve metni dolu', releases.every((r) => r.changes.every((c) => ['new', 'fix', 'sec', 'imp'].includes(c.t) && c.d.length > 20)));
-    check('0.8.0 güncellemeleri tek tek listelenmiş (zararlı site koruması ve USOM dahil)', releases[0].changes.length >= 25 && releases[0].changes.some((c) => c.d.includes('USOM')));
+    const r080 = releases.find((r) => r.version === '0.8.0');
+    check('0.8.0 güncellemeleri tek tek listelenmiş (zararlı site koruması ve USOM dahil)', !!r080 && r080.changes.length >= 25 && r080.changes.some((c) => c.d.includes('USOM')));
+    const r081 = releases.find((r) => r.version === '0.8.1');
+    check('0.8.1: dokuz dil, kurulum sihirbazı dili, sızmış şifre denetimi ve Google kısayollarının kaldırılması yazıyor',
+      !!r081 && ['Dokuz dilde arayüz', 'Kurulum sihirbazı da dokuz dilde', 'Sızmış şifre denetimi', 'Google kısayolları kaldırıldı'].every((t) => r081.changes.some((c) => c.d.includes(t))));
   }
   check('işleyici "Geliştiriliyor" etiketini ve yayınlanmış ilk sürüme "En son"u veriyor', html.includes("const LATEST = RELEASES.findIndex((r) => !r.upcoming);") && html.includes('rel-upcoming-tag'));
 }
@@ -1279,10 +1287,10 @@ suite('Zararlı site koruması — canlı liste durumu');
     read('preload/preload.js').includes("ipcRenderer.on('threats-status-changed'") && /let _threatStatusSubscribed = false;[\s\S]{0,200}if \(_threatStatusSubscribed\) return;/.test(read('renderer/settings-panel.js')));
 }
 
-suite('Yayın — v0.8.0');
+suite('Yayın — v0.8.1');
 {
   const ROOTD = path.join(__dirname, '..');
-  check('paket sürümü 0.8.0', JSON.parse(fs.readFileSync(path.join(ROOTD, 'package.json'), 'utf8')).version === '0.8.0');
+  check('paket sürümü 0.8.1', JSON.parse(fs.readFileSync(path.join(ROOTD, 'package.json'), 'utf8')).version === '0.8.1');
   const wf = fs.readFileSync(path.join(ROOTD, '.github', 'workflows', 'release.yml'), 'utf8');
   check('yayın otomatik güncelleme dosyalarını da yüklüyor (latest*.yml, blockmap)', wf.includes('dist/latest*.yml') && wf.includes('dist/*.blockmap'));
 }
@@ -1686,6 +1694,77 @@ suite('Keşfet — TrendTech yazılımları');
       && read('preload/preload.js').includes("contextBridge.exposeInMainWorld('ilgezdiLocale', ipcRenderer.sendSync('i18n-bundle'));")
       && /<script src="diag-client\.js"><\/script>\s*<!--[^>]*-->\s*<script src="i18n\.js"><\/script>/.test(read('renderer/index.html')));
     check('dil senkronlanmıyor (cihaza özgü)', !read('renderer/sync-manager.js').includes("'language'"));
+  }
+
+  suite('Kurulum sihirbazı dilleri');
+  {
+    const I = require('../src/renderer/i18n.js');
+    const root = path.join(__dirname, '..');
+    eq('kurulum dili kimliği → arayüz dili', [I.languageFromLcid(1087), I.languageFromLcid('1055'), I.languageFromLcid(' 1091 '), I.languageFromLcid(1049), I.languageFromLcid(''), I.languageFromLcid(undefined)],
+      ['kk', 'tr', 'uz', null, null, null]);
+    const lcids = I.LANGUAGES.map((l) => l.lcid);
+    check('her dilin tekil Windows dil kimliği var', lcids.every((n) => Number.isInteger(n)) && new Set(lcids).size === lcids.length);
+    const BIM = require('../scripts/build-installer-messages.js');
+    eq('mesaj üreticisindeki kimlikler arayüz dil listesiyle aynı', BIM.LCID, Object.fromEntries(I.LANGUAGES.map((l) => [l.code, l.lcid])));
+    let inSync = true;
+    try { require('child_process').execFileSync(process.execPath, [path.join(root, 'scripts', 'build-installer-messages.js'), '--check'], { stdio: 'ignore' }); } catch { inSync = false; }
+    check('messages.nsh, messages.json ile güncel', inSync);
+
+    const yaml = require('js-yaml');
+    const ebDir = path.join(root, 'node_modules', 'app-builder-lib', 'templates', 'nsis');
+    const eb = { ...yaml.load(fs.readFileSync(path.join(ebDir, 'messages.yml'), 'utf8')), ...yaml.load(fs.readFileSync(path.join(ebDir, 'assistedMessages.yml'), 'utf8')) };
+    const msgs = JSON.parse(fs.readFileSync(path.join(root, 'build', 'installer-lang', 'messages.json'), 'utf8'));
+    const need = [...Object.keys(eb), ...BIM.APP_KEYS];
+    const gaps = [];
+    for (const l of I.LANGUAGES) {
+      const table = msgs[l.code] || {};
+      const keys = l.code === 'en' ? BIM.APP_KEYS : need;
+      for (const k of keys) {
+        const v = table[k];
+        if (typeof v !== 'string' || !v.trim()) { gaps.push(l.code + '.' + k + ' yok'); continue; }
+        const src = eb[k] ? eb[k].en : '';
+        if (src && (src.match(/\$\{PRODUCT_NAME\}/g) || []).length !== (v.match(/\$\{PRODUCT_NAME\}/g) || []).length) gaps.push(l.code + '.' + k + ' ürün adı');
+        if (/&/.test(src) && (v.match(/&/g) || []).length !== 1) gaps.push(l.code + '.' + k + ' kısayol harfi');
+      }
+      const extra = Object.keys(table).filter((k) => !keys.includes(k));
+      if (extra.length) gaps.push(l.code + ' fazla: ' + extra.join(','));
+    }
+    check('dokuz dilde electron-builder mesajlarının ve İlgezdi metinlerinin tamamı (İngilizce mesajları electron-builder yazar)', gaps.length === 0, gaps.slice(0, 10));
+
+    const nsh = fs.readFileSync(path.join(root, 'build', 'installer.nsh'), 'utf8');
+    const pkgNsis = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')).build.nsis;
+    check('electron-builder yalnızca İngilizceyi ekliyor, dil penceresi açık',
+      JSON.stringify(pkgNsis.installerLanguages) === '["en_US"]' && pkgNsis.displayLanguageSelector === true && pkgNsis.include === 'build/installer.nsh');
+    const NAMES = { tr: 'Turkish', en: 'English', de: 'German', fr: 'French', az: 'Azerbaijani', kk: 'Kazakh', uz: 'Uzbek', tk: 'Turkmen', ky: 'Kyrgyz' };
+    const addLangs = (nsh.match(/!macroundef addLangs\s*!macro addLangs([\s\S]*?)!macroend/) || [])[1] || '';
+    const missingLang = I.LANGUAGES.filter((l) => !new RegExp('!insertmacro MUI_LANGUAGE(?:EX "\\$\\{ILGEZDI_LANG_DIR\\}")? "' + NAMES[l.code] + '"').test(addLangs)).map((l) => l.code);
+    check('addLangs yeniden tanımlanıyor ve dokuz dili de ekliyor', missingLang.length === 0 && /!include "\$\{ILGEZDI_LANG_DIR\}\\messages\.nsh"/.test(nsh), missingLang);
+    const custom = ['az', 'kk', 'uz', 'tk', 'ky'].map((code) => {
+      const base = path.join(root, 'build', 'installer-lang', NAMES[code]);
+      if (!fs.existsSync(base + '.nlf') || !fs.existsSync(base + '.nsh')) return code + ': dosya yok';
+      const nlf = fs.readFileSync(base + '.nlf');
+      const nshL = fs.readFileSync(base + '.nsh');
+      const bom = (b) => b[0] === 0xef && b[1] === 0xbb && b[2] === 0xbf;
+      const idLine = nlf.toString('utf8').replace(/^\uFEFF/, '').replace(/\r\n/g, '\n').split('\n').filter((x) => !x.startsWith('#'))[1];
+      const lcid = I.LANGUAGES.find((l) => l.code === code).lcid;
+      if (!bom(nlf) || !bom(nshL)) return code + ': BOM yok';
+      if (Number(idLine) !== lcid) return code + ': NLF kimliği ' + idLine + ' ≠ ' + lcid;
+      if (!nshL.toString('utf8').includes('!insertmacro LANGFILE "' + NAMES[code] + '"')) return code + ': LANGFILE adı';
+      return null;
+    }).filter(Boolean);
+    check('NSIS paketinde olmayan beş dilin dil dosyaları: BOM, doğru Windows kimliği ve ad', custom.length === 0, custom);
+    check('seçilen dil yalnızca etkileşimli kurulumda kaydediliyor; güncellemede silinmiyor; kaldırıcı ve dil penceresi bu dili kullanıyor',
+      /\$\{IfNot\} \$\{Silent\}\s*WriteRegStr HKCU "Software\\Ilgezdi" "InstallerLanguage" "\$LANGUAGE"/.test(nsh)
+      && /\$\{IfNot\} \$\{isUpdated\}\s*DeleteRegKey HKCU "Software\\Ilgezdi"/.test(nsh)
+      && /!macro preInit\s*ReadRegStr \$0 HKCU "Software\\Ilgezdi" "InstallerLanguage"[\s\S]{0,60}StrCpy \$LANGUAGE \$0/.test(nsh)
+      && /!macro customUnInit\s*ReadRegStr \$0 HKCU "Software\\Ilgezdi" "InstallerLanguage"[\s\S]{0,60}StrCpy \$LANGUAGE \$0/.test(nsh)
+      && nsh.includes('"ApplicationDescription" "$(ilgezdiAppDescription)"') && nsh.includes('"FriendlyTypeName" "$(ilgezdiUrlName)"'));
+    const mjL = read('main/main.js');
+    check('uygulama kurulum dilini yalnızca Windows paketinde, ayarda dil yokken ve dil seçilmeden önce bir kez okuyor',
+      mjL.includes("if (process.platform !== 'win32' || !app.isPackaged || savedConfigHasLanguage()) return;")
+      && mjL.includes("execFileSync('reg', ['query', 'HKCU\\\\Software\\\\Ilgezdi', '/v', 'InstallerLanguage'],")
+      && mjL.includes("config.language = code || 'auto';")
+      && mjL.indexOf('applyInstallerLanguageOnce();') > 0 && mjL.indexOf('applyInstallerLanguageOnce();') < mjL.indexOf('const languageAtStart ='));
   }
 
   suite('Sızmış şifre denetimi (Have I Been Pwned)');
