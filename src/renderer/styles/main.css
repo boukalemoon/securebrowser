@@ -698,3 +698,35 @@ input, select, textarea { font-family: var(--font-ui); }
 }
 .pw-offer-close:hover { background: var(--bg-soft); color: var(--ink); }
 .pw-offer button:focus-visible { outline: 2px solid var(--gold); outline-offset: 1px; }
+
+/* ── Erişilebilirlik (Ayarlar › Özelleştir) ─────────────────────────────────── */
+/* Hareketi azalt: arayüz geçişleri ve animasyonları kapanır. Yükleme halkası durmaz,
+   yavaşlar: yüklemenin sürdüğü görünmeye devam etsin. */
+:root[data-reduce-motion] *, :root[data-reduce-motion] *::before, :root[data-reduce-motion] *::after {
+  animation-duration: 0.001ms !important; animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important; transition-delay: 0s !important; scroll-behavior: auto !important;
+}
+:root[data-reduce-motion] .tab-spinner::before { animation-duration: 2.6s !important; animation-iteration-count: infinite !important; }
+:root[data-reduce-motion] .tab-spinner::after { animation: none !important; opacity: .8; }
+/* İşletim sistemi animasyonları kapattıysa arayüz geçişleri de kısalır (halka kuralı yukarıda). */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition-duration: 0.001ms !important; scroll-behavior: auto !important; }
+  .fade-up { animation: none !important; }
+}
+
+/* Yüksek karşıtlık: tema renkleri korunur, yalnızca karşıtlığı düşük belirteçler
+   güçlendirilir; odak çerçevesi kalınlaşır. İşletim sistemi "daha fazla karşıtlık"
+   isterse de uygulanır. */
+:root[data-contrast="high"] {
+  --ink-soft: var(--ink);
+  --ink-mute: color-mix(in srgb, var(--ink) 82%, var(--bg));
+  --line: color-mix(in srgb, var(--ink) 55%, var(--bg));
+}
+:root[data-contrast="high"] :focus-visible { outline: 3px solid var(--gold-bright) !important; outline-offset: 2px !important; }
+@media (prefers-contrast: more) {
+  :root {
+    --ink-soft: var(--ink);
+    --ink-mute: color-mix(in srgb, var(--ink) 82%, var(--bg));
+    --line: color-mix(in srgb, var(--ink) 55%, var(--bg));
+  }
+}

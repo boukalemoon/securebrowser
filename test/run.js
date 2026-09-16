@@ -1388,7 +1388,7 @@ suite('Keşfet — TrendTech yazılımları');
     const fields = [...spJs.matchAll(/^\s*'([\w-]+)':\s*\['(\w+)', '(value|checked)'\]/gm)];
     const valuesFn = spJs.slice(spJs.indexOf('function formValuesFrom'), spJs.indexOf('function initFormState'));
     check('form alan listesi sekmelerdeki kimliklerle ve varsayılan değerlerle eşleşiyor',
-      fields.length === 20
+      fields.length === 24
       && fields.every(([, id]) => spJs.includes(`id="${id}"`) || spJs.includes(`row('${id}'`))
       && fields.every(([, , key]) => new RegExp(`\\n\\s*${key}:\\s`).test(valuesFn)), fields.length);
 
@@ -1502,6 +1502,33 @@ suite('Keşfet — TrendTech yazılımları');
     check('öneri şeridi metni textContent/append ile kuruluyor', offerFn.length > 300 && !offerFn.includes('innerHTML'));
     check('Ayarlar › Şifreler: öneri anahtarı form alanı; "asla" listesi ve Şifreleri yönet bağlantısı',
       read('renderer/settings-panel.js').includes('populatePwNeverList();') && appSrc3.includes("case 'passwords':        window.ilgezdiOpenSettings?.('passwords')"));
+  }
+
+  suite('Erişilebilirlik — varsayılan yakınlaştırma, en küçük yazı, hareket ve karşıtlık');
+  {
+    const bc2 = require('../src/main/browser-commands.js');
+    eq('varsayılan yakınlaştırma yalnızca listedeki değerler', [bc2.normalizePageZoom('1.25'), bc2.normalizePageZoom(3), bc2.normalizePageZoom('x'), bc2.normalizePageZoom(0.8)], [1.25, 1, 1, 0.8]);
+    eq('en küçük yazı boyutu yalnızca listedeki değerler', [bc2.normalizeMinFontSize('16'), bc2.normalizeMinFontSize(15), bc2.normalizeMinFontSize(null)], [16, 0, 0]);
+    let zoomOut = null;
+    const zs = bc2.createZoomStore({ read: () => ({ 'a.com': 1.5, 'b.com': 1 }), write: (o) => { zoomOut = o; }, delayMs: 5, defaultFactor: () => 1.25 });
+    eq('kaydı olmayan site varsayılanı alır; varsayılan %125 iken kayıtlı %100 korunur',
+      [zs.get('yeni.com'), zs.get('a.com'), zs.get('b.com'), zs.has('b.com'), zs.has('yeni.com')], [1.25, 1.5, 1, true, false]);
+    zs.set('a.com', 1.25);
+    zs.set('c.com', 1);
+    zs.flush();
+    eq('varsayılana eşit değer silinir, farklı olan (%100 dahil) yazılır', zoomOut, { 'b.com': 1, 'c.com': 1 });
+    const mj2 = read('main/main.js');
+    check('Ctrl+0 varsayılana döner; gösterge varsayılanı biliyor',
+      mj2.includes('const factor = direction ? nextZoomFactor(wc.getZoomFactor(), direction) : defaultFactor;') && mj2.includes("send('zoom-changed', { factor, defaultFactor })"));
+    check('yeni sekmelerde en küçük yazı boyutu; ayar değişince açık sekmelere varsayılan yakınlaştırma',
+      mj2.includes('minimumFontSize: normalizeMinFontSize(config.minimumFontSize)') && mj2.includes('applyDefaultZoomToOpenTabs();') && mj2.includes("incoming.defaultPageZoom = normalizePageZoom(incoming.defaultPageZoom)"));
+    const sp2 = read('renderer/settings-panel.js');
+    check('hareketi azalt ve yüksek karşıtlık açılışta ve kaydedince uygulanıyor', (sp2.match(/applyAccessibility\((cfg|finalCfg)\);/g) || []).length === 2);
+    const css2 = read('renderer/styles/main.css');
+    check('hareketi azaltınca yükleme halkası durmuyor, yavaşlıyor',
+      css2.includes(':root[data-reduce-motion] .tab-spinner::before { animation-duration: 2.6s !important; animation-iteration-count: infinite !important; }'));
+    check('yüksek karşıtlık ayarla ve işletim sistemi tercihiyle', css2.includes(':root[data-contrast="high"] {') && css2.includes('@media (prefers-contrast: more)'));
+    check('gösterge ve site bilgisi %100 yerine varsayılan orana göre', read('renderer/app.js').includes('zoomBtn.hidden = pct === def;') && read('renderer/app.js').includes('pct !== zoomDefaultPct'));
   }
   const cardsJs = read('renderer/info-cards.js');
   let cards = null;

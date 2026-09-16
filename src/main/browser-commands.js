@@ -303,6 +303,21 @@ function nextZoomFactor(current, direction) {
   return ZOOM_MIN;
 }
 
+// Ayarlar › Erişilebilirlik: varsayılan sayfa yakınlaştırması ve en küçük yazı boyutu.
+// Arayüzden gelen değer yalnızca bu listelerden biri olabilir.
+const PAGE_ZOOM_CHOICES = Object.freeze([0.8, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2]);
+const MIN_FONT_CHOICES = Object.freeze([0, 10, 12, 14, 16, 18, 20, 24]);
+
+function normalizePageZoom(value) {
+  const n = Number(value);
+  return PAGE_ZOOM_CHOICES.find((z) => Math.abs(z - n) < 0.001) || 1;
+}
+
+function normalizeMinFontSize(value) {
+  const n = Number(value);
+  return MIN_FONT_CHOICES.includes(n) ? n : 0;
+}
+
 function zoomKeyForUrl(url) {
   try {
     const u = new URL(String(url || ''));
@@ -316,9 +331,15 @@ function zoomKeyForUrl(url) {
  * yapılan bir yakınlaştırmayı eski değerle ezerdi.
  * @param {{read: () => object, write: (obj: object) => void, delayMs?: number}} io
  */
-function createZoomStore({ read, write, delayMs = 400 } = {}) {
+function createZoomStore({ read, write, delayMs = 400, defaultFactor = () => 1 } = {}) {
   let data = null;
   let timer = null;
+  // Kaydı olmayan site varsayılan sayfa yakınlaştırmasını alır; varsayılana eşit değer
+  // saklanmaz, farklı olan (varsayılan %125 iken %100 dahil) saklanır.
+  const def = () => {
+    const d = Number(defaultFactor());
+    return Number.isFinite(d) && d >= ZOOM_MIN && d <= ZOOM_MAX ? d : 1;
+  };
 
   const load = () => {
     if (data) return data;
@@ -328,7 +349,7 @@ function createZoomStore({ read, write, delayMs = 400 } = {}) {
     if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
       for (const [host, value] of Object.entries(raw)) {
         const n = Number(value);
-        if (host && host.length <= 253 && Number.isFinite(n) && n >= ZOOM_MIN && n <= ZOOM_MAX && Math.abs(n - 1) > 0.001) {
+        if (host && host.length <= 253 && Number.isFinite(n) && n >= ZOOM_MIN && n <= ZOOM_MAX && Math.abs(n - def()) > 0.001) {
           data.set(host, n);
         }
       }
@@ -348,13 +369,14 @@ function createZoomStore({ read, write, delayMs = 400 } = {}) {
   };
 
   return {
-    get(host) { return (host && load().get(host)) || 1; },
+    get(host) { return host && load().has(host) ? load().get(host) : def(); },
+    has(host) { return !!host && load().has(host); },
     set(host, factor) {
       if (!host) return;
       const map = load();
       const n = Number(factor);
       map.delete(host);   // en son kullanılan sona geçsin, taşmada en eskisi düşsün
-      if (Number.isFinite(n) && Math.abs(n - 1) > 0.001 && n >= ZOOM_MIN && n <= ZOOM_MAX) map.set(host, n);
+      if (Number.isFinite(n) && Math.abs(n - def()) > 0.001 && n >= ZOOM_MIN && n <= ZOOM_MAX) map.set(host, n);
       while (map.size > ZOOM_STORE_MAX) map.delete(map.keys().next().value);
       schedule();
     },
@@ -528,6 +550,10 @@ module.exports = {
   nextZoomFactor,
   zoomKeyForUrl,
   createZoomStore,
+  PAGE_ZOOM_CHOICES,
+  MIN_FONT_CHOICES,
+  normalizePageZoom,
+  normalizeMinFontSize,
   CLOSED_TABS_MAX,
   snapshotHistory,
   pushClosedTab,

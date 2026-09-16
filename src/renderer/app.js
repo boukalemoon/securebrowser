@@ -423,7 +423,8 @@ async function loadSiteInfo() {
     : '';
 
   const pct = Math.round((Number(info.zoom) || 1) * 100);
-  const zoomHtml = pct !== 100
+  const zoomDefaultPct = Math.round((Number(info.zoomDefault) || 1) * 100);
+  const zoomHtml = pct !== zoomDefaultPct
     ? `<div class="si-sec si-row"><span>Yakınlaştırma %${pct}</span><button type="button" class="si-btn" id="si-zoom-reset">Sıfırla</button></div>`
     : '';
 
@@ -1681,7 +1682,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   sb.zoom?.onChanged((data) => {
     if (!zoomBtn) return;
     const pct = Math.round((Number(data?.factor) || 1) * 100);
-    zoomBtn.hidden = pct === 100;
+    const def = Math.round((Number(data?.defaultFactor) || 1) * 100);
+    // Varsayılan sayfa yakınlaştırmasındayken (Ayarlar) gösterge gizli; sıfırla varsayılana döner.
+    zoomBtn.hidden = pct === def;
     zoomBtn.textContent = '%' + pct;
     zoomBtn.setAttribute('aria-label', 'Yakınlaştırma yüzde ' + pct + ', sıfırlamak için tıklayın');
   });

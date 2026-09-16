@@ -31,6 +31,7 @@ setupCommunity({ ipcMain, session, app, apiBase: !app.isPackaged ? process.env.I
 const {
   normalizeWebrtcPolicy, DEFAULT_WEBRTC_POLICY, UI_COMMANDS, commandForInput, buildContextMenuModel,
   nextZoomFactor, zoomKeyForUrl, createZoomStore, snapshotHistory, pushClosedTab, isWebUrl,
+  normalizePageZoom, normalizeMinFontSize,
   TAB_ACTIONS, moveTabId, orderAfterPin, buildTabMenuModel, normalizeStartupMode, serializeSession, parseSession,
 } = require('./browser-commands');
 const {
@@ -59,6 +60,10 @@ const BROWSING_PARTITION = 'persist:securebrowser';
 function browsingSession() { return session.fromPartition(BROWSING_PARTITION); }
 
 const DEFAULT_CONFIG = {
+  defaultPageZoom:       1,            // Erişilebilirlik: kaydı olmayan sitelerin yakınlaştırması
+  minimumFontSize:       0,            // Erişilebilirlik: sayfalarda en küçük yazı (0 = kapalı)
+  reduceMotion:          false,        // Erişilebilirlik: arayüz animasyonları kapalı
+  highContrast:          false,        // Erişilebilirlik: arayüzde yüksek karşıtlık
   offerToSavePasswords:  true,         // giriş yapınca şifreyi kasaya kaydetmeyi öner
   passwordNeverSave:     [],           // "bu sitede asla" denen site kökleri (yalnızca ana süreç yazar)
   homepage:              '',           // boş = İlgezdi başlangıç sayfası; URL = o sayfa açılır
@@ -643,6 +648,8 @@ function createTab(win, state, url = config.homepage, opts = {}) {
     webPreferences: {
       // Şifre kaydetme önerisi ve doldurma; yalıtılmış dünyada, sayfaya bir şey açmaz.
       preload: path.join(__dirname, '../preload/page-preload.js'),
+      // En küçük yazı boyutu (Ayarlar › Erişilebilirlik); yalnızca sekme açılırken verilebilir.
+      minimumFontSize: normalizeMinFontSize(config.minimumFontSize),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
@@ -765,10 +772,15 @@ function createTab(win, state, url = config.homepage, opts = {}) {
       tab.url = navUrl;
       tab.blockedPopups = [];
     }
-    // Kaydedilmiş site yakınlaştırması. Gizli pencerede kalıcı değer kullanılmaz.
+    // Kaydedilmiş site yakınlaştırması; yoksa varsayılan sayfa yakınlaştırması (Ayarlar ›
+    // Erişilebilirlik). Gizli pencerede kalıcı site değeri kullanılmaz: sekmenin ilk
+    // sayfasında varsayılan uygulanır, sonra kullanıcının yakınlaştırması korunur.
     if (!isIncognito) {
       const saved = zoomStore.get(zoomKeyForUrl(navUrl));
       if (Math.abs(view.webContents.getZoomFactor() - saved) > 0.001) view.webContents.setZoomFactor(saved);
+    } else if (tab && !tab.zoomInitialized) {
+      tab.zoomInitialized = true;
+      view.webContents.setZoomFactor(normalizePageZoom(config.defaultPageZoom));
     }
     if (state.activeTabId === tabId && win && !win.isDestroyed()) {
       win.webContents.send('find-reset');   // yeni belgede eski eşleşme sayısı anlamsız
@@ -1059,6 +1071,7 @@ function sendTabsUpdate(win, state) {
 // Site başına yakınlaştırma config.json'da değil ayrı dosyada: ayarlar paneli
 // kaydederken tüm yapılandırmayı geri yazıyor ve yeni değeri ezerdi.
 const zoomStore = createZoomStore({
+  defaultFactor: () => normalizePageZoom(config.defaultPageZoom),
   read: () => (fs.existsSync(ZOOM_PATH) ? JSON.parse(fs.readFileSync(ZOOM_PATH, 'utf-8')) : {}),
   write: (obj) => {
     const tmp = ZOOM_PATH + '.tmp';
@@ -1091,18 +1104,35 @@ function applyWebrtcPolicyToAllTabs() {
 function sendZoomState(win, state) {
   if (!win || win.isDestroyed()) return;
   const wc = activeTabContents(state);
-  win.webContents.send('zoom-changed', { factor: wc ? wc.getZoomFactor() : 1 });
+  const defaultFactor = normalizePageZoom(config.defaultPageZoom);
+  win.webContents.send('zoom-changed', { factor: wc ? wc.getZoomFactor() : defaultFactor, defaultFactor });
 }
 
 function changeZoom(win, state, wc, direction) {
   if (!wc || wc.isDestroyed()) return;
-  const factor = nextZoomFactor(wc.getZoomFactor(), direction);
+  // Sıfırla (Ctrl+0) varsayılan sayfa yakınlaştırmasına döner (Chrome gibi), %100'e değil.
+  const defaultFactor = normalizePageZoom(config.defaultPageZoom);
+  const factor = direction ? nextZoomFactor(wc.getZoomFactor(), direction) : defaultFactor;
   wc.setZoomFactor(factor);
   // Chromium yakınlaştırmayı alan adı başına uygular; aynı sitedeki diğer
   // sekmeler de değişir. Kalıcı değer yalnızca normal pencerede yazılır.
   if (state !== incognitoState) zoomStore.set(zoomKeyForUrl(wc.getURL()), factor);
   if (win && !win.isDestroyed() && activeTabContents(state) === wc) {
-    win.webContents.send('zoom-changed', { factor });
+    win.webContents.send('zoom-changed', { factor, defaultFactor });
+  }
+}
+
+// Varsayılan sayfa yakınlaştırması değişince: kendi kaydı olmayan açık sekmeler yeni orana
+// geçer (gizli penceredekiler de); site başına kaydedilmiş yakınlaştırma korunur.
+function applyDefaultZoomToOpenTabs() {
+  const def = normalizePageZoom(config.defaultPageZoom);
+  for (const [st, w] of [[mainState, mainWindow], [incognitoState, incognitoWindow]]) {
+    for (const [, tab] of st.tabs) {
+      const wc = tab.view.webContents;
+      if (wc.isDestroyed()) continue;
+      if (st === incognitoState || !zoomStore.has(zoomKeyForUrl(wc.getURL()))) wc.setZoomFactor(def);
+    }
+    if (w && !w.isDestroyed()) sendZoomState(w, st);
   }
 }
 
@@ -1322,6 +1352,7 @@ ipcMain.handle('site-info', (event) => {
     permissions:  origin ? decisionsForOrigin(config.permissionDecisions, origin) : [],
     blockedPopups: tab && tab.blockedPopups ? tab.blockedPopups.slice() : [],
     zoom:         wc ? wc.getZoomFactor() : 1,
+    zoomDefault:  normalizePageZoom(config.defaultPageZoom),
     incognito:    state === incognitoState,
     thirdPartyCookiesBlocked: config.blockThirdPartyCookies !== false,
   };
@@ -1744,11 +1775,16 @@ ipcMain.handle('save-config', (e, newCfg) => {
   if ('blockThirdPartyCookies' in incoming) incoming.blockThirdPartyCookies = incoming.blockThirdPartyCookies !== false;
   if ('startupMode' in incoming) incoming.startupMode = normalizeStartupMode(incoming.startupMode);
   if ('threatProtection' in incoming) incoming.threatProtection = incoming.threatProtection !== false;
-  const previous = { webrtcPolicy: config.webrtcPolicy, secureDns: config.secureDns, startupMode: config.startupMode, threatProtection: config.threatProtection !== false };
+  if ('defaultPageZoom' in incoming) incoming.defaultPageZoom = normalizePageZoom(incoming.defaultPageZoom);
+  if ('minimumFontSize' in incoming) incoming.minimumFontSize = normalizeMinFontSize(incoming.minimumFontSize);
+  if ('reduceMotion' in incoming) incoming.reduceMotion = incoming.reduceMotion === true;
+  if ('highContrast' in incoming) incoming.highContrast = incoming.highContrast === true;
+  const previous = { webrtcPolicy: config.webrtcPolicy, secureDns: config.secureDns, startupMode: config.startupMode, threatProtection: config.threatProtection !== false, defaultPageZoom: normalizePageZoom(config.defaultPageZoom) };
   config = { ...config, ...incoming };
   saveConfig(config);
   if (config.webrtcPolicy !== previous.webrtcPolicy) applyWebrtcPolicyToAllTabs();
   if (config.secureDns !== previous.secureDns) applySecureDns();
+  if (normalizePageZoom(config.defaultPageZoom) !== previous.defaultPageZoom) applyDefaultZoomToOpenTabs();
   // Koruma yeniden açıldıysa, zamanı gelmiş listeler hemen indirilir.
   if ((config.threatProtection !== false) !== previous.threatProtection && threats) threats.onConfigChanged();
   if (config.startupMode !== previous.startupMode) {

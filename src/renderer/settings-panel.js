@@ -143,6 +143,7 @@ async function loadSavedTheme() {
     if (/DM Sans/i.test(fontFamily)) fontFamily = "'Inter', sans-serif";
 
     commitTheme(theme, accent, fontSize, fontFamily);
+    applyAccessibility(cfg);
   } catch (e) {
     console.warn('[İlgezdi/Theme] yükleme hatası:', e);
     commitTheme('otuken', null, 13, "'Inter', sans-serif");
@@ -320,6 +321,10 @@ const SETTINGS_FIELDS = {
   'cfg-secure-dns':    ['secureDns', 'value'],
   'cfg-log':           ['logEnabled', 'checked'],
   'cfg-pw-offer':      ['offerToSavePasswords', 'checked'],
+  'cfg-page-zoom':     ['defaultPageZoom', 'value'],
+  'cfg-min-font':      ['minimumFontSize', 'value'],
+  'cfg-reduce-motion': ['reduceMotion', 'checked'],
+  'cfg-high-contrast': ['highContrast', 'checked'],
 };
 let _formBase = {};
 let _formCfg  = {};
@@ -349,7 +354,23 @@ function formValuesFrom(cfg) {
     secureDns:              c.secureDns || 'automatic',
     logEnabled:             c.logEnabled !== false,
     offerToSavePasswords:   c.offerToSavePasswords !== false,
+    defaultPageZoom:        PAGE_ZOOMS_UI.includes(Number(c.defaultPageZoom)) ? String(Number(c.defaultPageZoom)) : '1',
+    minimumFontSize:        MIN_FONTS_UI.some(([v]) => v === Number(c.minimumFontSize)) ? String(Number(c.minimumFontSize)) : '0',
+    reduceMotion:           c.reduceMotion === true,
+    highContrast:           c.highContrast === true,
   };
+}
+
+// Ana süreçteki listelerle aynı (browser-commands.js → normalizePageZoom / normalizeMinFontSize).
+const PAGE_ZOOMS_UI = [0.8, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2];
+const MIN_FONTS_UI = [[0, 'Kapalı'], [10, '10 px'], [12, '12 px'], [14, '14 px'], [16, '16 px'], [18, '18 px'], [20, '20 px'], [24, '24 px']];
+
+// Erişilebilirlik (Ayarlar › Özelleştir): arayüzde hareketi azalt ve yüksek karşıtlık.
+function applyAccessibility(cfg) {
+  const root = document.documentElement;
+  root.toggleAttribute('data-reduce-motion', !!cfg && cfg.reduceMotion === true);
+  if (cfg && cfg.highContrast === true) root.setAttribute('data-contrast', 'high');
+  else root.removeAttribute('data-contrast');
 }
 
 function initFormState(cfg) {
@@ -478,6 +499,30 @@ function renderCustomizationTab(cfg) {
         <div class="font-preview" id="font-preview-text" style="font-size:${_pendingFontSize}px;font-family:${_pendingFontFamily}">
           İlgezdi Browser — Önizleme metni (Bu değişiklik henüz kaydedilmedi)
         </div>
+      </div>
+    </div>
+    <div class="settings-section"><h3>Erişilebilirlik</h3>
+      <div class="s-input-row">
+        <label for="cfg-page-zoom">Sayfa yakınlaştırması (varsayılan)</label>
+        <select id="cfg-page-zoom">
+          ${PAGE_ZOOMS_UI.map((z) => `<option value="${z}" ${String(cfg.defaultPageZoom) === String(z) ? 'selected' : ''}>%${Math.round(z * 100)}</option>`).join('')}
+        </select>
+      </div>
+      <p class="s-hint">Siteler bu oranda açılır. Bir sitede Ctrl ile yakınlaştırırsanız o site için ayrıca hatırlanır; Ctrl+0 bu orana döndürür.</p>
+      <div class="s-input-row">
+        <label for="cfg-min-font">En küçük yazı boyutu</label>
+        <select id="cfg-min-font">
+          ${MIN_FONTS_UI.map(([v, t]) => `<option value="${v}" ${String(cfg.minimumFontSize) === String(v) ? 'selected' : ''}>${t}</option>`).join('')}
+        </select>
+      </div>
+      <p class="s-hint">Sayfalardaki küçük yazılar bu boyutun altına inmez. Yeni açılan sekmelerde geçerli olur.</p>
+      <div class="s-toggle-row">
+        <div><div class="s-toggle-label">Hareketi azalt</div><div class="s-toggle-sub">İlgezdi arayüzündeki geçiş ve animasyonlar kapanır; yükleme halkası yavaş döner. İşletim sisteminde animasyonlar kapalıysa geçişler zaten kısalır.</div></div>
+        <label class="switch"><input type="checkbox" id="cfg-reduce-motion" ${cfg.reduceMotion ? 'checked' : ''}/><span class="slider"></span></label>
+      </div>
+      <div class="s-toggle-row">
+        <div><div class="s-toggle-label">Yüksek karşıtlık</div><div class="s-toggle-sub">Arayüzde soluk yazılar ve çizgiler koyulaşır, odak çerçevesi kalınlaşır. İşletim sistemi daha fazla karşıtlık isterse kendiliğinden uygulanır.</div></div>
+        <label class="switch"><input type="checkbox" id="cfg-high-contrast" ${cfg.highContrast ? 'checked' : ''}/><span class="slider"></span></label>
       </div>
     </div>
     <div id="theme-preview-box" class="theme-preview-box"></div>
@@ -1255,6 +1300,7 @@ function initSettingsPanelEvents() {
     await window.secureBrowser?.saveConfig(finalCfg);
     window.ilgezdiSync?.schedulePush();
     settingsConfig = finalCfg;
+    applyAccessibility(finalCfg);
     initFormState(finalCfg);
     window._ilgezdiNewTabMode   = finalCfg.newTabMode    || 'blank';
     window._ilgezdiCustomNewTab = finalCfg.customNewTabUrl || '';
