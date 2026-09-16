@@ -240,6 +240,11 @@ function buildUserAgent() {
   return `Mozilla/5.0 (${osToken}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${ver} Safari/537.36`;
 }
 const CLEAN_UA = buildUserAgent();
+// session.setUserAgent yalnızca oturumun varsayılanıdır; her webContents açılışta
+// app.userAgentFallback'i alır ve o değer hem istek başlığında hem navigator.userAgent'ta
+// kullanılır. Bu satır eksikken sekmeler "Electron/…" içeren UA gönderiyordu (2026-09-16
+// ölçüm): İlgezdi kullanıcılarını diğer Chrome kullanıcılarından ayıran bir iz.
+app.userAgentFallback = CLEAN_UA;
 
 // NOT (denetim O-01): Burada eskiden iki ölü/hatalı parça vardı ve kaldırıldı.
 //  1) BLOCKED_DOMAINS + isBlocked(): `host.includes(d)` ALT DİZE eşleşmesiyle

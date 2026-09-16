@@ -1696,6 +1696,14 @@ suite('Keşfet — TrendTech yazılımları');
     check('dil senkronlanmıyor (cihaza özgü)', !read('renderer/sync-manager.js').includes("'language'"));
   }
 
+  suite('Kullanıcı aracısı (UA)');
+  {
+    const mjU = read('main/main.js');
+    const fallbackAt = mjU.indexOf('app.userAgentFallback = CLEAN_UA;');
+    check('temiz Chrome UA her webContents için varsayılan (Electron ve uygulama adı yok); uygulama hazır olmadan',
+      fallbackAt > 0 && fallbackAt < mjU.indexOf('app.whenReady()') && /return `Mozilla\/5\.0 \(\$\{osToken\}\) AppleWebKit\/537\.36 \(KHTML, like Gecko\) Chrome\/\$\{ver\} Safari\/537\.36`;/.test(mjU));
+  }
+
   suite('Kurulum sihirbazı dilleri');
   {
     const I = require('../src/renderer/i18n.js');
