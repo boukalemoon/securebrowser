@@ -1222,5 +1222,9 @@
   "blocker.addInputLabel": "İzin verilecek site",
   "settings.identity.fingerprint": "Parmak izi koruması",
   "settings.identity.fingerprintHint": "Siteler tarayıcınızı çerezsiz tanıyamasın diye tuval, ses ve ekran kartı okumalarına site başına farklı, fark edilmeyen değişiklikler eklenir; işlemci çekirdeği sayısı ve ekran kartı modeli gizlenir. Bir site bozulursa kilit simgesinden o sitede engellemeyi kapatın.",
-  "siteInfo.shield.fingerprintNote": "Engelleme kapalıyken bu sitede parmak izi koruması da uygulanmaz."
+  "siteInfo.shield.fingerprintNote": "Engelleme kapalıyken bu sitede parmak izi koruması da uygulanmaz.",
+  "omnibox.label": "Adres önerileri",
+  "omnibox.search": "“{query}” ara",
+  "omnibox.history": "Geçmiş",
+  "omnibox.bookmark": "Yer imi"
 }

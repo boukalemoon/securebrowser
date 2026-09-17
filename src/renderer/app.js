@@ -1835,15 +1835,84 @@ document.addEventListener('DOMContentLoaded', async () => {
     else sb.newTab('about:blank'); // boş anasayfa → İlgezdi başlangıç sayfası
   });
 
-  // Adres çubuğu
+  // Adres çubuğu ve öneriler (omnibox.js; kaynak yalnızca cihazdaki geçmiş ve yer imleri,
+  // yazılan harf hiçbir sunucuya gitmez). Gizli pencerede geçmiş önerisi gösterilmez.
   const addressBar = document.getElementById('address-bar');
+  let suggestItems = [];
+  let suggestIndex = -1;
+  let suggestTyped = '';
+  let suggestTimer = null;
+
+  function hideSuggestions() {
+    clearTimeout(suggestTimer);
+    suggestItems = [];
+    suggestIndex = -1;
+    sb.suggest?.hide();
+  }
+  async function showSuggestions() {
+    const typed = addressBar.value.trim();
+    suggestTyped = typed;
+    if (!typed) { hideSuggestions(); return; }
+    const O = window.ilgezdiOmnibox;
+    let items = [];
+    if (O && !isIncognito) {
+      let history = [];
+      try { history = (await sb.logs.search({ text: typed, limit: 120 }))?.items || []; } catch {}
+      let bookmarks = [];
+      try { bookmarks = JSON.parse(localStorage.getItem('ilgezdi-bm-items') || '[]'); } catch {}
+      items = O.rankSuggestions({ query: typed, history, bookmarks, limit: 8 });
+    }
+    // Yazılan metin adres değilse en sona "ara" satırı; adres ise gerek yok.
+    if (!O || !O.looksLikeUrl(typed)) {
+      items = items.slice(0, 7).concat([{ url: typed, title: T('omnibox.search', { query: typed }), kind: 'search' }]);
+    }
+    if (addressBar.value.trim() !== typed) return;        // kullanıcı yazmaya devam etti
+    suggestItems = items;
+    if (suggestIndex >= items.length) suggestIndex = -1;
+    if (!items.length) { hideSuggestions(); return; }
+    const r = addressBar.getBoundingClientRect();
+    sb.suggest?.show({ rect: { x: r.x, y: r.y, width: r.width, height: r.height }, items, selected: suggestIndex });
+  }
+  function moveSuggestion(delta) {
+    if (!suggestItems.length) return false;
+    suggestIndex += delta;
+    if (suggestIndex < -1) suggestIndex = suggestItems.length - 1;
+    if (suggestIndex >= suggestItems.length) suggestIndex = -1;
+    const item = suggestItems[suggestIndex];
+    addressBar.value = item ? (item.kind === 'search' ? suggestTyped : item.url) : suggestTyped;
+    const r = addressBar.getBoundingClientRect();
+    sb.suggest?.show({ rect: { x: r.x, y: r.y, width: r.width, height: r.height }, items: suggestItems, selected: suggestIndex });
+    return true;
+  }
+  function goSuggestion(url) {
+    hideSuggestions();
+    hideScreen();
+    sb.navigate(url);
+  }
+
+  addressBar?.addEventListener('input', () => {
+    suggestIndex = -1;
+    clearTimeout(suggestTimer);
+    suggestTimer = setTimeout(showSuggestions, 70);
+  });
+  addressBar?.addEventListener('blur', () => setTimeout(hideSuggestions, 150));
+  sb.suggest?.onPicked((url) => { if (url) goSuggestion(url); });
+
   addressBar?.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      if (moveSuggestion(e.key === 'ArrowDown' ? 1 : -1)) e.preventDefault();
+      return;
+    }
     if (e.key === 'Enter') {
       e.preventDefault();
-      const val = addressBar.value.trim();
-      if (val) { hideScreen(); sb.navigate(val); }
+      const picked = suggestItems[suggestIndex];
+      const val = picked && picked.kind !== 'search' ? picked.url : addressBar.value.trim();
+      if (val) goSuggestion(val);
     }
-    if (e.key === 'Escape') addressBar.blur();
+    if (e.key === 'Escape') {
+      if (suggestItems.length) { hideSuggestions(); return; }
+      addressBar.blur();
+    }
   });
   addressBar?.addEventListener('focus', () => setTimeout(() => addressBar.select(), 50));
 

@@ -1704,6 +1704,54 @@ suite('Keşfet — TrendTech yazılımları');
       fallbackAt > 0 && fallbackAt < mjU.indexOf('app.whenReady()') && /return `Mozilla\/5\.0 \(\$\{osToken\}\) AppleWebKit\/537\.36 \(KHTML, like Gecko\) Chrome\/\$\{ver\} Safari\/537\.36`;/.test(mjU));
   }
 
+  suite('Adres çubuğu önerileri');
+  {
+    const O = require('../src/renderer/omnibox.js');
+    const now = Date.UTC(2026, 8, 18);
+    const history = [
+      { url: 'https://www.google.com/', title: 'Google', timestamp: now - 3600e3 },
+      { url: 'https://www.google.com/search?q=x', title: 'x - Google Arama', timestamp: now - 7200e3 },
+      { url: 'https://www.google.com/', title: 'Google', timestamp: now - 2 * 86400e3 },
+      { url: 'https://gorsel.example.com/', title: 'Görsel', timestamp: now - 5 * 86400e3 },
+      { url: 'https://haber.com/gundem', title: 'Gündem — Haber', timestamp: now - 20 * 86400e3 },
+      { url: 'ftp://dosya.com/', title: 'Dosya', timestamp: now },
+    ];
+    const bookmarks = [{ url: 'https://golang.org/', title: 'Go Programlama' }, { url: 'https://haber.com/gundem', title: 'Gündem' }];
+    const go = O.rankSuggestions({ query: 'go', history, bookmarks, now });
+    check('alan adının başındaki eşleşme önde; sık ve yeni ziyaret öne taşıyor; yalnızca http(s)',
+      go[0].url === 'https://www.google.com/' && go.every((s) => /^https?:/.test(s.url)) && go.some((s) => s.kind === 'bookmark'), go.map((s) => s.url));
+    check('aynı adres bir kez (www ve sondaki / aynı sayılır)', go.filter((s) => O.normalizeUrl(s.url) === 'google.com').length === 1, go.map((s) => s.url));
+    eq('başlıkta geçen ve yer imi olan sayfa da bulunuyor; yer imi rozetiyle',
+      O.rankSuggestions({ query: 'gündem', history, bookmarks, now }).map((s) => [s.url, s.kind]),
+      [['https://haber.com/gundem', 'bookmark']]);
+    eq('boş sorgu ve eşleşmeyen sorgu boş liste', [O.rankSuggestions({ query: '  ', history, bookmarks, now }).length, O.rankSuggestions({ query: 'zzzz', history, bookmarks, now }).length], [0, 0]);
+    check('liste sınırı', O.rankSuggestions({ query: 'o', history, bookmarks, now, limit: 2 }).length <= 2);
+    eq('adres mi arama mı ayrımı', ['google.com', 'ilgezdi.com.tr/indir', 'localhost:3000', 'http://a.b', 'kedi maması', 'tek', 'a.b c'].map(O.looksLikeUrl),
+      [true, true, true, true, false, false, false]);
+
+    const SP = require('../src/main/suggest-popup.js');
+    const display = { workArea: { x: 0, y: 0, width: 1920, height: 1080 } };
+    eq('liste adres çubuğunun altında ve onun genişliğinde',
+      SP.popupBounds({ x: 100, y: 50 }, { x: 40, y: 60, width: 600, height: 30 }, 3, display),
+      { x: 140, y: 144, width: 600, height: 3 * SP.ROW_HEIGHT + 10 });
+    const clamped = SP.popupBounds({ x: 1500, y: 900 }, { x: 300, y: 60, width: 600, height: 30 }, 9, display);
+    check('ekran dışına taşmıyor', clamped.x + clamped.width <= 1920 && clamped.y + clamped.height <= 1080, clamped);
+
+    const appO = read('renderer/app.js');
+    check('öneriler cihazdaki geçmiş ve yer imlerinden; gizli pencerede geçmiş yok; her tuşta ağ isteği yok',
+      appO.includes('if (O && !isIncognito) {') && appO.includes("await sb.logs.search({ text: typed, limit: 120 })")
+      && appO.includes("localStorage.getItem('ilgezdi-bm-items')") && appO.includes('suggestTimer = setTimeout(showSuggestions, 70);')
+      && !/suggest[\s\S]{0,400}fetch\(/.test(appO));
+    check('klavye: ok tuşları, Enter ve Esc; seçim adres çubuğunu dolduruyor',
+      appO.includes("if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {") && appO.includes('addressBar.value = item ? (item.kind === \'search\' ? suggestTyped : item.url) : suggestTyped;')
+      && appO.includes("if (suggestItems.length) { hideSuggestions(); return; }"));
+    const spJsF = read('main/suggest-popup.js');
+    check('liste penceresi odak almıyor, ana pencereye bağlı ve gezinmeye ana pencere karar veriyor',
+      spJsF.includes('focusable: false,') && spJsF.includes('parent: ownerWin,') && spJsF.includes("owner.webContents.send('suggest-picked'")
+      && spJsF.includes("if (!win || win.isDestroyed() || event.sender !== win.webContents) return;")
+      && read('renderer/suggest-popup.html').includes("default-src 'none'"));
+  }
+
   suite('Parmak izi koruması');
   {
     const FPS = require('../src/main/fingerprint-shield.js');

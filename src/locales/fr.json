@@ -1303,5 +1303,9 @@
   "blocker.addInputLabel": "Site à autoriser",
   "settings.identity.fingerprint": "Protection contre l’empreinte numérique",
   "settings.identity.fingerprintHint": "Pour que les sites ne puissent pas reconnaître votre navigateur sans cookies, les lectures du canevas, de l’audio et de la carte graphique reçoivent de légères modifications imperceptibles, différentes pour chaque site ; le nombre de cœurs du processeur et le modèle de la carte graphique sont masqués. Si un site ne fonctionne plus, désactivez le blocage pour ce site depuis l’icône du cadenas.",
-  "siteInfo.shield.fingerprintNote": "Tant que le blocage est désactivé, la protection contre l’empreinte numérique ne s’applique pas non plus sur ce site."
+  "siteInfo.shield.fingerprintNote": "Tant que le blocage est désactivé, la protection contre l’empreinte numérique ne s’applique pas non plus sur ce site.",
+  "omnibox.label": "Suggestions d’adresse",
+  "omnibox.search": "Rechercher « {query} »",
+  "omnibox.history": "Historique",
+  "omnibox.bookmark": "Favori"
 }

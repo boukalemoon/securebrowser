@@ -95,6 +95,12 @@ contextBridge.exposeInMainWorld('secureBrowser', {
   },
 
   // ── Şifreli Loglar (Faz 3) ───────────────────────────────────────────────────
+  // Adres çubuğu önerileri: liste ayrı bir pencerede gösterilir (suggest-popup.js).
+  suggest: {
+    show: (payload) => ipcRenderer.invoke('suggest-show', payload),
+    hide: ()        => ipcRenderer.invoke('suggest-hide'),
+    onPicked: (cb)  => ipcRenderer.on('suggest-picked', (_e, url) => cb(url)),
+  },
   logs: {
     getStats:  ()            => ipcRenderer.invoke('logs-get-stats'),
     search:    (query)       => ipcRenderer.invoke('logs-search', query),

@@ -1216,5 +1216,9 @@
   "blocker.addInputLabel": "Ruxsat beriladigan sayt",
   "settings.identity.fingerprint": "Raqamli barmoq izidan himoya",
   "settings.identity.fingerprintHint": "Saytlar brauzeringizni cookie fayllarsiz taniy olmasligi uchun canvas, audio va videokartadan oʻqiladigan maʼlumotlarga har bir sayt uchun turlicha, sezilmaydigan oʻzgarishlar kiritiladi; protsessor yadrolari soni va videokarta modeli yashiriladi. Biror sayt buzilsa, qulf belgisi orqali oʻsha saytda bloklashni oʻchiring.",
-  "siteInfo.shield.fingerprintNote": "Bloklash oʻchiq boʻlganda bu saytda raqamli barmoq izidan himoya ham qoʻllanilmaydi."
+  "siteInfo.shield.fingerprintNote": "Bloklash oʻchiq boʻlganda bu saytda raqamli barmoq izidan himoya ham qoʻllanilmaydi.",
+  "omnibox.label": "Manzil takliflari",
+  "omnibox.search": "“{query}” boʻyicha qidirish",
+  "omnibox.history": "Tarix",
+  "omnibox.bookmark": "Xatchoʻp"
 }

@@ -1,0 +1,99 @@
+﻿<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy"
+    content="default-src 'none'; style-src 'self' 'unsafe-inline'; font-src 'self'; script-src 'self' 'unsafe-inline'; base-uri 'none'; object-src 'none';" />
+  <!-- Adres çubuğu öneri listesi: içerik ana pencereden gelir (suggest-popup.js).
+       Adres ve başlık kullanıcının kendi geçmişinden geldiği için yalnızca textContent
+       ile yazılır; bu pencerede ağ isteği yoktur (CSP default-src 'none'). -->
+  <link href="styles/fonts.css" rel="stylesheet" />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg:      #111827;
+      --border:  #223049;
+      --ink:     #e8eaf6;
+      --muted:   #8892a4;
+      --sel:     #1c2740;
+      --accent:  #d4a85a;
+    }
+    html, body { height: 100%; background: transparent; }
+    body {
+      font-family: 'Inter', -apple-system, system-ui, sans-serif;
+      color: var(--ink);
+      overflow: hidden;
+      padding: 5px 0;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      box-shadow: 0 10px 28px rgba(0, 0, 0, .45);
+    }
+    .row {
+      display: flex; align-items: center; gap: 9px;
+      height: 40px; padding: 0 12px; cursor: pointer;
+      border-left: 2px solid transparent;
+    }
+    .row.sel { background: var(--sel); border-left-color: var(--accent); }
+    .ico { width: 16px; text-align: center; font-size: 13px; color: var(--muted); flex: 0 0 16px; }
+    .txt { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+    .t { font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .u { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .badge {
+      font-size: 9.5px; letter-spacing: .04em; text-transform: uppercase;
+      color: var(--muted); border: 1px solid var(--border); border-radius: 999px;
+      padding: 2px 7px; flex: 0 0 auto;
+    }
+  </style>
+</head>
+<body>
+  <div id="list" role="listbox"></div>
+  <script src="i18n.js"></script>
+  <script>
+    const list = document.getElementById('list');
+    list.setAttribute('aria-label', T('omnibox.label'));
+
+    window.popupBridge?.onSuggest?.((data) => {
+      const items = Array.isArray(data && data.items) ? data.items : [];
+      const selected = Number(data && data.selected);
+      list.replaceChildren();
+      items.forEach((item, i) => {
+        const row = document.createElement('div');
+        row.className = 'row' + (i === selected ? ' sel' : '');
+        row.setAttribute('role', 'option');
+        row.setAttribute('aria-selected', i === selected ? 'true' : 'false');
+
+        const ico = document.createElement('span');
+        ico.className = 'ico';
+        ico.textContent = item.kind === 'bookmark' ? '★' : item.kind === 'search' ? '🔍' : '🕘';
+        row.appendChild(ico);
+
+        const txt = document.createElement('span');
+        txt.className = 'txt';
+        const t = document.createElement('span');
+        t.className = 't';
+        t.textContent = String(item.title || item.url || '');
+        txt.appendChild(t);
+        if (item.kind !== 'search') {
+          const u = document.createElement('span');
+          u.className = 'u';
+          u.textContent = String(item.url || '');
+          txt.appendChild(u);
+        }
+        row.appendChild(txt);
+
+        if (item.kind === 'history' || item.kind === 'bookmark') {
+          const badge = document.createElement('span');
+          badge.className = 'badge';
+          badge.textContent = T(item.kind === 'bookmark' ? 'omnibox.bookmark' : 'omnibox.history');
+          row.appendChild(badge);
+        }
+
+        // mousedown: adres çubuğunun blur olayından önce seçim ana pencereye gitsin.
+        row.addEventListener('mousedown', (e) => { e.preventDefault(); window.popupBridge?.pick?.(String(item.url || '')); });
+        list.appendChild(row);
+      });
+    });
+  </script>
+</body>
+</html>

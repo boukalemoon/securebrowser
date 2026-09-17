@@ -4,7 +4,7 @@
 
 'use strict';
 
-const { app, BrowserWindow, WebContentsView, Menu, clipboard, ipcMain, session, dialog, webContents, shell } = require('electron');
+const { app, BrowserWindow, WebContentsView, Menu, clipboard, ipcMain, session, dialog, webContents, shell, screen } = require('electron');
 const path = require('path');
 const fs   = require('fs');
 const { execFile } = require('child_process');
@@ -30,6 +30,7 @@ let faviconCache = null;
 const { setupDiscover } = require('./discover-feed');
 const { setupCommunity } = require('./community');
 const { shieldScript, createSeeder } = require('./fingerprint-shield');
+const { setupSuggestPopup } = require('./suggest-popup');
 // Keşfet kartları (TrendTech yazılımları): uygulamadaki liste + ilgezdi.com.tr'den günlük tazeleme.
 setupDiscover(ipcMain, session);
 // Keşfet yorumları ve Öneri sayfası (community.js). Paketlenmemiş geliştirme kopyasında
@@ -2796,6 +2797,8 @@ app.whenReady().then(async () => {
   });
 
   configureSession(session.defaultSession);
+  // Adres çubuğu öneri listesi: sekme görünümü arayüzün üstüne çizildiği için ayrı pencerede.
+  setupSuggestPopup({ ipcMain, BrowserWindow, screen, harden: hardenChromeWindow });
   createWindow();
 
   // Arku Uzak Masaüstü eklentisi: arka plan sürüm denetimi + kullanıcı onaylı güncelleme

@@ -1300,5 +1300,9 @@
   "blocker.addInputLabel": "Site to allow",
   "settings.identity.fingerprint": "Fingerprinting protection",
   "settings.identity.fingerprintHint": "So sites can't recognize your browser without cookies, canvas, audio and graphics card readings get small, unnoticeable changes that differ from site to site; the number of CPU cores and the graphics card model are hidden. If a site breaks, turn off blocking for that site from the lock icon.",
-  "siteInfo.shield.fingerprintNote": "While blocking is off, fingerprinting protection isn't applied on this site either."
+  "siteInfo.shield.fingerprintNote": "While blocking is off, fingerprinting protection isn't applied on this site either.",
+  "omnibox.label": "Address suggestions",
+  "omnibox.search": "Search “{query}”",
+  "omnibox.history": "History",
+  "omnibox.bookmark": "Bookmark"
 }
