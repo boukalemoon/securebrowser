@@ -1226,5 +1226,16 @@
   "omnibox.label": "Salgy teklipleri",
   "omnibox.search": "“{query}” diýip gözle",
   "omnibox.history": "Taryh",
-  "omnibox.bookmark": "Bellik"
+  "omnibox.bookmark": "Bellik",
+  "ui.ulgen": "Ülgen emeli aň kömekçisi",
+  "ulgen.title": "✨ Ülgen",
+  "ulgen.subtitle": "Derňew we gözleg kömekçisi",
+  "ulgen.soon": "Ülgen taýýarlanýar",
+  "ulgen.soonHint": "Kömekçi ýakyn wagtda şu panelde işlär. Taýýar bolanda derňew we gözleg teklipleri alyp, soraglaryňyzy berip bilersiňiz.",
+  "ulgen.canDo": "Taýýar bolanda näme edip biler",
+  "ulgen.sample1": "Bu sahypany gysgaça beýan et",
+  "ulgen.sample2": "Tema boýunça çeşme teklip et",
+  "ulgen.sample3": "Has gowy gözleg soragy ýaz",
+  "ulgen.privacy": "Ülgene diňe siziň ýazan tekstiňiz iberilýär. Sahypanyň mazmuny we brauzer taryhyňyz, siz aç-açan rugsat bermeseňiz paýlaşylmaýar.",
+  "ulgen.account": "Ülgen QRtım hasabyňyz bilen işleýär. Hasabyňyzy Sazlamalar › Hasap bölüminden birikdirip bilersiňiz."
 }

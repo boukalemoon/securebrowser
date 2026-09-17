@@ -1704,6 +1704,27 @@ suite('Keşfet — TrendTech yazılımları');
       fallbackAt > 0 && fallbackAt < mjU.indexOf('app.whenReady()') && /return `Mozilla\/5\.0 \(\$\{osToken\}\) AppleWebKit\/537\.36 \(KHTML, like Gecko\) Chrome\/\$\{ver\} Safari\/537\.36`;/.test(mjU));
   }
 
+  suite('Ülgen yan paneli (iskelet)');
+  {
+    const up = read('renderer/ulgen-panel.js');
+    const idx = read('renderer/index.html');
+    const appU = read('renderer/app.js');
+    check('kenar çubuğu düğmesi, panel kabı ve betik bağlı',
+      /<button class="sidebar-btn" id="btn-ulgen"[^>]*data-i18n-title="ui\.ulgen"/.test(idx)
+      && idx.includes('<div id="panel-ulgen" class="side-panel hidden"></div>')
+      && idx.includes('<script src="ulgen-panel.js"></script>'));
+    check('panel diğer panellerle aynı akışta: açılınca sayfa görünümü daralıyor, kapanınca hepsi kapanıyor',
+      appU.includes("const ALL_PANELS = ['settings', 'logs', 'bookmarks', 'blocker', 'shield', 'vpn', 'arku', 'ulgen', 'siteinfo'];")
+      && appU.includes("'btn-arku', 'btn-ulgen', 'security-icon'")
+      && up.includes('window.secureBrowser?.panelOpened(true);') && up.includes("window.ilgezdiCloseAllPanels?.();"));
+    check('motor bağlanana kadar giriş kapalı ve hiçbir ağ isteği ya da veri toplama yok',
+      up.includes('id="ulgen-ask-input" disabled') && up.includes('id="ulgen-ask-send" disabled')
+      && !/fetch\(|XMLHttpRequest|ipcRenderer|localStorage/.test(up));
+    check('metinler anahtarlardan geliyor (dokuz dil) ve gizlilik notu panelde',
+      /TH\('ulgen\.privacy'\)/.test(up) && /TH\('ulgen\.account'\)/.test(up) && /TH\('ulgen\.soonHint'\)/.test(up)
+      && JSON.parse(read('locales/tr.json'))['ulgen.privacy'].includes('siz açıkça izin vermeden'));
+  }
+
   suite('Adres çubuğu önerileri');
   {
     const O = require('../src/renderer/omnibox.js');

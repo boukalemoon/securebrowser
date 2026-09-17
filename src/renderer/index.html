@@ -203,6 +203,10 @@
               data-screen="discover" title="Keşfet" data-i18n-title="ui.discover">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76" fill="currentColor"/></svg>
       </button>
+      <!-- id="btn-ulgen" — ulgen-panel.js bu butonu yönetir (yapay zekâ alanı) -->
+      <button class="sidebar-btn" id="btn-ulgen" title="Ülgen yapay zekâ asistanı" data-i18n-title="ui.ulgen">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 4.6L18.5 9.5 13.9 11.4 12 16l-1.9-4.6L5.5 9.5l4.6-1.9z"/><path d="M18 16.5l.8 1.9 1.9.8-1.9.8-.8 1.9-.8-1.9-1.9-.8 1.9-.8z"/></svg>
+      </button>
       <!-- id="btn-shield" — app.js bu butonu yönetir -->
       <button class="sidebar-btn" id="btn-shield" title="Koruma Durumu" data-i18n-title="ui.shield">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 5-4 8-8 9-4-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/></svg>
@@ -252,6 +256,8 @@
       <!-- id="btn-blocker"   → blocker-panel.js -->
       <!-- id="btn-arku" → arku-panel.js -->
       <div id="panel-arku" class="side-panel hidden"></div>
+      <!-- id="btn-ulgen" → ulgen-panel.js -->
+      <div id="panel-ulgen" class="side-panel hidden"></div>
       <div id="panel-blocker"   class="side-panel hidden"></div>
 
       <!-- Site bilgisi paneli: kilit simgesi (app.js tarafından yönetilir) -->
@@ -394,6 +400,7 @@
 <script src="bookmarks-panel.js"></script>
 <script src="blocker-panel.js"></script>
 <script src="arku-panel.js"></script>
+<script src="ulgen-panel.js"></script>
 <script src="glance-renderer.js"></script>
 <script src="auth-screen.js"></script>
 <script src="sync-manager.js"></script>

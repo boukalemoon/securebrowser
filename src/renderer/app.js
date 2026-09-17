@@ -81,7 +81,7 @@ function truncateUrl(url, maxLen = 80) {
 }
 
 // ─── Panel Yönetimi ────────────────────────────────────────────────────────────
-const ALL_PANELS = ['settings', 'logs', 'bookmarks', 'blocker', 'shield', 'vpn', 'arku', 'siteinfo'];
+const ALL_PANELS = ['settings', 'logs', 'bookmarks', 'blocker', 'shield', 'vpn', 'arku', 'ulgen', 'siteinfo'];
 
 function closeAllPanels() {
   ALL_PANELS.forEach(name => {
@@ -91,7 +91,7 @@ function closeAllPanels() {
     panel.classList.add('hidden');
   });
   // Panel butonlarının aktif stilini kaldır (data-screen butonlarına dokunma)
-  ['btn-shield', 'btn-bookmarks', 'btn-logs', 'btn-blocker', 'btn-settings', 'btn-arku', 'security-icon'].forEach(id => {
+  ['btn-shield', 'btn-bookmarks', 'btn-logs', 'btn-blocker', 'btn-settings', 'btn-arku', 'btn-ulgen', 'security-icon'].forEach(id => {
     document.getElementById(id)?.classList.remove('active');
   });
   sb.panelOpened(false);

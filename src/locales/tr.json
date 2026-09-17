@@ -1226,5 +1226,16 @@
   "omnibox.label": "Adres önerileri",
   "omnibox.search": "“{query}” ara",
   "omnibox.history": "Geçmiş",
-  "omnibox.bookmark": "Yer imi"
+  "omnibox.bookmark": "Yer imi",
+  "ui.ulgen": "Ülgen yapay zekâ asistanı",
+  "ulgen.title": "✨ Ülgen",
+  "ulgen.subtitle": "Araştırma ve arama yardımcısı",
+  "ulgen.soon": "Ülgen hazırlanıyor",
+  "ulgen.soonHint": "Asistan yakında bu panelde çalışacak. Hazır olduğunda araştırma ve arama önerileri alabilecek, sorularınızı sorabileceksiniz.",
+  "ulgen.canDo": "Hazır olduğunda yapabilecekleri",
+  "ulgen.sample1": "Bu sayfayı özetle",
+  "ulgen.sample2": "Konuyla ilgili kaynak öner",
+  "ulgen.sample3": "Daha iyi bir arama sorgusu yaz",
+  "ulgen.privacy": "Ülgen'e yalnızca sizin yazdığınız metin gider. Sayfa içeriği ve gezinti geçmişiniz, siz açıkça izin vermeden paylaşılmaz.",
+  "ulgen.account": "Ülgen QRtım hesabınızla çalışır. Hesabınızı Ayarlar › Hesap bölümünden bağlayabilirsiniz."
 }

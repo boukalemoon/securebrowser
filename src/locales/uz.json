@@ -1220,5 +1220,16 @@
   "omnibox.label": "Manzil takliflari",
   "omnibox.search": "“{query}” boʻyicha qidirish",
   "omnibox.history": "Tarix",
-  "omnibox.bookmark": "Xatchoʻp"
+  "omnibox.bookmark": "Xatchoʻp",
+  "ui.ulgen": "Ülgen sunʼiy intellekt yordamchisi",
+  "ulgen.title": "✨ Ülgen",
+  "ulgen.subtitle": "Tadqiqot va qidiruv yordamchisi",
+  "ulgen.soon": "Ülgen tayyorlanmoqda",
+  "ulgen.soonHint": "Yordamchi tez orada shu panelda ishlaydi. Tayyor boʻlganda tadqiqot va qidiruv takliflarini olib, savollaringizni bera olasiz.",
+  "ulgen.canDo": "Tayyor boʻlganda nima qila oladi",
+  "ulgen.sample1": "Bu sahifani xulosalab ber",
+  "ulgen.sample2": "Mavzuga oid manba taklif qil",
+  "ulgen.sample3": "Yaxshiroq qidiruv soʻrovi yoz",
+  "ulgen.privacy": "Ülgen yordamchisiga faqat siz yozgan matn yuboriladi. Sahifa mazmuni va brauzer tarixingiz siz aniq ruxsat bermaguningizcha ulashilmaydi.",
+  "ulgen.account": "Ülgen QRtım hisobingiz bilan ishlaydi. Hisobingizni Sozlamalar › Hisob boʻlimida bogʻlashingiz mumkin."
 }

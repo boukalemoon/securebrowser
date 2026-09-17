@@ -1220,5 +1220,16 @@
   "omnibox.label": "Ünvan təklifləri",
   "omnibox.search": "“{query}” üçün axtar",
   "omnibox.history": "Tarixçə",
-  "omnibox.bookmark": "Əlfəcin"
+  "omnibox.bookmark": "Əlfəcin",
+  "ui.ulgen": "Ülgen süni intellekt assistenti",
+  "ulgen.title": "✨ Ülgen",
+  "ulgen.subtitle": "Araşdırma və axtarış köməkçisi",
+  "ulgen.soon": "Ülgen hazırlanır",
+  "ulgen.soonHint": "Assistent tezliklə bu paneldə işləyəcək. Hazır olduqda araşdırma və axtarış təklifləri ala, suallarınızı verə biləcəksiniz.",
+  "ulgen.canDo": "Hazır olduqda edə biləcəkləri",
+  "ulgen.sample1": "Bu səhifəni xülasə et",
+  "ulgen.sample2": "Mövzu ilə bağlı mənbə təklif et",
+  "ulgen.sample3": "Daha yaxşı axtarış sorğusu yaz",
+  "ulgen.privacy": "Ülgen-ə yalnız sizin yazdığınız mətn göndərilir. Səhifə məzmunu və baxış tarixçəniz siz açıq şəkildə icazə vermədən paylaşılmır.",
+  "ulgen.account": "Ülgen QRtım hesabınızla işləyir. Hesabınızı Ayarlar › Hesab bölməsindən qoşa bilərsiniz."
 }

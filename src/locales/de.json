@@ -1292,5 +1292,16 @@
   "omnibox.label": "Adressvorschläge",
   "omnibox.search": "„{query}“ suchen",
   "omnibox.history": "Verlauf",
-  "omnibox.bookmark": "Lesezeichen"
+  "omnibox.bookmark": "Lesezeichen",
+  "ui.ulgen": "Ülgen KI-Assistent",
+  "ulgen.title": "✨ Ülgen",
+  "ulgen.subtitle": "Helfer für Recherche und Suche",
+  "ulgen.soon": "Ülgen wird vorbereitet",
+  "ulgen.soonHint": "Der Assistent arbeitet bald in diesem Bereich. Sobald er bereit ist, erhalten Sie Recherche- und Suchvorschläge und können Ihre Fragen stellen.",
+  "ulgen.canDo": "Was er können wird",
+  "ulgen.sample1": "Diese Seite zusammenfassen",
+  "ulgen.sample2": "Quellen zum Thema vorschlagen",
+  "ulgen.sample3": "Eine bessere Suchanfrage schreiben",
+  "ulgen.privacy": "An Ülgen geht nur der Text, den Sie schreiben. Seiteninhalte und Ihr Verlauf werden nicht geteilt, solange Sie es nicht ausdrücklich erlauben.",
+  "ulgen.account": "Ülgen arbeitet mit Ihrem QRtım-Konto. Sie können Ihr Konto unter Einstellungen › Konto verbinden."
 }

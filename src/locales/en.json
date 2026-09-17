@@ -1304,5 +1304,16 @@
   "omnibox.label": "Address suggestions",
   "omnibox.search": "Search “{query}”",
   "omnibox.history": "History",
-  "omnibox.bookmark": "Bookmark"
+  "omnibox.bookmark": "Bookmark",
+  "ui.ulgen": "Ülgen AI assistant",
+  "ulgen.title": "✨ Ülgen",
+  "ulgen.subtitle": "Research and search helper",
+  "ulgen.soon": "Ülgen is getting ready",
+  "ulgen.soonHint": "The assistant will work in this panel soon. Once it's ready you'll get research and search suggestions and be able to ask your questions.",
+  "ulgen.canDo": "What it will do",
+  "ulgen.sample1": "Summarize this page",
+  "ulgen.sample2": "Suggest sources on this topic",
+  "ulgen.sample3": "Write a better search query",
+  "ulgen.privacy": "Only the text you write goes to Ülgen. Page content and your browsing history aren't shared unless you explicitly allow it.",
+  "ulgen.account": "Ülgen works with your QRtım account. You can connect your account from Settings › Account."
 }
