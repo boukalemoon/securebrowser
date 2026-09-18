@@ -821,3 +821,76 @@ body.vtabs-collapsed .tab-group-chip { align-self: center; width: 14px; height: 
 body.vtabs-collapsed .tab-group-chip .tab-group-name, body.vtabs-collapsed .tab-group-chip .tab-group-count { display: none; }
 body.vtabs-collapsed .tab.in-group { margin-left: 0; width: 100%; }
 @media (forced-colors: active) { .tab-group-chip { forced-color-adjust: none; border: 1px solid CanvasText; } }
+
+/* ══════════════════════════════════════════════════════════
+   EKRANI BÖLME (split-view.js; yerler ana süreçten gelir)
+   ══════════════════════════════════════════════════════════ */
+#split-ui { position: fixed; inset: 0; pointer-events: none; z-index: 450; }
+#split-ui[hidden] { display: none; }
+.split-focus { position: fixed; background: var(--line); }
+.split-focus.on { background: var(--gold); }
+.split-divider {
+  position: fixed; pointer-events: auto; cursor: col-resize;
+  background: var(--bg-elev); border-left: 1px solid var(--line); border-right: 1px solid var(--line);
+  display: grid; place-items: center; outline: none;
+}
+.split-divider:hover, .split-divider.dragging, .split-divider:focus-visible { background: color-mix(in srgb, var(--gold) 35%, var(--bg-elev)); }
+.split-grip { width: 2px; height: 28px; border-radius: 2px; background: var(--ink-mute); opacity: .6; }
+.split-chooser {
+  position: fixed; pointer-events: auto; overflow: auto; box-sizing: border-box;
+  display: flex; flex-direction: column; gap: 10px; padding: 28px 24px;
+  background: var(--bg); border-left: 1px solid var(--line);
+}
+.split-chooser[hidden] { display: none; }
+.split-chooser h2 { margin: 0 0 4px; font-family: var(--font-display); font-size: 18px; letter-spacing: 1px; color: var(--ink); }
+.split-form { display: flex; gap: 8px; }
+.split-form input { flex: 1; min-width: 0; height: 34px; padding: 0 12px; border-radius: 9px; border: 1px solid var(--line); background: var(--bg-elev); color: var(--ink); font: 13px var(--font-ui); }
+.split-form input:focus { outline: 2px solid var(--gold); outline-offset: 1px; }
+.split-tabs-title { margin-top: 8px; font-family: var(--font-mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-mute); }
+.split-tabs { display: flex; flex-direction: column; gap: 4px; }
+.split-tab { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left; padding: 9px 12px; border-radius: 9px; border: 1px solid var(--line); background: var(--bg-elev); color: var(--ink); cursor: pointer; font: inherit; min-width: 0; }
+.split-tab:hover, .split-tab:focus-visible { border-color: var(--gold); outline: none; }
+.split-tab-title { font-size: 13px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.split-tab-url { font-size: 11.5px; color: var(--ink-mute); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.split-empty { margin: 0; font-size: 12.5px; color: var(--ink-mute); }
+.split-cancel { align-self: flex-start; margin-top: 6px; }
+.tab-split-mark { display: inline-grid; place-items: center; flex-shrink: 0; color: var(--gold); opacity: .85; }
+body.vtabs-collapsed .tab-split-mark { display: none; }
+#btn-split.active { color: var(--gold); }
+
+/* ══════════════════════════════════════════════════════════
+   KENAR ÇUBUĞUNDA WEB PANELİ (web-panel.js; site görünümü ana süreçte)
+   ══════════════════════════════════════════════════════════ */
+/* Yer azsa liste en az bir simge boyuna kadar küçülür ve kendi içinde kayar; kenar çubuğunun
+   diğer düğmeleri küçülmez, Ayarlar altta sabit kalır (simgeler üst üste binmesin). */
+.webpanel-list { display: flex; flex-direction: column; align-items: center; gap: 4px; flex: 0 1 auto; min-height: 40px; overflow-y: auto; overflow-x: hidden; scrollbar-width: none; }
+.sidebar > :not(.webpanel-list) { flex-shrink: 0; }
+.webpanel-list[hidden], #webpanel-divider[hidden], #btn-webpanel-add[hidden] { display: none; }
+.webpanel-btn { font: 700 14px var(--font-ui); color: var(--ink-soft); flex-shrink: 0; display: grid; place-items: center; }
+.webpanel-btn img { width: 18px; height: 18px; object-fit: contain; border-radius: 4px; display: block; }
+/* Başlık yüksekliği web-panels.js HEADER_HEIGHT ile aynı: site görünümü tam altından başlar. */
+#panel-webpanel .wp-header { height: 44px; box-sizing: border-box; padding: 0 6px 0 12px; gap: 8px; font-family: var(--font-ui); }
+.wp-id { display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1; }
+.wp-icon { width: 20px; height: 20px; flex-shrink: 0; display: grid; place-items: center; border-radius: 5px; background: var(--bg-soft); font: 700 11px var(--font-ui); color: var(--ink-soft); }
+.wp-icon img { width: 16px; height: 16px; object-fit: contain; }
+.wp-text { min-width: 0; }
+#panel-webpanel .wp-title { font: 600 12.5px var(--font-ui); letter-spacing: 0; text-transform: none; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wp-host { font-size: 10.5px; color: var(--ink-mute); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wp-actions { display: flex; align-items: center; gap: 2px; flex-shrink: 0; }
+.wp-btn { width: 28px; height: 28px; border: none; background: transparent; color: var(--ink-soft); border-radius: 6px; display: grid; place-items: center; cursor: pointer; }
+.wp-btn:hover:not(:disabled) { background: var(--bg-soft); color: var(--gold); }
+.wp-btn.danger:hover { color: var(--danger); }
+.wp-btn:disabled { opacity: .35; cursor: default; }
+#panel-webpanel.wp-loading .wp-header { background-image: linear-gradient(90deg, transparent, color-mix(in srgb, var(--gold) 35%, transparent), transparent); background-size: 40% 2px; background-repeat: no-repeat; background-position: 0 100%; animation: wpLoad 1.2s linear infinite; }
+@keyframes wpLoad { from { background-position: -40% 100%; } to { background-position: 140% 100%; } }
+@media (prefers-reduced-motion: reduce) { #panel-webpanel.wp-loading .wp-header { animation: none; } }
+.wp-body { padding: 0; }
+.wp-add { display: flex; flex-direction: column; gap: 12px; }
+.wp-hint { margin: 0; font-size: 12.5px; color: var(--ink-soft); line-height: 1.55; }
+.wp-add-form { display: flex; flex-direction: column; gap: 6px; }
+.wp-add-form label { font-size: 12px; color: var(--ink-mute); }
+.wp-add-row { display: flex; gap: 8px; }
+.wp-add-row input { flex: 1; min-width: 0; height: 34px; padding: 0 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); font: 13px var(--font-ui); }
+.wp-add-row input:focus { outline: 2px solid var(--gold); outline-offset: 1px; }
+#wp-add-current { align-self: flex-start; }
+.wp-error { margin: 0; min-height: 1em; font-size: 12px; color: var(--danger); }

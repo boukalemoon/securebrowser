@@ -274,6 +274,28 @@ contextBridge.exposeInMainWorld('secureBrowser', {
     addToGroup:  (id, groupId)         => ipcRenderer.invoke('tab-action', { tabId: id, action: 'group-add', groupId }),
   },
 
+  // ── Kenar çubuğunda web paneli ───────────────────────────────────────────────
+  webPanels: {
+    list:      ()       => ipcRenderer.invoke('webpanel-list'),
+    add:       (url)    => ipcRenderer.invoke('webpanel-add', url),
+    remove:    (id)     => ipcRenderer.invoke('webpanel-remove', id),
+    open:      (id)     => ipcRenderer.invoke('webpanel-open', id),
+    hide:      ()       => ipcRenderer.invoke('webpanel-hide'),
+    action:    (a)      => ipcRenderer.invoke('webpanel-action', a),
+    onState:   (cb)     => ipcRenderer.on('webpanel-state', (_, d) => cb(d)),
+    onFavicon: (cb)     => ipcRenderer.on('webpanel-favicon', (_, d) => cb(d)),
+  },
+
+  // ── Ekranı bölme ─────────────────────────────────────────────────────────────
+  split: {
+    toggle:  ()        => ipcRenderer.invoke('split-start'),
+    choose:  (choice)  => ipcRenderer.invoke('split-choose', choice),
+    exit:    ()        => ipcRenderer.invoke('split-exit'),
+    swap:    ()        => ipcRenderer.invoke('split-swap'),
+    ratio:   (r)       => ipcRenderer.send('split-ratio', r),
+    onState: (cb)      => ipcRenderer.on('split-state', (_, d) => cb(d)),
+  },
+
   // ── Sekme grupları: başlık tıklaması, menü, ad değiştirme ─────────────────────
   tabGroups: {
     action:   (groupId, action, value) => ipcRenderer.invoke('tab-group-action', { groupId, action, value }),

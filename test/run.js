@@ -793,7 +793,7 @@ suite('Site izinleri');
     [forA.geolocation, forA.media, forA.popups, forA['third-party-cookies']], ['allow', 'ask', 'allow', 'default']);
   const mainJs = read('main/main.js');
   check('arayüz izin kararlarını ve oturumu göremez, geri yazamaz',
-    mainJs.includes("const MAIN_OWNED_KEYS = ['permissionDecisions', 'authSessionEnc', 'passwordNeverSave', 'consents'];")
+    mainJs.includes("const MAIN_OWNED_KEYS = ['permissionDecisions', 'authSessionEnc', 'passwordNeverSave', 'consents', 'webPanels'];")
     && mainJs.includes("ipcMain.handle('get-config',  ()          => publicConfig());")
     && mainJs.includes('for (const k of MAIN_OWNED_KEYS) delete incoming[k];'));
   check('site verisi silme ve toplu sıfırlama kullanıcı onayı istiyor',
@@ -1714,7 +1714,7 @@ suite('Keşfet — TrendTech yazılımları');
       && idx.includes('<div id="panel-ulgen" class="side-panel hidden"></div>')
       && idx.includes('<script src="ulgen-panel.js"></script>'));
     check('panel diğer panellerle aynı akışta: açılınca sayfa görünümü daralıyor, kapanınca hepsi kapanıyor',
-      appU.includes("const ALL_PANELS = ['settings', 'logs', 'bookmarks', 'blocker', 'shield', 'vpn', 'arku', 'ulgen', 'siteinfo'];")
+      appU.includes("const ALL_PANELS = ['settings', 'logs', 'bookmarks', 'blocker', 'shield', 'vpn', 'arku', 'ulgen', 'siteinfo', 'webpanel'];")
       && appU.includes("'btn-arku', 'btn-ulgen', 'security-icon'")
       && up.includes('window.secureBrowser?.panelOpened(true);') && up.includes("window.ilgezdiCloseAllPanels?.();"));
     check('motor bağlanana kadar giriş kapalı ve hiçbir ağ isteği ya da veri toplama yok',
@@ -2352,7 +2352,7 @@ suite('Veri ve Gizlilik — ana süreç ve arayüz bağlantıları');
 {
   const mj = read('main/main.js');
   check('izinler ana sürece ait; Ayarlar\'ın Kaydet\'i Ülgen izinlerini ya da tanılama iznini yazamıyor',
-    mj.includes("const MAIN_OWNED_KEYS = ['permissionDecisions', 'authSessionEnc', 'passwordNeverSave', 'consents'];")
+    mj.includes("const MAIN_OWNED_KEYS = ['permissionDecisions', 'authSessionEnc', 'passwordNeverSave', 'consents', 'webPanels'];")
     && /ipcMain\.handle\('save-config'[\s\S]{0,700}delete incoming\.diagnosticsConsent;/.test(mj));
   check('kaynak yalnızca "sync" ya da "settings" olabilir', mj.includes("const source = incoming.__source === 'sync' ? 'sync' : 'settings';") && mj.includes('delete incoming.__source;'));
   check('tek izin değiştirme: geçersiz/yakında reddediliyor, üst izin kapalıyken alt izin açılamıyor, kapanınca bağlılar da kapanıyor',
@@ -2449,6 +2449,65 @@ suite('Sekmeler — sekme grupları');
     /name\.textContent = g\.title;/.test(app) && !/innerHTML[^;]*g\.title/.test(app)
     && app.includes("if (groupRenameInput && groupRenameInput.dataset.groupId === g.id) container.appendChild(groupRenameInput);")
     && app.includes("input.addEventListener('blur', () => { if (input.isConnected) finish(true); });"));
+}
+
+suite('Sekmeler — ekranı bölme');
+{
+  const BC = require('../src/main/browser-commands.js');
+  const ids = (m) => m.filter((i) => !i.type).map((i) => i.id);
+  check('sekme menüsü: yan yana aç yalnızca uygunsa, bölmedeyse "bölmeden çıkar"',
+    ids(BC.buildTabMenuModel({ index: 1, count: 2, canSplit: true })).includes('split-with')
+    && !ids(BC.buildTabMenuModel({ index: 1, count: 2 })).includes('split-with')
+    && ids(BC.buildTabMenuModel({ index: 1, count: 2, inSplit: true, canSplit: true })).includes('split-exit')
+    && !ids(BC.buildTabMenuModel({ index: 1, count: 2, inSplit: true, canSplit: true })).includes('split-with'));
+  check('bölme işlemleri IPC beyaz listesinde', BC.TAB_ACTIONS.has('split-with') && BC.TAB_ACTIONS.has('split-exit'));
+  const mj = read('main/main.js');
+  check('bölme yalnızca web sayfalarıyla; oran sınırlı',
+    /function startSplit\(win, state, withTabId\) \{[\s\S]{0,200}if \(!left \|\| !isWebUrl\(left\.url\) \|\| state\.htmlFullscreen\) return \{ ok: false, error: 'web-only' \};/.test(mj)
+    && mj.includes('function normalizeSplitRatio(r) { const n = Number(r); return Number.isFinite(n) ? Math.min(0.8, Math.max(0.2, n)) : 0.5; }'));
+  check('ekran katmanı açılınca ortak bölme de gizleniyor; sekme kapanınca bölme bitiyor; bölmedeki sekme uyutulmuyor',
+    /ipcMain\.handle\('hide-active-tab'[\s\S]{0,400}const partner = splitPartner\(state\);\s*if \(partner\) partner\.view\.setVisible\(false\);/.test(mj)
+    && mj.includes('if (state.split && (state.split.left === tabId || state.split.right === tabId)) state.split = null;')
+    && mj.includes('active: state.activeTabId === tabId || inSplit(state, tabId)'));
+  check('tıklanan bölme etkin sekme oluyor; seçicide adres ya da açık web sekmesi',
+    /view\.webContents\.on\('focus', \(\) => \{\s*if \(own\(\) && inSplit\(state, tabId\) && state\.activeTabId !== tabId/.test(mj)
+    && /ipcMain\.handle\('split-choose'[\s\S]{0,600}if \(!t \|\| id === sp\.left \|\| !isWebUrl\(t\.url\)\) return \{ ok: false \};[\s\S]{0,300}const url = inputToUrl\(payload && payload\.text\);\s*if \(!url \|\| !isWebUrl\(url\)\) return \{ ok: false \};/.test(mj));
+  const sv = read('renderer/split-view.js');
+  check('seçici listesi kaçışlanıyor; çizgi klavyeyle de boyutlanıyor',
+    sv.includes('${esc(t.title || t.url)}') && sv.includes('${esc(t.url)}') && /'ArrowLeft' \|\| e\.key === 'ArrowRight'/.test(sv) && sv.includes('role="separator"'));
+}
+
+suite('Kenar çubuğunda web paneli');
+{
+  const W = require('../src/main/web-panels.js');
+  eq('adres: şemasız → https; boşluk, dosya ve şemasız tek kelime reddediliyor',
+    ['ornek.com', 'http://a.b/x', 'kotu adres', 'file:///C:/x', 'javascript:alert(1)', 'localhost:3000', 'tek'].map(W.normalizePanelUrl),
+    ['https://ornek.com/', 'http://a.b/x', null, null, null, 'https://localhost:3000/', null]);
+  let n = 0;
+  const idGen = () => 'x' + (++n);
+  const a = W.addPanel([], 'web.ornek.com', idGen);
+  const b = W.addPanel(a.list, 'https://web.ornek.com/', idGen);
+  check('ekleme ve aynı siteyi ikinci kez eklememe', a.id && a.list.length === 1 && b.existed && b.id === a.id && b.list.length === 1);
+  let full = [];
+  for (let i = 0; i < W.MAX_PANELS; i++) full = W.addPanel(full, 's' + i + '.com', idGen).list;
+  eq('en çok 12 panel', [full.length, W.addPanel(full, 'fazla.com', idGen).error], [12, 'full']);
+  eq('geçersiz kayıtlar temizleniyor', W.normalizePanels([{ id: 'pa', url: 'https://a.com/' }, { id: 'bad id', url: 'https://b.com/' }, { id: 'pc', url: 'file:///x' }, { id: 'pa', url: 'https://d.com/' }]).map((p) => p.id), ['pa']);
+  eq('kaldırma', W.removePanel(a.list, a.id).length, 0);
+  const mj = read('main/main.js');
+  check('liste ana sürece ait; sıfırlamada korunuyor; gizli pencerede reddediliyor',
+    mj.includes("'consents', 'webPanels'];") && require('../src/main/browser-commands.js').RESET_KEEP_KEYS.includes('webPanels')
+    && /function mainOnly\(event\) \{\s*const \{ win, state \} = getContextFromEvent\(event\);\s*return state === mainState/.test(mj)
+    && /ipcMain\.handle\('webpanel-add', \(event, input\) => \{\s*const win = mainOnly\(event\);\s*if \(!win\) return \{ ok: false, error: 'incognito' \};/.test(mj));
+  check('panel sekmelerle aynı korumalı oturumda; yalnızca web adreslerine gidiyor; yeni pencere sekmede açılıyor',
+    /function createWebPanelView\(win, panel\) \{[\s\S]{0,700}sandbox: true,[\s\S]{0,200}partition: BROWSING_PARTITION,[\s\S]{0,300}configureSession\(wc\.session\);\s*applyWebrtcPolicy\(wc\);/.test(mj)
+    && mj.includes("wc.on('will-navigate', (e, url) => { if (!isWebUrl(url)) e.preventDefault(); });")
+    && /wc\.setWindowOpenHandler\(\(\{ url \}\) => \{\s*if \(isWebUrl\(url\)[\s\S]{0,120}return \{ action: 'deny' \};/.test(mj));
+  check('panel kapanınca görünüm yaşıyor ama ağaçtan çıkıyor; yalnızca ana pencerede',
+    /function hideWebPanel\(win\) \{[\s\S]{0,300}win\.contentView\.removeChildView\(view\)/.test(mj) && mj.includes('if (!isOpen && win === mainWindow) hideWebPanel(win);'));
+  const wp = read('renderer/web-panel.js');
+  check('başlık ve simge metinleri kaçışlanıyor ya da textContent', wp.includes('${esc(p.title || hostOf(p.url))}') && wp.includes('b.textContent = initialOf(p);') && !/innerHTML = [^`;]*p\.title/.test(wp));
+  check('ekle düğmesi listenin sonunda (liste kayınca Ayarlar aşağı itilmez)', wp.includes('if (addBtn && addBtn.parentNode !== box) box.appendChild(addBtn);')
+    && read('renderer/styles/main.css').includes('.sidebar > :not(.webpanel-list) { flex-shrink: 0; }'));
 }
 
 // ══════════════════════════════════════════════════════════════════════════════

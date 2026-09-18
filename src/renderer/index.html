@@ -128,6 +128,10 @@
 
     <!-- Sağ araçlar -->
     <div id="toolbar-right">
+      <!-- Ekranı böl (split-view.js): iki sekme yan yana; açıkken yeniden basınca kapanır -->
+      <button class="nav-btn" id="btn-split" title="Ekranı böl" aria-label="Ekranı böl" aria-pressed="false" data-i18n-title="ui.split" data-i18n-aria-label="ui.split">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M12 4v16"/></svg>
+      </button>
       <button class="nav-btn" id="btn-incognito" title="Gizli Pencere (Ctrl+Shift+N)" data-i18n-title="ui.incognito">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/><line x1="4" y1="4" x2="20" y2="20" stroke-width="2"/></svg>
       </button>
@@ -232,6 +236,13 @@
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
       </button>
 
+      <!-- Web panelleri (web-panel.js): kullanıcının eklediği siteler; + ile eklenir -->
+      <div class="sidebar-divider" id="webpanel-divider"></div>
+      <div class="webpanel-list" id="webpanel-list" role="group" aria-label="Web panelleri" data-i18n-aria-label="webpanel.group"></div>
+      <button class="sidebar-btn" id="btn-webpanel-add" title="Web paneli ekle" aria-label="Web paneli ekle" data-i18n-title="webpanel.add" data-i18n-aria-label="webpanel.add">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="M12 8v8M8 12h8"/></svg>
+      </button>
+
       <div class="sidebar-foot">
         <!-- Öneri ve geri bildirim sayfası (app.js → renderFeedbackPage) -->
         <button class="sidebar-btn" id="sb-feedback"
@@ -279,6 +290,8 @@
       <!-- id="btn-ulgen" → ulgen-panel.js -->
       <div id="panel-ulgen" class="side-panel hidden"></div>
       <div id="panel-blocker"   class="side-panel hidden"></div>
+      <!-- web-panel.js: başlık arayüzde, site görünümü ana süreçte (başlığın altına çizilir) -->
+      <div id="panel-webpanel" class="side-panel hidden"></div>
 
       <!-- Site bilgisi paneli: kilit simgesi (app.js tarafından yönetilir) -->
       <div id="panel-siteinfo" class="side-panel hidden" role="region" aria-label="Site bilgisi" data-i18n-aria-label="ui.siteInfo">
@@ -425,6 +438,8 @@
 <script src="arku-panel.js"></script>
 <script src="ulgen-panel.js"></script>
 <script src="glance-renderer.js"></script>
+<script src="split-view.js"></script>
+<script src="web-panel.js"></script>
 <script src="auth-screen.js"></script>
 <script src="sync-manager.js"></script>
 <script src="updater-ui.js"></script>

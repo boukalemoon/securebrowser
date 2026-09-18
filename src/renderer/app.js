@@ -81,7 +81,7 @@ function truncateUrl(url, maxLen = 80) {
 }
 
 // ─── Panel Yönetimi ────────────────────────────────────────────────────────────
-const ALL_PANELS = ['settings', 'logs', 'bookmarks', 'blocker', 'shield', 'vpn', 'arku', 'ulgen', 'siteinfo'];
+const ALL_PANELS = ['settings', 'logs', 'bookmarks', 'blocker', 'shield', 'vpn', 'arku', 'ulgen', 'siteinfo', 'webpanel'];
 
 function closeAllPanels() {
   ALL_PANELS.forEach(name => {
@@ -91,9 +91,10 @@ function closeAllPanels() {
     panel.classList.add('hidden');
   });
   // Panel butonlarının aktif stilini kaldır (data-screen butonlarına dokunma)
-  ['btn-shield', 'btn-bookmarks', 'btn-logs', 'btn-blocker', 'btn-settings', 'btn-arku', 'btn-ulgen', 'security-icon'].forEach(id => {
+  ['btn-shield', 'btn-bookmarks', 'btn-logs', 'btn-blocker', 'btn-settings', 'btn-arku', 'btn-ulgen', 'security-icon', 'btn-webpanel-add'].forEach(id => {
     document.getElementById(id)?.classList.remove('active');
   });
+  document.querySelectorAll('.webpanel-btn.active').forEach((b) => b.classList.remove('active'));
   sb.panelOpened(false);
 }
 
@@ -285,6 +286,15 @@ function renderTabs(tabs) {
       sb.closeTab(tab.id);
     });
 
+    // Ekranı bölmedeki sekme: küçük iki sütun işareti.
+    if (tab.split) {
+      el.classList.add('in-split');
+      const mark = document.createElement('span');
+      mark.className = 'tab-split-mark';
+      mark.setAttribute('aria-hidden', 'true');
+      mark.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M12 4v16"/></svg>';
+      el.appendChild(mark);
+    }
     el.appendChild(title);
     if (tab.audible || tab.muted) {
       const audio = document.createElement('button');

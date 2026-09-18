@@ -488,14 +488,14 @@ function orderAfterPin(ids, pinnedSet, tabId) {
 const TAB_ACTIONS = Object.freeze(new Set([
   'new-tab-right', 'reload', 'duplicate', 'pin', 'unpin', 'mute', 'unmute', 'toggle-mute',
   'move', 'close', 'close-others', 'close-right', 'reopen-closed',
-  'group-new', 'group-add', 'group-remove',
+  'group-new', 'group-add', 'group-remove', 'split-with', 'split-exit',
 ]));
 
 /**
  * groups: [{ id, title, color }] mevcut gruplar; groupId: sekmenin grubu.
  * Gruba ekleme alt menüsü: { id: 'group-add', arg: grupId }.
  */
-function buildTabMenuModel({ index, count, pinned, muted, canReopen, platform, groups = [], groupId = null } = {}) {
+function buildTabMenuModel({ index, count, pinned, muted, canReopen, platform, groups = [], groupId = null, canSplit = false, inSplit = false } = {}) {
   const others = groups.filter((g) => g.id !== groupId);
   const groupItems = pinned ? [] : [
     { id: 'group-new', label: T('tabMenu.groupNew') },
@@ -505,9 +505,12 @@ function buildTabMenuModel({ index, count, pinned, muted, canReopen, platform, g
     ...(groupId ? [{ id: 'group-remove', label: T('tabMenu.groupRemove') }] : []),
     { type: 'separator' },
   ];
+  const splitItems = inSplit ? [{ id: 'split-exit', label: T('tabMenu.splitExit') }, { type: 'separator' }]
+    : canSplit ? [{ id: 'split-with', label: T('tabMenu.splitWith') }, { type: 'separator' }] : [];
   const items = [
     { id: 'new-tab-right', label: T('tabMenu.newTabRight') },
     { type: 'separator' },
+    ...splitItems,
     ...groupItems,
     { id: 'reload', label: T('menu.reload') },
     { id: 'duplicate', label: T('tabMenu.duplicate') },
@@ -621,6 +624,7 @@ const RESET_KEEP_KEYS = Object.freeze([
   'authSessionEnc', 'passwordNeverSave', 'diagnosticsConsent', 'vpnLastProfileId', 'downloadFolder',
   'logSyncServer', 'syncEnabled', 'syncServerUrl', 'syncApiKey',
   'consents', 'autoUpdateCheck', 'discoverFeed', 'syncSettings', 'syncBookmarks',
+  'webPanels',
 ]);
 
 function resetConfig(current, defaults) {

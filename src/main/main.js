@@ -33,6 +33,7 @@ const { shieldScript, createSeeder } = require('./fingerprint-shield');
 const { setupSuggestPopup } = require('./suggest-popup');
 const { createConsentLog } = require('./consent-log');
 const tabGroups = require('./tab-groups');
+const webPanels = require('./web-panels');
 // Veri ve Gizlilik: izin kataloğu arayüzle ortak (renderer/data-catalog.js).
 const dataCatalog = require('../renderer/data-catalog.js');
 // Keşfet kartları (TrendTech yazılımları): uygulamadaki liste + ilgezdi.com.tr'den günlük tazeleme.
@@ -91,6 +92,7 @@ const DEFAULT_CONFIG = {
   syncSettings:          true,         // QRtım senkronu: ayarlar
   syncBookmarks:         true,         // QRtım senkronu: yer imleri
   consents:              {},           // yalnızca ana süreç yazar (data-center-set)
+  webPanels:             [],           // kenar çubuğundaki web panelleri (yalnızca ana süreç yazar)
   verticalTabs:          false,        // sekmeler üstte (false) ya da kenar çubuğunun yanında (true)
   verticalTabsCollapsed: false,        // dikey sekmelerde yalnızca simgeler
   passwordNeverSave:     [],           // "bu sitede asla" denen site kökleri (yalnızca ana süreç yazar)
@@ -676,8 +678,9 @@ function hardenChromeWindow(win) {
 // closedTabs: Ctrl+Shift+T yığını — yalnızca bellekte, pencereyle birlikte gider.
 // htmlFullscreen: etkin sekme video/HTML tam ekranında; windowFullscreen: F11 ile açıldı.
 // groups: sekme grupları (id → { id, title, color, collapsed }); sekmede groupId.
-const mainState = { tabs: new Map(), activeTabId: null, tabCounter: 0, panelIsOpen: false, viewHidden: false, closedTabs: [], htmlFullscreen: false, windowFullscreen: false, groups: new Map(), groupCounter: 0 };
-const incognitoState = { tabs: new Map(), activeTabId: null, tabCounter: 0, panelIsOpen: false, viewHidden: false, closedTabs: [], htmlFullscreen: false, windowFullscreen: false, groups: new Map(), groupCounter: 0 };
+// split: ekranı bölme { left, right, ratio, choosing } (sekme kimlikleri; seçim sürerken right null).
+const mainState = { tabs: new Map(), activeTabId: null, tabCounter: 0, panelIsOpen: false, viewHidden: false, closedTabs: [], htmlFullscreen: false, windowFullscreen: false, groups: new Map(), groupCounter: 0, split: null };
+const incognitoState = { tabs: new Map(), activeTabId: null, tabCounter: 0, panelIsOpen: false, viewHidden: false, closedTabs: [], htmlFullscreen: false, windowFullscreen: false, groups: new Map(), groupCounter: 0, split: null };
 
 const PANEL_WIDTH      = 420;
 const SIDEBAR_WIDTH    = 56;
@@ -734,7 +737,11 @@ function createWindow() {
     }
     saveSessionNow();
   });
-  mainWindow.on('resize', () => resizeActiveView(mainWindow, mainState));
+  mainWindow.on('resize', () => {
+    resizeActiveView(mainWindow, mainState);
+    const wp = webPanelOpenId && webPanelViews.get(webPanelOpenId);
+    if (wp) wp.setBounds(webPanelRect(mainWindow));
+  });
 
   mainWindow.on('minimize', () => {
     if (bookmarkPopupWin && !bookmarkPopupWin.isDestroyed()) {
@@ -764,6 +771,9 @@ function createWindow() {
     }
     mainState.tabs.clear();
     mainState.activeTabId = null;
+    for (const [, v] of webPanelViews) { try { if (!v.webContents.isDestroyed()) v.webContents.close(); } catch {} }
+    webPanelViews.clear();
+    webPanelOpenId = null;
     mainWindow = null;
     if (vpnManager?.activeProfile) {
       await vpnManager.disconnect().catch(() => {});
@@ -882,6 +892,11 @@ function createTabView(win, state, tabId) {
     const tab = own();
     if (tab) tab.title = title;
     sendTabsUpdate(win, state);
+  });
+
+  // Ekranı bölme: tıklanan bölme etkin sekme olur (adres çubuğu, bul, yakınlaştırma ona gider).
+  view.webContents.on('focus', () => {
+    if (own() && inSplit(state, tabId) && state.activeTabId !== tabId && win && !win.isDestroyed()) setActiveTab(win, state, tabId);
   });
 
   // Yükleme göstergesi: sekmede dönen simge. Eskiden sekmede hiçbir işaret yoktu;
@@ -1112,10 +1127,106 @@ function resizeActiveView(win, state) {
   // panel-opened / pencere resize olayları gizliliği bozmasın.
   if (state.viewHidden) {
     tab.view.setVisible(false);
+    const partner = splitPartner(state);
+    if (partner) partner.view.setVisible(false);
+    sendSplitState(win, state);
     return;
   }
+  if (splitActive(state)) { layoutSplit(win, state); return; }
   tab.view.setVisible(true);
   tab.view.setBounds(contentRect(win, state));
+  sendSplitState(win, state);
+}
+
+// ─── Ekranı bölme ─────────────────────────────────────────────────────────────
+// İki sekme yan yana; etkin sekme odaktaki bölmedir (adres çubuğu, bul, yakınlaştırma
+// ona gider). Çiftin dışındaki bir sekmeye geçilince bölme askıya alınır, çiftten bir
+// sekmeye dönülünce yeniden görünür. Sekmelerden biri kapanınca bölme biter.
+const SPLIT_GAP = 6;       // bölmeler arası çizgi (arayüz çizer, sürüklenir)
+const SPLIT_TOP = 3;       // bölmenin üstünde odak şeridi
+function normalizeSplitRatio(r) { const n = Number(r); return Number.isFinite(n) ? Math.min(0.8, Math.max(0.2, n)) : 0.5; }
+function splitValid(state) {
+  const sp = state.split;
+  return !!sp && state.tabs.has(sp.left) && (sp.choosing ? sp.right == null : state.tabs.has(sp.right));
+}
+function inSplit(state, id) {
+  return splitValid(state) && (state.split.left === id || state.split.right === id);
+}
+function splitActive(state) { return !state.htmlFullscreen && inSplit(state, state.activeTabId); }
+function splitPartner(state) {
+  if (!splitActive(state) || state.split.choosing) return null;
+  const other = state.split.left === state.activeTabId ? state.split.right : state.split.left;
+  return state.tabs.get(other) || null;
+}
+function splitRects(win, state) {
+  const r = contentRect(win, state);
+  const avail = Math.max(r.width - SPLIT_GAP, 200);
+  const lw = Math.round(avail * normalizeSplitRatio(state.split.ratio));
+  return {
+    area: r,
+    left: { x: r.x, y: r.y + SPLIT_TOP, width: lw, height: r.height - SPLIT_TOP },
+    right: { x: r.x + lw + SPLIT_GAP, y: r.y + SPLIT_TOP, width: avail - lw, height: r.height - SPLIT_TOP },
+    divider: { x: r.x + lw, y: r.y, width: SPLIT_GAP, height: r.height },
+  };
+}
+function layoutSplit(win, state) {
+  const sp = state.split;
+  const rects = splitRects(win, state);
+  for (const side of ['left', 'right']) {
+    const t = sp[side] != null ? state.tabs.get(sp[side]) : null;
+    if (!t) continue;
+    t.view.setVisible(true);
+    t.view.setBounds(rects[side]);
+  }
+  sendSplitState(win, state, rects);
+}
+function sendSplitState(win, state, rects) {
+  if (!win || win.isDestroyed()) return;
+  const visible = splitActive(state) && !state.viewHidden;
+  const payload = visible ? {
+    active: true,
+    choosing: !!state.split.choosing,
+    leftId: state.split.left,
+    rightId: state.split.right,
+    focus: state.split.left === state.activeTabId ? 'left' : 'right',
+    ratio: normalizeSplitRatio(state.split.ratio),
+    rects: rects || splitRects(win, state),
+  } : { active: false };
+  const key = JSON.stringify(payload);
+  if (state.__splitSent === key) return;
+  state.__splitSent = key;
+  win.webContents.send('split-state', payload);
+}
+
+// Adres çubuğuyla aynı çözümleme: adres gibi görünüyorsa https, değilse arama.
+function inputToUrl(text) {
+  const url = String(text || '').trim();
+  if (!url) return null;
+  if (url.startsWith('http://') || url.startsWith('https://')) return url;
+  return url.includes('.') && !url.includes(' ') ? 'https://' + url : searchUrl(url);
+}
+
+function startSplit(win, state, withTabId) {
+  const leftId = state.activeTabId;
+  const left = state.tabs.get(leftId);
+  if (!left || !isWebUrl(left.url) || state.htmlFullscreen) return { ok: false, error: 'web-only' };
+  if (withTabId != null) {
+    const right = state.tabs.get(withTabId);
+    if (!right || withTabId === leftId || !isWebUrl(right.url)) return { ok: false, error: 'web-only' };
+    state.split = { left: leftId, right: withTabId, ratio: 0.5, choosing: false };
+  } else {
+    state.split = { left: leftId, right: null, ratio: 0.5, choosing: true };
+  }
+  setActiveTab(win, state, leftId);
+  return { ok: true };
+}
+
+function endSplit(win, state) {
+  if (!state.split) return;
+  state.split = null;
+  const active = state.tabs.get(state.activeTabId);
+  if (active) setActiveTab(win, state, state.activeTabId);
+  else sendSplitState(win, state);
 }
 
 // Sayfa görünümünün yeri: kenar çubuğunun (dikey sekmeler açıksa onların da) sağı, araç
@@ -1157,11 +1268,23 @@ function setActiveTab(win, state, tabId) {
   }
 
   const content = win.contentView;
+  // Bölme: etkin sekme çiftteyse ortağı da görünür kalır.
+  const pairIds = inSplit(state, tabId) ? [state.split.left, state.split.right].filter((id) => id != null && id !== tabId) : [];
   for (const [id, t] of state.tabs) {
-    if (id !== tabId) content.removeChildView(t.view);
+    if (id !== tabId && !pairIds.includes(id)) content.removeChildView(t.view);
   }
   // Açık bir glance yeni sekmenin altında kalıp görünmez hâle gelmesin.
   closeGlance();
+  for (const id of pairIds) {
+    const p = state.tabs.get(id);
+    content.addChildView(p.view);
+    if (p.pendingLoad) {
+      const pending = p.pendingLoad;
+      p.pendingLoad = null;
+      p.sleeping = false;
+      loadTabContent(p.view.webContents, pending.url, pending.restore);
+    }
+  }
   content.addChildView(tab.view);   // zaten çocuksa en üste taşınır
   const group = tab.groupId && state.groups.get(tab.groupId);
   if (group && group.collapsed) group.collapsed = false;
@@ -1210,6 +1333,7 @@ function closeTab(win, state, tabId) {
   try { if (!tab.view.webContents.isDestroyed()) tab.view.webContents.close(); } catch {}
   state.tabs.delete(tabId);
   pruneGroups(state);
+  if (state.split && (state.split.left === tabId || state.split.right === tabId)) state.split = null;
 
   if (state.tabs.size === 0) {
     // Son sekme kapandı → boş sekme (İlgezdi yeni sekme sayfası) aç
@@ -1257,7 +1381,7 @@ function sleepInactiveTabs() {
     for (const [tabId, tab] of [...state.tabs]) {
       let devtools = false;
       try { devtools = tab.view.webContents.isDevToolsOpened(); } catch {}
-      if (shouldSleepTab({ ...tab, devtools }, { now, minutes, active: state.activeTabId === tabId }) && sleepTab(win, state, tabId)) {
+      if (shouldSleepTab({ ...tab, devtools }, { now, minutes, active: state.activeTabId === tabId || inSplit(state, tabId) }) && sleepTab(win, state, tabId)) {
         diag.info('tabs', 'Kullanılmayan sekme uyutuldu', { minutes });
       }
     }
@@ -1274,6 +1398,7 @@ function sendTabsUpdate(win, state) {
       pinned: !!tab.pinned, audible: !!tab.audible, muted: !!tab.muted,
       loading: !!tab.loading, favicon: tab.favicon || '', sleeping: !!tab.sleeping,
       group: g ? { id: g.id, title: g.title, color: g.color, hex: tabGroups.GROUP_COLORS[g.color], collapsed: !!g.collapsed } : null,
+      split: inSplit(state, id) ? (state.split.left === id ? 'left' : 'right') : null,
     };
   });
   if (state === mainState) scheduleSessionSave();
@@ -2056,6 +2181,12 @@ function runTabAction(win, state, tabId, action, arg) {
     case 'reopen-closed':
       reopenClosedTab(win, state);
       break;
+    case 'split-with':
+      return startSplit(win, state, tabId);
+    case 'split-exit':
+      if (!inSplit(state, tabId)) return { ok: false };
+      endSplit(win, state);
+      break;
     default:
       return { ok: false };
   }
@@ -2086,6 +2217,8 @@ ipcMain.handle('tab-context-menu', (event, payload) => {
     index: ids.indexOf(tabId), count: ids.length, pinned: !!tab.pinned, muted: !!tab.muted,
     canReopen: state.closedTabs.length > 0, platform: process.platform,
     groups: [...state.groups.values()], groupId: tab.groupId || null,
+    canSplit: tabId !== state.activeTabId && !inSplit(state, tabId) && isWebUrl(tab.url) && isWebUrl(state.tabs.get(state.activeTabId)?.url),
+    inSplit: inSplit(state, tabId),
   });
   const toTemplate = (item) => (item.type ? { type: 'separator' } : item.submenu ? {
     label: item.label, enabled: item.enabled, submenu: item.submenu.map(toTemplate),
@@ -2097,6 +2230,54 @@ ipcMain.handle('tab-context-menu', (event, payload) => {
     },
   });
   Menu.buildFromTemplate(model.map(toTemplate)).popup({ window: win });
+  return { ok: true };
+});
+
+// Ekranı bölme: araç çubuğu düğmesi (sağ bölme için seçim), seçim, oran, kapatma.
+ipcMain.handle('split-start', (event) => {
+  const { win, state } = getContextFromEvent(event);
+  if (splitActive(state)) { endSplit(win, state); return { ok: true, ended: true }; }
+  return startSplit(win, state, null);
+});
+ipcMain.handle('split-choose', (event, payload) => {
+  const { win, state } = getContextFromEvent(event);
+  const sp = state.split;
+  if (!sp || !sp.choosing || !state.tabs.has(sp.left)) return { ok: false };
+  let rightId = null;
+  if (payload && payload.tabId != null) {
+    const id = Number(payload.tabId);
+    const t = state.tabs.get(id);
+    if (!t || id === sp.left || !isWebUrl(t.url)) return { ok: false };
+    rightId = id;
+  } else {
+    const url = inputToUrl(payload && payload.text);
+    if (!url || !isWebUrl(url)) return { ok: false };
+    rightId = createTab(win, state, url);
+    const ids = [...state.tabs.keys()];
+    const pins = new Set(ids.filter((id) => state.tabs.get(id).pinned));
+    reorderTabs(state, moveTabId(ids, pins, rightId, ids.indexOf(sp.left) + 1));
+  }
+  state.split = { ...sp, right: rightId, choosing: false };
+  setActiveTab(win, state, rightId);
+  return { ok: true };
+});
+ipcMain.handle('split-exit', (event) => {
+  const { win, state } = getContextFromEvent(event);
+  endSplit(win, state);
+  return { ok: true };
+});
+ipcMain.on('split-ratio', (event, ratio) => {
+  const { win, state } = getContextFromEvent(event);
+  if (!splitActive(state)) return;
+  state.split.ratio = normalizeSplitRatio(ratio);
+  layoutSplit(win, state);
+});
+ipcMain.handle('split-swap', (event) => {
+  const { win, state } = getContextFromEvent(event);
+  if (!splitActive(state) || state.split.choosing) return { ok: false };
+  state.split = { ...state.split, left: state.split.right, right: state.split.left, ratio: 1 - normalizeSplitRatio(state.split.ratio) };
+  layoutSplit(win, state);
+  sendTabsUpdate(win, state);
   return { ok: true };
 });
 
@@ -2253,7 +2434,7 @@ ipcMain.handle('reload', (event) => {
 // Ana sürecin yazdığı alanlar arayüze gönderilmez ve arayüzden yazılamaz. Ayarlar
 // paneli kaydederken tüm yapılandırmayı geri gönderiyor; panel açıkken verilen
 // bir site izni ya da yenilenen oturum eski değerle eziliyordu.
-const MAIN_OWNED_KEYS = ['permissionDecisions', 'authSessionEnc', 'passwordNeverSave', 'consents'];
+const MAIN_OWNED_KEYS = ['permissionDecisions', 'authSessionEnc', 'passwordNeverSave', 'consents', 'webPanels'];
 function publicConfig() {
   const c = { ...config };
   for (const k of MAIN_OWNED_KEYS) delete c[k];
@@ -2889,10 +3070,14 @@ ipcMain.handle('bookmark-popup-delete', (e) => {
 });
 
 ipcMain.handle('hide-active-tab', (event) => {
-  const { state } = getContextFromEvent(event);
+  const { win, state } = getContextFromEvent(event);
   state.viewHidden = true;
   const tab = state.tabs.get(state.activeTabId);
   if (tab) tab.view.setVisible(false);
+  // Bölme açıksa ortak bölme de gizlenir (ekran katmanının üstünde kalmasın).
+  const partner = splitPartner(state);
+  if (partner) partner.view.setVisible(false);
+  sendSplitState(win, state);
 });
 
 ipcMain.handle('show-active-tab', (event) => {
@@ -2904,7 +3089,166 @@ ipcMain.handle('show-active-tab', (event) => {
 ipcMain.on('panel-opened', (event, isOpen) => {
   const { win, state } = getContextFromEvent(event);
   state.panelIsOpen = isOpen;
+  if (!isOpen && win === mainWindow) hideWebPanel(win);
   resizeActiveView(win, state);
+});
+
+// ─── Kenar çubuğunda web paneli ───────────────────────────────────────────────
+// Site sağ panelde, sekmelerle aynı oturum ve korumalarla (engelleyici, parmak izi,
+// WebRTC) açılır. Panel kapatılınca görünüm ağaçtan çıkar ama yaşar (sohbet bağlantısı
+// kopmaz); listeden kaldırılınca kapatılır. Gizli pencerede web paneli yok.
+const webPanelViews = new Map();   // id → WebContentsView (yalnızca ana pencere)
+let webPanelOpenId = null;
+
+function webPanelRect(win) {
+  const b = win.getContentBounds();
+  const top = TOOLBAR_HEIGHT + webPanels.HEADER_HEIGHT;
+  return { x: Math.max(b.width - PANEL_WIDTH, 0), y: top, width: PANEL_WIDTH, height: Math.max(b.height - top - STATUSBAR_HEIGHT, 100) };
+}
+
+function webPanelList() {
+  const list = webPanels.normalizePanels(config.webPanels);
+  return list;
+}
+
+function sendWebPanelState(win) {
+  if (!win || win.isDestroyed()) return;
+  const view = webPanelOpenId && webPanelViews.get(webPanelOpenId);
+  const wc = view && !view.webContents.isDestroyed() ? view.webContents : null;
+  win.webContents.send('webpanel-state', {
+    openId: webPanelOpenId,
+    title: wc ? wc.getTitle() : '',
+    url: wc ? wc.getURL() : '',
+    canGoBack: wc ? wc.navigationHistory.canGoBack() : false,
+    loading: wc ? wc.isLoading() : false,
+  });
+}
+
+function createWebPanelView(win, panel) {
+  const view = new WebContentsView({
+    webPreferences: {
+      preload: path.join(__dirname, '../preload/page-preload.js'),
+      minimumFontSize: normalizeMinFontSize(config.minimumFontSize),
+      autoplayPolicy: autoplayPolicyFor(config),
+      additionalArguments: config.globalPrivacyControl !== false ? ['--ilgezdi-gpc'] : [],
+      nodeIntegrationInSubFrames: true,
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+      webSecurity: true,
+      allowRunningInsecureContent: false,
+      partition: BROWSING_PARTITION,
+    },
+  });
+  const wc = view.webContents;
+  configureSession(wc.session);
+  applyWebrtcPolicy(wc);
+  bindBrowserInput(wc, win, mainState, 'page');
+  // Panelden açılan bağlantılar yeni sekmede; panel başka bir şemaya gidemez.
+  wc.setWindowOpenHandler(({ url }) => {
+    if (isWebUrl(url) && win && !win.isDestroyed()) setActiveTab(win, mainState, createTab(win, mainState, url));
+    return { action: 'deny' };
+  });
+  wc.on('will-navigate', (e, url) => { if (!isWebUrl(url)) e.preventDefault(); });
+  for (const ev of ['page-title-updated', 'did-navigate', 'did-navigate-in-page', 'did-stop-loading', 'did-start-loading']) {
+    wc.on(ev, () => { if (webPanelViews.get(panel.id) === view && webPanelOpenId === panel.id) sendWebPanelState(win); });
+  }
+  wc.on('page-favicon-updated', (e, favicons) => {
+    if (!faviconCache) return;
+    faviconCache.update(wc.session, wc.getURL(), favicons, { incognito: false })
+      .then((dataUrl) => { if (dataUrl && win && !win.isDestroyed()) win.webContents.send('webpanel-favicon', { id: panel.id, dataUrl }); })
+      .catch(() => {});
+  });
+  wc.loadURL(panel.url).catch(() => {});
+  return view;
+}
+
+function showWebPanel(win, id) {
+  const panel = webPanelList().find((p) => p.id === id);
+  if (!panel || !win || win.isDestroyed()) return false;
+  if (webPanelOpenId && webPanelOpenId !== id) hideWebPanel(win);
+  let view = webPanelViews.get(id);
+  if (!view || view.webContents.isDestroyed()) {
+    view = createWebPanelView(win, panel);
+    webPanelViews.set(id, view);
+  }
+  win.contentView.addChildView(view);
+  view.setBounds(webPanelRect(win));
+  view.setVisible(true);
+  webPanelOpenId = id;
+  mainState.panelIsOpen = true;
+  resizeActiveView(win, mainState);
+  sendWebPanelState(win);
+  return true;
+}
+
+function hideWebPanel(win) {
+  if (!webPanelOpenId) return;
+  const view = webPanelViews.get(webPanelOpenId);
+  webPanelOpenId = null;
+  if (view && win && !win.isDestroyed()) { try { win.contentView.removeChildView(view); } catch {} }
+  sendWebPanelState(win);
+}
+
+function destroyWebPanel(win, id) {
+  const view = webPanelViews.get(id);
+  if (webPanelOpenId === id) hideWebPanel(win);
+  webPanelViews.delete(id);
+  try { if (view && !view.webContents.isDestroyed()) view.webContents.close(); } catch {}
+}
+
+function mainOnly(event) {
+  const { win, state } = getContextFromEvent(event);
+  return state === mainState && win && !win.isDestroyed() ? win : null;
+}
+
+ipcMain.handle('webpanel-list', (event) => ({ panels: webPanelList(), openId: webPanelOpenId, allowed: !!mainOnly(event) }));
+ipcMain.handle('webpanel-add', (event, input) => {
+  const win = mainOnly(event);
+  if (!win) return { ok: false, error: 'incognito' };
+  // Adres boşsa etkin sekmenin sayfası eklenir.
+  const text = String(input || '').trim() || (mainState.tabs.get(mainState.activeTabId)?.url || '');
+  const r = webPanels.addPanel(config.webPanels, text, () => require('crypto').randomBytes(5).toString('hex'));
+  if (r.error) return { ok: false, error: r.error };
+  config.webPanels = r.list;
+  saveConfig(config);
+  return { ok: true, id: r.id, existed: !!r.existed, panels: webPanelList() };
+});
+ipcMain.handle('webpanel-remove', (event, id) => {
+  const win = mainOnly(event);
+  if (!win) return { ok: false };
+  destroyWebPanel(win, String(id || ''));
+  config.webPanels = webPanels.removePanel(config.webPanels, String(id || ''));
+  saveConfig(config);
+  return { ok: true, panels: webPanelList() };
+});
+ipcMain.handle('webpanel-open', (event, id) => {
+  const win = mainOnly(event);
+  return { ok: !!win && showWebPanel(win, String(id || '')) };
+});
+ipcMain.handle('webpanel-hide', (event) => {
+  const win = mainOnly(event);
+  if (win) hideWebPanel(win);
+  return { ok: true };
+});
+ipcMain.handle('webpanel-action', (event, action) => {
+  const win = mainOnly(event);
+  const view = webPanelOpenId && webPanelViews.get(webPanelOpenId);
+  if (!win || !view || view.webContents.isDestroyed()) return { ok: false };
+  const wc = view.webContents;
+  const panel = webPanelList().find((p) => p.id === webPanelOpenId);
+  switch (action) {
+    case 'reload': wc.reload(); break;
+    case 'back': if (wc.navigationHistory.canGoBack()) wc.navigationHistory.goBack(); break;
+    case 'home': if (panel) wc.loadURL(panel.url).catch(() => {}); break;
+    case 'open-tab': {
+      const url = wc.getURL();
+      if (isWebUrl(url)) setActiveTab(win, mainState, createTab(win, mainState, url));
+      break;
+    }
+    default: return { ok: false };
+  }
+  return { ok: true };
 });
 
 // Arayüz yerleşimi değişti (dikey sekmeler açıldı/daraldı): içerik alanının sol kenarı.
@@ -3194,6 +3538,7 @@ function createIncognitoWindow() {
   incognitoState.windowFullscreen = false;
   incognitoState.groups = new Map();
   incognitoState.groupCounter = 0;
+  incognitoState.split = null;
 
   incognitoWindow = new BrowserWindow({
     width: 1200, height: 800,
