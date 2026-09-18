@@ -140,6 +140,21 @@ footer a{font-family:var(--font-mono);font-size:12.5px}
 // "En son" etiketi yayınlanmış ilk sürüme verilir.
 const RELEASES = [
   {
+    version: '0.8.4', date: '19 Eylül 2026', title: 'Veri ve Gizlilik, profiller ve yeni sekme düzenleri', upcoming: true,
+    changes: [
+      { t:'sec', d:'<b>Veri ve Gizlilik sayfası.</b> Kenar çubuğundaki yeni düğmeyle hangi verinizin cihazınızda kaldığını, hangisinin nereye gittiğini tek sayfada görürsünüz. Hata raporları, güncelleme denetimi, zararlı site listeleri, Keşfet listesi, QRtım senkronu ve Ülgen izinleri ayrı ayrı açılıp kapatılır. Ülgen izinleri varsayılan olarak kapalıdır.' },
+      { t:'sec', d:'<b>Onay kayıtları.</b> Bir veri iznini ne zaman, nereden ve hangi sürümde açıp kapattığınız cihazınızda kaydedilir. Kayıtlar birbirine bağlıdır; sonradan değiştirilen ya da silinen bir kayıt doğrulamada görünür. Kayıtları dışa aktarabilirsiniz.' },
+      { t:'new', d:'<b>Profiller.</b> Araç çubuğundaki renkli harften yeni profil oluşturabilirsiniz. Her profilin yer imleri, geçmişi, şifreleri, çerezleri, ayarları ve QRtım oturumu ayrıdır; profiller ayrı pencerede açılır.' },
+      { t:'new', d:'<b>Gizli profil.</b> Gizli profil her açılışta boş başlar ve kapattığınızda yer imleri, geçmiş ve çerezler dahil bütün verileri silinir.' },
+      { t:'new', d:'<b>Ekranı bölme.</b> İki sayfayı yan yana açın: araç çubuğundaki düğmeyle ya da sekmeye sağ tıklayıp "Yan yana aç" ile. Tıkladığınız taraf etkin olur; aradaki çizgiyle genişlikleri ayarlarsınız.' },
+      { t:'new', d:'<b>Kenar çubuğunda web paneli.</b> Sık kullandığınız bir siteyi kenar çubuğuna ekleyin; sağdaki panelde açılır, paneli kapatınca arka planda açık kalır. Sekmelerle aynı korumalar geçerlidir.' },
+      { t:'new', d:'<b>Dikey sekmeler.</b> Sekmeleri kenar çubuğunun yanına alt alta dizebilirsiniz; uzun sekme adları okunur. Sütun daraltılabilir.' },
+      { t:'new', d:'<b>Sekme grupları.</b> Sekmeleri adlandırılmış, renkli gruplarda toplayın; grubu daraltıp açın. Gruplar "Kaldığım yerden devam et" ile birlikte geri gelir.' },
+      { t:'imp', d:'<b>Etkin sekmede tema renginde şerit.</b> Hangi sekmede olduğunuz ilk bakışta görünür.' },
+      { t:'fix', d:'<b>Ayarları sıfırla paylaşım kararlarınızı korur.</b> Kapattığınız bir veri gönderimi sıfırlamayla yeniden açılmaz; Ayarlar\'da Kaydet\'e basmak hata raporu iznini eski değerine döndürmez.' },
+    ],
+  },
+  {
     version: '0.8.3', date: '18 Eylül 2026', title: 'Adres çubuğu önerileri ve Ülgen paneli',
     changes: [
       { t:'new', d:'<b>Adres çubuğunda öneriler.</b> Yazmaya başlayınca daha önce ziyaret ettiğiniz sayfalar ve yer imleriniz listelenir; ok tuşlarıyla seçip Enter ile gidebilirsiniz. Öneriler yalnızca cihazınızdaki geçmişten gelir: yazdığınız harfler hiçbir arama sağlayıcısına gönderilmez. Gizli pencerede geçmiş önerilmez.' },

@@ -1287,10 +1287,10 @@ suite('Zararlı site koruması — canlı liste durumu');
     read('preload/preload.js').includes("ipcRenderer.on('threats-status-changed'") && /let _threatStatusSubscribed = false;[\s\S]{0,200}if \(_threatStatusSubscribed\) return;/.test(read('renderer/settings-panel.js')));
 }
 
-suite('Yayın — v0.8.3');
+suite('Yayın — v0.8.4');
 {
   const ROOTD = path.join(__dirname, '..');
-  check('paket sürümü 0.8.3', JSON.parse(fs.readFileSync(path.join(ROOTD, 'package.json'), 'utf8')).version === '0.8.3');
+  check('paket sürümü 0.8.4', JSON.parse(fs.readFileSync(path.join(ROOTD, 'package.json'), 'utf8')).version === '0.8.4');
   const wf = fs.readFileSync(path.join(ROOTD, '.github', 'workflows', 'release.yml'), 'utf8');
   check('yayın otomatik güncelleme dosyalarını da yüklüyor (latest*.yml, blockmap)', wf.includes('dist/latest*.yml') && wf.includes('dist/*.blockmap'));
 }
