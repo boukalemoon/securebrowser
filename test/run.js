@@ -1714,7 +1714,7 @@ suite('Keşfet — TrendTech yazılımları');
       && idx.includes('<div id="panel-ulgen" class="side-panel hidden"></div>')
       && idx.includes('<script src="ulgen-panel.js"></script>'));
     check('panel diğer panellerle aynı akışta: açılınca sayfa görünümü daralıyor, kapanınca hepsi kapanıyor',
-      appU.includes("const ALL_PANELS = ['settings', 'logs', 'bookmarks', 'blocker', 'shield', 'vpn', 'arku', 'ulgen', 'siteinfo', 'webpanel'];")
+      appU.includes("const ALL_PANELS = ['settings', 'logs', 'bookmarks', 'blocker', 'shield', 'vpn', 'arku', 'ulgen', 'siteinfo', 'webpanel', 'profiles'];")
       && appU.includes("'btn-arku', 'btn-ulgen', 'security-icon'")
       && up.includes('window.secureBrowser?.panelOpened(true);') && up.includes("window.ilgezdiCloseAllPanels?.();"));
     check('motor bağlanana kadar giriş kapalı ve hiçbir ağ isteği ya da veri toplama yok',
@@ -2508,6 +2508,53 @@ suite('Kenar çubuğunda web paneli');
   check('başlık ve simge metinleri kaçışlanıyor ya da textContent', wp.includes('${esc(p.title || hostOf(p.url))}') && wp.includes('b.textContent = initialOf(p);') && !/innerHTML = [^`;]*p\.title/.test(wp));
   check('ekle düğmesi listenin sonunda (liste kayınca Ayarlar aşağı itilmez)', wp.includes('if (addBtn && addBtn.parentNode !== box) box.appendChild(addBtn);')
     && read('renderer/styles/main.css').includes('.sidebar > :not(.webpanel-list) { flex-shrink: 0; }'));
+}
+
+suite('Profiller');
+{
+  const os = require('os');
+  const P = require('../src/main/profiles.js');
+  eq('liste temizleniyor; varsayılan her zaman ilk ve silinemiyor',
+    [P.normalizeProfiles([{ id: 'abc123', name: ' İş ', color: 'green' }, { id: 'kötü id', name: 'x' }, { id: 'abc123', name: 'tekrar' }]).map((p) => [p.id, p.name, p.color]),
+      P.removeProfile([{ id: 'abc123', name: 'a' }], 'default').length],
+    [[['default', '', 'gold'], ['abc123', 'İş', 'green']], 2]);
+  let n = 100000;
+  const r = P.createProfile([], { name: 'Okul', color: 'mor', private: true }, () => 'id' + (++n));
+  check('oluşturma: ad zorunlu, renk doğrulanıyor, gizli bayrağı', r.id && r.list[1].color === 'gold' && r.list[1].private === true && P.createProfile([], { name: '  ' }).error === 'name');
+  let many = [];
+  for (let i = 0; i < 12; i++) { const x = P.createProfile(many, { name: 'p' + i }, () => 'idx' + (++n)); if (x.list) many = x.list; }
+  eq('en çok 10 profil (varsayılan dahil)', [many.length, P.createProfile(many, { name: 'fazla' }, () => 'idz' + (++n)).error], [10, 'full']);
+  eq('komut satırı: yalnızca geçerli --profile', [P.profileIdFromArgv(['x', '--profile=abc123']), P.profileIdFromArgv(['--profile=../evil']), P.profileIdFromArgv([])], ['abc123', 'default', 'default']);
+  const base = fs.mkdtempSync(path.join(os.tmpdir(), 'ilgezdi-prof-'));
+  P.writeProfiles(base, r.list.concat({ id: 'norm12', name: 'Normal' }));
+  const rn = P.resolveProfile(['--profile=norm12'], base, os.tmpdir());
+  const rp = P.resolveProfile(['--profile=' + r.id], base, os.tmpdir());
+  const ru = P.resolveProfile(['--profile=yokboyle1'], base, os.tmpdir());
+  check('normal profil kendi klasöründe; gizli profil her açılışta yeni geçici klasörde; bilinmeyen → varsayılan',
+    rn.dir === path.join(base, 'Profiles', 'norm12') && !rn.private
+    && rp.private && path.dirname(rp.dir) === os.tmpdir() && path.basename(rp.dir).startsWith(P.PRIVATE_PREFIX)
+    && rp.dir !== P.resolveProfile(['--profile=' + r.id], base, os.tmpdir()).dir && ru.dir === base);
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'ilgezdi-tmp-'));
+  const dead = path.join(tmp, P.PRIVATE_PREFIX + '0123456789abcdef');
+  const live = path.join(tmp, P.PRIVATE_PREFIX + 'fedcba9876543210');
+  const other = path.join(tmp, 'ilgezdi-gizli-baskasi');
+  P.markPrivateDir(dead, 999999); P.markPrivateDir(live, process.pid); fs.mkdirSync(other);
+  const removed = P.cleanupPrivateDirs(tmp, null, (pid) => pid === process.pid);
+  check('temizlik: kapanmış sürecin klasörü silinir; açık olanınki ve adı uymayan kalır', removed === 1 && !fs.existsSync(dead) && fs.existsSync(live) && fs.existsSync(other));
+  fs.rmSync(base, { recursive: true, force: true }); fs.rmSync(tmp, { recursive: true, force: true });
+  eq('başlatma argümanları (paketli / geliştirme)', [P.launchArgs({ isPackaged: true, appPath: 'x', id: 'abc123' }), P.launchArgs({ isPackaged: false, appPath: 'app', id: 'default' })], [['--profile=abc123'], ['app']]);
+  const mj = read('main/main.js');
+  check('profil, userData okunmadan seçiliyor; oturum verisi de profile gidiyor',
+    mj.indexOf('const activeProfile = profiles.resolveProfile(') > 0 && mj.indexOf('const activeProfile = profiles.resolveProfile(') < mj.indexOf("const USER_DATA = app.getPath('userData');")
+    && mj.includes("app.setPath('sessionData', activeProfile.dir);") && mj.indexOf("app.setPath('sessionData'") < mj.indexOf('requestSingleInstanceLock()'));
+  check('yeni süreç Node bayrağı olmadan başlıyor; silme onaylı, açık profil ve varsayılan silinmiyor',
+    /function launchProfile\(id\) \{[\s\S]{0,200}delete env\.ELECTRON_RUN_AS_NODE;/.test(mj)
+    && /ipcMain\.handle\('profiles-remove'[\s\S]{0,400}if \(!target \|\| pid === profiles\.DEFAULT_ID \|\| pid === activeProfile\.id\) return \{ ok: false, error: 'not-allowed' \};[\s\S]{0,300}showMessageBox/.test(mj)
+    && /try \{ fs\.renameSync\(dir, trash\); \} catch \{ return \{ ok: false, error: 'in-use' \}; \}/.test(mj));
+  check('gizli profil klasörü kapanınca siliniyor (yalnızca kendi geçici klasörü, özel karakterli yol verilmez)',
+    /app\.on\('will-quit', \(\) => \{\s*if \(!activeProfile\.private\) return;[\s\S]{0,200}if \(!path\.basename\(dir\)\.startsWith\(profiles\.PRIVATE_PREFIX\)\) return;[\s\S]{0,300}if \(process\.platform === 'win32' && \/\["&\|<>\^%!\]\/\.test\(dir\)\) return;/.test(mj));
+  const pp = read('renderer/profiles-panel.js');
+  check('profil adları kaçışlanıyor', pp.includes('${esc(nameOf(me))}') && pp.includes('${esc(nameOf(p))}') && !/innerHTML[^;]*\bp\.name\b/.test(pp));
 }
 
 // ══════════════════════════════════════════════════════════════════════════════

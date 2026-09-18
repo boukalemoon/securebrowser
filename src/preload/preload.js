@@ -274,6 +274,15 @@ contextBridge.exposeInMainWorld('secureBrowser', {
     addToGroup:  (id, groupId)         => ipcRenderer.invoke('tab-action', { tabId: id, action: 'group-add', groupId }),
   },
 
+  // ── Profiller (her profil ayrı veri klasörü ve ayrı pencere) ──────────────────
+  profiles: {
+    list:   ()          => ipcRenderer.invoke('profiles-list'),
+    create: (opts)      => ipcRenderer.invoke('profiles-create', opts),
+    update: (id, patch) => ipcRenderer.invoke('profiles-update', id, patch),
+    open:   (id)        => ipcRenderer.invoke('profiles-open', id),
+    remove: (id)        => ipcRenderer.invoke('profiles-remove', id),
+  },
+
   // ── Kenar çubuğunda web paneli ───────────────────────────────────────────────
   webPanels: {
     list:      ()       => ipcRenderer.invoke('webpanel-list'),

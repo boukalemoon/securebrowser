@@ -60,6 +60,19 @@ const {
 let incognitoWindow = null;
 let incognitoPendingUrl = null;   // "Bağlantıyı gizli pencerede aç": pencere yüklenince ilk sekme
 
+// ─── Profil (profiles.js) ─────────────────────────────────────────────────────
+// Her profil ayrı veri klasörü ve ayrı süreç. Klasör, hiçbir şey userData'yı okumadan
+// burada seçilir; tek örnek kilidi de böylece profil başına olur. Gizli profil her
+// açılışta boş bir geçici klasörde başlar, kapanınca klasör silinir.
+const profiles = require('./profiles');
+const BASE_USER_DATA = app.getPath('userData');
+const activeProfile = profiles.resolveProfile(process.argv, BASE_USER_DATA, require('os').tmpdir());
+if (activeProfile.dir !== BASE_USER_DATA) {
+  app.setPath('userData', activeProfile.dir);
+  app.setPath('sessionData', activeProfile.dir);
+}
+if (activeProfile.private) { try { profiles.markPrivateDir(activeProfile.dir, process.pid); } catch {} }
+
 const USER_DATA = app.getPath('userData');
 const CFG_PATH  = path.join(USER_DATA, 'config.json');
 // Onay kayıtlarının ilk satırı: yeni kurulumda "ilk açılış", güncellenen kurulumda "güncelleme".
@@ -3093,6 +3106,84 @@ ipcMain.on('panel-opened', (event, isOpen) => {
   resizeActiveView(win, state);
 });
 
+// ─── Profiller ────────────────────────────────────────────────────────────────
+function profilesPayload() {
+  return {
+    current: activeProfile.id,
+    currentPrivate: activeProfile.private,
+    profiles: profiles.readProfiles(BASE_USER_DATA).map((p) => ({ ...p, hex: profiles.COLOR_HEX[p.color] })),
+  };
+}
+
+function launchProfile(id) {
+  const { spawn } = require('child_process');
+  const env = { ...process.env };
+  delete env.ELECTRON_RUN_AS_NODE;   // yeni süreç Node olarak değil tarayıcı olarak açılsın
+  const child = spawn(process.execPath, profiles.launchArgs({ isPackaged: app.isPackaged, appPath: app.getAppPath(), id }),
+    { detached: true, stdio: 'ignore', env, windowsHide: false });
+  child.unref();
+}
+
+ipcMain.handle('profiles-list', () => profilesPayload());
+ipcMain.handle('profiles-create', (event, opts) => {
+  const o = opts && typeof opts === 'object' ? opts : {};
+  const r = profiles.createProfile(profiles.readProfiles(BASE_USER_DATA), { name: o.name, color: o.color, private: o.private === true });
+  if (r.error) return { ok: false, error: r.error };
+  try {
+    profiles.writeProfiles(BASE_USER_DATA, r.list);
+    const created = r.list.find((p) => p.id === r.id);
+    if (!created.private) {
+      // Yeni profil bu profilin dilini ve temasını alır; geri kalan her şey boş başlar.
+      const dir = profiles.profileDir(BASE_USER_DATA, r.id);
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(path.join(dir, 'config.json'), JSON.stringify({ language: config.language || 'auto', theme: config.theme, accentColor: config.accentColor }, null, 2));
+    }
+  } catch (e) { logError('profiles', e); return { ok: false, error: 'io' }; }
+  if (o.open === true) launchProfile(r.id);
+  return { ok: true, id: r.id, ...profilesPayload() };
+});
+ipcMain.handle('profiles-update', (event, id, patch) => {
+  const p = patch && typeof patch === 'object' ? patch : {};
+  try { profiles.writeProfiles(BASE_USER_DATA, profiles.updateProfile(profiles.readProfiles(BASE_USER_DATA), String(id || ''), { name: p.name, color: p.color })); }
+  catch (e) { logError('profiles', e); return { ok: false }; }
+  return { ok: true, ...profilesPayload() };
+});
+ipcMain.handle('profiles-open', (event, id) => {
+  const target = profiles.readProfiles(BASE_USER_DATA).find((p) => p.id === String(id || ''));
+  if (!target) return { ok: false };
+  if (target.id === activeProfile.id && !activeProfile.private) {
+    if (mainWindow && !mainWindow.isDestroyed()) { mainWindow.show(); mainWindow.focus(); }
+    return { ok: true, current: true };
+  }
+  try { launchProfile(target.id); } catch (e) { logError('profiles', e); return { ok: false }; }
+  return { ok: true };
+});
+// Silme geri alınamaz: onay alınır. Açık bir profilin klasörü kilitli olduğundan önce yeniden
+// adlandırılır; bu başarısızsa profil açık demektir ve hiçbir şey silinmez.
+ipcMain.handle('profiles-remove', async (event, id) => {
+  const pid = String(id || '');
+  const target = profiles.readProfiles(BASE_USER_DATA).find((p) => p.id === pid);
+  if (!target || pid === profiles.DEFAULT_ID || pid === activeProfile.id) return { ok: false, error: 'not-allowed' };
+  const parent = BrowserWindow.fromWebContents(event.sender) || mainWindow;
+  const r = await dialog.showMessageBox(parent, {
+    type: 'warning', buttons: [T('common.cancel'), T('profiles.removeConfirm')], defaultId: 0, cancelId: 0,
+    title: T('profiles.removeTitle'), message: T('profiles.removeMessage', { name: target.name }),
+    detail: T(target.private ? 'profiles.removeDetailPrivate' : 'profiles.removeDetail'),
+  });
+  if (r.response !== 1) return { ok: false, canceled: true };
+  if (!target.private) {
+    const dir = profiles.profileDir(BASE_USER_DATA, pid);
+    if (fs.existsSync(dir)) {
+      const trash = dir + '.silinecek-' + Date.now();
+      try { fs.renameSync(dir, trash); } catch { return { ok: false, error: 'in-use' }; }
+      try { fs.rmSync(trash, { recursive: true, force: true }); } catch {}
+    }
+  }
+  try { profiles.writeProfiles(BASE_USER_DATA, profiles.removeProfile(profiles.readProfiles(BASE_USER_DATA), pid)); }
+  catch (e) { logError('profiles', e); return { ok: false }; }
+  return { ok: true, ...profilesPayload() };
+});
+
 // ─── Kenar çubuğunda web paneli ───────────────────────────────────────────────
 // Site sağ panelde, sekmelerle aynı oturum ve korumalarla (engelleyici, parmak izi,
 // WebRTC) açılır. Panel kapatılınca görünüm ağaçtan çıkar ama yaşar (sohbet bağlantısı
@@ -3347,6 +3438,9 @@ app.whenReady().then(async () => {
     },
   });
 
+  // Kapanmış gizli profillerden kalan geçici klasörler (açık olanlara dokunulmaz).
+  setTimeout(() => { try { profiles.cleanupPrivateDirs(require('os').tmpdir(), activeProfile.private ? activeProfile.dir : null); } catch {} }, 5000).unref?.();
+
   // Onay kayıtlarının ilk satırı: kaydın başladığı andaki durum (varsayılanların ispatı).
   try { consentLog.ensureBaseline(dataCatalog.snapshot(config), CONFIG_EXISTED_AT_START ? 'migration' : 'first-run'); }
   catch (e) { console.error('Onay kaydı başlatılamadı:', e.message); }
@@ -3481,6 +3575,24 @@ app.whenReady().then(async () => {
     const id = createTab(mainWindow, mainState, homepageUrl());
     setActiveTab(mainWindow, mainState, id);
   }, 800);
+});
+
+// Gizli profil: süreç kapandıktan sonra klasörü silen küçük bir komut bırakılır (Chromium
+// kapanırken dosyaları kilitli tuttuğu için süreç içinden tamamen silinemez). Silinemeyen
+// kalıntıyı sonraki açılıştaki temizlik alır (profiles.cleanupPrivateDirs).
+app.on('will-quit', () => {
+  if (!activeProfile.private) return;
+  const dir = activeProfile.dir;
+  if (!path.basename(dir).startsWith(profiles.PRIVATE_PREFIX)) return;   // yalnızca kendi geçici klasörü
+  try {
+    const { spawn } = require('child_process');
+    // Komut satırına özel karakter taşıyan yol verilmez (kalıntıyı açılıştaki temizlik alır).
+    if (process.platform === 'win32' && /["&|<>^%!]/.test(dir)) return;
+    const child = process.platform === 'win32'
+      ? spawn('cmd.exe', ['/d', '/s', '/c', '"ping -n 4 127.0.0.1 >nul & rmdir /s /q "' + dir + '""'], { detached: true, stdio: 'ignore', windowsHide: true, windowsVerbatimArguments: true })
+      : spawn('/bin/sh', ['-c', 'sleep 3; rm -rf "$0"', dir], { detached: true, stdio: 'ignore' });
+    child.unref();
+  } catch {}
 });
 
 // Kapatınca verileri sil (Ayarlar › Genel). Kapanış bir kez ertelenir, silme bitince
