@@ -36,8 +36,12 @@ function normalizeNotes(notes) {
   return '';
 }
 
-function setupAutoUpdater(getMainWindow) {
+function setupAutoUpdater(getMainWindow, opts = {}) {
   if (typeof getMainWindow === 'function') _getWin = getMainWindow;
+  // Veri ve Gizlilik › "Güncellemeleri kendiliğinden denetle" kapalıysa arka plan denetimi
+  // yapılmaz; Ayarlar'daki elle denetim her zaman çalışır.
+  const autoCheck = typeof opts.autoCheck === 'function' ? opts.autoCheck : () => true;
+  const backgroundCheck = () => { if (autoCheck()) autoUpdater.checkForUpdates().catch(() => {}); };
 
   // Kullanıcı onaylı: kendiliğinden indirme ve çıkışta kurulum KAPALI.
   autoUpdater.autoDownload         = false;
@@ -92,8 +96,8 @@ function setupAutoUpdater(getMainWindow) {
 
   // ── Otomatik arka plan denetimi ───────────────────────────────────────────────
   if (app.isPackaged) {
-    setTimeout(() => { autoUpdater.checkForUpdates().catch(() => {}); }, 8000);          // açılıştan 8 sn sonra
-    setInterval(() => { autoUpdater.checkForUpdates().catch(() => {}); }, 6 * 60 * 60 * 1000); // 6 saatte bir
+    setTimeout(backgroundCheck, 8000);                  // açılıştan 8 sn sonra
+    setInterval(backgroundCheck, 6 * 60 * 60 * 1000);   // 6 saatte bir
   }
 }
 

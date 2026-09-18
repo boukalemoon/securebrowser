@@ -128,6 +128,8 @@ contextBridge.exposeInMainWorld('secureBrowser', {
   maximize:    ()       => ipcRenderer.send('window-maximize'),
   close:       ()       => ipcRenderer.send('window-close'),
   panelOpened: (isOpen) => ipcRenderer.send('panel-opened', isOpen),
+  // İçerik alanının sol kenarı (dikey sekmeler açılıp kapanınca sayfa görünümü kayar)
+  setLayout:   (layout) => ipcRenderer.send('ui-layout', layout),
 
    // ── Bookmark Popup ──────────────────────────────────────────────────────────
   bookmarkPopupOpen:   (data) => ipcRenderer.invoke('bookmark-popup-open', data),
@@ -222,6 +224,16 @@ contextBridge.exposeInMainWorld('secureBrowser', {
     resetIdentity:   ()      => ipcRenderer.invoke('diag-reset-identity'),
   },
 
+  // ── Veri ve Gizlilik: izinler ve onay kayıtları ──────────────────────────────
+  // set: tek bir izni açar/kapatır; ana süreç doğrular ve kayda yazar (consent-log.js).
+  dataCenter: {
+    state:     ()               => ipcRenderer.invoke('data-center-state'),
+    set:       (id, value, src) => ipcRenderer.invoke('data-center-set', id, value, src),
+    logList:   (opts)           => ipcRenderer.invoke('consent-log-list', opts || {}),
+    logVerify: ()               => ipcRenderer.invoke('consent-log-verify'),
+    logExport: ()               => ipcRenderer.invoke('consent-log-export'),
+  },
+
   // ── Sayfada bul (Ctrl+F) ─────────────────────────────────────────────────────
   // newSession: yazılan metin değişti (yeni arama); false: sonraki/önceki eşleşme.
   find: {
@@ -259,6 +271,14 @@ contextBridge.exposeInMainWorld('secureBrowser', {
   tabs: {
     action:      (id, action, toIndex) => ipcRenderer.invoke('tab-action', { tabId: id, action, toIndex }),
     contextMenu: (id)                  => ipcRenderer.invoke('tab-context-menu', { tabId: id }),
+    addToGroup:  (id, groupId)         => ipcRenderer.invoke('tab-action', { tabId: id, action: 'group-add', groupId }),
+  },
+
+  // ── Sekme grupları: başlık tıklaması, menü, ad değiştirme ─────────────────────
+  tabGroups: {
+    action:   (groupId, action, value) => ipcRenderer.invoke('tab-group-action', { groupId, action, value }),
+    menu:     (groupId)                => ipcRenderer.invoke('tab-group-menu', { groupId }),
+    onRename: (cb)                     => ipcRenderer.on('tab-group-rename', (_, d) => cb(d)),
   },
 
   // Ana süreçteki kısayollardan arayüze iletilen komutlar (bkz. browser-commands.js)

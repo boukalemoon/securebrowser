@@ -299,9 +299,11 @@ function consentState() {
   return c.diagnosticsConsent;           // true | false | undefined (henüz sorulmadı)
 }
 
-function setConsent(value) {
+function setConsent(value, source = 'settings') {
   const c = deps?.getConfig?.() || {};
+  const from = c.diagnosticsConsent === true ? true : c.diagnosticsConsent === false ? false : null;
   c.diagnosticsConsent = value;
+  if (from !== value) deps?.onConsentChange?.(from, value, source);
   deps?.saveConfig?.(c);
   api.info('diag', 'Tanılama gönderim izni güncellendi', { consent: value });
 }
@@ -326,7 +328,7 @@ async function ensureConsent() {
       checkboxChecked: true,
     });
     const allow = r.response === 1;
-    if (r.checkboxChecked !== false) setConsent(allow);
+    if (r.checkboxChecked !== false) setConsent(allow, 'diag-dialog');
     return allow;
   } catch {
     return false;

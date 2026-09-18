@@ -31,8 +31,13 @@ const { setupDiscover } = require('./discover-feed');
 const { setupCommunity } = require('./community');
 const { shieldScript, createSeeder } = require('./fingerprint-shield');
 const { setupSuggestPopup } = require('./suggest-popup');
+const { createConsentLog } = require('./consent-log');
+const tabGroups = require('./tab-groups');
+// Veri ve Gizlilik: izin kataloğu arayüzle ortak (renderer/data-catalog.js).
+const dataCatalog = require('../renderer/data-catalog.js');
 // Keşfet kartları (TrendTech yazılımları): uygulamadaki liste + ilgezdi.com.tr'den günlük tazeleme.
-setupDiscover(ipcMain, session);
+// Veri ve Gizlilik › "Keşfet listesini güncelle" kapalıysa yalnızca uygulamadaki liste gösterilir.
+setupDiscover(ipcMain, session, { enabled: () => config.discoverFeed !== false });
 // Keşfet yorumları ve Öneri sayfası (community.js). Paketlenmemiş geliştirme kopyasında
 // sonda sahte sunucuya yönlendirebilir; kurulu uygulamada adres sabittir.
 setupCommunity({ ipcMain, session, app, apiBase: !app.isPackaged ? process.env.ILGEZDI_API_BASE : undefined });
@@ -56,6 +61,9 @@ let incognitoPendingUrl = null;   // "Bağlantıyı gizli pencerede aç": pencer
 
 const USER_DATA = app.getPath('userData');
 const CFG_PATH  = path.join(USER_DATA, 'config.json');
+// Onay kayıtlarının ilk satırı: yeni kurulumda "ilk açılış", güncellenen kurulumda "güncelleme".
+const CONFIG_EXISTED_AT_START = fs.existsSync(CFG_PATH);
+const consentLog = createConsentLog({ userDataPath: USER_DATA, appVersion: app.getVersion() });
 const ZOOM_PATH = path.join(USER_DATA, 'zoom-levels.json');
 
 // ─── Oturum ayrımı — TEMİZLEME İŞLEMLERİ İÇİN KRİTİK ─────────────────────────
@@ -75,6 +83,16 @@ const DEFAULT_CONFIG = {
   reduceMotion:          false,        // Erişilebilirlik: arayüz animasyonları kapalı
   highContrast:          false,        // Erişilebilirlik: arayüzde yüksek karşıtlık
   offerToSavePasswords:  true,         // giriş yapınca şifreyi kasaya kaydetmeyi öner
+  // Veri ve Gizlilik sayfasındaki izinler (renderer/data-catalog.js). Değişiklikler onay
+  // kayıtlarına yazılır (consent-log.js). Ülgen izinleri consents içinde, hepsi kapalı başlar.
+  omniboxHistory:        true,         // adres çubuğunda geçmişten ve yer imlerinden öneri
+  autoUpdateCheck:       true,         // açılışta ve 6 saatte bir GitHub'da yeni sürüm denetimi
+  discoverFeed:          true,         // Keşfet listesini ilgezdi.com.tr'den tazele
+  syncSettings:          true,         // QRtım senkronu: ayarlar
+  syncBookmarks:         true,         // QRtım senkronu: yer imleri
+  consents:              {},           // yalnızca ana süreç yazar (data-center-set)
+  verticalTabs:          false,        // sekmeler üstte (false) ya da kenar çubuğunun yanında (true)
+  verticalTabsCollapsed: false,        // dikey sekmelerde yalnızca simgeler
   passwordNeverSave:     [],           // "bu sitede asla" denen site kökleri (yalnızca ana süreç yazar)
   homepage:              '',           // boş = İlgezdi başlangıç sayfası; URL = o sayfa açılır
   searchEngine:          'duckduckgo', // varsayılan; kullanıcı ayarlardan değiştirebilir
@@ -657,8 +675,9 @@ function hardenChromeWindow(win) {
 // yanlışlıkla geri gösterilip overlay'in üstünü örtüyor (boş ekran hatası).
 // closedTabs: Ctrl+Shift+T yığını — yalnızca bellekte, pencereyle birlikte gider.
 // htmlFullscreen: etkin sekme video/HTML tam ekranında; windowFullscreen: F11 ile açıldı.
-const mainState = { tabs: new Map(), activeTabId: null, tabCounter: 0, panelIsOpen: false, viewHidden: false, closedTabs: [], htmlFullscreen: false, windowFullscreen: false };
-const incognitoState = { tabs: new Map(), activeTabId: null, tabCounter: 0, panelIsOpen: false, viewHidden: false, closedTabs: [], htmlFullscreen: false, windowFullscreen: false };
+// groups: sekme grupları (id → { id, title, color, collapsed }); sekmede groupId.
+const mainState = { tabs: new Map(), activeTabId: null, tabCounter: 0, panelIsOpen: false, viewHidden: false, closedTabs: [], htmlFullscreen: false, windowFullscreen: false, groups: new Map(), groupCounter: 0 };
+const incognitoState = { tabs: new Map(), activeTabId: null, tabCounter: 0, panelIsOpen: false, viewHidden: false, closedTabs: [], htmlFullscreen: false, windowFullscreen: false, groups: new Map(), groupCounter: 0 };
 
 const PANEL_WIDTH      = 420;
 const SIDEBAR_WIDTH    = 56;
@@ -1096,14 +1115,22 @@ function resizeActiveView(win, state) {
     return;
   }
   tab.view.setVisible(true);
+  tab.view.setBounds(contentRect(win, state));
+}
+
+// Sayfa görünümünün yeri: kenar çubuğunun (dikey sekmeler açıksa onların da) sağı, araç
+// çubuğunun altı; yan panel açıksa sağdan daralır. Sol kenarı arayüz ölçüp bildirir
+// (ui-layout), bilinmiyorsa kenar çubuğu genişliği.
+function contentRect(win, state) {
   const bounds = win.getContentBounds();
-  const usableWidth = bounds.width - SIDEBAR_WIDTH;
-  tab.view.setBounds({
-    x:      SIDEBAR_WIDTH,
+  const left = Number.isFinite(state.leftInset) ? state.leftInset : SIDEBAR_WIDTH;
+  const usableWidth = bounds.width - left;
+  return {
+    x:      left,
     y:      TOOLBAR_HEIGHT,
-    width:  state.panelIsOpen ? Math.max(usableWidth - PANEL_WIDTH, 100) : usableWidth,
+    width:  state.panelIsOpen ? Math.max(usableWidth - PANEL_WIDTH, 100) : Math.max(usableWidth, 100),
     height: bounds.height - TOOLBAR_HEIGHT - STATUSBAR_HEIGHT,
-  });
+  };
 }
 
 function setActiveTab(win, state, tabId) {
@@ -1136,6 +1163,8 @@ function setActiveTab(win, state, tabId) {
   // Açık bir glance yeni sekmenin altında kalıp görünmez hâle gelmesin.
   closeGlance();
   content.addChildView(tab.view);   // zaten çocuksa en üste taşınır
+  const group = tab.groupId && state.groups.get(tab.groupId);
+  if (group && group.collapsed) group.collapsed = false;
   if (tab.pendingLoad) {
     const pending = tab.pendingLoad;
     tab.pendingLoad = null;
@@ -1180,6 +1209,7 @@ function closeTab(win, state, tabId) {
   // WebContents'i yok eder ('destroyed' olayı yayılır).
   try { if (!tab.view.webContents.isDestroyed()) tab.view.webContents.close(); } catch {}
   state.tabs.delete(tabId);
+  pruneGroups(state);
 
   if (state.tabs.size === 0) {
     // Son sekme kapandı → boş sekme (İlgezdi yeni sekme sayfası) aç
@@ -1237,11 +1267,15 @@ setInterval(sleepInactiveTabs, TAB_SLEEP_CHECK_MS).unref?.();
 
 function sendTabsUpdate(win, state) {
   if (!win || win.isDestroyed()) return;
-  const tabsData = [...state.tabs.entries()].map(([id, tab]) => ({
-    id, url: tab.url, title: tab.title, isActive: id === state.activeTabId,
-    pinned: !!tab.pinned, audible: !!tab.audible, muted: !!tab.muted,
-    loading: !!tab.loading, favicon: tab.favicon || '', sleeping: !!tab.sleeping,
-  }));
+  const tabsData = [...state.tabs.entries()].map(([id, tab]) => {
+    const g = tab.groupId && state.groups.get(tab.groupId);
+    return {
+      id, url: tab.url, title: tab.title, isActive: id === state.activeTabId,
+      pinned: !!tab.pinned, audible: !!tab.audible, muted: !!tab.muted,
+      loading: !!tab.loading, favicon: tab.favicon || '', sleeping: !!tab.sleeping,
+      group: g ? { id: g.id, title: g.title, color: g.color, hex: tabGroups.GROUP_COLORS[g.color], collapsed: !!g.collapsed } : null,
+    };
+  });
   if (state === mainState) scheduleSessionSave();
   win.webContents.send('tabs-update', tabsData);
   win.webContents.send('active-url', state.tabs.get(state.activeTabId)?.url || '');
@@ -1753,7 +1787,7 @@ function sessionSnapshot() {
     const t = mainState.tabs.get(id);
     if (t.pendingLoad) {
       const r = t.pendingLoad.restore;
-      return { url: t.pendingLoad.url, title: t.title, pinned: !!t.pinned, entries: r ? r.entries : null, index: r ? r.index : undefined };
+      return { url: t.pendingLoad.url, title: t.title, pinned: !!t.pinned, entries: r ? r.entries : null, index: r ? r.index : undefined, groupId: t.groupId };
     }
     let entries = null;
     let index;
@@ -1762,9 +1796,12 @@ function sessionSnapshot() {
       entries = h.getAllEntries();
       index = h.getActiveIndex();
     } catch {}
-    return { url: t.url, title: t.title, pinned: !!t.pinned, entries, index };
+    return { url: t.url, title: t.title, pinned: !!t.pinned, entries, index, groupId: t.groupId };
   });
-  return serializeSession(tabs, ids.indexOf(mainState.activeTabId));
+  const used = new Set(tabs.map((t) => t.groupId).filter(Boolean));
+  const { list, index: groupIndex } = tabGroups.serializeGroups([...mainState.groups.values()], used);
+  for (const t of tabs) { t.group = groupIndex.has(t.groupId) ? groupIndex.get(t.groupId) : undefined; delete t.groupId; }
+  return serializeSession(tabs, ids.indexOf(mainState.activeTabId), list);
 }
 
 // Ziyaret günlüğüyle aynı anahtar: şifreleme varsa .enc, yoksa (günlük gibi) düz JSON.
@@ -1825,8 +1862,15 @@ function restoreSession(saved) {
     pinned: t.pinned,
     title: t.title,
   }));
+  const groupIds = (saved.groups || []).map((g) => createGroup(mainState, g));
+  saved.tabs.forEach((t, i) => {
+    const tab = mainState.tabs.get(ids[i]);
+    if (tab && Number.isInteger(t.group) && groupIds[t.group]) tab.groupId = groupIds[t.group];
+  });
+  reorderTabs(mainState, tabGroups.contiguous([...mainState.tabs.keys()], (id) => mainState.tabs.get(id).groupId));
+  pruneGroups(mainState);
   setActiveTab(mainWindow, mainState, ids[saved.activeIndex] != null ? ids[saved.activeIndex] : ids[0]);
-  diag.info('session', 'Oturum geri yüklendi', { tabs: ids.length, pinned: saved.tabs.filter((t) => t.pinned).length });
+  diag.info('session', 'Oturum geri yüklendi', { tabs: ids.length, pinned: saved.tabs.filter((t) => t.pinned).length, groups: mainState.groups.size });
   return true;
 }
 
@@ -1835,6 +1879,83 @@ function reorderTabs(state, ids) {
   const next = new Map();
   for (const id of ids) if (state.tabs.has(id)) next.set(id, state.tabs.get(id));
   state.tabs = next;
+}
+
+// ─── Sekme grupları (kararlar tab-groups.js'te) ───────────────────────────────
+function createGroup(state, init = {}) {
+  const id = 'g' + (++state.groupCounter);
+  state.groups.set(id, {
+    id,
+    title: tabGroups.normalizeTitle(init.title),
+    color: init.color ? tabGroups.normalizeColor(init.color) : tabGroups.nextColor([...state.groups.values()]),
+    collapsed: init.collapsed === true,
+  });
+  return id;
+}
+
+// Sekmesi kalmayan grup silinir.
+function pruneGroups(state) {
+  const used = new Set([...state.tabs.values()].map((t) => t.groupId).filter(Boolean));
+  for (const id of [...state.groups.keys()]) if (!used.has(id)) state.groups.delete(id);
+}
+
+function groupOrderIds(state) {
+  return tabGroups.contiguous([...state.tabs.keys()], (id) => state.tabs.get(id).groupId);
+}
+
+// Daraltılan grupta etkin sekme varsa grubun dışındaki en yakın sekmeye geçilir;
+// dışarıda sekme yoksa grup daraltılmaz.
+function collapseGroup(win, state, groupId) {
+  const group = state.groups.get(groupId);
+  if (!group) return false;
+  const active = state.tabs.get(state.activeTabId);
+  if (active && active.groupId === groupId) {
+    const ids = [...state.tabs.keys()];
+    const i = ids.indexOf(state.activeTabId);
+    const outside = ids.map((id, j) => ({ id, d: Math.abs(j - i) }))
+      .filter(({ id }) => state.tabs.get(id).groupId !== groupId)
+      .sort((a, b) => a.d - b.d)[0];
+    if (!outside) return false;
+    setActiveTab(win, state, outside.id);
+  }
+  group.collapsed = true;
+  return true;
+}
+
+function runGroupAction(win, state, groupId, action, value) {
+  const group = state.groups.get(groupId);
+  if (!group || !win || win.isDestroyed()) return { ok: false };
+  const members = [...state.tabs.keys()].filter((id) => state.tabs.get(id).groupId === groupId);
+  switch (action) {
+    case 'rename': group.title = tabGroups.normalizeTitle(value); break;
+    case 'color': group.color = tabGroups.normalizeColor(value); break;
+    case 'toggle-collapse':
+      if (group.collapsed) group.collapsed = false;
+      else if (!collapseGroup(win, state, groupId)) return { ok: false };
+      break;
+    case 'new-tab': {
+      const url = config.newTabMode === 'custom' && isWebUrl(config.customNewTabUrl) ? config.customNewTabUrl : 'about:blank';
+      const newId = createTab(win, state, url);
+      state.tabs.get(newId).groupId = groupId;
+      group.collapsed = false;
+      reorderTabs(state, tabGroups.placeInGroup([...state.tabs.keys()], (id) => state.tabs.get(id).groupId, newId, groupId));
+      setActiveTab(win, state, newId);
+      break;
+    }
+    case 'ungroup':
+      for (const id of members) delete state.tabs.get(id).groupId;
+      state.groups.delete(groupId);
+      break;
+    case 'close':
+      group.collapsed = false;
+      for (const id of members) closeTab(win, state, id);
+      break;
+    default:
+      return { ok: false };
+  }
+  pruneGroups(state);
+  sendTabsUpdate(win, state);
+  return { ok: true };
 }
 
 function runTabAction(win, state, tabId, action, arg) {
@@ -1854,9 +1975,37 @@ function runTabAction(win, state, tabId, action, arg) {
     case 'pin':
     case 'unpin':
       tab.pinned = action === 'pin';
-      if (tab.pinned) pinnedSet.add(tabId); else pinnedSet.delete(tabId);
+      if (tab.pinned) { pinnedSet.add(tabId); delete tab.groupId; } else pinnedSet.delete(tabId);
       reorderTabs(state, orderAfterPin(ids, pinnedSet, tabId));
       break;
+    case 'group-new': {
+      if (tab.pinned) return { ok: false };
+      const groupId = createGroup(state);
+      tab.groupId = groupId;
+      reorderTabs(state, groupOrderIds(state));
+      // Yeni grubun adı hemen yazılabilsin (Chrome'daki gibi düzenleme kutusu açılır).
+      win.webContents.send('tab-group-rename', { groupId });
+      break;
+    }
+    case 'group-add': {
+      const groupId = String(arg || '');
+      if (tab.pinned || !state.groups.has(groupId)) return { ok: false };
+      tab.groupId = groupId;
+      reorderTabs(state, tabGroups.placeInGroup(ids, (id) => state.tabs.get(id).groupId, tabId, groupId));
+      break;
+    }
+    case 'group-remove': {
+      if (!tab.groupId) return { ok: false };
+      const groupId = tab.groupId;
+      delete tab.groupId;
+      // Grubun sonuna taşınır ki grup bölünmesin.
+      const rest = ids.filter((id) => id !== tabId);
+      let last = -1;
+      rest.forEach((id, i) => { if (state.tabs.get(id).groupId === groupId) last = i; });
+      rest.splice(last + 1 || index, 0, tabId);
+      reorderTabs(state, rest);
+      break;
+    }
     case 'mute':
     case 'unmute':
     case 'toggle-mute': {
@@ -1865,9 +2014,14 @@ function runTabAction(win, state, tabId, action, arg) {
       tab.muted = muted;
       break;
     }
-    case 'move':
-      reorderTabs(state, moveTabId(ids, pinnedSet, tabId, Number(arg)));
+    case 'move': {
+      const moved = moveTabId(ids, pinnedSet, tabId, Number(arg));
+      // Grup üyeliği yeni komşulara göre (iki komşusu aynı gruptaysa o gruba girer).
+      const g = tab.pinned ? null : tabGroups.groupAfterMove(moved, (id) => state.tabs.get(id).groupId, tabId);
+      if (g) tab.groupId = g; else delete tab.groupId;
+      reorderTabs(state, tabGroups.contiguous(moved, (id) => state.tabs.get(id).groupId));
       break;
+    }
     case 'reload':
       if (tab.pendingLoad) setActiveTab(win, state, tabId); else wc.reload();
       break;
@@ -1883,6 +2037,7 @@ function runTabAction(win, state, tabId, action, arg) {
     case 'new-tab-right': {
       const url = config.newTabMode === 'custom' && isWebUrl(config.customNewTabUrl) ? config.customNewTabUrl : 'about:blank';
       const newId = createTab(win, state, url);
+      if (tab.groupId) state.tabs.get(newId).groupId = tab.groupId;   // gruptaki sekmenin sağı: aynı grup
       placeAfterSource(newId);
       setActiveTab(win, state, newId);
       break;
@@ -1904,6 +2059,7 @@ function runTabAction(win, state, tabId, action, arg) {
     default:
       return { ok: false };
   }
+  pruneGroups(state);
   sendTabsUpdate(win, state);
   return { ok: true };
 }
@@ -1913,7 +2069,7 @@ ipcMain.handle('tab-action', (event, payload) => {
   const action = String((payload && payload.action) || '');
   if (!TAB_ACTIONS.has(action)) return { ok: false };
   try {
-    return runTabAction(win, state, Number(payload.tabId), action, payload.toIndex);
+    return runTabAction(win, state, Number(payload.tabId), action, action === 'group-add' ? payload.groupId : payload.toIndex);
   } catch (e) {
     logError('tab-action', e, { action });
     return { ok: false };
@@ -1929,14 +2085,51 @@ ipcMain.handle('tab-context-menu', (event, payload) => {
   const model = buildTabMenuModel({
     index: ids.indexOf(tabId), count: ids.length, pinned: !!tab.pinned, muted: !!tab.muted,
     canReopen: state.closedTabs.length > 0, platform: process.platform,
+    groups: [...state.groups.values()], groupId: tab.groupId || null,
   });
-  Menu.buildFromTemplate(model.map((item) => (item.type ? { type: 'separator' } : {
+  const toTemplate = (item) => (item.type ? { type: 'separator' } : item.submenu ? {
+    label: item.label, enabled: item.enabled, submenu: item.submenu.map(toTemplate),
+  } : {
     label: item.label,
     enabled: item.enabled,
     click: () => {
-      try { runTabAction(win, state, tabId, item.id); } catch (e) { logError('tab-menu', e, { id: item.id }); }
+      try { runTabAction(win, state, tabId, item.id, item.arg); } catch (e) { logError('tab-menu', e, { id: item.id }); }
     },
-  }))).popup({ window: win });
+  });
+  Menu.buildFromTemplate(model.map(toTemplate)).popup({ window: win });
+  return { ok: true };
+});
+
+// Grup başlığı: tıklayınca daralt/aç, sağ tıkta menü, çift tıkta ad.
+const GROUP_ACTIONS = new Set(['rename', 'color', 'toggle-collapse', 'new-tab', 'ungroup', 'close']);
+ipcMain.handle('tab-group-action', (event, payload) => {
+  const { win, state } = getContextFromEvent(event);
+  const action = String((payload && payload.action) || '');
+  if (!GROUP_ACTIONS.has(action)) return { ok: false };
+  try { return runGroupAction(win, state, String(payload.groupId || ''), action, payload.value); }
+  catch (e) { logError('tab-group', e, { action }); return { ok: false }; }
+});
+
+ipcMain.handle('tab-group-menu', (event, payload) => {
+  const { win, state } = getContextFromEvent(event);
+  const groupId = String((payload && payload.groupId) || '');
+  const group = state.groups.get(groupId);
+  if (!group || !win || win.isDestroyed()) return { ok: false };
+  const run = (action, value) => () => {
+    try { runGroupAction(win, state, groupId, action, value); } catch (e) { logError('tab-group-menu', e, { action }); }
+  };
+  Menu.buildFromTemplate([
+    { label: T('tabGroup.rename'), click: () => win.webContents.send('tab-group-rename', { groupId }) },
+    { label: T('tabGroup.colorMenu'), submenu: tabGroups.COLOR_IDS.map((c) => ({
+      label: T('tabGroup.color.' + c), type: 'radio', checked: group.color === c, click: run('color', c),
+    })) },
+    { type: 'separator' },
+    { label: T('tabGroup.newTab'), click: run('new-tab') },
+    { label: group.collapsed ? T('tabGroup.expand') : T('tabGroup.collapse'), click: run('toggle-collapse') },
+    { type: 'separator' },
+    { label: T('tabGroup.ungroup'), click: run('ungroup') },
+    { label: T('tabGroup.close'), click: run('close') },
+  ]).popup({ window: win });
   return { ok: true };
 });
 
@@ -2060,7 +2253,7 @@ ipcMain.handle('reload', (event) => {
 // Ana sürecin yazdığı alanlar arayüze gönderilmez ve arayüzden yazılamaz. Ayarlar
 // paneli kaydederken tüm yapılandırmayı geri gönderiyor; panel açıkken verilen
 // bir site izni ya da yenilenen oturum eski değerle eziliyordu.
-const MAIN_OWNED_KEYS = ['permissionDecisions', 'authSessionEnc', 'passwordNeverSave'];
+const MAIN_OWNED_KEYS = ['permissionDecisions', 'authSessionEnc', 'passwordNeverSave', 'consents'];
 function publicConfig() {
   const c = { ...config };
   for (const k of MAIN_OWNED_KEYS) delete c[k];
@@ -2071,6 +2264,12 @@ ipcMain.handle('get-config',  ()          => publicConfig());
 ipcMain.handle('save-config', (e, newCfg) => {
   const incoming = newCfg && typeof newCfg === 'object' ? { ...newCfg } : {};
   for (const k of MAIN_OWNED_KEYS) delete incoming[k];
+  // Kaydın kaynağı (onay kayıtları için): senkron uzak ayarları uygularken 'sync' gönderir.
+  const source = incoming.__source === 'sync' ? 'sync' : 'settings';
+  delete incoming.__source;
+  // Tanılama izni yalnızca kendi düğmesinden ya da Veri ve Gizlilik'ten değişir: Ayarlar'ın
+  // Kaydet'i panel açıldığındaki eski değeri geri gönderip izni geri çeviriyordu.
+  delete incoming.diagnosticsConsent;
   // Arayüzden gelen değerler doğrulanır: geçersiz politika Chromium'a verilmez.
   if ('webrtcPolicy' in incoming) incoming.webrtcPolicy = normalizeWebrtcPolicy(incoming.webrtcPolicy);
   if ('secureDns' in incoming) incoming.secureDns = normalizeSecureDns(incoming.secureDns);
@@ -2082,15 +2281,83 @@ ipcMain.handle('save-config', (e, newCfg) => {
   if ('reduceMotion' in incoming) incoming.reduceMotion = incoming.reduceMotion === true;
   if ('highContrast' in incoming) incoming.highContrast = incoming.highContrast === true;
   for (const k of ['globalPrivacyControl', 'cleanLinks', 'blockAutoplay', 'fingerprintShield']) if (k in incoming) incoming[k] = incoming[k] !== false;
-  for (const k of ['clearSiteDataOnExit', 'clearHistoryOnExit', 'warnOnCloseTabs']) if (k in incoming) incoming[k] = incoming[k] === true;
+  for (const k of ['clearSiteDataOnExit', 'clearHistoryOnExit', 'warnOnCloseTabs', 'doNotTrack']) if (k in incoming) incoming[k] = incoming[k] === true;
+  for (const k of ['omniboxHistory', 'autoUpdateCheck', 'discoverFeed', 'syncSettings', 'syncBookmarks', 'logEnabled', 'offerToSavePasswords']) if (k in incoming) incoming[k] = incoming[k] !== false;
+  for (const k of ['verticalTabs', 'verticalTabsCollapsed']) if (k in incoming) incoming[k] = incoming[k] === true;
   if ('hardwareAcceleration' in incoming) incoming.hardwareAcceleration = incoming.hardwareAcceleration !== false;
   if ('tabSleepMinutes' in incoming) incoming.tabSleepMinutes = normalizeTabSleepMinutes(incoming.tabSleepMinutes);
   if ('language' in incoming) incoming.language = i18n.LANGUAGES.some((l) => l.code === incoming.language) ? incoming.language : 'auto';
   const previous = configEffectsSnapshot();
+  const before = dataCatalog.snapshot(config);
   config = { ...config, ...incoming };
   saveConfig(config);
   applyConfigEffects(previous);
+  recordConsentChanges(before, source);
   return publicConfig();
+});
+
+// ─── Veri ve Gizlilik ─────────────────────────────────────────────────────────
+// Katalogdaki bir iznin değeri nereden değişirse değişsin (Veri ve Gizlilik sayfası, Ayarlar,
+// senkron, sıfırlama, tanılama sorusu) onay kayıtlarına yazılır.
+function recordConsentChanges(before, source) {
+  try { consentLog.recordChanges(dataCatalog.diff(before, dataCatalog.snapshot(config)), source); }
+  catch (e) { console.error('Onay kaydı yazılamadı:', e.message); }
+}
+
+function dataCenterState() {
+  return {
+    values: dataCatalog.snapshot(config),
+    searchEngine: SEARCH_ENGINES[config.searchEngine] ? config.searchEngine : 'duckduckgo',
+    secureDns: normalizeSecureDns(config.secureDns),
+    vpnEnabled: config.vpnEnabled === true,
+  };
+}
+
+ipcMain.handle('data-center-state', () => dataCenterState());
+
+// Tek bir izni açar ya da kapatır. Kapatılan iznin bağlı izinleri de kapanır (ör. Ülgen'in
+// sohbet izni kapanınca sayfa paylaşımı). Üst izin kapalıyken alt izin açılamaz.
+ipcMain.handle('data-center-set', (e, id, value, from) => {
+  const item = dataCatalog.BY_ID[id];
+  if (!item || item.soon || typeof value !== 'boolean') return { ok: false, error: 'invalid' };
+  if (value && item.requires && !dataCatalog.valueOf(dataCatalog.BY_ID[item.requires], config)) return { ok: false, error: 'requires', requires: item.requires };
+  const source = from === 'ulgen' ? 'ulgen' : 'data-center';
+  const previous = configEffectsSnapshot();
+  const before = dataCatalog.snapshot(config);
+  const next = { ...config, consents: { ...(config.consents || {}) } };
+  const apply = (it, on) => {
+    if (it.consent) next.consents[it.id] = on;
+    else next[it.config] = dataCatalog.configValue(it, on);
+  };
+  apply(item, value);
+  if (!value) for (const dep of dataCatalog.dependentsOf(id)) apply(dataCatalog.BY_ID[dep], false);
+  config = next;
+  saveConfig(config);
+  applyConfigEffects(previous);
+  const changes = dataCatalog.diff(before, dataCatalog.snapshot(config));
+  try { consentLog.recordChanges(changes, source); } catch (err) { console.error('Onay kaydı yazılamadı:', err.message); }
+  return { ok: true, changes, ...dataCenterState() };
+});
+
+ipcMain.handle('consent-log-list', (e, opts) => {
+  const limit = Math.min(200, Math.max(1, Number(opts && opts.limit) || 30));
+  const before = opts && Number.isInteger(opts.before) ? opts.before : null;
+  return consentLog.list({ limit, before });
+});
+ipcMain.handle('consent-log-verify', () => consentLog.verify());
+ipcMain.handle('consent-log-export', async (event) => {
+  const parent = BrowserWindow.fromWebContents(event.sender) || mainWindow;
+  const stamp = new Date().toISOString().slice(0, 10);
+  const r = await dialog.showSaveDialog(parent, {
+    title: T('data.log.exportTitle'),
+    defaultPath: path.join(app.getPath('documents'), 'ilgezdi-onay-kayitlari-' + stamp + '.json'),
+    filters: [{ name: 'JSON', extensions: ['json'] }],
+  });
+  if (r.canceled || !r.filePath) return { ok: false, canceled: true };
+  try {
+    fs.writeFileSync(r.filePath, JSON.stringify(consentLog.exportData(), null, 2));
+    return { ok: true };
+  } catch (err) { return { ok: false, error: err.message }; }
 });
 
 // Ayar değişikliğinin çalışan uygulamaya etkileri: Kaydet ve Ayarları sıfırla ortak kullanır.
@@ -2125,9 +2392,11 @@ ipcMain.handle('reset-settings', async (event) => {
   } catch { confirmed = false; }
   if (!confirmed) return { ok: false, canceled: true };
   const previous = configEffectsSnapshot();
+  const before = dataCatalog.snapshot(config);
   config = resetConfig(config, DEFAULT_CONFIG);
   saveConfig(config);
   applyConfigEffects(previous);
+  recordConsentChanges(before, 'reset');
   updateBlockerConfig({ level: config.blockLevel || 'medium', whitelist: [], enabled: config.blockAds !== false || config.blockTrackers !== false });
   diag.info('settings', 'Ayarlar varsayılana döndürüldü');
   return { ok: true, config: publicConfig(), relaunchNeeded: (config.hardwareAcceleration !== false) !== hardwareAccelerationAtStart };
@@ -2638,6 +2907,15 @@ ipcMain.on('panel-opened', (event, isOpen) => {
   resizeActiveView(win, state);
 });
 
+// Arayüz yerleşimi değişti (dikey sekmeler açıldı/daraldı): içerik alanının sol kenarı.
+ipcMain.on('ui-layout', (event, layout) => {
+  const { win, state } = getContextFromEvent(event);
+  const left = Number(layout && layout.left);
+  if (!Number.isFinite(left) || left < 0 || left > 800) return;
+  state.leftInset = Math.round(left);
+  resizeActiveView(win, state);
+});
+
 // Pencere kontrollerini doğru pencereye yönlendir
 ipcMain.on('window-minimize', (event) => {
   BrowserWindow.fromWebContents(event.sender)?.minimize();
@@ -2719,7 +2997,15 @@ app.whenReady().then(async () => {
     getConfig:     () => config,
     saveConfig:    (cfg) => { config = cfg; saveConfig(config); },
     getMainWindow: () => mainWindow,
+    // Tanılama izni Veri ve Gizlilik kataloğunda da var: değişiklik onay kayıtlarına yazılır.
+    onConsentChange: (from, to, source) => {
+      try { consentLog.recordChanges([{ id: 'diagnostics', from, to }], source); } catch {}
+    },
   });
+
+  // Onay kayıtlarının ilk satırı: kaydın başladığı andaki durum (varsayılanların ispatı).
+  try { consentLog.ensureBaseline(dataCatalog.snapshot(config), CONFIG_EXISTED_AT_START ? 'migration' : 'first-run'); }
+  catch (e) { console.error('Onay kaydı başlatılamadı:', e.message); }
 
   // Güvenli DNS ilk istekten önce ayarlanır.
   applySecureDns();
@@ -2820,7 +3106,7 @@ app.whenReady().then(async () => {
   });
 
   // Otomatik güncelleme: arka planda denetim + kullanıcı onaylı indirme/kurulum
-  setupAutoUpdater(() => mainWindow);
+  setupAutoUpdater(() => mainWindow, { autoCheck: () => config.autoUpdateCheck !== false });
 
   setupArku(ipcMain, {
     userDataPath: USER_DATA,
@@ -2906,6 +3192,8 @@ function createIncognitoWindow() {
   incognitoState.closedTabs = [];
   incognitoState.htmlFullscreen = false;
   incognitoState.windowFullscreen = false;
+  incognitoState.groups = new Map();
+  incognitoState.groupCounter = 0;
 
   incognitoWindow = new BrowserWindow({
     width: 1200, height: 800,

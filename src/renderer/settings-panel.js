@@ -328,6 +328,7 @@ const SETTINGS_FIELDS = {
   'cfg-min-font':      ['minimumFontSize', 'value'],
   'cfg-reduce-motion': ['reduceMotion', 'checked'],
   'cfg-high-contrast': ['highContrast', 'checked'],
+  'cfg-vertical-tabs': ['verticalTabs', 'checked'],
   'cfg-gpc':           ['globalPrivacyControl', 'checked'],
   'cfg-clean-links':   ['cleanLinks', 'checked'],
   'cfg-block-autoplay': ['blockAutoplay', 'checked'],
@@ -370,6 +371,7 @@ function formValuesFrom(cfg) {
     minimumFontSize:        MIN_FONTS_UI.some(([v]) => v === Number(c.minimumFontSize)) ? String(Number(c.minimumFontSize)) : '0',
     reduceMotion:           c.reduceMotion === true,
     highContrast:           c.highContrast === true,
+    verticalTabs:           c.verticalTabs === true,
     globalPrivacyControl:   c.globalPrivacyControl !== false,
     cleanLinks:             c.cleanLinks !== false,
     blockAutoplay:          c.blockAutoplay !== false,
@@ -534,6 +536,12 @@ function renderCustomizationTab(cfg) {
         <div class="font-preview" id="font-preview-text" style="font-size:${_pendingFontSize}px;font-family:${_pendingFontFamily}">
           ${TH('settings.font.preview')}
         </div>
+      </div>
+    </div>
+    <div class="settings-section"><h3>${TH('settings.tabs.title')}</h3>
+      <div class="s-toggle-row">
+        <div><div class="s-toggle-label">${TH('settings.tabs.vertical')}</div><div class="s-toggle-sub">${TH('settings.tabs.verticalHint')}</div></div>
+        <label class="switch"><input type="checkbox" id="cfg-vertical-tabs" ${cfg.verticalTabs === true ? 'checked' : ''}/><span class="slider"></span></label>
       </div>
     </div>
     <div class="settings-section"><h3>${TH('settings.a11y.title')}</h3>
@@ -764,6 +772,10 @@ function renderPrivacyTab(cfg) {
       <label class="switch"><input type="checkbox" id="${id}" ${chk?'checked':''}/><span class="slider"></span></label>
     </div>`;
   return `
+    <div class="settings-section"><h3>${TH('data.title')}</h3>
+      <p class="s-hint" style="margin-top:0">${TH('data.settingsHint')}</p>
+      <button class="clear-btn" id="btn-open-data-center" style="margin-top:8px">${TH('data.open')}</button>
+    </div>
     <div class="settings-section"><h3>${TH('settings.threat.title')}</h3>
       ${row('cfg-threat',TH('settings.threat.toggle'),TH('settings.threat.toggleHint'),cfg.threatProtection!==false)}
       <div id="threat-status" aria-live="polite"><p class="s-hint" style="margin-top:0">${TH('common.loading')}</p></div>
@@ -1203,6 +1215,7 @@ async function populateSitePermissions() {
 }
 
 function bindPrivacyEvents() {
+  document.getElementById('btn-open-data-center')?.addEventListener('click', () => window.ilgezdiDataCenter?.open());
   populateSitePermissions();
   populateThreatStatus();
   document.getElementById('btn-site-perm-reset')?.addEventListener('click', async () => {
@@ -1561,6 +1574,8 @@ async function saveAllSettings() {
     };
     await window.secureBrowser?.saveConfig(finalCfg);
     window.ilgezdiSync?.schedulePush();
+    // Veri ve Gizlilik sayfası açıksa yeni değerleri gösterir.
+    window.dispatchEvent(new CustomEvent('ilgezdi-settings-saved'));
     settingsConfig = finalCfg;
     applyAccessibility(finalCfg);
     initFormState(finalCfg);

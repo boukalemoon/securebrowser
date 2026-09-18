@@ -793,7 +793,7 @@ suite('Site izinleri');
     [forA.geolocation, forA.media, forA.popups, forA['third-party-cookies']], ['allow', 'ask', 'allow', 'default']);
   const mainJs = read('main/main.js');
   check('arayüz izin kararlarını ve oturumu göremez, geri yazamaz',
-    mainJs.includes("const MAIN_OWNED_KEYS = ['permissionDecisions', 'authSessionEnc', 'passwordNeverSave'];")
+    mainJs.includes("const MAIN_OWNED_KEYS = ['permissionDecisions', 'authSessionEnc', 'passwordNeverSave', 'consents'];")
     && mainJs.includes("ipcMain.handle('get-config',  ()          => publicConfig());")
     && mainJs.includes('for (const k of MAIN_OWNED_KEYS) delete incoming[k];'));
   check('site verisi silme ve toplu sıfırlama kullanıcı onayı istiyor',
@@ -878,7 +878,7 @@ suite('Sekme düzeni ve sekme menüsü');
 
   const menu = bc.buildTabMenuModel({ index: 2, count: 3, pinned: false, muted: false, canReopen: false, platform: 'win32' });
   const ids = menu.filter((i) => !i.type).map((i) => i.id);
-  eq('sekme menüsü', ids, ['new-tab-right', 'reload', 'duplicate', 'pin', 'mute', 'close', 'close-others', 'close-right', 'reopen-closed']);
+  eq('sekme menüsü', ids, ['new-tab-right', 'group-new', 'reload', 'duplicate', 'pin', 'mute', 'close', 'close-others', 'close-right', 'reopen-closed']);
   eq('son sekmede "sağdakileri kapat" ve yığın boşken "yeniden aç" pasif',
     menu.filter((i) => i.id === 'close-right' || i.id === 'reopen-closed').map((i) => i.enabled), [false, false]);
   eq('sabitli ve sessiz sekmede ters işlemler',
@@ -1427,7 +1427,7 @@ suite('Keşfet — TrendTech yazılımları');
     const fields = [...spJs.matchAll(/^\s*'([\w-]+)':\s*\['(\w+)', '(value|checked)'\]/gm)];
     const valuesFn = spJs.slice(spJs.indexOf('function formValuesFrom'), spJs.indexOf('function initFormState'));
     check('form alan listesi sekmelerdeki kimliklerle ve varsayılan değerlerle eşleşiyor',
-      fields.length === 33
+      fields.length === 34
       && fields.every(([, id]) => spJs.includes(`id="${id}"`) || spJs.includes(`row('${id}'`))
       && fields.every(([, , key]) => new RegExp(`\\n\\s*${key}:\\s`).test(valuesFn)), fields.length);
 
@@ -1760,7 +1760,7 @@ suite('Keşfet — TrendTech yazılımları');
 
     const appO = read('renderer/app.js');
     check('öneriler cihazdaki geçmiş ve yer imlerinden; gizli pencerede geçmiş yok; her tuşta ağ isteği yok',
-      appO.includes('if (O && !isIncognito) {') && appO.includes("await sb.logs.search({ text: typed, limit: 120 })")
+      appO.includes('if (O && !isIncognito && historyOn) {') && appO.includes("await sb.logs.search({ text: typed, limit: 120 })")
       && appO.includes("localStorage.getItem('ilgezdi-bm-items')") && appO.includes('suggestTimer = setTimeout(showSuggestions, 70);')
       && !/suggest[\s\S]{0,400}fetch\(/.test(appO));
     check('klavye: ok tuşları, Enter ve Esc; seçim adres çubuğunu dolduruyor',
@@ -2146,10 +2146,10 @@ suite('Keşfet — TrendTech yazılımları');
       /const hardwareAccelerationAtStart = config\.hardwareAcceleration !== false;\s*if \(!hardwareAccelerationAtStart\) app\.disableHardwareAcceleration\(\);/.test(mj6)
       && mj6.indexOf('app.disableHardwareAcceleration()') < mj6.indexOf('app.whenReady()'));
     check('sıfırlama onay istiyor, korunanları söylüyor; Kaydet ile aynı etkileri uyguluyor; engelleyici istisnaları temizleniyor',
-      /ipcMain\.handle\('reset-settings', async \(event\) => \{[\s\S]{0,1400}if \(!confirmed\) return \{ ok: false, canceled: true \};\s*const previous = configEffectsSnapshot\(\);\s*config = resetConfig\(config, DEFAULT_CONFIG\);\s*saveConfig\(config\);\s*applyConfigEffects\(previous\);\s*updateBlockerConfig\(\{ level: config\.blockLevel \|\| 'medium', whitelist: \[\]/.test(mj6)
+      /ipcMain\.handle\('reset-settings', async \(event\) => \{[\s\S]{0,1400}if \(!confirmed\) return \{ ok: false, canceled: true \};\s*const previous = configEffectsSnapshot\(\);\s*const before = dataCatalog\.snapshot\(config\);\s*config = resetConfig\(config, DEFAULT_CONFIG\);\s*saveConfig\(config\);\s*applyConfigEffects\(previous\);\s*recordConsentChanges\(before, 'reset'\);\s*updateBlockerConfig\(\{ level: config\.blockLevel \|\| 'medium', whitelist: \[\]/.test(mj6)
       && mj6.includes("detail: T('dialog.resetSettings.detail'),")
-      && JSON.parse(read('locales/tr.json'))['dialog.resetSettings.detail'].includes('Korunacak: yer imleri, geçmiş, kayıtlı şifreler, QRtım oturumu, VPN profilleri ve indirme klasörü.')
-      && /ipcMain\.handle\('save-config'[\s\S]{0,2500}const previous = configEffectsSnapshot\(\);\s*config = \{ \.\.\.config, \.\.\.incoming \};\s*saveConfig\(config\);\s*applyConfigEffects\(previous\);/.test(mj6));
+      && JSON.parse(read('locales/tr.json'))['dialog.resetSettings.detail'].includes("Korunacak: yer imleri, geçmiş, kayıtlı şifreler, QRtım oturumu, VPN profilleri, indirme klasörü, Veri ve Gizlilik'teki paylaşım kararlarınız ve onay kayıtları.")
+      && /ipcMain\.handle\('save-config'[\s\S]{0,3500}const previous = configEffectsSnapshot\(\);\s*const before = dataCatalog\.snapshot\(config\);\s*config = \{ \.\.\.config, \.\.\.incoming \};\s*saveConfig\(config\);\s*applyConfigEffects\(previous\);\s*recordConsentChanges\(before, source\);/.test(mj6));
     check('kapatma uyarısı: yalnızca ayar açık, birden çok sekme ve uygulama kapanmıyorken; "bir daha sorma" kaydediliyor',
       mj6.includes("if (!closeConfirmed && !appQuitting && config.warnOnCloseTabs === true && count > 1) {")
       && mj6.includes("if (r.checkboxChecked) { config.warnOnCloseTabs = false; saveConfig(config); }")
@@ -2266,7 +2266,7 @@ suite('Keşfet — TrendTech yazılımları');
       && mj5.includes('setTimeout(resolve, 8000)') && mj5.includes('Promise.race([work, limit]).finally(() => app.quit());'));
     check('ayarlar ana süreçte boolean olarak doğrulanıyor',
       mj5.includes("for (const k of ['globalPrivacyControl', 'cleanLinks', 'blockAutoplay', 'fingerprintShield']) if (k in incoming) incoming[k] = incoming[k] !== false;")
-      && mj5.includes("for (const k of ['clearSiteDataOnExit', 'clearHistoryOnExit', 'warnOnCloseTabs']) if (k in incoming) incoming[k] = incoming[k] === true;"));
+      && mj5.includes("for (const k of ['clearSiteDataOnExit', 'clearHistoryOnExit', 'warnOnCloseTabs', 'doNotTrack']) if (k in incoming) incoming[k] = incoming[k] === true;"));
     const pp5 = read('preload/page-preload.js');
     check('navigator.globalPrivacyControl yalnızca bayrakla ve sayfa dünyasında tanımlanıyor',
       /if \(process\.argv\.includes\('--ilgezdi-gpc'\)\) \{\s*webFrame\.executeJavaScript\("Object\.defineProperty\(Navigator\.prototype, 'globalPrivacyControl'/.test(pp5));
@@ -2300,6 +2300,155 @@ suite('Keşfet — TrendTech yazılımları');
   check('bilgi kartları dosyası app.js\'ten önce yükleniyor', /<script src="info-cards\.js"><\/script>\s*<script src="app\.js"><\/script>/.test(read('renderer/index.html')));
   check('yeni sekmede haftalık şifresiz bağlantı özeti (yalnızca HTTP ziyaret varsa)',
     appJs.includes('id="newtab-http-report"') && appJs.includes("renderHttpReport('newtab-http-report')") && /newtab-http-report[\s\S]{0,300}classList\.contains\('warn'\)/.test(appJs));
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Veri ve Gizlilik: izin kataloğu, onay kayıtları (zincir), ana süreç bağlantıları
+// ══════════════════════════════════════════════════════════════════════════════
+suite('Veri ve Gizlilik — izin kataloğu');
+{
+  const C = require('../src/renderer/data-catalog.js');
+  check('her öğenin bölümü geçerli, kimlikler tekil', C.ITEMS.every((it) => C.SECTIONS.includes(it.section)) && new Set(C.ITEMS.map((i) => i.id)).size === C.ITEMS.length);
+  check('Ülgen izinlerinin hepsi varsayılan kapalı ve yalnızca bu sayfadan verilir', C.ITEMS.filter((i) => i.section === 'ulgen').every((i) => i.consent && i.def === false));
+  const base = C.snapshot({});
+  eq('boş yapılandırmada varsayılanlar (hata raporu henüz sorulmadı)', [base.visitLog, base.updateCheck, base.restoreSession, base.diagnostics, base.ulgenChat, base.gpc, base.dnt], [true, true, false, null, false, true, false]);
+  eq('metin değerli ayar (başlangıç kipi) açık/kapalı sayılıyor', [C.valueOf(C.BY_ID.restoreSession, { startupMode: 'restore' }), C.configValue(C.BY_ID.restoreSession, true), C.configValue(C.BY_ID.restoreSession, false)], [true, 'restore', 'homepage']);
+  eq('fark listesi yalnızca değişenler', C.diff(base, C.snapshot({ consents: { ulgenChat: true }, autoUpdateCheck: false })), [{ id: 'updateCheck', from: true, to: false }, { id: 'ulgenChat', from: false, to: true }]);
+  eq('sohbet izninin bağlı izinleri (dolaylı olanlar dahil)', C.dependentsOf('ulgenChat').sort(), ['ulgenAccount', 'ulgenHistory', 'ulgenImprove', 'ulgenInterests', 'ulgenPage', 'ulgenRecommend']);
+  check('"yakında" öğeler anlık görüntüye girmiyor ve veri gönderen sayılmıyor', !('syncPasswords' in base) && !C.sendsData(C.BY_ID.syncPasswords));
+  check('cihazda kalanlar ve site korumaları "dışarıya bağlanan" sayılmıyor', !C.sendsData(C.BY_ID.visitLog) && !C.sendsData(C.BY_ID.gpc) && C.sendsData(C.BY_ID.updateCheck) && C.sendsData(C.BY_ID.ulgenChat));
+  const tr = JSON.parse(read('locales/tr.json'));
+  const missing = C.ITEMS.filter((it) => !(it.label ? tr[it.label] && tr[it.label + 'Hint'] : tr['data.item.' + it.id + '.title'] && tr['data.item.' + it.id + '.desc'])).map((i) => i.id);
+  check('her öğenin başlığı ve açıklaması Türkçe dosyada var', missing.length === 0, missing.join(', '));
+}
+
+suite('Veri ve Gizlilik — onay kayıtları');
+{
+  const os = require('os');
+  const L = require('../src/main/consent-log.js');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ilgezdi-consent-'));
+  const log = L.createConsentLog({ userDataPath: dir, appVersion: '9.9.9' });
+  const first = log.ensureBaseline({ a: true, b: false });
+  check('başlangıç durumu bir kez yazılıyor', first && first.type === 'baseline' && log.ensureBaseline({ a: false }) === null);
+  const [c1, c2] = log.recordChanges([{ id: 'a', from: true, to: false }, { id: 'b', from: false, to: true }], 'data-center');
+  check('her kayıt öncekinin özetini taşıyor; sürüm ve cihaz yazılıyor', c1.prev === first.hash && c2.prev === c1.hash && c1.app === '9.9.9' && /^[0-9a-f]{32}$/.test(c1.device) && c1.seq === 1 && c2.seq === 2);
+  check('bilinmeyen kaynak "Ayarlar" sayılıyor', log.recordChanges([{ id: 'x', from: 1, to: 2 }], 'kötü')[0].source === 'settings');
+  eq('zincir sağlam', log.verify().ok, true);
+  eq('liste en yeniden eskiye, sayfalı', [log.list({ limit: 2 }).entries.map((e) => e.seq), log.list({ limit: 5, before: 2 }).entries.map((e) => e.seq), log.list().total], [[3, 2], [1, 0], 4]);
+  const file = path.join(dir, 'consent-log.jsonl');
+  const lines = fs.readFileSync(file, 'utf8').split('\n').filter(Boolean);
+  const edited = lines.slice(); edited[1] = edited[1].replace('"to":false', '"to":true');
+  eq('bir kaydın değeri değiştirilirse doğrulama o satırı gösteriyor', L.verifyLines(edited), { ok: false, count: 1, brokenAt: 1 });
+  eq('aradan bir kayıt silinirse de', L.verifyLines([lines[0], lines[2], lines[3]]).brokenAt, 1);
+  const again = L.createConsentLog({ userDataPath: dir, appVersion: '9.9.9' });
+  const c5 = again.recordChanges([{ id: 'a', from: false, to: true }], 'reset')[0];
+  check('yeniden açılınca zincir kaldığı yerden sürüyor, cihaz kimliği aynı', c5.seq === 4 && c5.prev === JSON.parse(lines[3]).hash && c5.device === c1.device && again.verify().ok);
+  const ex = again.exportData();
+  check('dışa aktarımda doğrulama sonucu ve tüm kayıtlar', ex.format === 'ilgezdi-consent-log' && ex.entries.length === 5 && ex.verify.ok === true);
+  fs.rmSync(dir, { recursive: true, force: true });
+}
+
+suite('Veri ve Gizlilik — ana süreç ve arayüz bağlantıları');
+{
+  const mj = read('main/main.js');
+  check('izinler ana sürece ait; Ayarlar\'ın Kaydet\'i Ülgen izinlerini ya da tanılama iznini yazamıyor',
+    mj.includes("const MAIN_OWNED_KEYS = ['permissionDecisions', 'authSessionEnc', 'passwordNeverSave', 'consents'];")
+    && /ipcMain\.handle\('save-config'[\s\S]{0,700}delete incoming\.diagnosticsConsent;/.test(mj));
+  check('kaynak yalnızca "sync" ya da "settings" olabilir', mj.includes("const source = incoming.__source === 'sync' ? 'sync' : 'settings';") && mj.includes('delete incoming.__source;'));
+  check('tek izin değiştirme: geçersiz/yakında reddediliyor, üst izin kapalıyken alt izin açılamıyor, kapanınca bağlılar da kapanıyor',
+    /ipcMain\.handle\('data-center-set'[\s\S]{0,300}if \(!item \|\| item\.soon \|\| typeof value !== 'boolean'\) return \{ ok: false, error: 'invalid' \};\s*if \(value && item\.requires && !dataCatalog\.valueOf\(dataCatalog\.BY_ID\[item\.requires\], config\)\) return \{ ok: false, error: 'requires'/.test(mj)
+    && mj.includes('if (!value) for (const dep of dataCatalog.dependentsOf(id)) apply(dataCatalog.BY_ID[dep], false);')
+    && mj.includes("const source = from === 'ulgen' ? 'ulgen' : 'data-center';"));
+  check('ilk açılışta başlangıç durumu kaydediliyor (yeni kurulum / güncelleme)', mj.includes("consentLog.ensureBaseline(dataCatalog.snapshot(config), CONFIG_EXISTED_AT_START ? 'migration' : 'first-run')")
+    && mj.indexOf('const CONFIG_EXISTED_AT_START') < mj.indexOf('let config = loadConfig();'));
+  check('tanılama izni değişikliği de kayda gidiyor', /setConsent\(value, source = 'settings'\)[\s\S]{0,300}deps\?\.onConsentChange\?\.\(from, value, source\)/.test(read('main/diagnostics.js'))
+    && read('main/diagnostics.js').includes("setConsent(allow, 'diag-dialog')") && mj.includes("consentLog.recordChanges([{ id: 'diagnostics', from, to }], source)"));
+  const BC = require('../src/main/browser-commands.js');
+  check('sıfırlama paylaşım kararlarını geri açmıyor', ['consents', 'autoUpdateCheck', 'discoverFeed', 'syncSettings', 'syncBookmarks', 'diagnosticsConsent'].every((k) => BC.RESET_KEEP_KEYS.includes(k)));
+  check('güncelleme denetimi kapalıysa arka planda GitHub\'a gidilmiyor (elle denetim çalışıyor)',
+    /const backgroundCheck = \(\) => \{ if \(autoCheck\(\)\) autoUpdater\.checkForUpdates\(\)/.test(read('main/auto-updater.js'))
+    && !/setTimeout\(\(\) => \{ autoUpdater\.checkForUpdates/.test(read('main/auto-updater.js'))
+    && mj.includes("setupAutoUpdater(() => mainWindow, { autoCheck: () => config.autoUpdateCheck !== false });"));
+  check('Keşfet güncellemesi kapalıysa sunucuya gidilmiyor', /ipcMain\.handle\('discover-list', async \(\) => \{\s*\/\/[^\n]*\n\s*if \(!enabled\(\)\) return items;/.test(read('main/discover-feed.js')));
+  const smj = read('renderer/sync-manager.js');
+  check('senkron seçimlere uyuyor; kapatılan tür sunucudan temizleniyor; uzak ayar kaynağı "sync"',
+    smj.includes("settings:   settings ? pickSyncSettings(cfg) : {},") && smj.includes("bookmarks:  bookmarks ? collectBookmarks() : { cleared: true },")
+    && smj.includes("saveConfig({ ...settings, __source: 'sync' })") && smj.includes('if (choice.bookmarks && remote.bookmarks && Array.isArray(remote.bookmarks.items)) {'));
+  const app = read('renderer/app.js');
+  check('adres çubuğu geçmiş önerisi ayara bağlı', /historyOn = \(await sb\.getConfig\(\)\)\?\.omniboxHistory !== false;[\s\S]{0,80}if \(O && !isIncognito && historyOn\)/.test(app));
+  const html = read('renderer/index.html');
+  check('kenar çubuğunda sayfa düğmesi; katalog ve sayfa app.js\'ten önce yükleniyor',
+    html.includes('id="sb-data" data-screen="data"') && html.indexOf('src="data-catalog.js"') > 0 && html.indexOf('src="data-catalog.js"') < html.indexOf('src="data-center.js"') && html.indexOf('src="data-center.js"') < html.indexOf('src="app.js"'));
+  const dc = read('renderer/data-center.js');
+  check('sayfa metinleri kaçışlanıyor; anahtarlar role="switch"; kayıt satırı textContent/esc ile',
+    /role="switch"/.test(dc) && !/innerHTML = [^;]*\be\.(id|source|app)\b/.test(dc) && dc.includes('${esc(sourceText(e.source))}'));
+  check('Ayarlar › Gizlilik\'te sayfaya bağlantı', read('renderer/settings-panel.js').includes("document.getElementById('btn-open-data-center')?.addEventListener('click', () => window.ilgezdiDataCenter?.open());"));
+}
+
+suite('Sekmeler — dikey sekmeler ve etkin sekme şeridi');
+{
+  const mj = read('main/main.js');
+  check('sayfa görünümü arayüzün bildirdiği sol kenardan başlıyor (doğrulanmış)',
+    /ipcMain\.on\('ui-layout'[\s\S]{0,200}if \(!Number\.isFinite\(left\) \|\| left < 0 \|\| left > 800\) return;\s*state\.leftInset = Math\.round\(left\);/.test(mj)
+    && /function contentRect\(win, state\) \{[\s\S]{0,200}const left = Number\.isFinite\(state\.leftInset\) \? state\.leftInset : SIDEBAR_WIDTH;/.test(mj)
+    && mj.includes('tab.view.setBounds(contentRect(win, state));'));
+  check('dikey sekme ayarları boolean olarak kaydediliyor ve senkronlanıyor',
+    mj.includes("for (const k of ['verticalTabs', 'verticalTabsCollapsed']) if (k in incoming) incoming[k] = incoming[k] === true;")
+    && read('renderer/sync-manager.js').includes("'fingerprintShield', 'verticalTabs',"));
+  const app = read('renderer/app.js');
+  check('aynı sekme listesi ve düğmeler taşınıyor (olaylar korunur), sol kenar bildiriliyor',
+    /function applyTabLayout\(cfg\) \{[\s\S]{0,900}document\.getElementById\('vtabs-list'\)\?\.append\(tabs\);[\s\S]{0,120}strip\.append\(tabs, \.\.\.buttons\);[\s\S]{0,1200}reportContentLeft\(\);/.test(app)
+    && /sb\.setLayout\?\.\(\{ left: Math\.round\(area\.getBoundingClientRect\(\)\.left\) \}\)/.test(app));
+  check('dikeyde ok tuşları yukarı/aşağı da çalışıyor', app.includes("['ArrowRight', 'ArrowLeft', 'ArrowDown', 'ArrowUp', 'Home', 'End']"));
+  const css = read('renderer/styles/main.css');
+  check('etkin sekme: üstte tema renginde tek şerit; dikeyde sol kenarda; gizli pencerede mor',
+    /\.tab\.active::after \{\s*content: '';[^}]*top: 0; height: 2px;\s*background: var\(--gold\);/.test(css)
+    && /body\.vertical-tabs \.tab\.active::after \{ left: 0; right: auto; top: 6px; bottom: 6px; width: 3px;/.test(css)
+    && css.includes('[data-incognito="true"] .tab.active::after { background: #9b7cf0; }'));
+}
+
+suite('Sekmeler — sekme grupları');
+{
+  const G = require('../src/main/tab-groups.js');
+  const groupOf = (m) => (id) => m[id];
+  eq('grup sekmeleri ilk sekmenin yerinde bir araya toplanıyor', G.contiguous([1, 2, 3, 4, 5], groupOf({ 2: 'a', 4: 'a', 5: 'b' })), [1, 2, 4, 3, 5]);
+  eq('gruba eklenen sekme grubun sonuna gidiyor', G.placeInGroup([1, 2, 3, 4], groupOf({ 1: 'a', 2: 'a' }), 4, 'a'), [1, 2, 4, 3]);
+  eq('taşıma: iki komşusu aynı gruptaysa gruba giriyor', G.groupAfterMove([1, 5, 2], groupOf({ 1: 'a', 2: 'a' }), 5), 'a');
+  eq('taşıma: kendi grubuna komşu değilse gruptan çıkıyor', G.groupAfterMove([1, 2, 3, 5], groupOf({ 1: 'a', 2: 'a', 5: 'a' }), 5), null);
+  eq('taşıma: grubun ucunda kalan sekme grubunda kalıyor', G.groupAfterMove([1, 5, 3], groupOf({ 1: 'a', 5: 'a' }), 5), 'a');
+  check('yeni grup kullanılmayan rengi alıyor', G.nextColor([{ color: 'blue' }]) !== 'blue' && G.COLOR_IDS.includes(G.nextColor([])));
+  eq('ad temizleniyor ve kısaltılıyor; bilinmeyen renk gri', [G.normalizeTitle('  a\u0000b  '), G.normalizeTitle('x'.repeat(99)).length, G.normalizeColor('mor')], ['a b', 60, 'grey']);
+  const BC = require('../src/main/browser-commands.js');
+  const tabs = [
+    { url: 'https://a.com/', title: 'A', pinned: true, group: 0 },
+    { url: 'https://b.com/', title: 'B', group: 0 },
+    { url: 'https://c.com/', title: 'C' },
+  ];
+  const ses = BC.serializeSession(tabs, 1, [{ title: 'İş', color: 'red', collapsed: false }]);
+  check('oturumda gruplar ve sekmenin grup sırası; sabitli sekme grupsuz', ses.groups.length === 1 && ses.tabs[0].group === undefined && ses.tabs[1].group === 0 && ses.tabs[2].group === undefined);
+  const back = BC.parseSession(JSON.parse(JSON.stringify(ses)));
+  eq('oturum geri okunuyor', [back.groups, back.tabs.map((t) => t.group)], [[{ title: 'İş', color: 'red', collapsed: false }], [undefined, 0, undefined]]);
+  eq('bozuk grup sırası yok sayılıyor', BC.parseSession({ version: 1, tabs: [{ url: 'https://x.com/', group: 7 }], groups: [] }).tabs[0].group, undefined);
+  const menu = BC.buildTabMenuModel({ index: 0, count: 2, groups: [{ id: 'g1', title: 'İş', color: 'red' }, { id: 'g2', title: '', color: 'blue' }], groupId: 'g1', platform: 'win32' });
+  const addMenu = menu.find((i) => i.id === 'group-add-menu');
+  check('sekme menüsü: yeni grup, başka gruba ekle (kendi grubu hariç), gruptan çıkar',
+    menu.some((i) => i.id === 'group-new') && addMenu && addMenu.submenu.length === 1 && addMenu.submenu[0].arg === 'g2' && menu.some((i) => i.id === 'group-remove'));
+  check('sabitli sekmede grup öğeleri yok', !BC.buildTabMenuModel({ index: 0, count: 2, pinned: true, groups: [{ id: 'g1', title: 'x', color: 'red' }] }).some((i) => /^group-/.test(i.id || '')));
+  check('grup işlemleri IPC beyaz listesinde', ['group-new', 'group-add', 'group-remove'].every((a) => BC.TAB_ACTIONS.has(a)));
+  const mj = read('main/main.js');
+  check('daraltılan grupta etkin sekme varsa dışarıdaki en yakın sekmeye geçiliyor; dışarıda sekme yoksa daraltılmıyor',
+    /function collapseGroup\(win, state, groupId\) \{[\s\S]{0,600}if \(!outside\) return false;\s*setActiveTab\(win, state, outside\.id\);/.test(mj));
+  check('gizli gruptaki sekmeye geçilince grup açılıyor; sekmesi kalmayan grup siliniyor; sabitlenen sekme gruptan çıkıyor',
+    mj.includes('if (group && group.collapsed) group.collapsed = false;') && /state\.tabs\.delete\(tabId\);\s*pruneGroups\(state\);/.test(mj)
+    && mj.includes('if (tab.pinned) { pinnedSet.add(tabId); delete tab.groupId; }'));
+  check('grup işlemleri beyaz listeli; ad ve renk doğrulanıyor',
+    mj.includes("const GROUP_ACTIONS = new Set(['rename', 'color', 'toggle-collapse', 'new-tab', 'ungroup', 'close']);")
+    && mj.includes("case 'rename': group.title = tabGroups.normalizeTitle(value); break;") && mj.includes("case 'color': group.color = tabGroups.normalizeColor(value); break;"));
+  const app = read('renderer/app.js');
+  check('grup başlığı ve adı textContent ile yazılıyor; ad yazılırken şerit yeniden çizilse kutu korunuyor',
+    /name\.textContent = g\.title;/.test(app) && !/innerHTML[^;]*g\.title/.test(app)
+    && app.includes("if (groupRenameInput && groupRenameInput.dataset.groupId === g.id) container.appendChild(groupRenameInput);")
+    && app.includes("input.addEventListener('blur', () => { if (input.isConnected) finish(true); });"));
 }
 
 // ══════════════════════════════════════════════════════════════════════════════

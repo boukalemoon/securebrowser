@@ -86,7 +86,8 @@ function validateFeed(json) {
   return out.length ? out : null;
 }
 
-function setupDiscover(ipcMain, session) {
+function setupDiscover(ipcMain, session, opts = {}) {
+  const enabled = typeof opts.enabled === 'function' ? opts.enabled : () => true;
   let items = BUNDLED.map((b) => validateItem(b));
   let fetchedAt = 0;
   let inFlight = null;
@@ -100,6 +101,8 @@ function setupDiscover(ipcMain, session) {
   }
 
   ipcMain.handle('discover-list', async () => {
+    // Veri ve Gizlilik › "Keşfet listesini güncelle" kapalı: sunucuya hiç gidilmez.
+    if (!enabled()) return items;
     if (Date.now() - fetchedAt > REFRESH_MS && !inFlight) {
       fetchedAt = Date.now();
       inFlight = refresh().catch(() => {}).finally(() => { inFlight = null; });

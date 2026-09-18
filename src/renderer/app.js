@@ -215,12 +215,23 @@ function renderTabs(tabs) {
   if (!container) return;
   // Klavye odağı bir sekmedeyse yeniden çizimden sonra aynı sekmeye geri verilir.
   const focusedId = document.activeElement?.closest?.('.tab')?.dataset.id;
+  const renamingFocused = !!groupRenameInput && document.activeElement === groupRenameInput;
   container.innerHTML = '';
 
+  let prevGroup = null;
   tabs.forEach(tab => {
+    // Grup başlığı grubun ilk sekmesinden önce; daraltılmış grubun sekmeleri çizilmez.
+    const g = tab.group;
+    if (g && g.id !== prevGroup) {
+      if (groupRenameInput && groupRenameInput.dataset.groupId === g.id) container.appendChild(groupRenameInput);
+      else container.appendChild(buildGroupChip(g, tabs.filter((t) => t.group && t.group.id === g.id).length));
+    }
+    prevGroup = g ? g.id : null;
+    if (g && g.collapsed && !tab.isActive) return;
     const label = tab.title || tab.url || T('tab.new');
     const el = document.createElement('div');
-    el.className = 'tab' + (tab.isActive ? ' active' : '') + (tab.pinned ? ' pinned' : '') + (tab.sleeping ? ' sleeping' : '');
+    el.className = 'tab' + (tab.isActive ? ' active' : '') + (tab.pinned ? ' pinned' : '') + (tab.sleeping ? ' sleeping' : '') + (g ? ' in-group' : '');
+    if (g) el.style.setProperty('--group-color', g.hex);
     el.dataset.id = tab.id;
     el.draggable = true;
     // Sabitlenmiş sekme yalnızca alan adının baş harfini gösterir; adı ekran okuyucu için etikette.
@@ -261,6 +272,8 @@ function renderTabs(tabs) {
     title.className = 'tab-title';
     title.textContent = label;
     title.title = tab.url || '';
+    // Daraltılmış dikey sekmelerde yalnızca simge görünür: ad ipucunda.
+    el.title = label;
 
     const closeBtn = document.createElement('button');
     closeBtn.className = 'tab-close';
@@ -298,13 +311,14 @@ function renderTabs(tabs) {
       } else if (e.key === 'Enter' || e.key === ' ') {
         e.preventDefault();
         el.click();
-      } else if (['ArrowRight', 'ArrowLeft', 'Home', 'End'].includes(e.key)) {
+      } else if (['ArrowRight', 'ArrowLeft', 'ArrowDown', 'ArrowUp', 'Home', 'End'].includes(e.key)) {
         e.preventDefault();
         const all = [...container.querySelectorAll('.tab')];
         const i = all.indexOf(el);
+        const next = e.key === 'ArrowRight' || e.key === 'ArrowDown';
         const target = e.key === 'Home' ? all[0]
           : e.key === 'End' ? all[all.length - 1]
-          : all[(i + (e.key === 'ArrowRight' ? 1 : -1) + all.length) % all.length];
+          : all[(i + (next ? 1 : -1) + all.length) % all.length];
         target?.focus();
       }
     });
@@ -339,6 +353,149 @@ function renderTabs(tabs) {
     container.appendChild(el);
     if (focusedId && String(tab.id) === focusedId) el.focus();
   });
+  if (renamingFocused && groupRenameInput?.isConnected) groupRenameInput.focus();
+  if (pendingGroupRename && container.querySelector(`.tab-group-chip[data-group-id="${CSS.escape(pendingGroupRename)}"]`)) {
+    const id = pendingGroupRename;
+    pendingGroupRename = null;
+    startGroupRename(id);
+  }
+}
+
+// ─── Sekme grupları: başlık (renkli), daralt/aç, menü, ad ────────────────────
+let groupRenameInput = null;     // ad yazılırken şerit yeniden çizilse de kutu korunur
+let pendingGroupRename = null;   // yeni grup: başlık çizilince ad kutusu açılır
+
+function groupDisplayName(g) {
+  return g.title || T('tabGroup.untitled', { color: T('tabGroup.color.' + g.color) });
+}
+
+function buildGroupChip(g, count) {
+  const chip = document.createElement('button');
+  chip.type = 'button';
+  chip.className = 'tab-group-chip' + (g.collapsed ? ' collapsed' : '') + (g.title ? '' : ' untitled');
+  chip.dataset.groupId = g.id;
+  chip.dataset.title = g.title || '';
+  chip.style.setProperty('--group-color', g.hex);
+  chip.tabIndex = -1;
+  const label = T('tabGroup.chipLabel', { name: groupDisplayName(g), count });
+  chip.title = label;
+  chip.setAttribute('aria-label', label);
+  chip.setAttribute('aria-expanded', g.collapsed ? 'false' : 'true');
+  if (g.title) {
+    const name = document.createElement('span');
+    name.className = 'tab-group-name';
+    name.textContent = g.title;
+    chip.appendChild(name);
+  }
+  if (g.collapsed) {
+    const n = document.createElement('span');
+    n.className = 'tab-group-count';
+    n.textContent = String(count);
+    chip.appendChild(n);
+  }
+  chip.addEventListener('click', () => sb.tabGroups?.action(g.id, 'toggle-collapse'));
+  chip.addEventListener('contextmenu', (e) => { e.preventDefault(); sb.tabGroups?.menu(g.id); });
+  chip.addEventListener('keydown', (e) => {
+    if (e.key === 'F2') { e.preventDefault(); startGroupRename(g.id); }
+    else if (e.key === 'ContextMenu' || (e.shiftKey && e.key === 'F10')) { e.preventDefault(); sb.tabGroups?.menu(g.id); }
+  });
+  // Sekmeyi başlığın üstüne bırakmak onu gruba ekler.
+  chip.addEventListener('dragover', (e) => {
+    if (![...e.dataTransfer.types].includes('text/ilgezdi-tab')) return;
+    e.preventDefault();
+    chip.classList.add('drop');
+  });
+  chip.addEventListener('dragleave', () => chip.classList.remove('drop'));
+  chip.addEventListener('drop', (e) => {
+    chip.classList.remove('drop');
+    const id = Number(e.dataTransfer.getData('text/ilgezdi-tab'));
+    if (!id) return;
+    e.preventDefault();
+    sb.tabs?.addToGroup(id, g.id);
+  });
+  return chip;
+}
+
+function startGroupRename(groupId) {
+  const chip = document.querySelector(`.tab-group-chip[data-group-id="${CSS.escape(groupId)}"]`);
+  if (!chip) { pendingGroupRename = groupId; return; }
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'tab-group-input';
+  input.maxLength = 60;
+  input.value = chip.dataset.title || '';
+  input.placeholder = T('tabGroup.namePlaceholder');
+  input.setAttribute('aria-label', T('tabGroup.namePlaceholder'));
+  input.dataset.groupId = groupId;
+  input.style.setProperty('--group-color', chip.style.getPropertyValue('--group-color'));
+  input.spellcheck = false;
+  let done = false;
+  const finish = (save) => {
+    if (done) return;
+    done = true;
+    groupRenameInput = null;
+    if (save) sb.tabGroups?.action(groupId, 'rename', input.value);
+    else renderTabs(currentTabs);
+  };
+  input.addEventListener('keydown', (e) => {
+    e.stopPropagation();
+    if (e.key === 'Enter') { e.preventDefault(); finish(true); }
+    else if (e.key === 'Escape') { e.preventDefault(); finish(false); }
+  });
+  // Şerit yeniden çizilirken kutu bir an DOM'dan çıkar; o sırada gelen blur kaydetmesin.
+  input.addEventListener('blur', () => { if (input.isConnected) finish(true); });
+  input.addEventListener('dragstart', (e) => e.preventDefault());
+  groupRenameInput = input;
+  chip.replaceWith(input);
+  input.focus();
+  input.select();
+}
+
+// ─── Sekme konumu: üstte ya da yanda ─────────────────────────────────────────
+// Dikey sekmelerde sekme listesi ve sekme düğmeleri (yeni sekme, sekmelerde ara, konum)
+// kenar çubuğunun yanındaki sütuna taşınır; aynı öğeler taşındığı için olaylar korunur.
+// Sayfa görünümü arayüzün üstünde çizildiği için içerik alanının yeni sol kenarı ana
+// sürece bildirilir (ui-layout).
+function reportContentLeft() {
+  requestAnimationFrame(() => {
+    const area = document.getElementById('content-area');
+    if (area) sb.setLayout?.({ left: Math.round(area.getBoundingClientRect().left) });
+  });
+}
+
+function applyTabLayout(cfg) {
+  const vertical = !!cfg && cfg.verticalTabs === true;
+  const collapsed = vertical && cfg.verticalTabsCollapsed === true;
+  document.body.classList.toggle('vertical-tabs', vertical);
+  document.body.classList.toggle('vtabs-collapsed', collapsed);
+  const strip = document.querySelector('.tab-strip');
+  const column = document.getElementById('vtabs');
+  const tabs = document.getElementById('tabs-container');
+  const buttons = ['btn-new-tab', 'btn-tab-search', 'btn-tab-layout'].map((id) => document.getElementById(id)).filter(Boolean);
+  if (strip && column && tabs) {
+    column.hidden = !vertical;
+    if (vertical) {
+      document.getElementById('vtabs-head')?.append(...buttons);
+      document.getElementById('vtabs-list')?.append(tabs);
+    } else {
+      strip.append(tabs, ...buttons);
+    }
+    tabs.setAttribute('aria-orientation', vertical ? 'vertical' : 'horizontal');
+  }
+  const layoutBtn = document.getElementById('btn-tab-layout');
+  if (layoutBtn) {
+    const label = T(vertical ? 'ui.tabsToTop' : 'ui.tabsToSide');
+    layoutBtn.title = label;
+    layoutBtn.setAttribute('aria-label', label);
+  }
+  const collapseBtn = document.getElementById('btn-vtabs-collapse');
+  if (collapseBtn) {
+    const label = T(collapsed ? 'ui.vtabsExpand' : 'ui.vtabsCollapse');
+    collapseBtn.title = label;
+    collapseBtn.setAttribute('aria-label', label);
+    collapseBtn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+  }
+  reportContentLeft();
 }
 
 // ─── Adres Çubuğu ────────────────────────────────────────────────────────────
@@ -1819,6 +1976,26 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   document.getElementById('btn-new-tab')?.addEventListener('click', openNewTab);
 
+  // Sekme konumu (üstte / yanda). Hemen uygulanır ve kaydedilir; Ayarlar'dan da seçilir.
+  applyTabLayout(currentConfig);
+  document.getElementById('btn-tab-layout')?.addEventListener('click', async () => {
+    const vertical = !document.body.classList.contains('vertical-tabs');
+    currentConfig = await sb.saveConfig({ verticalTabs: vertical }) || { ...currentConfig, verticalTabs: vertical };
+    applyTabLayout(currentConfig);
+    window.ilgezdiSync?.schedulePush?.();
+  });
+  document.getElementById('btn-vtabs-collapse')?.addEventListener('click', async () => {
+    const collapsed = !document.body.classList.contains('vtabs-collapsed');
+    currentConfig = await sb.saveConfig({ verticalTabsCollapsed: collapsed }) || { ...currentConfig, verticalTabsCollapsed: collapsed };
+    applyTabLayout(currentConfig);
+  });
+  window.addEventListener('ilgezdi-settings-saved', async () => { currentConfig = await sb.getConfig(); applyTabLayout(currentConfig); });
+  window.addEventListener('ilgezdi-sync-applied', async () => { currentConfig = await sb.getConfig(); applyTabLayout(currentConfig); });
+  window.addEventListener('resize', reportContentLeft);
+  document.getElementById('vtabs-list')?.addEventListener('dblclick', (e) => {
+    if (!e.target.closest('.tab')) openNewTab();
+  });
+
   // Tab strip çift tıklama → yeni sekme
   document.querySelector('.tab-strip')?.addEventListener('dblclick', (e) => {
     if (e.target.closest('.tab') || e.target.closest('#btn-new-tab')) return;
@@ -1855,7 +2032,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (!typed) { hideSuggestions(); return; }
     const O = window.ilgezdiOmnibox;
     let items = [];
-    if (O && !isIncognito) {
+    // Veri ve Gizlilik › "Adres çubuğunda geçmişten öneriler" kapalıysa yalnızca arama satırı.
+    let historyOn = true;
+    try { historyOn = (await sb.getConfig())?.omniboxHistory !== false; } catch {}
+    if (O && !isIncognito && historyOn) {
       let history = [];
       try { history = (await sb.logs.search({ text: typed, limit: 120 }))?.items || []; } catch {}
       let bookmarks = [];
@@ -1945,6 +2125,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         showScreen('discover', renderDiscoverPage).then(initDiscoverPage);
       } else if (screen === 'feedback') {
         showScreen('feedback', renderFeedbackPage).then(initFeedbackPage);
+      } else if (screen === 'data' && window.ilgezdiDataCenter) {
+        showScreen('data', window.ilgezdiDataCenter.render).then(window.ilgezdiDataCenter.init);
       } else {
         showScreen(screen, () => `
           <div class="page fade-up">
@@ -1970,6 +2152,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // ── Main process güncellemeleri ───────────────────────────────────────────
   sb.onTabsUpdate((tabs) => renderTabs(tabs));
+  sb.tabGroups?.onRename?.(({ groupId } = {}) => { if (groupId) startGroupRename(String(groupId)); });
   sb.passwords?.onSaveOffer?.(showPasswordOffer);
   sb.passwords?.onGeneratedSaved?.(showGeneratedPasswordSaved);
   document.getElementById('pw-offer')?.addEventListener('click', (e) => {

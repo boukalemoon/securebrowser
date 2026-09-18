@@ -17,6 +17,7 @@
 'use strict';
 
 const { T } = require('./i18n');
+const tabGroups = require('./tab-groups');
 
 const isWebUrl = (u) => /^https?:\/\//i.test(String(u || ''));
 
@@ -307,6 +308,7 @@ function finalizeMenu(items, platform = process.platform) {
     ...it,
     label: escapeAmp ? String(it.label).replace(/&/g, '&&') : String(it.label),
     enabled: it.enabled !== false,
+    ...(Array.isArray(it.submenu) ? { submenu: finalizeMenu(it.submenu.slice(), platform) } : {}),
   }));
 }
 
@@ -486,12 +488,27 @@ function orderAfterPin(ids, pinnedSet, tabId) {
 const TAB_ACTIONS = Object.freeze(new Set([
   'new-tab-right', 'reload', 'duplicate', 'pin', 'unpin', 'mute', 'unmute', 'toggle-mute',
   'move', 'close', 'close-others', 'close-right', 'reopen-closed',
+  'group-new', 'group-add', 'group-remove',
 ]));
 
-function buildTabMenuModel({ index, count, pinned, muted, canReopen, platform } = {}) {
+/**
+ * groups: [{ id, title, color }] mevcut gruplar; groupId: sekmenin grubu.
+ * Gruba ekleme alt menüsü: { id: 'group-add', arg: grupId }.
+ */
+function buildTabMenuModel({ index, count, pinned, muted, canReopen, platform, groups = [], groupId = null } = {}) {
+  const others = groups.filter((g) => g.id !== groupId);
+  const groupItems = pinned ? [] : [
+    { id: 'group-new', label: T('tabMenu.groupNew') },
+    ...(others.length ? [{ id: 'group-add-menu', label: T('tabMenu.groupAdd'), submenu: others.map((g) => ({
+      id: 'group-add', arg: g.id, label: g.title || T('tabGroup.untitled', { color: T('tabGroup.color.' + g.color) }),
+    })) }] : []),
+    ...(groupId ? [{ id: 'group-remove', label: T('tabMenu.groupRemove') }] : []),
+    { type: 'separator' },
+  ];
   const items = [
     { id: 'new-tab-right', label: T('tabMenu.newTabRight') },
     { type: 'separator' },
+    ...groupItems,
     { id: 'reload', label: T('menu.reload') },
     { id: 'duplicate', label: T('tabMenu.duplicate') },
     { id: pinned ? 'unpin' : 'pin', label: pinned ? T('tabMenu.unpin') : T('tabMenu.pin') },
@@ -516,10 +533,11 @@ const SESSION_TABS_MAX = 100;
 /**
  * Kaydedilecek oturum. Yalnızca web sekmeleri; gezinme girdilerinden yalnızca
  * adres ve başlık tutulur (pageState form içerikleri taşıyabilir, diske yazılmaz).
- * @param {Array<{url, title, pinned, entries, index}>} tabs  pencere sırasıyla
+ * @param {Array<{url, title, pinned, entries, index, group}>} tabs  pencere sırasıyla
  * @param {number} activeIndex
+ * @param {Array<{title, color, collapsed}>} [groups]  sekme grupları; tab.group bu listedeki sıra
  */
-function serializeSession(tabs, activeIndex) {
+function serializeSession(tabs, activeIndex, groups) {
   const out = [];
   let active = 0;
   (Array.isArray(tabs) ? tabs : []).forEach((t, i) => {
@@ -532,9 +550,12 @@ function serializeSession(tabs, activeIndex) {
       pinned: !!t.pinned,
       entries: snap.entries ? snap.entries.map((e) => ({ url: String(e.url), title: String(e.title || '').slice(0, 300) })) : null,
       index: snap.entries ? snap.index : undefined,
+      group: !t.pinned && Number.isInteger(t.group) ? t.group : undefined,
     });
   });
-  return { version: SESSION_VERSION, savedAt: Date.now(), activeIndex: out.length ? active : 0, tabs: out };
+  const session = { version: SESSION_VERSION, savedAt: Date.now(), activeIndex: out.length ? active : 0, tabs: out };
+  if (Array.isArray(groups) && groups.length) session.groups = groups;
+  return session;
 }
 
 /** Diskten okunan oturumu doğrular; kullanılabilir sekme yoksa null. */
@@ -542,6 +563,7 @@ function parseSession(raw) {
   if (!raw || typeof raw !== 'object' || raw.version !== SESSION_VERSION || !Array.isArray(raw.tabs)) return null;
   const tabs = [];
   let activeIndex = 0;
+  const groups = tabGroups.parseGroups(raw.groups);
   raw.tabs.forEach((t, i) => {
     if (!t || !isWebUrl(t.url) || tabs.length >= SESSION_TABS_MAX) return;
     const entries = Array.isArray(t.entries)
@@ -556,12 +578,13 @@ function parseSession(raw) {
       pinned: t.pinned === true,
       entries: entries.length ? entries : null,
       index: entries.length ? index : undefined,
+      group: t.pinned !== true && Number.isInteger(t.group) && t.group >= 0 && t.group < groups.length ? t.group : undefined,
     });
   });
   if (!tabs.length) return null;
   // Sabitli sekmeler her zaman önde (bozuk ya da elle düzenlenmiş dosyaya karşı).
   const ordered = [...tabs.filter((t) => t.pinned), ...tabs.filter((t) => !t.pinned)];
-  return { activeIndex: ordered.indexOf(tabs[activeIndex]), tabs: ordered };
+  return { activeIndex: ordered.indexOf(tabs[activeIndex]), tabs: ordered, groups };
 }
 
 // ─── Sekme uyutma ─────────────────────────────────────────────────────────────
@@ -592,9 +615,12 @@ function shouldSleepTab(tab, { now, minutes, active }) {
 // kaydetme" listesi, tanılama izni, son VPN profili, indirme klasörü ve eski günlük
 // senkron sunucusu. Görünüm, arama, başlangıç, gizlilik, engelleyici istisnaları ve site
 // izinleri varsayılana döner. Yer imleri, geçmiş ve şifreler config.json'da değildir.
+// Veri ve Gizlilik'teki paylaşım kararları da korunur: sıfırlama, kullanıcının kapattığı bir
+// veri gönderimini sessizce yeniden açmamalı (onay kayıtları ayrı dosyada, zaten silinmez).
 const RESET_KEEP_KEYS = Object.freeze([
   'authSessionEnc', 'passwordNeverSave', 'diagnosticsConsent', 'vpnLastProfileId', 'downloadFolder',
   'logSyncServer', 'syncEnabled', 'syncServerUrl', 'syncApiKey',
+  'consents', 'autoUpdateCheck', 'discoverFeed', 'syncSettings', 'syncBookmarks',
 ]);
 
 function resetConfig(current, defaults) {

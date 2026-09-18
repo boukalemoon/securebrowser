@@ -22,7 +22,7 @@
     'fingerprintProtection', 'httpsOnly', 'doNotTrack', 'userAgentRotation',
     'notifications', 'askDownloadLocation', 'blockLevel', 'whitelist',
     'globalPrivacyControl', 'cleanLinks', 'blockAutoplay', 'clearSiteDataOnExit', 'clearHistoryOnExit',
-    'fingerprintShield',
+    'fingerprintShield', 'verticalTabs',
   ];
   const PUSH_DEBOUNCE_MS = 4000;
 
@@ -83,8 +83,15 @@
     return r;
   }
 
+  // Veri ve Gizlilik › QRtım hesabı: kullanıcı neyin senkronlanacağını seçer (varsayılan açık).
+  async function syncChoices() {
+    const cfg = await window.secureBrowser?.getConfig() || {};
+    return { cfg, settings: cfg.syncSettings !== false, bookmarks: cfg.syncBookmarks !== false };
+  }
+
   async function pull() {
     if (!_ctx) return { applied: false };
+    const choice = await syncChoices();
     const r = await req('GET', `?user_id=eq.${_ctx.userId}&select=settings,bookmarks,updated_at`);
     if (!r?.ok) return { applied: false };
     const rows = await r.json();
@@ -96,13 +103,14 @@
     if (localChangedAt() > (Date.parse(remote.updated_at) || 0)) return { applied: false, localNewer: true };
 
     // Ayarları uygula (yalnızca senkron anahtarları — cihaz ayarlarına dokunma)
-    const settings = pickSyncSettings(remote.settings);
+    const settings = choice.settings ? pickSyncSettings(remote.settings) : {};
     if (Object.keys(settings).length) {
-      await window.secureBrowser?.saveConfig(settings);
+      // __source: onay kayıtlarında değişikliğin senkrondan geldiği yazılır.
+      await window.secureBrowser?.saveConfig({ ...settings, __source: 'sync' });
     }
 
-    // Yer imlerini uygula
-    if (remote.bookmarks && Array.isArray(remote.bookmarks.items)) {
+    // Yer imlerini uygula (kapatılan senkronda sunucuda yalnızca { cleared } kalır, uygulanmaz)
+    if (choice.bookmarks && remote.bookmarks && Array.isArray(remote.bookmarks.items)) {
       try {
         localStorage.setItem('ilgezdi-bm-folders', JSON.stringify(remote.bookmarks.folders || []));
         localStorage.setItem('ilgezdi-bm-items',   JSON.stringify(remote.bookmarks.items));
@@ -118,11 +126,12 @@
     if (!_ctx || _busy) return { pushed: false };
     _busy = true;
     try {
-      const cfg = await window.secureBrowser?.getConfig();
+      const { cfg, settings, bookmarks } = await syncChoices();
+      // Kapatılan tür sunucudan da temizlenir: hesaptaki eski kopya kalmaz.
       const r = await req('POST', '', {
         user_id:    _ctx.userId,
-        settings:   pickSyncSettings(cfg),
-        bookmarks:  collectBookmarks(),
+        settings:   settings ? pickSyncSettings(cfg) : {},
+        bookmarks:  bookmarks ? collectBookmarks() : { cleared: true },
         updated_at: new Date().toISOString(),
       });
       return { pushed: !!r?.ok };

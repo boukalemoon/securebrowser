@@ -44,6 +44,10 @@
       <button class="tab-add" id="btn-tab-search" title="Sekmelerde ara (Ctrl+Shift+A)" aria-label="Sekmelerde ara" data-i18n-title="ui.tabSearch" data-i18n-aria-label="ui.tabSearchLabel">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
       </button>
+      <!-- Sekme konumu: üstte ↔ yanda (app.js → applyTabLayout; düğmeler dikey sütuna taşınır) -->
+      <button class="tab-add" id="btn-tab-layout" title="Sekmeleri yana al" aria-label="Sekmeleri yana al" data-i18n-title="ui.tabsToSide" data-i18n-aria-label="ui.tabsToSide">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/><path d="M5.5 8h1.5M5.5 11h1.5M5.5 14h1.5"/></svg>
+      </button>
     </div>
 
     <!-- Sağ: VPN durumu + Windows pencere kontrolleri -->
@@ -211,6 +215,10 @@
       <button class="sidebar-btn" id="btn-shield" title="Koruma Durumu" data-i18n-title="ui.shield">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 5-4 8-8 9-4-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/></svg>
       </button>
+      <!-- Veri ve Gizlilik sayfası (data-center.js): izinler ve onay kayıtları -->
+      <button class="sidebar-btn" id="sb-data" data-screen="data" title="Veri ve Gizlilik" aria-label="Veri ve Gizlilik" data-i18n-title="ui.dataCenter" data-i18n-aria-label="ui.dataCenter">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="3"/><circle cx="12" cy="10" r="2.5"/><path d="M12 12.5V16.5"/></svg>
+      </button>
       <!-- id="btn-blocker" — blocker-panel.js bu butonu yönetir -->
       <button class="sidebar-btn" id="btn-blocker" title="Reklam ve İzleyici Engelleme" data-i18n-title="ui.blocker">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M4.93 4.93l14.14 14.14"/></svg>
@@ -236,6 +244,18 @@
         </button>
       </div>
 
+    </aside>
+
+    <!-- ── Dikey sekmeler (Ayarlar › Özelleştir › Sekme konumu ya da sekme şeridindeki düğme) ──
+         Açıkken #tabs-container ve sekme düğmeleri buraya taşınır (app.js → applyTabLayout). -->
+    <aside id="vtabs" class="vtabs" hidden>
+      <div class="vtabs-head" id="vtabs-head"></div>
+      <div class="vtabs-list" id="vtabs-list"></div>
+      <div class="vtabs-foot">
+        <button class="tab-add" id="btn-vtabs-collapse" title="Daralt" aria-label="Daralt" data-i18n-title="ui.vtabsCollapse" data-i18n-aria-label="ui.vtabsCollapse">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>
+        </button>
+      </div>
     </aside>
 
     <!-- ── İçerik + Paneller ──────────────────────────────── -->
@@ -391,6 +411,9 @@
 <!-- a11y: panellerin sonradan ürettiği simge düğmelerine de erişilebilir ad verir -->
 <script src="a11y.js"></script>
 <script src="omnibox.js"></script>
+<!-- Veri ve Gizlilik: ortak izin kataloğu + sayfa (app.js'teki 'data' ekranı kullanır) -->
+<script src="data-catalog.js"></script>
+<script src="data-center.js"></script>
 <script src="info-cards.js"></script>
 <script src="app.js"></script>
 <script src="vpn-panel.js"></script>
