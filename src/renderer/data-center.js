@@ -64,7 +64,7 @@
       `<button type="button" class="dc-jump-btn" data-target="dc-sec-${k}">${TH('data.sec.' + k)}</button>`).join('');
     const ulgenFoot = `
       <div class="dc-ulgen-foot">
-        <p class="dc-callout" id="dc-ulgen-status">${TH('data.ulgen.notConnected')}</p>
+        <p class="dc-callout" id="dc-ulgen-status">${TH('data.ulgen.local')}</p>
         <div class="dc-stored">
           <div>
             <div class="dc-stored-title">${TH('data.ulgen.stored')}</div>
@@ -283,7 +283,7 @@
     if (item && (item.section === 'account' || item.section === 'sites')) window.ilgezdiSync?.schedulePush?.();
     window.dispatchEvent(new CustomEvent('ilgezdi-data-changed', { detail: { changes: r.changes } }));
     toast(T('data.saved'));
-    await Promise.all([loadLog(true), refreshVerify()]);
+    await Promise.all([loadLog(true), refreshVerify(), refreshUlgenData()]);
   }
 
   function bind() {
@@ -307,6 +307,13 @@
         return;
       }
       if (e.target.closest?.('#dc-log-more')) { loadLog(false); return; }
+      if (e.target.closest?.('#dc-ulgen-delete')) {
+        let r = null;
+        try { r = await sb().ulgen?.veriSil?.(); } catch {}
+        if (r && r.ok) toast(T('data.ulgen.deleted')); else toast(T('data.saveFailed'), 'error');
+        await refreshUlgenData();
+        return;
+      }
       if (e.target.closest?.('#dc-log-verify')) { await refreshVerify(); return; }
       if (e.target.closest?.('#dc-log-export')) {
         let r = null;
@@ -317,11 +324,25 @@
     });
   }
 
+  // Ülgen'in bu cihazda sakladığı veriler (şu an yalnızca ilgi etiketleri; main/ulgen-motor.js).
+  async function refreshUlgenData() {
+    const value = document.getElementById('dc-ulgen-stored');
+    const del = document.getElementById('dc-ulgen-delete');
+    if (!value || !del) return;
+    let d = null;
+    try { d = await sb().ulgen?.veri?.(); } catch { d = null; }
+    const tags = Array.isArray(d && d.ilgi) ? d.ilgi : [];
+    value.textContent = tags.length
+      ? T('data.ulgen.storedTags', { count: tags.length, tags: tags.slice(0, 8).map((t) => t.etiket).join(', ') })
+      : T('data.ulgen.storedNone');
+    del.disabled = !tags.length;
+  }
+
   async function init() {
     bind();
     try { state = await sb().dataCenter.state(); } catch { state = null; }
     applyValues();
-    await Promise.all([loadLog(true), refreshVerify()]);
+    await Promise.all([loadLog(true), refreshVerify(), refreshUlgenData()]);
     const target = pendingSection;
     pendingSection = null;
     if (target) document.getElementById('dc-sec-' + target)?.scrollIntoView({ block: 'start' });

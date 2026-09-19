@@ -9,7 +9,8 @@
  *  - config:  config.json'daki bir anahtar. `on`/`off` varsa anahtar metin değer taşır
  *             (ör. startupMode: 'restore' / 'homepage').
  *  - consent: yalnızca bu sayfada verilen izin; config.consents içinde, ana süreç yazar.
- *  - soon:    henüz olmayan senkron türleri; anahtar kapalı ve dokunulamaz görünür.
+ *  - soon:    henüz olmayan izinler (senkron türleri, Ülgen hesap/öneri/geliştirme); anahtar
+ *             kapalı ve dokunulamaz görünür, değeri kayda girmez.
  *
  * dest: verinin gittiği yer (rozet) — device | ilgezdi | github | qrtim | ulgen.
  * requires: üst izin kapalıyken bu izin açılamaz; üst izin kapanınca bu da kapanır.
@@ -42,14 +43,15 @@
     { id: 'syncPasswords',       section: 'account', soon: true,                                 dest: 'qrtim' },
     { id: 'syncHistory',         section: 'account', soon: true,                                 dest: 'qrtim' },
     { id: 'syncTabs',            section: 'account', soon: true,                                 dest: 'qrtim' },
-    // Ülgen — hepsi varsayılan kapalı
-    { id: 'ulgenChat',           section: 'ulgen',   consent: true, def: false, dest: 'ulgen' },
-    { id: 'ulgenPage',           section: 'ulgen',   consent: true, def: false, dest: 'ulgen',  requires: 'ulgenChat' },
+    // Ülgen — hepsi varsayılan kapalı. Motor bu cihazda çalışır (main/ulgen-motor.js: ağ yok,
+    // dil modeli yok); hesap, öneri ve geliştirme izinleri motor kullanmadığı için "yakında".
+    { id: 'ulgenChat',           section: 'ulgen',   consent: true, def: false, dest: 'device' },
+    { id: 'ulgenPage',           section: 'ulgen',   consent: true, def: false, dest: 'device', requires: 'ulgenChat' },
     { id: 'ulgenHistory',        section: 'ulgen',   consent: true, def: false, dest: 'device', requires: 'ulgenChat' },
     { id: 'ulgenInterests',      section: 'ulgen',   consent: true, def: false, dest: 'device', requires: 'ulgenChat' },
-    { id: 'ulgenAccount',        section: 'ulgen',   consent: true, def: false, dest: 'qrtim',  requires: 'ulgenChat' },
-    { id: 'ulgenRecommend',      section: 'ulgen',   consent: true, def: false, dest: 'ulgen',  requires: 'ulgenInterests' },
-    { id: 'ulgenImprove',        section: 'ulgen',   consent: true, def: false, dest: 'ulgen',  requires: 'ulgenChat' },
+    { id: 'ulgenAccount',        section: 'ulgen',   soon: true,                  dest: 'qrtim' },
+    { id: 'ulgenRecommend',      section: 'ulgen',   soon: true,                  dest: 'ulgen' },
+    { id: 'ulgenImprove',        section: 'ulgen',   soon: true,                  dest: 'ulgen' },
     // Sitelere karşı korumalar (etiketler Ayarlar › Gizlilik ile aynı)
     { id: 'gpc',                 section: 'sites',   config: 'globalPrivacyControl',   def: true,  label: 'settings.identity.gpc' },
     { id: 'dnt',                 section: 'sites',   config: 'doNotTrack',             def: false, label: 'settings.identity.dnt' },

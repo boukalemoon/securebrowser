@@ -2390,14 +2390,16 @@ suite('Veri ve Gizlilik — izin kataloğu');
 {
   const C = require('../src/renderer/data-catalog.js');
   check('her öğenin bölümü geçerli, kimlikler tekil', C.ITEMS.every((it) => C.SECTIONS.includes(it.section)) && new Set(C.ITEMS.map((i) => i.id)).size === C.ITEMS.length);
-  check('Ülgen izinlerinin hepsi varsayılan kapalı ve yalnızca bu sayfadan verilir', C.ITEMS.filter((i) => i.section === 'ulgen').every((i) => i.consent && i.def === false));
+  check('Ülgen izinlerinin hepsi varsayılan kapalı ve yalnızca bu sayfadan verilir; motorun kullanmadıkları "yakında"',
+    C.ITEMS.filter((i) => i.section === 'ulgen' && !i.soon).every((i) => i.consent && i.def === false)
+    && ['ulgenAccount', 'ulgenRecommend', 'ulgenImprove'].every((id) => C.BY_ID[id].soon));
   const base = C.snapshot({});
   eq('boş yapılandırmada varsayılanlar (hata raporu henüz sorulmadı)', [base.visitLog, base.updateCheck, base.restoreSession, base.diagnostics, base.ulgenChat, base.gpc, base.dnt], [true, true, false, null, false, true, false]);
   eq('metin değerli ayar (başlangıç kipi) açık/kapalı sayılıyor', [C.valueOf(C.BY_ID.restoreSession, { startupMode: 'restore' }), C.configValue(C.BY_ID.restoreSession, true), C.configValue(C.BY_ID.restoreSession, false)], [true, 'restore', 'homepage']);
   eq('fark listesi yalnızca değişenler', C.diff(base, C.snapshot({ consents: { ulgenChat: true }, autoUpdateCheck: false })), [{ id: 'updateCheck', from: true, to: false }, { id: 'ulgenChat', from: false, to: true }]);
-  eq('sohbet izninin bağlı izinleri (dolaylı olanlar dahil)', C.dependentsOf('ulgenChat').sort(), ['ulgenAccount', 'ulgenHistory', 'ulgenImprove', 'ulgenInterests', 'ulgenPage', 'ulgenRecommend']);
+  eq('sohbet izninin bağlı izinleri', C.dependentsOf('ulgenChat').sort(), ['ulgenHistory', 'ulgenInterests', 'ulgenPage']);
   check('"yakında" öğeler anlık görüntüye girmiyor ve veri gönderen sayılmıyor', !('syncPasswords' in base) && !C.sendsData(C.BY_ID.syncPasswords));
-  check('cihazda kalanlar ve site korumaları "dışarıya bağlanan" sayılmıyor', !C.sendsData(C.BY_ID.visitLog) && !C.sendsData(C.BY_ID.gpc) && C.sendsData(C.BY_ID.updateCheck) && C.sendsData(C.BY_ID.ulgenChat));
+  check('cihazda kalanlar, yerel Ülgen ve site korumaları "dışarıya bağlanan" sayılmıyor', !C.sendsData(C.BY_ID.visitLog) && !C.sendsData(C.BY_ID.gpc) && C.sendsData(C.BY_ID.updateCheck) && !C.sendsData(C.BY_ID.ulgenChat) && !C.sendsData(C.BY_ID.ulgenPage));
   const tr = JSON.parse(read('locales/tr.json'));
   const missing = C.ITEMS.filter((it) => !(it.label ? tr[it.label] && tr[it.label + 'Hint'] : tr['data.item.' + it.id + '.title'] && tr['data.item.' + it.id + '.desc'])).map((i) => i.id);
   check('her öğenin başlığı ve açıklaması Türkçe dosyada var', missing.length === 0, missing.join(', '));
@@ -2463,6 +2465,8 @@ suite('Veri ve Gizlilik — ana süreç ve arayüz bağlantıları');
   const dc = read('renderer/data-center.js');
   check('sayfa metinleri kaçışlanıyor; anahtarlar role="switch"; kayıt satırı textContent/esc ile',
     /role="switch"/.test(dc) && !/innerHTML = [^;]*\be\.(id|source|app)\b/.test(dc) && dc.includes('${esc(sourceText(e.source))}'));
+  check('Ülgen\'in sakladığı veriler köprüden okunuyor ve siliniyor; metin textContent ile',
+    /async function refreshUlgenData\(\) \{[\s\S]{0,300}sb\(\)\.ulgen\?\.veri\?\.\(\)[\s\S]{0,400}value\.textContent = tags\.length/.test(dc) && dc.includes('sb().ulgen?.veriSil?.()'));
   check('Ayarlar › Gizlilik\'te sayfaya bağlantı', read('renderer/settings-panel.js').includes("document.getElementById('btn-open-data-center')?.addEventListener('click', () => window.ilgezdiDataCenter?.open());"));
 }
 
