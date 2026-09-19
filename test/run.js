@@ -1718,6 +1718,10 @@ suite('Keşfet — TrendTech yazılımları');
       appU.includes("const ALL_PANELS = ['settings', 'logs', 'bookmarks', 'blocker', 'shield', 'vpn', 'arku', 'ulgen', 'siteinfo', 'webpanel', 'profiles', 'notes'];")
       && appU.includes("'btn-arku', 'btn-ulgen', 'security-icon'")
       && up.includes('window.secureBrowser?.panelOpened(true);') && up.includes("window.ilgezdiCloseAllPanels?.();"));
+    check('"İnternetsiz" rozeti bir düğme; basınca ne demek olduğunu anlatan kart açılıyor',
+      up.includes('<button type="button" class="ulgen-status" id="ulgen-status" aria-expanded="false" aria-controls="ulgen-info"')
+      && up.includes('<section class="ulgen-info" id="ulgen-info" aria-labelledby="ulgen-info-title" hidden>')
+      && ['ulgen.info.deviceBody', 'ulgen.info.webBody', 'ulgen.info.offlineBody'].every((k) => up.includes(`TH('${k}')`)));
     check('izin okunana kadar giriş kapalı; panel kendisi ağa ve depolamaya dokunmuyor, yalnız dar köprüyü kullanıyor',
       up.includes('id="ulgen-ask-input" maxlength="500" disabled') && up.includes('id="ulgen-ask-send" disabled')
       && !/fetch\(|XMLHttpRequest|ipcRenderer|localStorage|sessionStorage|indexedDB/.test(up)

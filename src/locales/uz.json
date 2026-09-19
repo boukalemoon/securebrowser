@@ -1532,5 +1532,12 @@
   "notes.full": "Qaydlar chegarasiga yetildi (2000 ta qayd). Joy ochish uchun eski qaydlarni oʻchiring.",
   "notes.failed": "Amalni yakunlab boʻlmadi.",
   "data.item.syncNotes.title": "Qaydlarimni sinxronlash",
-  "data.item.syncNotes.desc": "QRtım hisobingiz orqali boshidan oxirigacha shifrlash bilan keladi."
+  "data.item.syncNotes.desc": "QRtım hisobingiz orqali boshidan oxirigacha shifrlash bilan keladi.",
+  "ulgen.localWhy": "“Internetsiz” nimani anglatadi?",
+  "ulgen.info.deviceTitle": "Shu kompyuterda ishlaydi",
+  "ulgen.info.deviceBody": "Qisqacha bayon, sahifadan topish va tarixdan qidirish kompyuteringizda bajariladi. Yozganlaringiz, sahifa matni va tarixingiz hech qanday serverga yuborilmaydi.",
+  "ulgen.info.webTitle": "Internetga chiqishni oʻzingiz hal qilasiz",
+  "ulgen.info.webBody": "Ülgen oʻz-oʻzidan internetga ulanmaydi. “Internetdan qidirish” faqat yaxshiroq soʻrov taklif qiladi; “Qidiruvni ochish” tugmasini bosganingizda qidiruv siz tanlagan qidiruv tizimida yangi varaqda ochiladi.",
+  "ulgen.info.offlineTitle": "Ulanishsiz ham ishlaydi",
+  "ulgen.info.offlineBody": "Internet uzilgan paytda ham ochiq sahifani qisqacha bayon qiladi, sahifadan topadi va tarixingizdan qidiradi."
 }

@@ -1619,5 +1619,12 @@
   "notes.full": "Limite atteinte (2 000 notes). Supprimez d’anciennes notes pour faire de la place.",
   "notes.failed": "L’opération n’a pas pu aboutir.",
   "data.item.syncNotes.title": "Synchroniser mes notes",
-  "data.item.syncNotes.desc": "Arrive avec le chiffrement de bout en bout via votre compte QRtım."
+  "data.item.syncNotes.desc": "Arrive avec le chiffrement de bout en bout via votre compte QRtım.",
+  "ulgen.localWhy": "Que signifie « Hors ligne » ?",
+  "ulgen.info.deviceTitle": "Fonctionne sur cet ordinateur",
+  "ulgen.info.deviceBody": "Les résumés, la recherche dans la page et dans l’historique se font sur votre ordinateur. Ce que vous tapez, le texte de la page et votre historique ne sont jamais envoyés à un serveur.",
+  "ulgen.info.webTitle": "Vous décidez quand aller en ligne",
+  "ulgen.info.webBody": "Ülgen ne se connecte jamais seul à Internet. « Rechercher sur le web » propose seulement une meilleure requête ; quand vous appuyez sur « Lancer la recherche », elle s’ouvre dans un nouvel onglet avec le moteur de recherche que vous avez choisi.",
+  "ulgen.info.offlineTitle": "Fonctionne sans connexion",
+  "ulgen.info.offlineBody": "Même sans Internet, Ülgen résume la page ouverte, y trouve du texte et cherche dans votre historique."
 }

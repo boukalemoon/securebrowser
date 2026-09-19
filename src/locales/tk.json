@@ -1538,5 +1538,12 @@
   "notes.full": "Ýazgy çägine ýetildi (2000 ýazgy). Ýer boşatmak üçin köne ýazgylary pozuň.",
   "notes.failed": "Amaly tamamlap bolmady.",
   "data.item.syncNotes.title": "Ýazgylarymy sinhronla",
-  "data.item.syncNotes.desc": "QRtım hasabyňyz arkaly başdan-aýak şifrlemek bilen geler."
+  "data.item.syncNotes.desc": "QRtım hasabyňyz arkaly başdan-aýak şifrlemek bilen geler.",
+  "ulgen.localWhy": "“Internetsiz” näme diýmek?",
+  "ulgen.info.deviceTitle": "Bu kompýuterde işleýär",
+  "ulgen.info.deviceBody": "Gysgaça beýan, sahypada tapmak we taryhda gözlemek kompýuteriňizde ýerine ýetirilýär. Ýazanlaryňyz, sahypanyň teksti we taryhyňyz hiç bir serwere iberilmeýär.",
+  "ulgen.info.webTitle": "Internete çykmagy özüňiz saýlaýarsyňyz",
+  "ulgen.info.webBody": "Ülgen öz-özünden internete birikmeýär. “Internetde gözle” diňe has gowy sorag teklip edýär; “Gözlegi aç” düwmesine basanyňyzda gözleg saýlan gözleg ulgamyňyzda täze tabda açylýar.",
+  "ulgen.info.offlineTitle": "Birikmesiz hem işleýär",
+  "ulgen.info.offlineBody": "Internet kesilen wagty hem açyk sahypany gysgaça beýan edýär, sahypada tapýar we taryhyňyzda gözleýär."
 }

@@ -1532,5 +1532,12 @@
   "notes.full": "Qeyd limitinə çatıldı (2000 qeyd). Yer açmaq üçün köhnə qeydləri silin.",
   "notes.failed": "Əməliyyatı tamamlamaq alınmadı.",
   "data.item.syncNotes.title": "Qeydlərimi sinxronlaşdır",
-  "data.item.syncNotes.desc": "QRtım hesabınızla başdan-başa şifrələmə ilə gələcək."
+  "data.item.syncNotes.desc": "QRtım hesabınızla başdan-başa şifrələmə ilə gələcək.",
+  "ulgen.localWhy": "“İnternetsiz” nə deməkdir?",
+  "ulgen.info.deviceTitle": "Bu kompüterdə işləyir",
+  "ulgen.info.deviceBody": "Xülasə, səhifədə tapma və tarixçədə axtarış kompüterinizdə aparılır. Yazdıqlarınız, səhifə mətni və tarixçəniz heç bir serverə göndərilmir.",
+  "ulgen.info.webTitle": "İnternetə çıxmağa siz qərar verirsiniz",
+  "ulgen.info.webBody": "Ülgen özbaşına internetə qoşulmur. “Vebdə axtar” yalnız daha yaxşı sorğu təklif edir; “Axtarışı aç” düyməsini basdıqda axtarış seçdiyiniz axtarış sistemində yeni tabda açılır.",
+  "ulgen.info.offlineTitle": "Bağlantı olmadan da işləyir",
+  "ulgen.info.offlineBody": "İnternet kəsiləndə də açıq səhifəni xülasə edir, səhifədə tapır və tarixçənizdə axtarır."
 }

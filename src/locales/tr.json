@@ -1538,5 +1538,12 @@
   "notes.full": "Not sınırına ulaşıldı (2000 not). Yer açmak için eski notları silin.",
   "notes.failed": "İşlem tamamlanamadı.",
   "data.item.syncNotes.title": "Notlarımı senkronla",
-  "data.item.syncNotes.desc": "QRtım hesabınızla uçtan uca şifreli olarak gelecek."
+  "data.item.syncNotes.desc": "QRtım hesabınızla uçtan uca şifreli olarak gelecek.",
+  "ulgen.localWhy": "“İnternetsiz” ne demek?",
+  "ulgen.info.deviceTitle": "Bu bilgisayarda çalışır",
+  "ulgen.info.deviceBody": "Özet, sayfada bulma ve geçmişte arama bilgisayarınızda yapılır. Yazdıklarınız, sayfa metni ve geçmişiniz hiçbir sunucuya gönderilmez.",
+  "ulgen.info.webTitle": "İnternete siz çıkarsınız",
+  "ulgen.info.webBody": "Ülgen kendi başına internete bağlanmaz. “Web'de ara” yalnızca daha iyi bir sorgu önerir; “Aramayı aç”a bastığınızda arama, seçtiğiniz arama motorunda yeni sekmede açılır.",
+  "ulgen.info.offlineTitle": "Bağlantı olmadan da çalışır",
+  "ulgen.info.offlineBody": "İnternet kesikken de açık sayfayı özetler, sayfada bulur ve geçmişinizde arar."
 }

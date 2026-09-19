@@ -1616,5 +1616,12 @@
   "notes.full": "Note limit reached (2,000 notes). Delete old notes to make room.",
   "notes.failed": "Couldn't complete that.",
   "data.item.syncNotes.title": "Sync my notes",
-  "data.item.syncNotes.desc": "Coming with end-to-end encryption through your QRtım account."
+  "data.item.syncNotes.desc": "Coming with end-to-end encryption through your QRtım account.",
+  "ulgen.localWhy": "What does “Offline” mean?",
+  "ulgen.info.deviceTitle": "Runs on this computer",
+  "ulgen.info.deviceBody": "Summaries, find on page and history search happen on your computer. What you type, the page text and your history are never sent to a server.",
+  "ulgen.info.webTitle": "You decide when to go online",
+  "ulgen.info.webBody": "Ülgen never connects to the internet on its own. “Search the web” only suggests a better query; when you press “Open search”, the search opens in a new tab with the search engine you chose.",
+  "ulgen.info.offlineTitle": "Works without a connection",
+  "ulgen.info.offlineBody": "Even when the internet is down, it summarizes the open page, finds text on it and searches your history."
 }

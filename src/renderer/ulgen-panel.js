@@ -48,8 +48,25 @@ function injectUlgenStyles() {
     .ulgen-rune { font-family:var(--font-rune); font-size:13px; letter-spacing:7px; color:var(--rune); opacity:.85; margin-top:2px; }
     .ulgen-status { display:inline-flex; align-items:center; gap:6px; margin-top:6px; padding:2px 9px; border-radius:999px;
       border:1px solid color-mix(in srgb, var(--success, #4ade80) 40%, var(--line)); background:color-mix(in srgb, var(--success, #4ade80) 8%, transparent);
-      font:600 10px var(--font-mono); letter-spacing:.06em; text-transform:uppercase; color:var(--ink-soft); white-space:nowrap; }
+      font:600 10px var(--font-mono); letter-spacing:.06em; text-transform:uppercase; color:var(--ink-soft); white-space:nowrap; cursor:pointer; }
     .ulgen-status::before { content:''; width:6px; height:6px; border-radius:50%; background:var(--success, #4ade80); box-shadow:0 0 6px var(--success, #4ade80); }
+    .ulgen-status svg { opacity:.7; }
+    .ulgen-status:hover, .ulgen-status[aria-expanded="true"] { border-color:color-mix(in srgb, var(--success, #4ade80) 70%, var(--line)); color:var(--ink); }
+    .ulgen-status:hover svg, .ulgen-status[aria-expanded="true"] svg { opacity:1; }
+    .ulgen-status:focus-visible { outline:2px solid var(--gold); outline-offset:2px; }
+
+    /* "İnternetsiz" ne demek: rozete basınca açılan kart */
+    .ulgen-info { flex-shrink:0; position:relative; padding:12px 12px 12px 14px; border-radius:14px; animation:ulgenIn .2s ease-out both;
+      border:1px solid color-mix(in srgb, var(--success, #4ade80) 35%, var(--line));
+      background:linear-gradient(160deg, color-mix(in srgb, var(--success, #4ade80) 7%, var(--bg-elev)), var(--bg-elev)); }
+    .ulgen-info[hidden] { display:none; }
+    .ulgen-info h3 { margin:0 28px 10px 0; font-size:13px; font-weight:700; color:var(--ink); }
+    .ulgen-info ul { margin:0; padding:0; list-style:none; display:flex; flex-direction:column; gap:10px; }
+    .ulgen-info li { display:grid; grid-template-columns:26px 1fr; gap:9px; align-items:start; }
+    .ulgen-info-icon { width:26px; height:26px; border-radius:8px; display:grid; place-items:center; color:var(--gold); background:color-mix(in srgb, var(--gold) 13%, transparent); }
+    .ulgen-info li strong { display:block; font-size:12.5px; color:var(--ink); line-height:1.35; }
+    .ulgen-info li div span { display:block; font-size:11.5px; line-height:1.5; color:var(--ink-mute); margin-top:1px; }
+    .ulgen-info .ulgen-icon-btn { position:absolute; top:6px; right:6px; }
     .ulgen-head-actions { position:relative; margin-left:auto; display:flex; align-self:flex-start; gap:2px; }
     .ulgen-icon-btn { width:28px; height:28px; border:none; background:transparent; color:var(--ink-mute); border-radius:7px; display:grid; place-items:center; cursor:pointer; }
     .ulgen-icon-btn:hover { background:var(--bg-soft); color:var(--gold); }
@@ -166,8 +183,8 @@ function injectUlgenStyles() {
 
     @keyframes ulgenIn { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:none; } }
     @keyframes ulgenSpin { to { transform:rotate(360deg); } }
-    @media (prefers-reduced-motion: reduce) { .ulgen-msg, .ulgen-msg.busy .ulgen-avatar svg, .ulgen-halo .ulgen-mark svg { animation:none; } .ulgen-chip { transition:none; } }
-    :root[data-reduce-motion] .ulgen-msg, :root[data-reduce-motion] .ulgen-msg.busy .ulgen-avatar svg, :root[data-reduce-motion] .ulgen-halo .ulgen-mark svg { animation:none; }
+    @media (prefers-reduced-motion: reduce) { .ulgen-msg, .ulgen-msg.busy .ulgen-avatar svg, .ulgen-halo .ulgen-mark svg, .ulgen-info { animation:none; } .ulgen-chip { transition:none; } }
+    :root[data-reduce-motion] .ulgen-msg, :root[data-reduce-motion] .ulgen-msg.busy .ulgen-avatar svg, :root[data-reduce-motion] .ulgen-halo .ulgen-mark svg, :root[data-reduce-motion] .ulgen-info { animation:none; }
   `;
   document.head.appendChild(s);
 }
@@ -181,6 +198,9 @@ const ULGEN_MARK = '<svg viewBox="0 0 64 64" fill="none" stroke="currentColor" s
   + '<path stroke-width="2" d="M36.5 32H51M32 36.5V51M27.5 32H13M32 27.5V13M35.2 35.2L45.4 45.4M28.8 35.2L18.6 45.4M28.8 28.8L18.6 18.6M35.2 28.8L45.4 18.6"/>'
   + '<circle cx="32" cy="32" r="1.6" fill="currentColor" stroke="none"/></svg>';
 const IKON = {
+  bilgi: '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M12 11v6M12 7.5v.01"/></svg>',
+  cihaz: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="5" width="16" height="11" rx="2"/><path d="M2 19h20"/></svg>',
+  cevrimdisi: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3l18 18"/><path d="M8.5 16.5a5 5 0 0 1 7 0"/><path d="M5 12.5a10 10 0 0 1 4.2-2.4M19 12.5a10 10 0 0 0-2.7-1.8"/><path d="M2 8.8a15 15 0 0 1 4.2-2.6M22 8.8A15 15 0 0 0 11 5"/><path d="M12 20h.01"/></svg>',
   summary: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 6h14M5 10h14M5 14h9M5 18h6"/><path d="M18 14.5l.8 1.7 1.7.8-1.7.8-.8 1.7-.8-1.7-1.7-.8 1.7-.8z"/></svg>',
   find: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h5"/><path d="M8 8h6M8 12h3"/><circle cx="16.5" cy="15.5" r="3.5"/><path d="M19 18l2.5 2.5"/></svg>',
   history: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3 2"/></svg>',
@@ -412,7 +432,7 @@ function ulgenBuildPanel() {
       <div class="ulgen-id">
         <h2 id="ulgen-title">Ülgen</h2>
         <div class="ulgen-rune" aria-hidden="true">𐰇𐰞𐰏𐰤</div>
-        <div class="ulgen-status">${TH('ulgen.local')}</div>
+        <button type="button" class="ulgen-status" id="ulgen-status" aria-expanded="false" aria-controls="ulgen-info" title="${TH('ulgen.localWhy')}">${TH('ulgen.local')}${IKON.bilgi}</button>
       </div>
       <div class="ulgen-head-actions">
         <button type="button" class="ulgen-icon-btn" id="ulgen-new" title="${TH('ulgen.newChat')}" aria-label="${TH('ulgen.newChat')}">${IKON.yeni}</button>
@@ -421,6 +441,15 @@ function ulgenBuildPanel() {
     </div>
     <div class="panel-body ulgen-body" aria-labelledby="ulgen-title">
       <div class="ulgen-scroll">
+        <section class="ulgen-info" id="ulgen-info" aria-labelledby="ulgen-info-title" hidden>
+          <h3 id="ulgen-info-title">${TH('ulgen.localWhy')}</h3>
+          <button type="button" class="ulgen-icon-btn" id="ulgen-info-close" title="${TH('common.close')}" aria-label="${TH('common.close')}">${IKON.kapat}</button>
+          <ul>
+            <li><span class="ulgen-info-icon">${IKON.cihaz}</span><div><strong>${TH('ulgen.info.deviceTitle')}</strong><span>${TH('ulgen.info.deviceBody')}</span></div></li>
+            <li><span class="ulgen-info-icon">${IKON.web}</span><div><strong>${TH('ulgen.info.webTitle')}</strong><span>${TH('ulgen.info.webBody')}</span></div></li>
+            <li><span class="ulgen-info-icon">${IKON.cevrimdisi}</span><div><strong>${TH('ulgen.info.offlineTitle')}</strong><span>${TH('ulgen.info.offlineBody')}</span></div></li>
+          </ul>
+        </section>
         <div class="ulgen-welcome hidden" id="ulgen-welcome">
           <div class="ulgen-halo"><div class="ulgen-mark">${ULGEN_MARK}</div></div>
           <h3>${TH('ulgen.greet')}</h3>
@@ -459,6 +488,15 @@ function ulgenBuildPanel() {
   });
   document.getElementById('ulgen-open-data')?.addEventListener('click', veriSayfasi);
   document.getElementById('ulgen-new')?.addEventListener('click', yeniSohbet);
+  const rozet = document.getElementById('ulgen-status');
+  const bilgi = document.getElementById('ulgen-info');
+  const bilgiGoster = (acik) => {
+    bilgi.hidden = !acik;
+    rozet.setAttribute('aria-expanded', String(acik));
+    if (acik) panel.querySelector('.ulgen-scroll').scrollTop = 0;
+  };
+  rozet.addEventListener('click', () => bilgiGoster(bilgi.hidden));
+  document.getElementById('ulgen-info-close').addEventListener('click', () => { bilgiGoster(false); rozet.focus(); });
   document.getElementById('ulgen-mode-clear')?.addEventListener('click', () => { if (ulgen.mod) modSec(ulgen.mod); });
   document.getElementById('ulgen-act-summary')?.addEventListener('click', () => gonder({ tur: 'ozet', metin: T('ulgen.act.summary') }));
   document.querySelectorAll('.ulgen-chip[data-mod]').forEach((c) => c.addEventListener('click', () => modSec(c.dataset.mod)));

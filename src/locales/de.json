@@ -1604,5 +1604,12 @@
   "notes.full": "Notizlimit erreicht (2.000 Notizen). Löschen Sie alte Notizen, um Platz zu schaffen.",
   "notes.failed": "Der Vorgang konnte nicht abgeschlossen werden.",
   "data.item.syncNotes.title": "Meine Notizen synchronisieren",
-  "data.item.syncNotes.desc": "Kommt mit Ende-zu-Ende-Verschlüsselung über Ihr QRtım-Konto."
+  "data.item.syncNotes.desc": "Kommt mit Ende-zu-Ende-Verschlüsselung über Ihr QRtım-Konto.",
+  "ulgen.localWhy": "Was bedeutet „Offline“?",
+  "ulgen.info.deviceTitle": "Läuft auf diesem Computer",
+  "ulgen.info.deviceBody": "Zusammenfassungen, die Suche auf der Seite und die Verlaufssuche laufen auf Ihrem Computer. Ihre Eingaben, der Seitentext und Ihr Verlauf werden an keinen Server gesendet.",
+  "ulgen.info.webTitle": "Sie entscheiden, wann es online geht",
+  "ulgen.info.webBody": "Ülgen verbindet sich nie von selbst mit dem Internet. „Im Web suchen“ schlägt nur eine bessere Suchanfrage vor; erst wenn Sie „Suche öffnen“ drücken, öffnet sich die Suche mit Ihrer gewählten Suchmaschine in einem neuen Tab.",
+  "ulgen.info.offlineTitle": "Funktioniert auch ohne Verbindung",
+  "ulgen.info.offlineBody": "Auch ohne Internet fasst Ülgen die geöffnete Seite zusammen, findet Text darauf und durchsucht Ihren Verlauf."
 }
