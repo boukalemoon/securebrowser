@@ -621,7 +621,8 @@ suite('Sağ tık menüsü');
   eq('data:text/html resim sayılmaz', ids(page({ mediaType: 'image', srcURL: 'data:text/html,<b>x</b>' })), ['inspect']);
 
   const sel = page({ selectionText: '  İlgezdi   tarayıcı  ', pageURL: 'https://ornek.com/' });
-  eq('seçim menüsü', ids(sel), ['copy', 'search-selection', 'inspect']);
+  eq('seçim menüsü', ids(sel), ['copy', 'search-selection', 'note-selection', 'inspect']);
+  check('gizli pencerede "Nota ekle" yok', !ids(page({ selectionText: 'x', pageURL: 'https://ornek.com/' }, { incognito: true })).includes('note-selection'));
   eq('arama etiketi sadeleşir', sel.find((i) => i.id === 'search-selection').label, '“İlgezdi tarayıcı” için ara');
   eq('sayfa menüsü', ids(page({ pageURL: 'https://ornek.com/' })), ['back', 'forward', 'reload', 'print', 'screenshot', 'view-source', 'inspect']);
   eq('video: blob adresinde de "Resim içinde resim"; açıkken çıkış; desteklenmiyorsa yok',
@@ -1714,7 +1715,7 @@ suite('Keşfet — TrendTech yazılımları');
       && idx.includes('<div id="panel-ulgen" class="side-panel hidden"></div>')
       && idx.includes('<script src="ulgen-panel.js"></script>'));
     check('panel diğer panellerle aynı akışta: açılınca sayfa görünümü daralıyor, kapanınca hepsi kapanıyor',
-      appU.includes("const ALL_PANELS = ['settings', 'logs', 'bookmarks', 'blocker', 'shield', 'vpn', 'arku', 'ulgen', 'siteinfo', 'webpanel', 'profiles'];")
+      appU.includes("const ALL_PANELS = ['settings', 'logs', 'bookmarks', 'blocker', 'shield', 'vpn', 'arku', 'ulgen', 'siteinfo', 'webpanel', 'profiles', 'notes'];")
       && appU.includes("'btn-arku', 'btn-ulgen', 'security-icon'")
       && up.includes('window.secureBrowser?.panelOpened(true);') && up.includes("window.ilgezdiCloseAllPanels?.();"));
     check('izin okunana kadar giriş kapalı; panel kendisi ağa ve depolamaya dokunmuyor, yalnız dar köprüyü kullanıyor',
@@ -2640,6 +2641,83 @@ suite('Profiller');
     /app\.on\('will-quit', \(\) => \{\s*if \(!activeProfile\.private\) return;[\s\S]{0,200}if \(!path\.basename\(dir\)\.startsWith\(profiles\.PRIVATE_PREFIX\)\) return;[\s\S]{0,300}if \(process\.platform === 'win32' && \/\["&\|<>\^%!\]\/\.test\(dir\)\) return;/.test(mj));
   const pp = read('renderer/profiles-panel.js');
   check('profil adları kaçışlanıyor', pp.includes('${esc(nameOf(me))}') && pp.includes('${esc(nameOf(p))}') && !/innerHTML[^;]*\bp\.name\b/.test(pp));
+}
+
+suite('Not defteri');
+{
+  const N = require('../src/main/notes.js');
+  let k = 0;
+  const idGen = () => 'id-' + String(++k).padStart(8, '0');
+  const a = N.createNote([], { title: ' İlk\nnot ', body: 'satır\r\nikinci' + String.fromCharCode(7) }, 1000, idGen);
+  eq('başlık tek satır; satır sonları LF; denetim karakterleri atılıyor', [a.note.title, a.note.body], ['İlk not', 'satır\nikinci']);
+  eq('yalnız http(s) bağlantı; kötü kayıtlar ve yinelenen kimlikler temizleniyor (en yenisi kalır)',
+    N.normalizeNotes({ notes: [
+      { id: 'id-aaaaaaaa', title: 'x', url: 'javascript:alert(1)', createdAt: 1, updatedAt: 1 },
+      { id: 'kötü kimlik', title: 'y', createdAt: 1, updatedAt: 1 },
+      { id: 'id-bbbbbbbb', createdAt: 0, updatedAt: 0 },
+      { id: 'id-aaaaaaaa', title: 'yeni', url: 'https://ornek.com/a', createdAt: 1, updatedAt: 5 },
+    ] }).map((n) => [n.id, n.title, n.url]),
+    [['id-aaaaaaaa', 'yeni', 'https://ornek.com/a']]);
+  const u1 = N.updateNote(a.list, a.note.id, { title: 'İlk not' }, 2000);
+  const u2 = N.updateNote(a.list, a.note.id, { body: 'değişti' }, 2000);
+  eq('değişiklik yoksa zaman damgası kıpırdamıyor', [u1.changed, u1.note.updatedAt, u2.changed, u2.note.updatedAt], [false, 1000, true, 2000]);
+  const clipNew = N.addClip(u2.list, null, { text: 'Seçilen\nmetin', url: 'https://ornek.com/yazi', title: 'Örnek Yazı' }, 3000, idGen);
+  eq('açık not yokken alıntı kaynağa bağlı yeni not açıyor',
+    [clipNew.note.title, clipNew.note.url, clipNew.note.body], ['Örnek Yazı', 'https://ornek.com/yazi', '> Seçilen\n> metin\n> — Örnek Yazı (https://ornek.com/yazi)\n']);
+  eq('önizlemede alıntı işareti ve kaynak satırı yok', N.listNotes(clipNew.list).find((n) => n.id === clipNew.note.id).snippet, 'Seçilen metin');
+  const clipAdd = N.addClip(clipNew.list, a.note.id, { text: 'ek', url: 'file:///C:/gizli.txt' }, 4000, idGen);
+  eq('açık nota ekleniyor; web dışı kaynak yazılmıyor', clipAdd.note.body, 'değişti\n\n> ek\n');
+  eq('arama Türkçe büyük/küçük harfe duyarsız, her sözcük geçmeli; en son değişen önce',
+    [N.listNotes(clipAdd.list, 'İLK').map((n) => n.id), N.listNotes(clipAdd.list, 'örnek yazı').length, N.listNotes(clipAdd.list, 'örnek yok').length, N.listNotes(clipAdd.list).map((n) => n.updatedAt)],
+    [[a.note.id], 1, 0, [4000, 3000]]);
+  const del = N.removeNote(clipAdd.list, a.note.id, 5000);
+  const tomb = del.list.find((n) => n.id === a.note.id);
+  check('silinen not içeriği boşaltılmış iz olarak kalıyor (senkron için)', tomb.deleted && !tomb.title && !tomb.body && tomb.updatedAt === 5000 && N.listNotes(del.list).length === 1);
+  const back = N.restoreNote(del.list, del.removed, 6000);
+  eq('geri al: aynı kimlik, içerik ve oluşturulma zamanı', [back.note.id, back.note.body, back.note.createdAt, N.listNotes(back.list).length], [a.note.id, 'değişti\n\n> ek\n', 1000, 2]);
+  eq('90 günden eski izler atılıyor, yenisi kalıyor', N.pruneTombstones(del.list, 5000 + 91 * 86400000).length, 1);
+  const L = [{ id: 'id-cccccccc', title: 'yerel', createdAt: 1, updatedAt: 10 }, { id: 'id-dddddddd', title: 'eski', createdAt: 1, updatedAt: 3 }];
+  const R = [{ id: 'id-cccccccc', title: 'uzak', createdAt: 1, updatedAt: 9 }, { id: 'id-dddddddd', deleted: true, createdAt: 1, updatedAt: 4 }, { id: 'id-eeeeeeee', title: 'yeni', createdAt: 2, updatedAt: 2 }];
+  eq('birleştirme: son yazan kazanır, silme yayılır, yeni notlar gelir',
+    N.mergeNotes(L, R).map((n) => [n.id, n.deleted ? 'silindi' : n.title]), [['id-cccccccc', 'yerel'], ['id-dddddddd', 'silindi'], ['id-eeeeeeee', 'yeni']]);
+  let full = [];
+  for (let i = 0; i < N.MAX_NOTES; i++) full.push({ id: 'id-' + String(i).padStart(8, '0'), title: 't', createdAt: 1, updatedAt: 1 + i });
+  full = N.normalizeNotes(full);
+  eq('en çok 2000 not', N.createNote(full, {}, 9e12, () => 'id-zzzzzzzz').error, 'full');
+  const md = N.toMarkdown({ title: 'Başlık "tırnak"', body: 'gövde\n', url: 'https://ornek.com/', createdAt: 0, updatedAt: 1000 }, 'Not');
+  check('Markdown: ön bilgi (başlık JSON kaçışlı, kaynak), başlık ve gövde',
+    md.startsWith('---\ntitle: "Başlık \\"tırnak\\""\ncreated: 1970-01-01T00:00:00.000Z\nupdated: 1970-01-01T00:00:01.000Z\nsource: "https://ornek.com/"\n---\n\n# Başlık "tırnak"\n\ngövde\n'));
+  eq('dosya adları: yasak karakterler, ayrılmış adlar, boş ad, çakışmalar',
+    [N.safeFileName('a/b:c?*.  '), N.safeFileName('CON'), N.safeFileName('  ', 'Başlıksız'), N.uniqueNames(['Not', 'not', 'Not'])],
+    ['a b c', '_CON', 'Başlıksız', ['Not', 'not (2)', 'Not (3)']]);
+
+  const mj = read('main/main.js');
+  check('notlar ziyaret günlüğüyle aynı anahtarla şifreli; anahtar hazır değilse ya da okunamazsa dosyaya yazılmıyor',
+    mj.includes("const NOTES_ENC   = path.join(USER_DATA, 'notes.enc');")
+    && /function loadNotes\(\) \{\s*if \(notesCache\) return notesCache;\s*if \(!secureLog \|\| notesUnreadable\) return null;\s*\/\/[^\n]*\n\s*if \(!secureLog\.canEncrypt && fs\.existsSync\(NOTES_ENC\)\) \{ notesUnreadable = true; return null; \}/.test(mj)
+    && /catch \(e\) \{\s*logError\('notes', e\);\s*notesUnreadable = true;\s*return null;/.test(mj)
+    && mj.includes('writeProtectedJson(NOTES_ENC, NOTES_PLAIN, notesStore.serialize(r.list))'));
+  check('yalnızca ana pencere; bağlantı yalnızca etkin sekmeden eklenir; geri al ana süreçteki kopyadan',
+    /function notesGate\(event\) \{\s*if \(!mainOnly\(event\)\) return \{ error: 'incognito' \};/.test(mj)
+    && mj.includes("{ title: p.title, body: p.body, ...(p.url === '' ? { url: '' } : {}) }")
+    && /ipcMain\.handle\('notes-restore', \(event, id\) => \{[\s\S]{0,200}const snap = notesUndo\.get\(id\);/.test(mj));
+  check('sağ tık alıntısı ana süreçte bekliyor; gizli pencereden alınmıyor',
+    /case 'note-selection': \{[\s\S]{0,120}if \(!text \|\| state !== mainState \|\| win !== mainWindow\) break;\s*notesPendingClip = \{ text, url: isWebUrl\(params\.pageURL\) \? params\.pageURL : '', title: wc\.getTitle\(\) \};/.test(mj));
+  check('dışa aktarma var olan dosyanın üstüne yazmıyor',
+    mj.includes("for (let k = 2; fs.existsSync(dir); k++) dir = path.join(parent, base + ' (' + k + ')');")
+    && mj.includes("{ encoding: 'utf8', flag: 'wx' }"));
+  const np = read('renderer/notes-panel.js');
+  check('arayüz: kullanıcı metni textContent/value ile; tek innerHTML durağan kabuk',
+    (np.match(/\.innerHTML =/g) || []).length === 1 && np.includes("title.value = r.note.title;") && np.includes("body.value = r.note.body;")
+    && np.includes("nbNode('span', 'nb-card-title' + (it.title ? '' : ' untitled'), it.title || T('notes.untitled'))")
+    && !/fetch\(|XMLHttpRequest|localStorage|sessionStorage|indexedDB/.test(np));
+  const idx = read('renderer/index.html');
+  check('kenar çubuğu düğmesi, panel kabı ve betik bağlı; panel diğer panellerle kapanıyor',
+    /<button class="sidebar-btn" id="btn-notes"[^>]*data-i18n-title="ui\.notes"/.test(idx) && idx.includes('<div id="panel-notes" class="side-panel hidden"></div>')
+    && idx.includes('<script src="notes-panel.js"></script>') && read('renderer/app.js').includes("'btn-profile', 'btn-notes'].forEach"));
+  check('ön yükleme dar bir köprü veriyor', /notes: \{\s*state:[\s\S]{0,900}onClip:\s*\(cb\)\s*=> ipcRenderer\.on\('notes-clip', \(\) => cb\(\)\),\s*\}/.test(read('preload/preload.js')));
+  const cat = require('../src/renderer/data-catalog.js');
+  check('Veri ve Gizlilik: notların senkronu "yakında" satırı', !!(cat.BY_ID.syncNotes && cat.BY_ID.syncNotes.soon && cat.BY_ID.syncNotes.section === 'account'));
 }
 
 // ══════════════════════════════════════════════════════════════════════════════

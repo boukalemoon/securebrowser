@@ -276,6 +276,8 @@ function buildContextMenuModel(p = {}, ctx = {}) {
     sep();
     add('copy', T('menu.copy'));
     add('search-selection', T('menu.searchFor', { text: clip(selection, 24) }), { arg: selection });
+    // Not defteri gizli pencerede yok: orada gezilen sayfa kalıcı bir kayda düşmez.
+    if (!ctx.incognito) add('note-selection', T('menu.addToNote'), { arg: { text: String(p.selectionText).slice(0, 8000) } });
   }
 
   // Sayfa öğeleri yalnızca boş alana tıklanınca. javascript: ya da file: gibi

@@ -40,6 +40,7 @@
     // QRtım hesabı ve senkron
     { id: 'syncSettings',        section: 'account', config: 'syncSettings',         def: true,  dest: 'qrtim' },
     { id: 'syncBookmarks',       section: 'account', config: 'syncBookmarks',        def: true,  dest: 'qrtim' },
+    { id: 'syncNotes',           section: 'account', soon: true,                                 dest: 'qrtim' },
     { id: 'syncPasswords',       section: 'account', soon: true,                                 dest: 'qrtim' },
     { id: 'syncHistory',         section: 'account', soon: true,                                 dest: 'qrtim' },
     { id: 'syncTabs',            section: 'account', soon: true,                                 dest: 'qrtim' },

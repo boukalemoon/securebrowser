@@ -35,6 +35,7 @@ const { createConsentLog } = require('./consent-log');
 const tabGroups = require('./tab-groups');
 const ulgenMotor = require('./ulgen-motor');
 const webPanels = require('./web-panels');
+const notesStore = require('./notes');
 // Veri ve Gizlilik: izin kataloğu arayüzle ortak (renderer/data-catalog.js).
 const dataCatalog = require('../renderer/data-catalog.js');
 // Keşfet kartları (TrendTech yazılımları): uygulamadaki liste + ilgezdi.com.tr'den günlük tazeleme.
@@ -1873,6 +1874,13 @@ function runContextAction(win, state, wc, item, params) {
     case 'search-selection':
       setActiveTab(win, state, createTab(win, state, searchUrl(String(arg || '').trim().slice(0, 1000))));
       break;
+    case 'note-selection': {
+      const text = String((arg && arg.text) || '').trim();
+      if (!text || state !== mainState || win !== mainWindow) break;
+      notesPendingClip = { text, url: isWebUrl(params.pageURL) ? params.pageURL : '', title: wc.getTitle() };
+      win.webContents.send('notes-clip');
+      break;
+    }
     case 'view-source':
       if (String(arg).startsWith('view-source:') && isWebUrl(String(arg).slice('view-source:'.length))) {
         setActiveTab(win, state, createTab(win, state, arg));
@@ -3484,6 +3492,169 @@ ipcMain.handle('webpanel-action', (event, action) => {
     default: return { ok: false };
   }
   return { ok: true };
+});
+
+// ─── Not defteri ──────────────────────────────────────────────────────────────
+// Notlar ziyaret günlüğüyle aynı anahtarla şifreli (notes.enc). Anahtar hazır olmadan
+// okunmaz; okunamazsa (anahtar kasasına ulaşılamıyor, dosya bozuk) dosyaya hiç yazılmaz,
+// böylece var olan notlar boş bir listeyle ezilmez. Yalnızca ana pencere erişir; gizli
+// profilde notlar profil klasörüyle birlikte silinir.
+const NOTES_ENC   = path.join(USER_DATA, 'notes.enc');
+const NOTES_PLAIN = path.join(USER_DATA, 'notes.json');
+let notesCache = null;
+let notesUnreadable = false;
+let notesPendingClip = null;
+const notesUndo = new Map();   // silinen notlar (geri al), en çok 20
+
+function loadNotes() {
+  if (notesCache) return notesCache;
+  if (!secureLog || notesUnreadable) return null;
+  // Şifreli dosya varken bu oturumda şifreleme yoksa düz dosya yazmak onu silerdi.
+  if (!secureLog.canEncrypt && fs.existsSync(NOTES_ENC)) { notesUnreadable = true; return null; }
+  try {
+    notesCache = notesStore.pruneTombstones(notesStore.normalizeNotes(readProtectedJson(NOTES_ENC, NOTES_PLAIN)));
+  } catch (e) {
+    logError('notes', e);
+    notesUnreadable = true;
+    return null;
+  }
+  return notesCache;
+}
+
+function notesGate(event) {
+  if (!mainOnly(event)) return { error: 'incognito' };
+  const list = loadNotes();
+  return list ? { list } : { error: notesUnreadable ? 'unreadable' : 'notReady' };
+}
+
+// Her değişiklik hemen diske yazılır; arayüz yazarken zaten bekleyerek gönderir.
+function notesCommit(r) {
+  if (r.error) return { ok: false, error: r.error };
+  if (r.list !== notesCache) {
+    notesCache = r.list;
+    try { writeProtectedJson(NOTES_ENC, NOTES_PLAIN, notesStore.serialize(r.list)); }
+    catch (e) { logError('notes', e); return { ok: false, error: 'saveFailed' }; }
+  }
+  return { ok: true, note: r.note };
+}
+
+function activePage() {
+  const wc = activeTabContents(mainState);
+  const url = wc ? wc.getURL() : '';
+  return isWebUrl(url) ? { url, title: wc.getTitle() } : null;
+}
+
+ipcMain.handle('notes-state', (event) => {
+  const allowed = !!mainOnly(event);
+  const ready = allowed && !!loadNotes();
+  return { allowed, private: !!activeProfile.private, error: !allowed || ready ? null : notesUnreadable ? 'unreadable' : 'notReady' };
+});
+ipcMain.handle('notes-list', (event, query) => {
+  const g = notesGate(event);
+  if (g.error) return { ok: false, error: g.error, items: [], total: 0 };
+  return { ok: true, items: notesStore.listNotes(g.list, typeof query === 'string' ? query : ''), total: g.list.filter((n) => !n.deleted).length };
+});
+ipcMain.handle('notes-get', (event, id) => {
+  const g = notesGate(event);
+  if (g.error) return { ok: false, error: g.error };
+  const note = g.list.find((n) => n.id === id && !n.deleted);
+  return note ? { ok: true, note } : { ok: false, error: 'missing' };
+});
+ipcMain.handle('notes-create', (event, input) => {
+  const g = notesGate(event);
+  if (g.error) return { ok: false, error: g.error };
+  const o = input && typeof input === 'object' ? input : {};
+  const page = o.withPage === true ? activePage() : null;
+  if (o.withPage === true && !page) return { ok: false, error: 'noPage' };
+  return notesCommit(notesStore.createNote(g.list, page
+    ? { title: page.title, url: page.url, pageTitle: page.title }
+    : { title: o.title, body: o.body }));
+});
+// Bağlantı buradan yalnızca kaldırılır; eklemek notes-attach-page ile, etkin sekmeden.
+ipcMain.handle('notes-update', (event, id, patch) => {
+  const g = notesGate(event);
+  if (g.error) return { ok: false, error: g.error };
+  const p = patch && typeof patch === 'object' ? patch : {};
+  return notesCommit(notesStore.updateNote(g.list, id, { title: p.title, body: p.body, ...(p.url === '' ? { url: '' } : {}) }));
+});
+ipcMain.handle('notes-attach-page', (event, id) => {
+  const g = notesGate(event);
+  if (g.error) return { ok: false, error: g.error };
+  const page = activePage();
+  if (!page) return { ok: false, error: 'noPage' };
+  return notesCommit(notesStore.updateNote(g.list, id, { url: page.url, pageTitle: page.title }));
+});
+ipcMain.handle('notes-remove', (event, id) => {
+  const g = notesGate(event);
+  if (g.error) return { ok: false, error: g.error };
+  const r = notesStore.removeNote(g.list, id);
+  const res = notesCommit(r);
+  if (res.ok) {
+    notesUndo.set(r.removed.id, r.removed);
+    while (notesUndo.size > 20) notesUndo.delete(notesUndo.keys().next().value);
+  }
+  return res;
+});
+ipcMain.handle('notes-restore', (event, id) => {
+  const g = notesGate(event);
+  if (g.error) return { ok: false, error: g.error };
+  const snap = notesUndo.get(id);
+  if (!snap) return { ok: false, error: 'missing' };
+  notesUndo.delete(id);
+  return notesCommit(notesStore.restoreNote(g.list, snap));
+});
+// Sağ tık › Nota ekle: seçim ana süreçte bekler, arayüz hangi nota ekleneceğini söyler.
+ipcMain.handle('notes-clip-add', (event, id) => {
+  const g = notesGate(event);
+  if (g.error) return { ok: false, error: g.error };
+  const clip = notesPendingClip;
+  notesPendingClip = null;
+  if (!clip) return { ok: false, error: 'empty' };
+  return notesCommit(notesStore.addClip(g.list, typeof id === 'string' ? id : null, clip));
+});
+ipcMain.handle('notes-open-url', (event, url) => {
+  const win = mainOnly(event);
+  if (!win || !isWebUrl(url)) return { ok: false };
+  setActiveTab(win, mainState, createTab(win, mainState, url));
+  return { ok: true };
+});
+// Markdown: tek not bir .md dosyasına; hepsi seçilen klasörde yeni bir alt klasöre, not
+// başına bir dosya (Obsidian gibi uygulamalar ön bilgiyi özellik olarak okur). Var olan
+// hiçbir dosyanın üstüne yazılmaz.
+ipcMain.handle('notes-export', async (event, id) => {
+  const win = mainOnly(event);
+  const g = notesGate(event);
+  if (g.error) return { ok: false, error: g.error };
+  const untitled = T('notes.untitled');
+  const live = g.list.filter((n) => !n.deleted);
+  const one = typeof id === 'string';
+  const chosen = one ? live.filter((n) => n.id === id) : live;
+  if (!chosen.length) return { ok: false, error: 'missing' };
+  try {
+    if (one) {
+      const n = chosen[0];
+      const r = await dialog.showSaveDialog(win, {
+        defaultPath: path.join(app.getPath('documents'), notesStore.safeFileName(n.title, untitled) + '.md'),
+        filters: [{ name: 'Markdown', extensions: ['md'] }],
+      });
+      if (r.canceled || !r.filePath) return { ok: false, error: 'canceled' };
+      fs.writeFileSync(r.filePath, notesStore.toMarkdown(n, untitled), 'utf8');
+      return { ok: true, count: 1 };
+    }
+    const r = await dialog.showOpenDialog(win, { properties: ['openDirectory', 'createDirectory'], defaultPath: app.getPath('documents') });
+    const parent = !r.canceled && r.filePaths && r.filePaths[0];
+    if (!parent) return { ok: false, error: 'canceled' };
+    const base = notesStore.safeFileName(T('notes.exportFolder') + ' ' + new Date().toLocaleDateString('sv'), 'notes');
+    let dir = path.join(parent, base);
+    for (let k = 2; fs.existsSync(dir); k++) dir = path.join(parent, base + ' (' + k + ')');
+    fs.mkdirSync(dir);
+    const names = notesStore.uniqueNames(chosen.map((n) => notesStore.safeFileName(n.title, untitled)));
+    chosen.forEach((n, i) => fs.writeFileSync(path.join(dir, names[i] + '.md'), notesStore.toMarkdown(n, untitled), { encoding: 'utf8', flag: 'wx' }));
+    return { ok: true, count: chosen.length, folder: dir };
+  } catch (e) {
+    logError('notes-export', e);
+    return { ok: false, error: 'writeFailed' };
+  }
 });
 
 // Arayüz yerleşimi değişti (dikey sekmeler açıldı/daraldı): içerik alanının sol kenarı.

@@ -81,7 +81,7 @@ function truncateUrl(url, maxLen = 80) {
 }
 
 // ─── Panel Yönetimi ────────────────────────────────────────────────────────────
-const ALL_PANELS = ['settings', 'logs', 'bookmarks', 'blocker', 'shield', 'vpn', 'arku', 'ulgen', 'siteinfo', 'webpanel', 'profiles'];
+const ALL_PANELS = ['settings', 'logs', 'bookmarks', 'blocker', 'shield', 'vpn', 'arku', 'ulgen', 'siteinfo', 'webpanel', 'profiles', 'notes'];
 
 function closeAllPanels() {
   ALL_PANELS.forEach(name => {
@@ -91,7 +91,7 @@ function closeAllPanels() {
     panel.classList.add('hidden');
   });
   // Panel butonlarının aktif stilini kaldır (data-screen butonlarına dokunma)
-  ['btn-shield', 'btn-bookmarks', 'btn-logs', 'btn-blocker', 'btn-settings', 'btn-arku', 'btn-ulgen', 'security-icon', 'btn-webpanel-add', 'btn-profile'].forEach(id => {
+  ['btn-shield', 'btn-bookmarks', 'btn-logs', 'btn-blocker', 'btn-settings', 'btn-arku', 'btn-ulgen', 'security-icon', 'btn-webpanel-add', 'btn-profile', 'btn-notes'].forEach(id => {
     document.getElementById(id)?.classList.remove('active');
   });
   document.querySelectorAll('.webpanel-btn.active').forEach((b) => b.classList.remove('active'));

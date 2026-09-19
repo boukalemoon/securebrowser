@@ -283,6 +283,22 @@ contextBridge.exposeInMainWorld('secureBrowser', {
     remove: (id)        => ipcRenderer.invoke('profiles-remove', id),
   },
 
+  // ── Not defteri ──────────────────────────────────────────────────────────────
+  notes: {
+    state:      ()          => ipcRenderer.invoke('notes-state'),
+    list:       (query)     => ipcRenderer.invoke('notes-list', query),
+    get:        (id)        => ipcRenderer.invoke('notes-get', id),
+    create:     (input)     => ipcRenderer.invoke('notes-create', input),
+    update:     (id, patch) => ipcRenderer.invoke('notes-update', id, patch),
+    attachPage: (id)        => ipcRenderer.invoke('notes-attach-page', id),
+    remove:     (id)        => ipcRenderer.invoke('notes-remove', id),
+    restore:    (id)        => ipcRenderer.invoke('notes-restore', id),
+    addClip:    (id)        => ipcRenderer.invoke('notes-clip-add', id),
+    openUrl:    (url)       => ipcRenderer.invoke('notes-open-url', url),
+    exportMd:   (id)        => ipcRenderer.invoke('notes-export', id),
+    onClip:     (cb)        => ipcRenderer.on('notes-clip', () => cb()),
+  },
+
   // ── Kenar çubuğunda web paneli ───────────────────────────────────────────────
   webPanels: {
     list:      ()       => ipcRenderer.invoke('webpanel-list'),
