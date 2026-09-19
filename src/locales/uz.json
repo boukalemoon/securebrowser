@@ -1468,5 +1468,15 @@
     "one": "{count} ta qiziqish tegi: {tags}",
     "other": "{count} ta qiziqish tegi: {tags}"
   },
-  "data.ulgen.deleted": "Ülgen shu qurilmada saqlagan maʼlumotlar oʻchirildi."
+  "data.ulgen.deleted": "Ülgen shu qurilmada saqlagan maʼlumotlar oʻchirildi.",
+  "ulgen.greet": "Salom, sayyoh",
+  "ulgen.greetSub": "Shu sahifada va tarixingizda sizga yordam bera olaman. Quyidan biror vazifani tanlang yoki menga yozing.",
+  "ulgen.local": "Shu qurilmada · Internetsiz",
+  "ulgen.act.summaryHint": "Sahifaning oʻz gaplaridan qisqa xulosa",
+  "ulgen.act.findHint": "Uzun sahifadan mavzuni tez toping",
+  "ulgen.act.historyHint": "Avval kirgan sahifalaringizdan qidiring",
+  "ulgen.act.webHint": "Yaxshiroq qidiruv soʻrovini taklif qil",
+  "ulgen.clearMode": "Bu rejimdan chiqish",
+  "ulgen.newChat": "Yangi suhbat",
+  "ulgen.sum.tagsLabel": "Qiziqish teglari (faqat shu qurilmada)"
 }

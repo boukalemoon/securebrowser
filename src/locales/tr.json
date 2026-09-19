@@ -1474,5 +1474,15 @@
     "one": "{count} ilgi etiketi: {tags}",
     "other": "{count} ilgi etiketi: {tags}"
   },
-  "data.ulgen.deleted": "Ülgen'in bu cihazda sakladığı veriler silindi."
+  "data.ulgen.deleted": "Ülgen'in bu cihazda sakladığı veriler silindi.",
+  "ulgen.greet": "Merhaba Gezgin",
+  "ulgen.greetSub": "Bu sayfada ve geçmişinizde size yardım edebilirim. Aşağıdan bir iş seçin ya da bana yazın.",
+  "ulgen.local": "Bu cihazda · İnternetsiz",
+  "ulgen.act.summaryHint": "Sayfanın kendi cümlelerinden kısa bir özet alın",
+  "ulgen.act.findHint": "Uzun bir sayfada bir konuyu hızlıca bulun",
+  "ulgen.act.historyHint": "Daha önce gezdiğiniz sayfalarda arayın",
+  "ulgen.act.webHint": "Daha iyi bir arama sorgusu alın",
+  "ulgen.clearMode": "Bu kipten çık",
+  "ulgen.newChat": "Yeni sohbet",
+  "ulgen.sum.tagsLabel": "İlgi etiketleri (yalnız bu cihazda)"
 }

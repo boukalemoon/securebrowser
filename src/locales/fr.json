@@ -1555,5 +1555,15 @@
     "one": "{count} centre d’intérêt : {tags}",
     "other": "{count} centres d’intérêt : {tags}"
   },
-  "data.ulgen.deleted": "Les données conservées par Ülgen sur cet appareil ont été supprimées."
+  "data.ulgen.deleted": "Les données conservées par Ülgen sur cet appareil ont été supprimées.",
+  "ulgen.greet": "Bonjour, voyageur",
+  "ulgen.greetSub": "Je peux vous aider sur cette page et dans votre historique. Choisissez une tâche ci-dessous ou écrivez-moi.",
+  "ulgen.local": "Sur cet appareil · Hors ligne",
+  "ulgen.act.summaryHint": "Un court résumé tiré des phrases de la page",
+  "ulgen.act.findHint": "Trouver vite un sujet sur une longue page",
+  "ulgen.act.historyHint": "Chercher dans les pages visitées",
+  "ulgen.act.webHint": "Proposer une meilleure requête",
+  "ulgen.clearMode": "Quitter ce mode",
+  "ulgen.newChat": "Nouvelle conversation",
+  "ulgen.sum.tagsLabel": "Centres d’intérêt (sur cet appareil uniquement)"
 }

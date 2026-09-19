@@ -1474,5 +1474,15 @@
     "one": "{count} gyzyklanma tegi: {tags}",
     "other": "{count} gyzyklanma tegi: {tags}"
   },
-  "data.ulgen.deleted": "Ülgeniň şu enjamda saklan maglumatlary pozuldy."
+  "data.ulgen.deleted": "Ülgeniň şu enjamda saklan maglumatlary pozuldy.",
+  "ulgen.greet": "Salam, Syýahatçy",
+  "ulgen.greetSub": "Bu sahypada we taryhyňyzda size kömek edip bilerin. Aşakdan bir işi saýlaň ýa-da maňa ýazyň.",
+  "ulgen.local": "Bu enjamda · Internetsiz",
+  "ulgen.act.summaryHint": "Sahypanyň öz sözlemlerinden gysgaça beýan",
+  "ulgen.act.findHint": "Uzyn sahypada bir temany çalt tapyň",
+  "ulgen.act.historyHint": "Öň baryp gören sahypalaryňyzda gözläň",
+  "ulgen.act.webHint": "Has gowy gözleg soragyny teklip et",
+  "ulgen.clearMode": "Bu režimden çyk",
+  "ulgen.newChat": "Täze söhbetdeşlik",
+  "ulgen.sum.tagsLabel": "Gyzyklanma tegleri (diňe bu enjamda)"
 }

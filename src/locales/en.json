@@ -1552,5 +1552,15 @@
     "one": "{count} interest tag: {tags}",
     "other": "{count} interest tags: {tags}"
   },
-  "data.ulgen.deleted": "The data Ülgen kept on this device was deleted."
+  "data.ulgen.deleted": "The data Ülgen kept on this device was deleted.",
+  "ulgen.greet": "Hello, Traveler",
+  "ulgen.greetSub": "I can help you on this page and in your history. Pick a task below or write to me.",
+  "ulgen.local": "On this device · Offline",
+  "ulgen.act.summaryHint": "A short summary from the page's own sentences",
+  "ulgen.act.findHint": "Quickly find a topic on a long page",
+  "ulgen.act.historyHint": "Search the pages you've visited",
+  "ulgen.act.webHint": "Suggest a better search query",
+  "ulgen.clearMode": "Leave this mode",
+  "ulgen.newChat": "New chat",
+  "ulgen.sum.tagsLabel": "Interest tags (only on this device)"
 }

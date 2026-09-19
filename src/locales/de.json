@@ -1540,5 +1540,15 @@
     "one": "{count} Interesse: {tags}",
     "other": "{count} Interessen: {tags}"
   },
-  "data.ulgen.deleted": "Die von Ülgen auf diesem Gerät gespeicherten Daten wurden gelöscht."
+  "data.ulgen.deleted": "Die von Ülgen auf diesem Gerät gespeicherten Daten wurden gelöscht.",
+  "ulgen.greet": "Hallo, Reisender",
+  "ulgen.greetSub": "Ich helfe Ihnen auf dieser Seite und in Ihrem Verlauf. Wählen Sie unten eine Aufgabe oder schreiben Sie mir.",
+  "ulgen.local": "Auf diesem Gerät · Offline",
+  "ulgen.act.summaryHint": "Kurze Zusammenfassung aus den eigenen Sätzen der Seite",
+  "ulgen.act.findHint": "Ein Thema auf einer langen Seite schnell finden",
+  "ulgen.act.historyHint": "In besuchten Seiten suchen",
+  "ulgen.act.webHint": "Eine bessere Suchanfrage vorschlagen",
+  "ulgen.clearMode": "Diesen Modus verlassen",
+  "ulgen.newChat": "Neuer Chat",
+  "ulgen.sum.tagsLabel": "Interessen (nur auf diesem Gerät)"
 }

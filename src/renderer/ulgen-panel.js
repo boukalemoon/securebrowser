@@ -5,9 +5,15 @@
  * kullanmaz. Bu dosya yalnız arayüzdür; motora dar köprüden (`secureBrowser.ulgen`)
  * ulaşır ve kendisi hiçbir ağ isteği yapmaz, hiçbir şey saklamaz.
  *
+ * Tasarım: İlgezdi teması — gece göğü başlığı, Ülgen'in altın tekerleği (Ülgen
+ * uygulamasının simgesinden çizildi), Cinzel başlık, Göktürk harfleriyle ad. Renkler
+ * yalnız tema belirteçlerinden (--gold, --copper, --bg…): dört temada ve özel vurgu
+ * renginde doğru görünür.
+ *
  * Güvenlik:
  *   · Sayfadan ve geçmişten gelen HER metin textContent ile basılır (innerHTML yok).
  *   · Sabit iskelet TH() ile kaçışlanır. Satır içi olay işleyicisi yok (CSP).
+ *   · Simgeler iskeletteki <template>'lerden kopyalanır; dinamik HTML üretilmez.
  *   · Arama/sekme açma yalnız kullanıcı düğmeye basınca ana sürece gider.
  * İzinler Veri ve Gizlilik'tedir; panel yalnız okur ve yönlendirir.
  */
@@ -19,36 +25,171 @@ function injectUlgenStyles() {
   const s = document.createElement('style');
   s.id = 'ilgezdi-ulgen-style';
   s.textContent = `
-    .ulgen-body { display:flex; flex-direction:column; gap:12px; padding:14px 16px; }
-    .ulgen-hero { text-align:center; padding:12px 10px 2px; }
-    .ulgen-hero-icon { font-size:28px; line-height:1; }
-    .ulgen-hero-sub { font-size:12px; color:var(--text-muted); margin-top:6px; }
-    .ulgen-note { font-size:12px; line-height:1.5; color:var(--text-secondary); background:var(--bg-soft,rgba(255,255,255,.03));
-                  border:1px solid var(--border-color); border-radius:10px; padding:10px 12px; }
-    .ulgen-chips { display:flex; flex-wrap:wrap; gap:7px; }
-    .ulgen-chip { font-size:11.5px; color:var(--ink); border:1px solid var(--border-color); border-radius:999px;
-                  padding:6px 11px; background:none; cursor:pointer; }
-    .ulgen-chip:hover, .ulgen-chip.active { border-color:var(--accent,#6aa9ff); }
-    .ulgen-chip[disabled] { opacity:.5; cursor:not-allowed; }
-    .ulgen-log { display:flex; flex-direction:column; gap:10px; }
-    .ulgen-msg { font-size:12.5px; line-height:1.55; border-radius:10px; padding:9px 11px; }
-    .ulgen-msg.biz { background:var(--bg-soft,rgba(255,255,255,.04)); border:1px solid var(--border-color); }
-    .ulgen-msg.siz { align-self:flex-end; max-width:85%; background:rgba(106,169,255,.12); }
-    .ulgen-msg h4 { margin:0 0 6px; font-size:12.5px; }
-    .ulgen-msg ul { margin:0; padding-left:18px; }
-    .ulgen-msg li { margin:3px 0; }
-    .ulgen-foot { font-size:11px; color:var(--text-muted); margin-top:6px; }
-    .ulgen-row { display:flex; gap:8px; margin-top:8px; flex-wrap:wrap; }
-    .ulgen-link { background:none; border:none; padding:0; color:var(--accent,#6aa9ff); cursor:pointer; text-align:left; font:inherit; }
-    .ulgen-ask { display:flex; gap:8px; align-items:center; }
-    .ulgen-ask input { flex:1; }
-    .ulgen-ask input[disabled], .ulgen-ask button[disabled] { opacity:.6; cursor:not-allowed; }
+    #panel-ulgen { --ul-glow: color-mix(in srgb, var(--gold) 45%, transparent); }
+    /* Başlık: gece göğü */
+    .ulgen-head { position:relative; flex-shrink:0; display:flex; align-items:center; gap:12px; padding:16px 12px 14px 16px;
+      border-bottom:1px solid var(--line); overflow:hidden;
+      background:
+        radial-gradient(120% 160% at 0% 0%, color-mix(in srgb, var(--gold) 18%, transparent), transparent 55%),
+        linear-gradient(180deg, var(--bg-elev), color-mix(in srgb, var(--bg) 70%, var(--bg-elev))); }
+    .ulgen-head::before { content:''; position:absolute; inset:0; pointer-events:none; opacity:.8;
+      background-image:
+        radial-gradient(1.2px 1.2px at 22% 28%, color-mix(in srgb, var(--gold) 80%, transparent) 50%, transparent 52%),
+        radial-gradient(1px 1px at 48% 18%, color-mix(in srgb, var(--ink) 55%, transparent) 50%, transparent 52%),
+        radial-gradient(1.4px 1.4px at 66% 62%, color-mix(in srgb, var(--gold) 70%, transparent) 50%, transparent 52%),
+        radial-gradient(1px 1px at 82% 30%, color-mix(in srgb, var(--ink) 50%, transparent) 50%, transparent 52%),
+        radial-gradient(1px 1px at 38% 78%, color-mix(in srgb, var(--ink) 40%, transparent) 50%, transparent 52%),
+        radial-gradient(1.2px 1.2px at 92% 76%, color-mix(in srgb, var(--gold) 60%, transparent) 50%, transparent 52%); }
+    .ulgen-mark { flex-shrink:0; width:42px; height:42px; color:var(--gold); position:relative;
+      filter:drop-shadow(0 0 10px var(--ul-glow)); }
+    .ulgen-mark svg { width:100%; height:100%; display:block; }
+    .ulgen-id { position:relative; min-width:0; }
+    .ulgen-id h2 { margin:0; font-family:var(--font-display); font-size:19px; font-weight:700; letter-spacing:5px; color:var(--ink); text-transform:uppercase; }
+    .ulgen-rune { font-family:var(--font-rune); font-size:13px; letter-spacing:7px; color:var(--rune); opacity:.85; margin-top:2px; }
+    .ulgen-status { display:inline-flex; align-items:center; gap:6px; margin-top:6px; padding:2px 9px; border-radius:999px;
+      border:1px solid color-mix(in srgb, var(--success, #4ade80) 40%, var(--line)); background:color-mix(in srgb, var(--success, #4ade80) 8%, transparent);
+      font:600 10px var(--font-mono); letter-spacing:.06em; text-transform:uppercase; color:var(--ink-soft); white-space:nowrap; }
+    .ulgen-status::before { content:''; width:6px; height:6px; border-radius:50%; background:var(--success, #4ade80); box-shadow:0 0 6px var(--success, #4ade80); }
+    .ulgen-head-actions { position:relative; margin-left:auto; display:flex; align-self:flex-start; gap:2px; }
+    .ulgen-icon-btn { width:28px; height:28px; border:none; background:transparent; color:var(--ink-mute); border-radius:7px; display:grid; place-items:center; cursor:pointer; }
+    .ulgen-icon-btn:hover { background:var(--bg-soft); color:var(--gold); }
+    .ulgen-icon-btn:focus-visible { outline:2px solid var(--gold); outline-offset:1px; }
+
+    /* Gövde: kayan alan + iş kartları + yazma kutusu */
+    .ulgen-body { flex:1; min-height:0; display:flex; flex-direction:column; padding:0; overflow:hidden; }
+    .ulgen-scroll { flex:1; min-height:0; overflow-y:auto; padding:18px 16px 10px; display:flex; flex-direction:column; gap:14px; }
+    /* Karşılama: boş alanın ortasında dönen tamga */
+    .ulgen-welcome { margin-block:auto; display:flex; flex-direction:column; align-items:center; text-align:center; padding:8px 8px 4px; }
+    .ulgen-halo { position:relative; width:96px; height:96px; display:grid; place-items:center; margin-bottom:14px; border-radius:50%;
+      background:radial-gradient(circle, color-mix(in srgb, var(--gold) 20%, transparent), transparent 68%); }
+    .ulgen-halo::before { content:''; position:absolute; inset:-10px; border-radius:50%; border:1px dashed color-mix(in srgb, var(--gold) 30%, transparent); }
+    .ulgen-halo .ulgen-mark { width:66px; height:66px; filter:drop-shadow(0 0 16px var(--ul-glow)); }
+    .ulgen-halo .ulgen-mark svg { animation:ulgenSpin 90s linear infinite; }
+    .ulgen-welcome h3 { margin:0; font-family:var(--font-display); font-size:22px; font-weight:700; letter-spacing:1px; text-wrap:balance;
+      background:linear-gradient(135deg, var(--ink), var(--gold) 70%, var(--copper)); -webkit-background-clip:text; background-clip:text; color:transparent; }
+    .ulgen-welcome p { margin:8px 0 0; font-size:12.5px; line-height:1.6; color:var(--ink-mute); max-width:36ch; text-wrap:balance; }
+    #panel-ulgen.ulgen-talking .ulgen-welcome, .ulgen-welcome.hidden { display:none; }
+
+    .ulgen-off { display:flex; flex-direction:column; align-items:center; text-align:center; gap:10px; padding:18px 16px;
+      border:1px dashed color-mix(in srgb, var(--gold) 45%, var(--line)); border-radius:14px; font-size:12.5px; line-height:1.55; color:var(--ink-soft);
+      background:color-mix(in srgb, var(--bg-soft) 45%, transparent); }
+    .ulgen-off.hidden { display:none; }
+    .ulgen-off .ulgen-mark { width:48px; height:48px; opacity:.55; filter:none; }
+
+    .ulgen-actions { flex-shrink:0; display:grid; grid-template-columns:1fr 1fr; gap:8px; padding:0 16px 10px; }
+    .ulgen-chip { display:flex; flex-direction:column; align-items:flex-start; gap:6px; min-width:0; padding:11px 12px; text-align:left;
+      border:1px solid var(--line); border-radius:12px; color:var(--ink); cursor:pointer; font:inherit;
+      background:linear-gradient(160deg, color-mix(in srgb, var(--bg-soft) 75%, transparent), color-mix(in srgb, var(--bg-elev) 40%, transparent));
+      transition:border-color .15s, transform .15s, box-shadow .15s, background .15s; }
+    .ulgen-chip:hover:not([disabled]) { border-color:color-mix(in srgb, var(--gold) 70%, transparent); transform:translateY(-1px);
+      box-shadow:0 10px 24px -16px var(--ul-glow); }
+    .ulgen-chip:focus-visible { outline:2px solid var(--gold); outline-offset:2px; }
+    .ulgen-chip.active { border-color:var(--gold); background:color-mix(in srgb, var(--gold) 13%, var(--bg-elev)); }
+    .ulgen-chip[disabled] { opacity:.45; cursor:not-allowed; transform:none; }
+    .ulgen-chip-icon { width:28px; height:28px; border-radius:8px; display:grid; place-items:center; color:var(--gold);
+      background:color-mix(in srgb, var(--gold) 13%, transparent); flex-shrink:0; }
+    .ulgen-chip-title { font-size:12.5px; font-weight:600; line-height:1.3; }
+    .ulgen-chip-hint { font-size:11px; color:var(--ink-mute); line-height:1.4; }
+    /* Sohbet başlayınca kartlar yazma kutusunun üstünde ince bir sıraya dönüşür */
+    #panel-ulgen.ulgen-talking .ulgen-actions { display:flex; gap:6px; overflow-x:auto; scrollbar-width:none; padding-bottom:8px; overscroll-behavior-x:contain;
+      -webkit-mask-image:linear-gradient(90deg, #000 calc(100% - 36px), transparent); mask-image:linear-gradient(90deg, #000 calc(100% - 36px), transparent); }
+    #panel-ulgen.ulgen-talking .ulgen-actions.at-end { -webkit-mask-image:none; mask-image:none; }
+    #panel-ulgen.ulgen-talking .ulgen-actions::-webkit-scrollbar { display:none; }
+    #panel-ulgen.ulgen-talking .ulgen-chip { flex-direction:row; align-items:center; flex-shrink:0; padding:5px 11px 5px 6px; border-radius:999px; gap:6px; }
+    #panel-ulgen.ulgen-talking .ulgen-chip-icon { width:22px; height:22px; border-radius:50%; }
+    #panel-ulgen.ulgen-talking .ulgen-chip-hint { display:none; }
+    #panel-ulgen.ulgen-talking .ulgen-chip-title { font-size:12px; white-space:nowrap; }
+
+    /* Mesajlar */
+    .ulgen-log { display:flex; flex-direction:column; gap:12px; }
+    .ulgen-msg { display:flex; gap:9px; align-items:flex-start; font-size:13px; line-height:1.6; animation:ulgenIn .22s ease-out both; }
+    .ulgen-msg.siz { justify-content:flex-end; }
+    .ulgen-avatar { flex-shrink:0; width:26px; height:26px; margin-top:2px; border-radius:50%; display:grid; place-items:center; color:var(--gold);
+      background:color-mix(in srgb, var(--gold) 12%, var(--bg-elev)); border:1px solid color-mix(in srgb, var(--gold) 35%, var(--line)); }
+    .ulgen-avatar svg { width:18px; height:18px; }
+    .ulgen-bubble { min-width:0; max-width:100%; padding:10px 12px; border-radius:4px 14px 14px 14px; color:var(--ink-soft);
+      background:var(--bg-elev); border:1px solid var(--line); overflow-wrap:anywhere; }
+    .ulgen-msg.biz .ulgen-bubble { flex:1; }
+    .ulgen-msg.siz .ulgen-bubble { max-width:86%; border-radius:14px 4px 14px 14px; color:var(--ink);
+      background:linear-gradient(135deg, color-mix(in srgb, var(--gold) 22%, var(--bg-elev)), color-mix(in srgb, var(--copper) 16%, var(--bg-elev)));
+      border-color:color-mix(in srgb, var(--gold) 40%, transparent); }
+    .ulgen-msg.busy .ulgen-avatar svg { animation:ulgenSpin 2.4s linear infinite; }
+    .ulgen-msg.busy .ulgen-bubble { color:var(--ink-mute); font-style:italic; }
+    .ulgen-bubble h4 { margin:0 0 2px; font-family:var(--font-display); font-size:13.5px; letter-spacing:.4px; color:var(--ink); }
+    .ulgen-source { font:500 10.5px var(--font-mono); color:var(--ink-mute); margin-bottom:8px; }
+    .ulgen-bubble ol, .ulgen-bubble ul { margin:0; padding:0; list-style:none; display:flex; flex-direction:column; gap:7px; }
+    .ulgen-sum { counter-reset:ulgen; }
+    .ulgen-sum li { counter-increment:ulgen; position:relative; padding-left:24px; color:var(--ink-soft); }
+    .ulgen-sum li::before { content:counter(ulgen); position:absolute; left:0; top:1px; width:17px; height:17px; border-radius:50%;
+      display:grid; place-items:center; font:700 10px var(--font-mono); color:var(--bg); background:linear-gradient(135deg, var(--gold), var(--copper)); }
+    .ulgen-quote { padding:6px 10px; border-left:2px solid var(--gold); border-radius:0 8px 8px 0; background:color-mix(in srgb, var(--gold) 6%, transparent); color:var(--ink-soft); }
+    .ulgen-quote mark { background:color-mix(in srgb, var(--gold) 38%, transparent); color:var(--ink); border-radius:3px; padding:0 2px; }
+    .ulgen-foot { font-size:11px; color:var(--ink-mute); margin-top:8px; line-height:1.5; }
+    .ulgen-tags { display:flex; flex-wrap:wrap; gap:5px; margin-top:8px; }
+    .ulgen-tag { font:500 10.5px var(--font-mono); padding:1px 8px; border-radius:999px; color:var(--gold); border:1px solid color-mix(in srgb, var(--gold) 40%, transparent); }
+    .ulgen-hist li { display:flex; flex-direction:column; gap:1px; }
+    .ulgen-link { background:none; border:none; padding:0; color:var(--ink); cursor:pointer; text-align:left; font:inherit; font-weight:600; }
+    .ulgen-link:hover { color:var(--gold); text-decoration:underline; text-underline-offset:2px; }
+    .ulgen-host { font:500 10.5px var(--font-mono); color:var(--ink-mute); }
+    .ulgen-query { display:block; margin:6px 0 2px; padding:7px 10px; border-radius:8px; border:1px solid var(--line); background:var(--bg);
+      font:500 12.5px var(--font-mono); color:var(--ink); }
+    .ulgen-row { display:flex; gap:8px; margin-top:10px; flex-wrap:wrap; }
+    .ulgen-btn { height:30px; padding:0 13px; border-radius:8px; border:1px solid var(--line); background:var(--bg-soft); color:var(--ink-soft); font:600 12px var(--font-ui); cursor:pointer; }
+    .ulgen-btn:hover { border-color:var(--gold); color:var(--gold); }
+    .ulgen-btn.primary { border:none; color:#1a1206; background:linear-gradient(135deg, var(--gold), var(--copper)); }
+    .ulgen-btn.primary:hover { filter:brightness(1.07); color:#1a1206; }
+    .ulgen-btn:focus-visible { outline:2px solid var(--gold); outline-offset:2px; }
+    .ulgen-consent { border-color:color-mix(in srgb, var(--gold) 45%, var(--line)); }
+    .ulgen-consent-head { display:flex; gap:8px; align-items:flex-start; color:var(--ink); }
+    .ulgen-consent-head svg { flex-shrink:0; color:var(--gold); margin-top:2px; }
+
+    /* Yazma kutusu */
+    .ulgen-composer { flex-shrink:0; padding:10px 12px 12px; border-top:1px solid var(--line); background:var(--bg-elev); }
+    .ulgen-ask { display:flex; align-items:center; gap:6px; padding:4px 4px 4px 12px; border-radius:14px; border:1px solid var(--line); background:var(--bg);
+      transition:border-color .15s, box-shadow .15s; }
+    .ulgen-ask:focus-within { border-color:var(--gold); box-shadow:0 0 0 3px color-mix(in srgb, var(--gold) 16%, transparent); }
+    .ulgen-mode { display:inline-flex; align-items:center; gap:3px; flex-shrink:0; padding:2px 4px 2px 9px; border-radius:999px;
+      font:600 11px var(--font-ui); color:var(--gold); background:color-mix(in srgb, var(--gold) 13%, transparent); }
+    .ulgen-mode[hidden] { display:none; }
+    .ulgen-mode button { width:18px; height:18px; border:none; background:transparent; color:inherit; border-radius:50%; cursor:pointer; display:grid; place-items:center; padding:0; }
+    .ulgen-mode button:hover { background:color-mix(in srgb, var(--gold) 20%, transparent); }
+    .ulgen-ask input { flex:1; min-width:0; height:34px; border:none; outline:none; background:transparent; color:var(--ink); font:13px var(--font-ui); }
+    .ulgen-ask input::placeholder { color:var(--ink-mute); }
+    .ulgen-send { flex-shrink:0; width:34px; height:34px; border:none; border-radius:11px; display:grid; place-items:center; cursor:pointer; color:#1a1206;
+      background:linear-gradient(135deg, var(--gold), var(--copper)); box-shadow:0 6px 16px -10px var(--ul-glow); transition:filter .15s, opacity .15s; }
+    .ulgen-send:hover:not([disabled]) { filter:brightness(1.08); }
+    .ulgen-send:focus-visible { outline:2px solid var(--gold); outline-offset:2px; }
+    .ulgen-ask input[disabled], .ulgen-send[disabled] { opacity:.45; cursor:not-allowed; }
+    .ulgen-notes { display:flex; flex-direction:column; gap:3px; margin:9px 2px 0; }
+    .ulgen-note { display:flex; gap:6px; align-items:flex-start; margin:0; font-size:10.5px; line-height:1.5; color:var(--ink-mute); }
+    .ulgen-note svg { flex-shrink:0; margin-top:2px; color:color-mix(in srgb, var(--gold) 70%, var(--ink-mute)); }
+
+    @keyframes ulgenIn { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:none; } }
+    @keyframes ulgenSpin { to { transform:rotate(360deg); } }
+    @media (prefers-reduced-motion: reduce) { .ulgen-msg, .ulgen-msg.busy .ulgen-avatar svg, .ulgen-halo .ulgen-mark svg { animation:none; } .ulgen-chip { transition:none; } }
+    :root[data-reduce-motion] .ulgen-msg, :root[data-reduce-motion] .ulgen-msg.busy .ulgen-avatar svg, :root[data-reduce-motion] .ulgen-halo .ulgen-mark svg { animation:none; }
   `;
   document.head.appendChild(s);
 }
 
 const ulgen = { mod: null, durum: null, mesgul: false };
 const U = () => window.secureBrowser && window.secureBrowser.ulgen;
+
+// Ülgen'in işareti (Ülgen uygulamasının simgesinden): altın çift halka ve sekiz kollu güneş.
+const ULGEN_MARK = '<svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-linecap="round" aria-hidden="true">'
+  + '<circle cx="32" cy="32" r="27" stroke-width="4.5"/><circle cx="32" cy="32" r="19.5" stroke-width="2"/>'
+  + '<path stroke-width="2" d="M36.5 32H51M32 36.5V51M27.5 32H13M32 27.5V13M35.2 35.2L45.4 45.4M28.8 35.2L18.6 45.4M28.8 28.8L18.6 18.6M35.2 28.8L45.4 18.6"/>'
+  + '<circle cx="32" cy="32" r="1.6" fill="currentColor" stroke="none"/></svg>';
+const IKON = {
+  summary: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 6h14M5 10h14M5 14h9M5 18h6"/><path d="M18 14.5l.8 1.7 1.7.8-1.7.8-.8 1.7-.8-1.7-1.7-.8 1.7-.8z"/></svg>',
+  find: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h5"/><path d="M8 8h6M8 12h3"/><circle cx="16.5" cy="15.5" r="3.5"/><path d="M19 18l2.5 2.5"/></svg>',
+  history: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3 2"/></svg>',
+  web: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/></svg>',
+  send: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M5.5 11.5L12 5l6.5 6.5"/></svg>',
+  yeni: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12a8 8 0 0 1-11.6 7.1L4 20l1-4.4A8 8 0 1 1 20 12z"/><path d="M12 9v6M9 12h6"/></svg>',
+  kilit: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>',
+  kapat: '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>',
+};
 
 function el(etiket, sinif, metin) {
   const e = document.createElement(etiket);
@@ -57,17 +198,34 @@ function el(etiket, sinif, metin) {
   return e;
 }
 
+// İskeletteki <template>'ten simge kopyası (dinamik HTML üretmeden).
+function sablon(id) {
+  const t = document.getElementById(id);
+  return t && t.content && t.content.firstElementChild ? t.content.firstElementChild.cloneNode(true) : null;
+}
+
+function balon(m) { return m ? (m.querySelector('.ulgen-bubble') || m) : null; }
+
 function mesaj(kim, ...cocuklar) {
   const log = document.getElementById('ulgen-log');
   if (!log) return null;
+  document.getElementById('panel-ulgen')?.classList.add('ulgen-talking');
   const m = el('div', 'ulgen-msg ' + kim);
-  for (const c of cocuklar) if (c) m.appendChild(typeof c === 'string' ? el('div', null, c) : c);
+  if (kim === 'biz') {
+    const av = el('span', 'ulgen-avatar');
+    const isaret = sablon('ulgen-tpl-mark');
+    if (isaret) av.appendChild(isaret);
+    m.appendChild(av);
+  }
+  const b = el('div', 'ulgen-bubble');
+  for (const c of cocuklar) if (c) b.appendChild(typeof c === 'string' ? el('div', null, c) : c);
+  m.appendChild(b);
   log.appendChild(m);
   m.scrollIntoView({ block: 'end', behavior: 'smooth' });
   return m;
 }
 
-function dugme(metin, tik, sinif = 'btn-secondary') {
+function dugme(metin, tik, sinif = 'ulgen-btn') {
   const b = el('button', sinif, metin);
   b.type = 'button';
   b.addEventListener('click', tik);
@@ -77,6 +235,29 @@ function dugme(metin, tik, sinif = 'btn-secondary') {
 function veriSayfasi() {
   window.ilgezdiCloseAllPanels?.();
   window.ilgezdiDataCenter?.open?.('ulgen');
+}
+
+const hostOf = (u) => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch { return ''; } };
+
+// Sayfada bulunan cümlede aranan sözcükleri işaretler (metin parçaları + <mark>, innerHTML yok).
+function vurgula(metin, sorgu) {
+  const kapsayici = el('li', 'ulgen-quote');
+  const sozcukler = String(sorgu || '').toLocaleLowerCase('tr').split(/\s+/).filter((w) => w.length > 1);
+  if (!sozcukler.length) { kapsayici.textContent = metin; return kapsayici; }
+  const kucuk = metin.toLocaleLowerCase('tr');
+  let i = 0;
+  while (i < metin.length) {
+    let enYakin = -1, uzunluk = 0;
+    for (const w of sozcukler) {
+      const j = kucuk.indexOf(w, i);
+      if (j >= 0 && (enYakin < 0 || j < enYakin)) { enYakin = j; uzunluk = w.length; }
+    }
+    if (enYakin < 0) { kapsayici.appendChild(document.createTextNode(metin.slice(i))); break; }
+    if (enYakin > i) kapsayici.appendChild(document.createTextNode(metin.slice(i, enYakin)));
+    kapsayici.appendChild(el('mark', null, metin.slice(enYakin, enYakin + uzunluk)));
+    i = enYakin + uzunluk;
+  }
+  return kapsayici;
 }
 
 const HATA = {
@@ -89,45 +270,55 @@ function yanitiGoster(r, istek) {
   if (!r || !r.ok) {
     const sebep = r && r.sebep;
     if (sebep === 'onay_gerek') {
-      const m = mesaj('biz', T('ulgen.ask.page'));
+      const bas = el('div', 'ulgen-consent-head');
+      const kilit = sablon('ulgen-tpl-lock');
+      if (kilit) bas.appendChild(kilit);
+      bas.appendChild(el('span', null, T('ulgen.ask.page')));
+      const m = mesaj('biz', bas);
+      balon(m)?.classList.add('ulgen-consent');
       const satir = el('div', 'ulgen-row');
       satir.append(
-        dugme(T('ulgen.ask.allow'), () => { satir.remove(); gonder({ ...istek, onay: true }, false); }, 'btn-primary'),
+        dugme(T('ulgen.ask.allow'), () => { satir.remove(); gonder({ ...istek, onay: true }, false); }, 'ulgen-btn primary'),
         dugme(T('ulgen.ask.cancel'), () => satir.remove()));
-      m && m.appendChild(satir);
+      balon(m)?.appendChild(satir);
       return;
     }
     const m = mesaj('biz', T(HATA[sebep] || 'ulgen.err.generic'));
     if (m && (sebep === 'izin_chat' || sebep === 'izin_history')) {
       const satir = el('div', 'ulgen-row');
       satir.appendChild(dugme(T('ulgen.openData'), veriSayfasi));
-      m.appendChild(satir);
+      balon(m).appendChild(satir);
     }
     return;
   }
   switch (r.tur) {
     case 'ozet': {
-      const ul = el('ul');
-      for (const c of r.cumleler || []) ul.appendChild(el('li', null, c));
-      const m = mesaj('biz', el('h4', null, r.baslik || ''), ul,
+      const ol = el('ol', 'ulgen-sum');
+      for (const c of r.cumleler || []) ol.appendChild(el('li', null, c));
+      const m = mesaj('biz', el('h4', null, r.baslik || ''), el('div', 'ulgen-source', hostOf(r.url)), ol,
         el('div', 'ulgen-foot', T('ulgen.sum.foot', { count: (r.cumleler || []).length, total: r.toplam || 0 })));
-      if (m && r.etiket && r.etiket.length) m.appendChild(el('div', 'ulgen-foot', T('ulgen.sum.tags', { tags: r.etiket.join(', ') })));
+      if (m && r.etiket && r.etiket.length) {
+        balon(m).appendChild(el('div', 'ulgen-foot', T('ulgen.sum.tagsLabel')));
+        const kutu = el('div', 'ulgen-tags');
+        for (const t of r.etiket) kutu.appendChild(el('span', 'ulgen-tag', t));
+        balon(m).appendChild(kutu);
+      }
       return;
     }
     case 'sayfada': {
       if (!r.sonuclar || !r.sonuclar.length) { mesaj('biz', T('ulgen.find.none', { q: r.sorgu })); return; }
       const ul = el('ul');
-      for (const c of r.sonuclar) ul.appendChild(el('li', null, c));
+      for (const c of r.sonuclar) ul.appendChild(vurgula(c, r.sorgu));
       mesaj('biz', el('h4', null, T('ulgen.find.head', { q: r.sorgu })), ul);
       return;
     }
     case 'gecmis': {
       if (!r.sonuclar || !r.sonuclar.length) { mesaj('biz', T('ulgen.hist.none')); return; }
-      const ul = el('ul');
+      const ul = el('ul', 'ulgen-hist');
       for (const s of r.sonuclar) {
         const li = el('li');
         li.appendChild(dugme(s.baslik, () => U()?.eylem({ tur: 'ac', url: s.url }), 'ulgen-link'));
-        if (s.alan) li.appendChild(el('span', 'ulgen-foot', ' · ' + s.alan));
+        if (s.alan) li.appendChild(el('span', 'ulgen-host', s.alan));
         ul.appendChild(li);
       }
       mesaj('biz', el('h4', null, T('ulgen.hist.head', { q: r.sorgu })), ul);
@@ -136,8 +327,8 @@ function yanitiGoster(r, istek) {
     case 'web':
     case 'sorgu': {
       const satir = el('div', 'ulgen-row');
-      satir.appendChild(dugme(T('ulgen.web.open'), () => U()?.eylem({ tur: 'ara', sorgu: r.sorgu }), 'btn-primary'));
-      mesaj('biz', el('h4', null, T('ulgen.web.head')), el('div', null, r.sorgu), satir);
+      satir.appendChild(dugme(T('ulgen.web.open'), () => U()?.eylem({ tur: 'ara', sorgu: r.sorgu }), 'ulgen-btn primary'));
+      mesaj('biz', el('h4', null, T('ulgen.web.head')), el('code', 'ulgen-query', r.sorgu), satir);
       return;
     }
     default:
@@ -151,6 +342,7 @@ async function gonder(istek, yazdir = true) {
   if (yazdir && istek.metin) mesaj('siz', istek.metin);
   ulgen.mesgul = true;
   const bekle = mesaj('biz', T('ulgen.busy'));
+  bekle?.classList.add('busy');
   let r = null;
   try { r = await kopru.sor(istek); } catch { r = null; }
   bekle?.remove();
@@ -161,6 +353,12 @@ async function gonder(istek, yazdir = true) {
 function modSec(mod) {
   ulgen.mod = ulgen.mod === mod ? null : mod;
   document.querySelectorAll('.ulgen-chip[data-mod]').forEach((c) => c.classList.toggle('active', c.dataset.mod === ulgen.mod));
+  const pill = document.getElementById('ulgen-mode');
+  const ad = document.getElementById('ulgen-mode-name');
+  if (pill && ad) {
+    pill.hidden = !ulgen.mod;
+    ad.textContent = ulgen.mod ? T('ulgen.act.' + ulgen.mod) : '';
+  }
   const g = document.getElementById('ulgen-ask-input');
   if (g) {
     g.placeholder = T(ulgen.mod ? 'ulgen.ph.' + ulgen.mod : 'ulgen.placeholder');
@@ -177,11 +375,19 @@ function sor() {
   gonder(ulgen.mod ? { tur: TUR[ulgen.mod], metin } : { metin });
 }
 
+function yeniSohbet() {
+  const log = document.getElementById('ulgen-log');
+  if (log) log.replaceChildren();
+  document.getElementById('panel-ulgen')?.classList.remove('ulgen-talking');
+  if (ulgen.mod) modSec(ulgen.mod);
+}
+
 async function durumuUygula() {
   const kopru = U();
   ulgen.durum = kopru ? await kopru.durum().catch(() => null) : null;
   const acik = !!(ulgen.durum && ulgen.durum.chat);
   document.getElementById('ulgen-off')?.classList.toggle('hidden', acik);
+  document.getElementById('ulgen-welcome')?.classList.toggle('hidden', !acik);
   for (const id of ['ulgen-ask-input', 'ulgen-ask-send']) {
     const e = document.getElementById(id);
     if (e) e.disabled = !acik;
@@ -192,32 +398,59 @@ async function durumuUygula() {
 function ulgenBuildPanel() {
   const panel = document.getElementById('panel-ulgen');
   if (!panel) return;
+  const kart = (ikon, baslik, ipucu, nitelik) => `
+        <button type="button" class="ulgen-chip" ${nitelik}>
+          <span class="ulgen-chip-icon">${ikon}</span>
+          <span class="ulgen-chip-title">${TH(baslik)}</span>
+          <span class="ulgen-chip-hint">${TH(ipucu)}</span>
+        </button>`;
   panel.innerHTML = `
-    <div class="panel-header">
-      <h2>${TH('ulgen.title')}</h2>
-      <button class="panel-close" data-panel="ulgen" aria-label="${TH('common.closePanel')}">✕</button>
+    <template id="ulgen-tpl-mark">${ULGEN_MARK}</template>
+    <template id="ulgen-tpl-lock">${IKON.kilit}</template>
+    <div class="ulgen-head">
+      <div class="ulgen-mark">${ULGEN_MARK}</div>
+      <div class="ulgen-id">
+        <h2 id="ulgen-title">Ülgen</h2>
+        <div class="ulgen-rune" aria-hidden="true">𐰇𐰞𐰏𐰤</div>
+        <div class="ulgen-status">${TH('ulgen.local')}</div>
+      </div>
+      <div class="ulgen-head-actions">
+        <button type="button" class="ulgen-icon-btn" id="ulgen-new" title="${TH('ulgen.newChat')}" aria-label="${TH('ulgen.newChat')}">${IKON.yeni}</button>
+        <button type="button" class="panel-close" data-panel="ulgen" aria-label="${TH('common.closePanel')}">✕</button>
+      </div>
     </div>
-    <div class="panel-body ulgen-body">
-      <div class="ulgen-hero">
-        <div class="ulgen-hero-icon" aria-hidden="true">✨</div>
-        <div class="ulgen-hero-sub">${TH('ulgen.subtitle')}</div>
+    <div class="panel-body ulgen-body" aria-labelledby="ulgen-title">
+      <div class="ulgen-scroll">
+        <div class="ulgen-welcome hidden" id="ulgen-welcome">
+          <div class="ulgen-halo"><div class="ulgen-mark">${ULGEN_MARK}</div></div>
+          <h3>${TH('ulgen.greet')}</h3>
+          <p>${TH('ulgen.greetSub')}</p>
+        </div>
+        <div class="ulgen-off hidden" id="ulgen-off">
+          <div class="ulgen-mark">${ULGEN_MARK}</div>
+          <div>${TH('ulgen.off')}</div>
+          <button type="button" class="ulgen-btn primary" id="ulgen-open-data">${TH('ulgen.openData')}</button>
+        </div>
+        <div class="ulgen-log" id="ulgen-log" aria-live="polite"></div>
       </div>
-      <div class="ulgen-note hidden" id="ulgen-off">${TH('ulgen.off')}
-        <div class="ulgen-row"><button type="button" class="btn-secondary" id="ulgen-open-data">${TH('ulgen.openData')}</button></div>
+      <div class="ulgen-actions" role="group" aria-label="${TH('ulgen.subtitle')}">
+        ${kart(IKON.summary, 'ulgen.act.summary', 'ulgen.act.summaryHint', 'id="ulgen-act-summary"')}
+        ${kart(IKON.find, 'ulgen.act.find', 'ulgen.act.findHint', 'data-mod="find"')}
+        ${kart(IKON.history, 'ulgen.act.history', 'ulgen.act.historyHint', 'data-mod="history"')}
+        ${kart(IKON.web, 'ulgen.act.web', 'ulgen.act.webHint', 'data-mod="web"')}
       </div>
-      <div class="ulgen-chips">
-        <button type="button" class="ulgen-chip" id="ulgen-act-summary">${TH('ulgen.act.summary')}</button>
-        <button type="button" class="ulgen-chip" data-mod="find">${TH('ulgen.act.find')}</button>
-        <button type="button" class="ulgen-chip" data-mod="history">${TH('ulgen.act.history')}</button>
-        <button type="button" class="ulgen-chip" data-mod="web">${TH('ulgen.act.web')}</button>
+      <div class="ulgen-composer">
+        <div class="ulgen-ask">
+          <span class="ulgen-mode" id="ulgen-mode" hidden><span id="ulgen-mode-name"></span>
+            <button type="button" id="ulgen-mode-clear" title="${TH('ulgen.clearMode')}" aria-label="${TH('ulgen.clearMode')}">${IKON.kapat}</button></span>
+          <input type="text" id="ulgen-ask-input" maxlength="500" disabled placeholder="${TH('ulgen.placeholder')}" aria-label="${TH('ulgen.subtitle')}" />
+          <button type="button" class="ulgen-send" id="ulgen-ask-send" disabled title="${TH('feedback.send')}" aria-label="${TH('feedback.send')}">${IKON.send}</button>
+        </div>
+        <div class="ulgen-notes">
+          <p class="ulgen-note">${IKON.kilit}<span>${TH('ulgen.privacy')}</span></p>
+          <p class="ulgen-note" id="ulgen-account-note">${IKON.kilit}<span>${TH('ulgen.account')}</span></p>
+        </div>
       </div>
-      <div class="ulgen-log" id="ulgen-log" aria-live="polite"></div>
-      <div class="ulgen-ask">
-        <input type="text" id="ulgen-ask-input" maxlength="500" disabled placeholder="${TH('ulgen.placeholder')}" aria-label="${TH('ulgen.subtitle')}" />
-        <button class="btn-secondary" id="ulgen-ask-send" disabled>${TH('feedback.send')}</button>
-      </div>
-      <p class="ulgen-note">${TH('ulgen.privacy')}</p>
-      <p class="ulgen-note" id="ulgen-account-note">${TH('ulgen.account')}</p>
     </div>
   `;
 
@@ -225,10 +458,25 @@ function ulgenBuildPanel() {
     window.ilgezdiCloseAllPanels?.();
   });
   document.getElementById('ulgen-open-data')?.addEventListener('click', veriSayfasi);
+  document.getElementById('ulgen-new')?.addEventListener('click', yeniSohbet);
+  document.getElementById('ulgen-mode-clear')?.addEventListener('click', () => { if (ulgen.mod) modSec(ulgen.mod); });
   document.getElementById('ulgen-act-summary')?.addEventListener('click', () => gonder({ tur: 'ozet', metin: T('ulgen.act.summary') }));
   document.querySelectorAll('.ulgen-chip[data-mod]').forEach((c) => c.addEventListener('click', () => modSec(c.dataset.mod)));
+  // İnce sırada son iş görünene kadar sağ kenar solar; tekerlek sırayı yana kaydırır.
+  const isler = panel.querySelector('.ulgen-actions');
+  const sonMu = () => isler.classList.toggle('at-end', isler.scrollLeft + isler.clientWidth >= isler.scrollWidth - 2);
+  isler.addEventListener('scroll', sonMu, { passive: true });
+  isler.addEventListener('wheel', (e) => {
+    if (!panel.classList.contains('ulgen-talking') || isler.scrollWidth <= isler.clientWidth || Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
+    e.preventDefault();
+    isler.scrollLeft += e.deltaY;
+  }, { passive: false });
+  new ResizeObserver(sonMu).observe(isler);
   document.getElementById('ulgen-ask-send')?.addEventListener('click', sor);
-  document.getElementById('ulgen-ask-input')?.addEventListener('keydown', (e) => { if (e.key === 'Enter') sor(); });
+  document.getElementById('ulgen-ask-input')?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') sor();
+    else if (e.key === 'Escape' && ulgen.mod) { e.preventDefault(); modSec(ulgen.mod); }
+  });
 }
 
 function initUlgenPanel() {
