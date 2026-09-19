@@ -33,6 +33,7 @@ const { shieldScript, createSeeder } = require('./fingerprint-shield');
 const { setupSuggestPopup } = require('./suggest-popup');
 const { createConsentLog } = require('./consent-log');
 const tabGroups = require('./tab-groups');
+const ulgenMotor = require('./ulgen-motor');
 const webPanels = require('./web-panels');
 // Veri ve Gizlilik: izin kataloğu arayüzle ortak (renderer/data-catalog.js).
 const dataCatalog = require('../renderer/data-catalog.js');
@@ -1681,6 +1682,146 @@ ipcMain.handle('reader-extract', async (event) => {
   };
 });
 
+// ── ÜLGEN (yerel asistan) ─────────────────────────────────────────────────────
+// Motor: ulgen-motor.js — AĞ YOK, DİL MODELİ YOK. Buradaki kancalar yalnız izni
+// denetler, sayfayı okur ve kullanıcının tıkladığı eylemi yapar. İzinler Veri ve
+// Gizlilik'tedir (data-catalog: ulgenChat, ulgenPage, ulgenHistory, ulgenInterests).
+// Gizli pencerede geçmiş araması ve kişiselleştirme KAPALI.
+const ULGEN_ILGI_DOSYA = path.join(USER_DATA, 'ulgen-ilgi.bin');
+
+function ulgenIzin(id) {
+  const item = dataCatalog.BY_ID[id];
+  return !!item && dataCatalog.valueOf(item, config) === true;
+}
+
+// Okuma modunun aynı boru hattı, ama RESİM İNDİRMEDEN: Ülgen'in resme ihtiyacı
+// yok ve resim indirmek sayfanın sunucusuna istek atmak demek.
+async function ulgenSayfaMetni(state) {
+  const wc = activeTabContents(state);
+  if (!wc || !isWebUrl(wc.getURL())) return { ok: false, sebep: 'sayfa_yok' };
+  const url = wc.getURL();
+  let raw = null;
+  try {
+    if (!readerScript) readerScript = reader.buildExtractScript(fs.readFileSync(require.resolve('@mozilla/readability/Readability.js'), 'utf8'));
+    raw = await wc.executeJavaScriptInIsolatedWorld(READER_WORLD_ID, [{ code: readerScript }]);
+  } catch (e) {
+    logError('ulgen', e);
+  }
+  if (wc.isDestroyed() || wc.getURL() !== url) return { ok: false, sebep: 'sayfa_degisti' };
+  if (!raw || raw.error || !Array.isArray(raw.nodes)) return { ok: false, sebep: 'makale_yok' };
+  const nodes = reader.validateReaderNodes(raw.nodes);
+  if (reader.readerTextLength(nodes) < 200) return { ok: false, sebep: 'makale_yok' };
+  return { ok: true, url, baslik: typeof raw.title === 'string' ? raw.title.slice(0, 300) : '', ...ulgenMotor.duzMetin(nodes) };
+}
+
+// İlgi etiketleri: yalnız sözcük + sayaç, işletim sistemi kasasıyla şifreli.
+// Kasa yoksa diske HİÇ yazılmaz (şifresiz saklamak yerine saklamamak).
+async function ulgenIlgiOku() {
+  try {
+    if (!fs.existsSync(ULGEN_ILGI_DOSYA) || !(await osCrypto.isAvailable())) return {};
+    const { text } = await osCrypto.decryptBuffer(fs.readFileSync(ULGEN_ILGI_DOSYA));
+    const d = JSON.parse(text);
+    return d && typeof d === 'object' && !Array.isArray(d) ? d : {};
+  } catch { return {}; }
+}
+async function ulgenIlgiYaz(d) {
+  if (!(await osCrypto.isAvailable())) return false;
+  fs.writeFileSync(ULGEN_ILGI_DOSYA, await osCrypto.encryptText(JSON.stringify(d)));
+  return true;
+}
+function ulgenIlgiSil() {
+  try { fs.rmSync(ULGEN_ILGI_DOSYA, { force: true }); return true; } catch { return false; }
+}
+
+ipcMain.handle('ulgen-durum', (event) => {
+  const { state } = getContextFromEvent(event);
+  return { chat: ulgenIzin('ulgenChat'), page: ulgenIzin('ulgenPage'), history: ulgenIzin('ulgenHistory'),
+           interests: ulgenIzin('ulgenInterests'), gizli: state === incognitoState };
+});
+
+const ULGEN_TURLER = ['ozet', 'sayfada', 'gecmis', 'web', 'sorgu', 'yardim'];
+
+ipcMain.handle('ulgen-sor', async (event, istek) => {
+  const { state } = getContextFromEvent(event);
+  const gizli = state === incognitoState;
+  if (!ulgenIzin('ulgenChat')) return { ok: false, sebep: 'izin_chat' };
+  const metin = typeof istek?.metin === 'string' ? istek.metin.slice(0, 500) : '';
+  let { tur, arg } = ulgenMotor.niyet(metin);
+  if (ULGEN_TURLER.includes(istek?.tur)) tur = istek.tur;    // paneldeki düğmeden
+  switch (tur) {
+    case 'ozet':
+    case 'sayfada': {
+      // Sayfa izni kapalıysa her seferinde sorulur; panel onay verince tekrar gelir.
+      if (!ulgenIzin('ulgenPage') && istek?.onay !== true) return { ok: false, sebep: 'onay_gerek', tur, metin };
+      const aranan = tur === 'sayfada' ? (ulgenMotor.sorguOner(arg) || arg) : '';
+      if (tur === 'sayfada' && !aranan) return { ok: false, sebep: 'sorgu_bos', tur };
+      const s = await ulgenSayfaMetni(state);
+      if (!s.ok) return { ok: false, sebep: s.sebep, tur };
+      if (tur === 'sayfada') {
+        return { ok: true, tur, baslik: s.baslik, url: s.url, sorgu: aranan, sonuclar: ulgenMotor.sayfadaAra(s.bloklar, aranan) };
+      }
+      const o = ulgenMotor.ozetle(s.bloklar, { baslik: s.baslik, basliklar: s.basliklar });
+      let etiket = [];
+      if (ulgenIzin('ulgenInterests') && !gizli) {
+        etiket = ulgenMotor.anahtarSozcukler(s.bloklar, 5);
+        const yazildi = await ulgenIlgiYaz(ulgenMotor.ilgiEkle(await ulgenIlgiOku(), etiket)).catch(() => false);
+        if (!yazildi) etiket = [];
+      }
+      return { ok: true, tur, baslik: s.baslik, url: s.url, cumleler: o.cumleler, toplam: o.toplam, karakter: s.karakter, etiket };
+    }
+    case 'gecmis': {
+      if (gizli) return { ok: false, sebep: 'gizli_pencere', tur };
+      if (!ulgenIzin('ulgenHistory')) return { ok: false, sebep: 'izin_history', tur };
+      // Günlük araması tam metni arar; "geçen hafta okuduğum Çanakkale yazısı"
+      // hiçbir başlıkta geçmez. Sözcük sözcük aranır, çok eşleşen öne çıkar.
+      const sozcuk = ulgenMotor.sozcukler(arg).slice(0, 6);
+      if (!sozcuk.length || !secureLog) return { ok: true, tur, sorgu: '', sonuclar: [] };
+      const puan = new Map();
+      for (const w of sozcuk) {
+        for (const it of (secureLog.search({ text: w, limit: 200 }).items || [])) {
+          const e = puan.get(it.url) || { it, n: 0 };
+          e.n++; puan.set(it.url, e);
+        }
+      }
+      const sirali = [...puan.values()]
+        .sort((a, b) => b.n - a.n || (b.it.timestamp || 0) - (a.it.timestamp || 0)).map((x) => x.it);
+      return { ok: true, tur, sorgu: sozcuk.join(' '), sonuclar: ulgenMotor.gecmisSonuclari(sirali, 8) };
+    }
+    case 'web':
+    case 'sorgu': {
+      const sorgu = ulgenMotor.sorguOner(arg);
+      if (!sorgu) return { ok: false, sebep: 'sorgu_bos', tur };
+      return { ok: true, tur, sorgu, eylem: { tur: 'ara', sorgu } };
+    }
+    default:
+      return { ok: true, tur: tur === 'bilinmiyor' ? 'bilinmiyor' : 'yardim', metin };
+  }
+});
+
+// Eylem yalnız kullanıcı tıklayınca gelir; motor hiçbir sekmeyi kendisi açmaz.
+ipcMain.handle('ulgen-eylem', (event, eylem) => {
+  const { win, state } = getContextFromEvent(event);
+  if (!ulgenIzin('ulgenChat')) return { ok: false, sebep: 'izin_chat' };
+  let url = '';
+  if (eylem?.tur === 'ara') {
+    const q = typeof eylem.sorgu === 'string' ? eylem.sorgu.trim().slice(0, 300) : '';
+    if (!q) return { ok: false, sebep: 'sorgu_bos' };
+    url = searchUrl(q);
+  } else if (eylem?.tur === 'ac' && isWebUrl(eylem.url)) {
+    url = String(eylem.url).slice(0, 2000);
+  } else {
+    return { ok: false, sebep: 'gecersiz' };
+  }
+  setActiveTab(win, state, createTab(win, state, url));
+  return { ok: true };
+});
+
+ipcMain.handle('ulgen-veri', async () => {
+  const ilgi = await ulgenIlgiOku();
+  return { ilgi: Object.entries(ilgi).sort((a, b) => b[1] - a[1]).map(([etiket, sayi]) => ({ etiket, sayi })) };
+});
+ipcMain.handle('ulgen-veri-sil', () => ({ ok: ulgenIlgiSil() }));
+
 ipcMain.handle('screenshot-reveal', (_e, file) => {
   if (typeof file !== 'string' || !screenshotPaths.has(file) || !fs.existsSync(file)) return false;
   require('electron').shell.showItemInFolder(file);
@@ -2528,6 +2669,9 @@ ipcMain.handle('data-center-set', (e, id, value, from) => {
   config = next;
   saveConfig(config);
   applyConfigEffects(previous);
+  // Ülgen ilgi izni kapandıysa cihazdaki etiketler de silinir: kapatmak
+  // "bundan sonrasını durdur" değil, "sakladığını da sil" demektir.
+  if (!ulgenIzin('ulgenInterests')) ulgenIlgiSil();
   const changes = dataCatalog.diff(before, dataCatalog.snapshot(config));
   try { consentLog.recordChanges(changes, source); } catch (err) { console.error('Onay kaydı yazılamadı:', err.message); }
   return { ok: true, changes, ...dataCenterState() };

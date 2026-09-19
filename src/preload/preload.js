@@ -319,6 +319,15 @@ contextBridge.exposeInMainWorld('secureBrowser', {
   revealScreenshot:   (file) => ipcRenderer.invoke('screenshot-reveal', file),
   // Okuma modu: etkin sekmedeki makale (doğrulanmış ağaç, resimler data: adresi)
   reader: { extract: () => ipcRenderer.invoke('reader-extract') },
+  // Ülgen (yerel asistan): dar ve yazılı kapı. Genel ağ erişimi verilmez; motor
+  // ana süreçte çalışır, ağa çıkmaz. Eylemler yalnız kullanıcı tıklayınca gider.
+  ulgen: {
+    durum:   ()        => ipcRenderer.invoke('ulgen-durum'),
+    sor:     (istek)   => ipcRenderer.invoke('ulgen-sor', istek),
+    eylem:   (eylem)   => ipcRenderer.invoke('ulgen-eylem', eylem),
+    veri:    ()        => ipcRenderer.invoke('ulgen-veri'),
+    veriSil: ()        => ipcRenderer.invoke('ulgen-veri-sil'),
+  },
 
   // ── Event Dinleyiciler ───────────────────────────────────────────────────────
   onTabsUpdate:       (cb) => ipcRenderer.on('tabs-update', (e, data) => cb(data)),

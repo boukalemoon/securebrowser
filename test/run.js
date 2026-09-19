@@ -1717,12 +1717,93 @@ suite('Keşfet — TrendTech yazılımları');
       appU.includes("const ALL_PANELS = ['settings', 'logs', 'bookmarks', 'blocker', 'shield', 'vpn', 'arku', 'ulgen', 'siteinfo', 'webpanel', 'profiles'];")
       && appU.includes("'btn-arku', 'btn-ulgen', 'security-icon'")
       && up.includes('window.secureBrowser?.panelOpened(true);') && up.includes("window.ilgezdiCloseAllPanels?.();"));
-    check('motor bağlanana kadar giriş kapalı ve hiçbir ağ isteği ya da veri toplama yok',
-      up.includes('id="ulgen-ask-input" disabled') && up.includes('id="ulgen-ask-send" disabled')
-      && !/fetch\(|XMLHttpRequest|ipcRenderer|localStorage/.test(up));
-    check('metinler anahtarlardan geliyor (dokuz dil) ve gizlilik notu panelde',
-      /TH\('ulgen\.privacy'\)/.test(up) && /TH\('ulgen\.account'\)/.test(up) && /TH\('ulgen\.soonHint'\)/.test(up)
-      && JSON.parse(read('locales/tr.json'))['ulgen.privacy'].includes('siz açıkça izin vermeden'));
+    check('izin okunana kadar giriş kapalı; panel kendisi ağa ve depolamaya dokunmuyor, yalnız dar köprüyü kullanıyor',
+      up.includes('id="ulgen-ask-input" maxlength="500" disabled') && up.includes('id="ulgen-ask-send" disabled')
+      && !/fetch\(|XMLHttpRequest|ipcRenderer|localStorage|sessionStorage|indexedDB/.test(up)
+      && up.includes('window.secureBrowser && window.secureBrowser.ulgen'));
+    check('metinler anahtarlardan geliyor (dokuz dil) ve gizlilik notu doğru: Ülgen bu cihazda çalışır, sunucuya gönderilmez',
+      /TH\('ulgen\.privacy'\)/.test(up) && /TH\('ulgen\.account'\)/.test(up) && /TH\('ulgen\.off'\)/.test(up)
+      && JSON.parse(read('locales/tr.json'))['ulgen.privacy'].includes('hiçbir sunucuya gönderilmez'));
+    // Sayfadan ve geçmişten gelen metin güvenilmez: yalnız textContent. innerHTML
+    // yalnız sabit iskelette (TH ile kaçışlı) tek bir yerde kullanılabilir.
+    check('güvenilmez metin textContent ile basılıyor; innerHTML yalnız sabit iskelette, satır içi olay işleyicisi yok',
+      (up.match(/\.innerHTML\s*=/g) || []).length === 1 && up.includes('e.textContent = metin;')
+      && !/\son[a-z]+=\s*["']/i.test(up));
+    check('eylemler yalnız kullanıcının bastığı düğmeden gidiyor (motor sekme açmıyor)',
+      /dugme\(T\('ulgen\.web\.open'\), \(\) => U\(\)\?\.eylem\(\{ tur: 'ara'/.test(up)
+      && /dugme\(s\.baslik, \(\) => U\(\)\?\.eylem\(\{ tur: 'ac'/.test(up));
+    check('izin kapalıyken Veri ve Gizlilik sayfasına yönlendiriyor (izni panel kendisi açmıyor)',
+      up.includes("window.ilgezdiDataCenter?.open?.('ulgen');") && !up.includes('dataCenter.set('));
+  }
+
+  suite('Ülgen motoru (yerel, ağsız)');
+  {
+    const M = require('../src/main/ulgen-motor.js');
+    const src = read('main/ulgen-motor.js');
+    check('motor ağa çıkamaz: electron/http/net/fetch yok, yalnız saf işlevler',
+      !/require\(\s*['"](electron|http|https|net|dns|child_process)['"]\s*\)|fetch\(|XMLHttpRequest|WebSocket/.test(src));
+    // ⛔ JavaScript'in \b sınırı Türkçe harfi tanımıyor; "bu sayfayı özetle" ilk
+    // sürümde TANINMIYORDU. Bu sınamalar o hatanın geri gelmesini engeller.
+    eq('Türkçe niyetler (ö/ı/ü ile başlayan/biten sözcükler dahil)',
+      ['bu sayfayı özetle', 'Özetler misin?', 'sayfada Montrö geçiyor mu', 'geçen hafta okuduğum Çanakkale yazısı',
+       'daha iyi bir arama sorgusu yaz: gemi sayısı', "kahve web'de ara"].map((t) => M.niyet(t).tur),
+      ['ozet', 'ozet', 'sayfada', 'gecmis', 'sorgu', 'web']);
+    eq('İngilizce niyetler', ['Summarize this page', 'search for turkish straits', 'better query for ships'].map((t) => M.niyet(t).tur),
+      ['ozet', 'web', 'sorgu']);
+    eq('sözcük içinde geçen kalıp niyet sayılmıyor, boş metin yardım', [M.niyet('sözetle bunu').tur, M.niyet('merhaba').tur, M.niyet('  ').tur],
+      ['bilinmiyor', 'bilinmiyor', 'yardim']);
+    eq('kısaltma ("Doç.", "Dr.", "örn.") cümleyi bölmüyor',
+      M.cumleler(['Doç. Dr. Ahmet geldi. Sonra örn. bir kitap okudu. Yeni cümle burada.']).map((c) => c.metin),
+      ['Doç. Dr. Ahmet geldi.', 'Sonra örn. bir kitap okudu.', 'Yeni cümle burada.']);
+    const d = M.duzMetin([['h1', null, ['Başlık']], ['p', null, ['Birinci ', ['b', null, ['kalın']], ' paragraf.']],
+      ['img', { src: 'https://x/y.png' }, []], ['ul', null, [['li', null, ['madde bir']], ['li', null, ['madde iki']]]]]);
+    eq('okuyucu ağacından bloklar: başlık ayrı, satır içi etiket birleşik, resim yok', [d.basliklar, d.bloklar],
+      [['Başlık'], ['Birinci kalın paragraf.', 'madde bir', 'madde iki']]);
+    const bloklar = [
+      'Çanakkale Boğazı Ege Denizi ile Marmara Denizi arasında yer alan ve uluslararası deniz ticareti için büyük önem taşıyan bir boğazdır.',
+      'Boğazın en dar yeri yaklaşık 1,2 kilometredir ve bu nedenle gemi trafiği sıkı biçimde denetlenir.',
+      'Montrö Boğazlar Sözleşmesi 1936 yılında imzalanmış ve boğazlardan geçiş rejimini düzenlemiştir.',
+      'Bölgede turizm de gelişmiştir; tarihî alanlar her yıl binlerce ziyaretçi ağırlar.',
+      'Çanakkale Boğazı üzerindeki köprü 2022 yılında açılarak iki yakayı birbirine bağlamıştır.',
+    ];
+    const o = M.ozetle(bloklar, { baslik: 'Çanakkale Boğazı' });
+    check('özet YALNIZ sayfanın kendi cümlelerinden (uydurma cümle yok), en çok 3 cümle, sıra korunuyor',
+      o.cumleler.length > 0 && o.cumleler.length <= 3 && o.cumleler.every((c) => bloklar.includes(c))
+      && o.cumleler.every((c, i, a) => i === 0 || bloklar.indexOf(a[i - 1]) < bloklar.indexOf(c)), o.cumleler);
+    eq('özet belirlenimci (aynı girdi → aynı çıktı)', M.ozetle(bloklar, { baslik: 'Çanakkale Boğazı' }).cumleler, o.cumleler);
+    check('sayfada arama ilgili cümleyi buluyor, soru eki aranmıyor',
+      M.sayfadaAra(bloklar, M.sorguOner('Montrö geçiyor mu'))[0].startsWith('Montrö'), M.sorguOner('Montrö geçiyor mu'));
+    eq('daha iyi sorgu: soru/dolgu sözcükleri ve Türkçe ek atılıyor, tırnaklı ifade korunuyor',
+      [M.sorguOner("İstanbul'da en iyi kahve nerede içilir acaba?"), M.sorguOner('"Montrö Sözleşmesi" nedir')],
+      ['İstanbul en iyi kahve içilir', '"Montrö Sözleşmesi"']);
+    const ilgi = Array.from({ length: 80 }, (_, i) => 'etiket' + i).reduce((acc, w) => M.ilgiEkle(acc, [w]), {});
+    check('ilgi etiketleri sınırsız büyümüyor (en çok 60) ve yalnız sözcük saklanıyor',
+      Object.keys(ilgi).length === 60 && Object.values(ilgi).every((n) => Number.isInteger(n))
+      && Object.keys(M.ilgiEkle({}, ['https://x.com/a/b/c/d/e/f/g/h/i/j/k/l/m/n/o/p'])).length === 0);
+    eq('geçmiş sonuçları: yalnız http(s), yalnız gösterilecek alanlar',
+      M.gecmisSonuclari([{ url: 'javascript:alert(1)', title: 'x' }, { url: 'https://a.com/b', title: 'A', domain: 'a.com', timestamp: 5, vpnActive: true }]),
+      [{ baslik: 'A', url: 'https://a.com/b', alan: 'a.com', zaman: 5 }]);
+  }
+
+  suite('Ülgen — ana süreç kancaları');
+  {
+    const mj = read('main/main.js');
+    const sor = mj.slice(mj.indexOf("ipcMain.handle('ulgen-sor'"), mj.indexOf("ipcMain.handle('ulgen-eylem'"));
+    check('sohbet izni kapalıyken hiçbir şey yapılmıyor (ilk denetim)',
+      /ipcMain\.handle\('ulgen-sor'[\s\S]{0,200}if \(!ulgenIzin\('ulgenChat'\)\) return \{ ok: false, sebep: 'izin_chat' \};/.test(mj));
+    check('sayfa izni kapalıysa her seferinde onay isteniyor',
+      sor.includes("if (!ulgenIzin('ulgenPage') && istek?.onay !== true) return { ok: false, sebep: 'onay_gerek', tur, metin };"));
+    check('gizli pencerede geçmiş araması ve ilgi etiketi KAPALI',
+      sor.includes("if (gizli) return { ok: false, sebep: 'gizli_pencere', tur };") && sor.includes("if (ulgenIzin('ulgenInterests') && !gizli)"));
+    check('Ülgen sayfayı okurken resim İNDİRMİYOR (okuma modundan farklı olarak ağa çıkmıyor)',
+      /async function ulgenSayfaMetni[\s\S]{0,1200}ulgenMotor\.duzMetin\(nodes\)/.test(mj)
+      && !/async function ulgenSayfaMetni[\s\S]{0,1200}fetchReaderImages/.test(mj));
+    check('eylem: yalnız http(s) adres ya da arama, sekme createTab + setActiveTab ile açılıyor',
+      /ipcMain\.handle\('ulgen-eylem'[\s\S]{0,700}eylem\?\.tur === 'ac' && isWebUrl\(eylem\.url\)[\s\S]{0,300}setActiveTab\(win, state, createTab\(win, state, url\)\);/.test(mj));
+    check('ilgi etiketleri işletim sistemi kasasıyla şifreli; kasa yoksa diske yazılmıyor',
+      /async function ulgenIlgiYaz\(d\) \{\s*if \(!\(await osCrypto\.isAvailable\(\)\)\) return false;/.test(mj));
+    check('ilgi izni kapanınca cihazdaki etiketler siliniyor',
+      /ipcMain\.handle\('data-center-set'[\s\S]{0,1400}if \(!ulgenIzin\('ulgenInterests'\)\) ulgenIlgiSil\(\);/.test(mj));
   }
 
   suite('Adres çubuğu önerileri');
