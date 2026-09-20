@@ -3275,6 +3275,60 @@ suite('Ülgen görev sayfası — ana süreçteki sınırlar');
     !/async function ulgenGorevSayfasi[\s\S]{0,3000}?contentView\.addChildView/.test(m));
 }
 
+// ══════════════════════════════════════════════════════════════════════════════
+// Eksik modül denetimi (20 Eyl 2026): main.js `require('./gorev-sayfa')` yaparken
+// o dosya depoya girmemişti — paylaşılan çalışma ağacında bir oturum main.js'i
+// stage edince başka bir oturumun commit etmediği kodu da almış, çağırdığı dosya
+// ise izlenmemişti. Temiz bir klon AÇILIŞTA ÇÖKÜYORDU ve hiçbir test görmüyordu.
+// Bu denetim o sınıfı kalıcı olarak yakalar: çalışan kodun çağırdığı her yerel
+// modül depoda olmalı.
+// ══════════════════════════════════════════════════════════════════════════════
+suite('Depo bütünlüğü — çağrılan her yerel modül var');
+{
+  const SRC_DIR = path.join(__dirname, '..', 'src');
+  const dosyalar = [];
+  const gez = (dir) => {
+    for (const ad of fs.readdirSync(dir)) {
+      const p = path.join(dir, ad);
+      const st = fs.statSync(p);
+      if (st.isDirectory()) gez(p);
+      else if (ad.endsWith('.js')) dosyalar.push(p);
+    }
+  };
+  gez(SRC_DIR);
+
+  const eksik = [];
+  for (const dosya of dosyalar) {
+    const src = fs.readFileSync(dosya, 'utf8');
+    for (const m of src.matchAll(/require\(\s*'(\.[^']+)'\s*\)/g)) {
+      const hedef = m[1];
+      const taban = path.resolve(path.dirname(dosya), hedef);
+      const varMi = [taban, taban + '.js', taban + '.json', path.join(taban, 'index.js')]
+        .some((p) => { try { return fs.statSync(p).isFile(); } catch { return false; } });
+      if (!varMi) eksik.push(path.relative(SRC_DIR, dosya) + " → require('" + hedef + "')");
+    }
+  }
+  check('yerel require hedeflerinin hepsi diskte (' + dosyalar.length + ' dosya tarandı)',
+    eksik.length === 0, eksik.join(', '));
+
+  // Diskte olması yetmez: dosya GIT TARAFINDAN İZLENMİYORSA temiz klonda yok.
+  // git yoksa (kaynak arşivinden çalıştırma) denetim atlanır.
+  let izlenen = null;
+  try {
+    izlenen = new Set(require('child_process')
+      .execFileSync('git', ['ls-files', 'src'], { cwd: path.join(__dirname, '..'), encoding: 'utf8' })
+      .split('\n').map((l) => l.trim().replace(/\\/g, '/')).filter(Boolean));
+  } catch { /* git yok */ }
+  if (izlenen) {
+    const izsiz = dosyalar
+      .map((p) => path.relative(path.join(__dirname, '..'), p).replace(/\\/g, '/'))
+      .filter((p) => !izlenen.has(p));
+    check('src altındaki her JS dosyası git tarafından izleniyor', izsiz.length === 0, izsiz.join(', '));
+  } else {
+    check('src altındaki her JS dosyası git tarafından izleniyor — git yok, atlandı', true);
+  }
+}
+
 // ─── Özet ─────────────────────────────────────────────────────────────────────
 console.log('\n' + '─'.repeat(60));
 if (failed === 0) {
