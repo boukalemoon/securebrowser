@@ -34,6 +34,7 @@ const { setupSuggestPopup } = require('./suggest-popup');
 const { createConsentLog } = require('./consent-log');
 const tabGroups = require('./tab-groups');
 const ulgenMotor = require('./ulgen-motor');
+const ulgenCeviri = require('./ulgen-ceviri');
 const webPanels = require('./web-panels');
 const notesStore = require('./notes');
 // Veri ve Gizlilik: izin kataloğu arayüzle ortak (renderer/data-catalog.js).
@@ -1686,7 +1687,8 @@ ipcMain.handle('reader-extract', async (event) => {
 // ── ÜLGEN (yerel asistan) ─────────────────────────────────────────────────────
 // Motor: ulgen-motor.js — AĞ YOK, DİL MODELİ YOK. Buradaki kancalar yalnız izni
 // denetler, sayfayı okur ve kullanıcının tıkladığı eylemi yapar. İzinler Veri ve
-// Gizlilik'tedir (data-catalog: ulgenChat, ulgenPage, ulgenHistory, ulgenInterests).
+// Gizlilik'tedir (data-catalog: ulgenChat, ulgenPage, ulgenHistory, ulgenInterests,
+// ulgenTranslate). Çeviri de CİHAZ İÇİ: sayfa metni çıkmaz, yalnız dil paketi iner.
 // Gizli pencerede geçmiş araması ve kişiselleştirme KAPALI.
 const ULGEN_ILGI_DOSYA = path.join(USER_DATA, 'ulgen-ilgi.bin');
 
@@ -1737,8 +1739,20 @@ function ulgenIlgiSil() {
 ipcMain.handle('ulgen-durum', (event) => {
   const { state } = getContextFromEvent(event);
   return { chat: ulgenIzin('ulgenChat'), page: ulgenIzin('ulgenPage'), history: ulgenIzin('ulgenHistory'),
-           interests: ulgenIzin('ulgenInterests'), gizli: state === incognitoState };
+           interests: ulgenIzin('ulgenInterests'), ceviri: ulgenIzin('ulgenTranslate'),
+           gizli: state === incognitoState };
 });
+
+// Özetin çevirisi. Özgün cümleler yanıtta AYNEN kalır; burada yalnız çeviri
+// üretilir, panel ikisini birlikte "makine çevirisi" damgasıyla gösterir.
+async function ulgenOzetCevir(cumleler, hedefDil) {
+  if (!ulgenIzin('ulgenTranslate')) return { durum: 'kapali', hedefDil, cumleler: [] };
+  const kaynakDil = ulgenCeviri.dilBul((cumleler || []).join(' '));
+  if (!kaynakDil) return { durum: 'dil_bilinmiyor', hedefDil, cumleler: [] };
+  if (kaynakDil === hedefDil) return { durum: 'gerek_yok', kaynakDil, hedefDil, cumleler: [] };
+  const r = await ulgenCeviri.cevir(cumleler, { kaynakDil, hedefDil });
+  return { durum: r.durum, motor: r.motor, kaynakDil, hedefDil, cumleler: r.cumleler };
+}
 
 const ULGEN_TURLER = ['ozet', 'sayfada', 'gecmis', 'web', 'sorgu', 'yardim'];
 
@@ -1768,7 +1782,10 @@ ipcMain.handle('ulgen-sor', async (event, istek) => {
         const yazildi = await ulgenIlgiYaz(ulgenMotor.ilgiEkle(await ulgenIlgiOku(), etiket)).catch(() => false);
         if (!yazildi) etiket = [];
       }
-      return { ok: true, tur, baslik: s.baslik, url: s.url, cumleler: o.cumleler, toplam: o.toplam, karakter: s.karakter, etiket };
+      const yanit = { ok: true, tur, baslik: s.baslik, url: s.url, cumleler: o.cumleler, toplam: o.toplam, karakter: s.karakter, etiket };
+      const hedefDil = typeof istek?.hedefDil === 'string' ? istek.hedefDil.trim().slice(0, 5) : '';
+      if (hedefDil && o.cumleler.length) yanit.ceviri = await ulgenOzetCevir(o.cumleler, hedefDil);
+      return yanit;
     }
     case 'gecmis': {
       if (gizli) return { ok: false, sebep: 'gizli_pencere', tur };
@@ -1799,10 +1816,25 @@ ipcMain.handle('ulgen-sor', async (event, istek) => {
   }
 });
 
+// Dil paketi indirme. YALNIZ kullanıcı düğmeye basınca; motor kendiliğinden
+// hiçbir şey indirmez. İnen şey MODELDİR — sayfa metni hiçbir yere gitmez.
+async function ulgenCeviriPaketi(event, eylem) {
+  if (!ulgenIzin('ulgenTranslate')) return { ok: false, sebep: 'izin_ceviri', durum: 'hata' };
+  const kay = typeof eylem.kaynakDil === 'string' ? eylem.kaynakDil.trim().slice(0, 5) : 'en';
+  const hed = typeof eylem.hedefDil === 'string' ? eylem.hedefDil.trim().slice(0, 5) : 'tr';
+  const gonder = (d) => { try { if (!event.sender.isDestroyed()) event.sender.send('ulgen-ceviri-durum', d); } catch { /* pencere kapanmış */ } };
+  const is = ulgenCeviri.paketIndir(kay, hed, gonder);
+  // İndirme dakikalar sürebilir: çağrıyı bekletmeyiz, ilerleme olayla gider.
+  return Promise.race([is, new Promise((r) => setTimeout(() => r({ ok: true, durum: 'iniyor' }), 1500))]);
+}
+
 // Eylem yalnız kullanıcı tıklayınca gelir; motor hiçbir sekmeyi kendisi açmaz.
-ipcMain.handle('ulgen-eylem', (event, eylem) => {
+ipcMain.handle('ulgen-eylem', async (event, eylem) => {
   const { win, state } = getContextFromEvent(event);
   if (!ulgenIzin('ulgenChat')) return { ok: false, sebep: 'izin_chat' };
+
+  if (eylem?.tur === 'ceviriPaketi') return ulgenCeviriPaketi(event, eylem);
+
   let url = '';
   if (eylem?.tur === 'ara') {
     const q = typeof eylem.sorgu === 'string' ? eylem.sorgu.trim().slice(0, 300) : '';
