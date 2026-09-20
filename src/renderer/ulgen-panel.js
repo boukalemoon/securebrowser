@@ -81,7 +81,6 @@ function injectUlgenStyles() {
       background:radial-gradient(circle, color-mix(in srgb, var(--gold) 20%, transparent), transparent 68%); }
     .ulgen-halo::before { content:''; position:absolute; inset:-10px; border-radius:50%; border:1px dashed color-mix(in srgb, var(--gold) 30%, transparent); }
     .ulgen-halo .ulgen-mark { width:66px; height:66px; filter:drop-shadow(0 0 16px var(--ul-glow)); }
-    .ulgen-halo .ulgen-mark svg { animation:ulgenSpin 90s linear infinite; }
     .ulgen-welcome h3 { margin:0; font-family:var(--font-display); font-size:22px; font-weight:700; letter-spacing:1px; text-wrap:balance;
       background:linear-gradient(135deg, var(--ink), var(--gold) 70%, var(--copper)); -webkit-background-clip:text; background-clip:text; color:transparent; }
     .ulgen-welcome p { margin:8px 0 0; font-size:12.5px; line-height:1.6; color:var(--ink-mute); max-width:36ch; text-wrap:balance; }
@@ -130,7 +129,15 @@ function injectUlgenStyles() {
     .ulgen-msg.siz .ulgen-bubble { max-width:86%; border-radius:14px 4px 14px 14px; color:var(--ink);
       background:linear-gradient(135deg, color-mix(in srgb, var(--gold) 22%, var(--bg-elev)), color-mix(in srgb, var(--copper) 16%, var(--bg-elev)));
       border-color:color-mix(in srgb, var(--gold) 40%, transparent); }
-    .ulgen-msg.busy .ulgen-avatar svg { animation:ulgenSpin 2.4s linear infinite; }
+    /* İşlem sürerken tamga dönmez: yukarıdan aşağıya bir ışık geçer (Burak, 20 Eyl 2026). */
+    .ulgen-msg.busy .ulgen-avatar svg,
+    #panel-ulgen.ulgen-isliyor .ulgen-head .ulgen-mark svg,
+    #panel-ulgen.ulgen-isliyor .ulgen-halo .ulgen-mark svg {
+      -webkit-mask-image:linear-gradient(180deg, rgba(0,0,0,.3) 0 34%, #000 50%, rgba(0,0,0,.3) 66% 100%);
+      mask-image:linear-gradient(180deg, rgba(0,0,0,.3) 0 34%, #000 50%, rgba(0,0,0,.3) 66% 100%);
+      -webkit-mask-size:100% 280%; mask-size:100% 280%;
+      animation:ulgenTara 1.4s ease-in-out infinite;
+    }
     .ulgen-msg.busy .ulgen-bubble { color:var(--ink-mute); font-style:italic; }
     .ulgen-bubble h4 { margin:0 0 2px; font-family:var(--font-display); font-size:13.5px; letter-spacing:.4px; color:var(--ink); }
     .ulgen-source { font:500 10.5px var(--font-mono); color:var(--ink-mute); margin-bottom:8px; }
@@ -187,9 +194,23 @@ function injectUlgenStyles() {
     .ulgen-note svg { flex-shrink:0; margin-top:2px; color:color-mix(in srgb, var(--gold) 70%, var(--ink-mute)); }
 
     @keyframes ulgenIn { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:none; } }
-    @keyframes ulgenSpin { to { transform:rotate(360deg); } }
-    @media (prefers-reduced-motion: reduce) { .ulgen-msg, .ulgen-msg.busy .ulgen-avatar svg, .ulgen-halo .ulgen-mark svg, .ulgen-info { animation:none; } .ulgen-chip { transition:none; } }
-    :root[data-reduce-motion] .ulgen-msg, :root[data-reduce-motion] .ulgen-msg.busy .ulgen-avatar svg, :root[data-reduce-motion] .ulgen-halo .ulgen-mark svg, :root[data-reduce-motion] .ulgen-info { animation:none; }
+    @keyframes ulgenTara {
+      0%   { -webkit-mask-position:0 -110%; mask-position:0 -110%; }
+      100% { -webkit-mask-position:0 110%;  mask-position:0 110%; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .ulgen-msg, .ulgen-info, .ulgen-msg.busy .ulgen-avatar svg,
+      #panel-ulgen.ulgen-isliyor .ulgen-head .ulgen-mark svg, #panel-ulgen.ulgen-isliyor .ulgen-halo .ulgen-mark svg {
+        animation:none; -webkit-mask-image:none; mask-image:none;
+      }
+      .ulgen-chip { transition:none; }
+    }
+    :root[data-reduce-motion] .ulgen-msg, :root[data-reduce-motion] .ulgen-info,
+    :root[data-reduce-motion] .ulgen-msg.busy .ulgen-avatar svg,
+    :root[data-reduce-motion] #panel-ulgen.ulgen-isliyor .ulgen-head .ulgen-mark svg,
+    :root[data-reduce-motion] #panel-ulgen.ulgen-isliyor .ulgen-halo .ulgen-mark svg {
+      animation:none; -webkit-mask-image:none; mask-image:none;
+    }
   `;
   document.head.appendChild(s);
 }
@@ -442,11 +463,14 @@ async function gonder(istek, yazdir = true) {
   if (istek.tur === 'ozet' && !istek.hedefDil) istek = { ...istek, hedefDil: hedefDil() };
   if (yazdir && istek.metin) mesaj('siz', istek.metin);
   ulgen.mesgul = true;
+  const panel = document.getElementById('panel-ulgen');
+  panel?.classList.add('ulgen-isliyor');          // tamga işlem boyunca yanıp söner
   const bekle = mesaj('biz', T('ulgen.busy'));
   bekle?.classList.add('busy');
   let r = null;
   try { r = await kopru.sor(istek); } catch { r = null; }
   bekle?.remove();
+  panel?.classList.remove('ulgen-isliyor');
   ulgen.mesgul = false;
   yanitiGoster(r, istek);
 }

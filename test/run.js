@@ -1725,6 +1725,12 @@ suite('Keşfet — TrendTech yazılımları');
       appU.includes("const ALL_PANELS = ['settings', 'logs', 'bookmarks', 'blocker', 'shield', 'vpn', 'arku', 'ulgen', 'siteinfo', 'webpanel', 'profiles', 'notes', 'page'];")
       && appU.includes("'btn-arku', 'btn-ulgen', 'security-icon'")
       && up.includes('window.secureBrowser?.panelOpened(true);') && up.includes("window.ilgezdiCloseAllPanels?.();"));
+    // Burak, 20 Eyl 2026: "logo dönmesin, işlem yapınca yukarıdan aşağıya yanıp sönsün".
+    check('tamga dönmüyor; işlem sürerken yukarıdan aşağıya yanıp sönüyor',
+      !/ulgenSpin/.test(up)
+      && /@keyframes ulgenTara \{\s*0%\s*\{ -webkit-mask-position:0 -110%/.test(up)
+      && /#panel-ulgen\.ulgen-isliyor \.ulgen-head \.ulgen-mark svg[\s\S]{0,400}animation:ulgenTara/.test(up)
+      && up.includes("panel?.classList.add('ulgen-isliyor');") && up.includes("panel?.classList.remove('ulgen-isliyor');"));
     check('"İnternetsiz" rozeti bir düğme; basınca ne demek olduğunu anlatan kart açılıyor',
       up.includes('<button type="button" class="ulgen-status" id="ulgen-status" aria-expanded="false" aria-controls="ulgen-info"')
       && up.includes('<section class="ulgen-info" id="ulgen-info" aria-labelledby="ulgen-info-title" hidden>')
