@@ -3603,6 +3603,38 @@ function sendWebPanelState(win) {
   });
 }
 
+// Panel başına okunmamış sayısı. Yalnızca bellekte: hangi servise kaç mesaj
+// geldiği diske YAZILMAZ.
+const panelUnread = new Map();      // id → sayı
+
+/**
+ * Sayaç değiştiğinde arayüze bildirir; sayı ARTTIYSA masaüstü bildirimi çıkarır.
+ * Bildirim metninde gönderen ya da mesaj içeriği YOKTUR — o bilgi başlıkta da
+ * yok ve olsa da göstermezdik; yalnızca "şu panelde N okunmamış" denir.
+ */
+function panelUnreadGuncelle(win, panel, sayi) {
+  const onceki = panelUnread.get(panel.id) || 0;
+  if (sayi === onceki) return;
+  panelUnread.set(panel.id, sayi);
+  if (win && !win.isDestroyed()) win.webContents.send('webpanel-unread', { id: panel.id, unread: sayi });
+  // Ayarlar'daki genel "Bildirimler" anahtarı da geçerli — tek bir yerden
+  // kapatılabilmesi gerekiyor (bkz. show-notification).
+  if (sayi > onceki && config.notifications !== false && config.webPanelNotify !== false) {
+    // Açık panelde bildirim çıkarmak gereksiz: kullanıcı ona bakıyor.
+    if (webPanelOpenId === panel.id) return;
+    try {
+      const { Notification } = require('electron');
+      if (Notification.isSupported()) {
+        new Notification({
+          title: panel.title || webPanels.titleFor(panel.url),
+          body: T('webpanel.unreadNotify', { count: sayi }),
+          icon: path.join(__dirname, '../renderer/assets/ilgezdi-logo.png'),
+        }).show();
+      }
+    } catch {}
+  }
+}
+
 function createWebPanelView(win, panel) {
   const view = new WebContentsView({
     webPreferences: {
@@ -3616,7 +3648,12 @@ function createWebPanelView(win, panel) {
       sandbox: true,
       webSecurity: true,
       allowRunningInsecureContent: false,
-      partition: BROWSING_PARTITION,
+      // Panel başına AYRI kalıcı oturum. Eskiden gezinmeyle aynı bölümü
+      // paylaşıyordu: WhatsApp'ın çerezi gezdiğiniz her siteyle aynı kavanozdaydı
+      // ve tersi de geçerliydi. Ayrı bölüm iki işi çözüyor — yalıtım, ve aynı
+      // servisin iki hesabını iki panelde kullanabilmek. `persist:` şart,
+      // yoksa her açılışta yeniden QR okutmak gerekir.
+      partition: webPanels.panelPartition(panel.id) || BROWSING_PARTITION,
     },
   });
   const wc = view.webContents;
@@ -3632,6 +3669,13 @@ function createWebPanelView(win, panel) {
   for (const ev of ['page-title-updated', 'did-navigate', 'did-navigate-in-page', 'did-stop-loading', 'did-start-loading']) {
     wc.on(ev, () => { if (webPanelViews.get(panel.id) === view && webPanelOpenId === panel.id) sendWebPanelState(win); });
   }
+  // Okunmamış sayısı sayfa BAŞLIĞINDAN okunur (web-panels.js). API yok, ek istek
+  // yok: başlığı zaten dinliyoruz. Panel kapalıyken de işler — mesajlaşma paneli
+  // arka planda açık kalıyor, sayacın anlamı da bu.
+  wc.on('page-title-updated', (_e, title) => {
+    if (webPanelViews.get(panel.id) !== view) return;
+    panelUnreadGuncelle(win, panel, webPanels.unreadFromTitle(title));
+  });
   wc.on('page-favicon-updated', (e, favicons) => {
     if (!faviconCache) return;
     faviconCache.update(wc.session, wc.getURL(), favicons, { incognito: false })
@@ -3673,7 +3717,18 @@ function destroyWebPanel(win, id) {
   const view = webPanelViews.get(id);
   if (webPanelOpenId === id) hideWebPanel(win);
   webPanelViews.delete(id);
+  panelUnread.delete(id);
   try { if (view && !view.webContents.isDestroyed()) view.webContents.close(); } catch {}
+  // Panel kaldırılınca KENDİ oturumu da silinir: kullanıcı paneli listeden
+  // çıkardığında o servisin çerezleri ve girişi diskte kalmaya devam etmesin.
+  const bolum = webPanels.panelPartition(id);
+  if (bolum) {
+    try {
+      const ses = session.fromPartition(bolum);
+      Promise.allSettled([ses.clearStorageData(), ses.clearCache()])
+        .then(() => diag.info('webpanel', 'Panel oturumu silindi'));
+    } catch {}
+  }
 }
 
 function mainOnly(event) {
@@ -3681,7 +3736,14 @@ function mainOnly(event) {
   return state === mainState && win && !win.isDestroyed() ? win : null;
 }
 
-ipcMain.handle('webpanel-list', (event) => ({ panels: webPanelList(), openId: webPanelOpenId, allowed: !!mainOnly(event) }));
+ipcMain.handle('webpanel-list', (event) => ({
+  panels: webPanelList(), openId: webPanelOpenId, allowed: !!mainOnly(event),
+  // Panel başına okunmamış sayısı (bellekte; diske yazılmaz).
+  unread: Object.fromEntries([...panelUnread].filter(([, n]) => n > 0)),
+}));
+// Hazır servisler: kullanıcı adres yazmak yerine listeden seçer. Bunlar API
+// değil, yalnızca adres — anahtar ya da jeton içermez (bkz. web-panels.js).
+ipcMain.handle('webpanel-presets', () => webPanels.PRESETS.map((p) => ({ id: p.id, ad: p.ad, url: p.url })));
 ipcMain.handle('webpanel-add', (event, input) => {
   const win = mainOnly(event);
   if (!win) return { ok: false, error: 'incognito' };

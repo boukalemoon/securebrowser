@@ -1558,7 +1558,18 @@
   "webpanel.group": "Panneaux web",
   "webpanel.add": "Ajouter un panneau web",
   "webpanel.addTitle": "Ajouter un site à la barre latérale",
-  "webpanel.addHint": "Ajoutez un site que vous utilisez souvent (messagerie, musique, notes) à la barre latérale. Il s’ouvre dans le panneau de droite et reste ouvert en arrière-plan quand vous fermez le panneau. Les mêmes protections que pour les onglets s’appliquent.",
+  "webpanel.addHint": "Ajoutez un site que vous utilisez souvent (messagerie, musique, notes) à la barre latérale. Il s’ouvre dans le panneau de droite, reste ouvert en arrière-plan quand vous fermez le panneau et affiche un compteur sur son icône à l’arrivée de nouveaux messages. Chaque panneau fonctionne dans sa propre session, distincte. Les mêmes protections que pour les onglets s’appliquent.",
+  "webpanel.presetsTitle": "Services prêts à l’emploi",
+  "webpanel.presetsNote": "Il s’agit des interfaces web des sites eux-mêmes ; İlgezdi n’utilise pas les API de ces entreprises et n’a aucun accès à votre compte. Chaque panneau s’ouvre dans sa propre session, distincte.",
+  "webpanel.unreadNotify": {
+    "one": "{count} non lu",
+    "other": "{count} non lus"
+  },
+  "webpanel.unreadAria": {
+    "one": "{count} non lu",
+    "other": "{count} non lus"
+  },
+  "webpanel.sessionNote": "Chaque panneau a sa propre session : les cookies d’un compte ouvert dans un panneau ne sont visibles ni dans votre navigation ni dans les autres panneaux. Si vous retirez un panneau, sa session est également supprimée.",
   "webpanel.urlLabel": "Adresse du site",
   "webpanel.urlPlaceholder": "exemple.fr",
   "webpanel.addBtn": "Ajouter",

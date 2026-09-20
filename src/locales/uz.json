@@ -1471,7 +1471,18 @@
   "webpanel.group": "Veb-panellar",
   "webpanel.add": "Veb-panel qoʻshish",
   "webpanel.addTitle": "Yon panelga sayt qoʻshish",
-  "webpanel.addHint": "Tez-tez foydalanadigan saytingizni (messenjer, musiqa, qaydlar) yon panelga qoʻshing. Sayt oʻngdagi panelda ochiladi, panel yopilganda fonda ochiq qoladi. Varaqlardagi himoyalar bu yerda ham amal qiladi.",
+  "webpanel.addHint": "Tez-tez foydalanadigan saytingizni (messenjer, musiqa, qaydlar) yon panelga qoʻshing. Sayt oʻngdagi panelda ochiladi, panel yopilganda fonda ochiq qoladi, yangi xabar kelsa esa belgisida son koʻrinadi. Har bir panel oʻzining alohida seansida ishlaydi. Varaqlardagi himoyalar bu yerda ham amal qiladi.",
+  "webpanel.presetsTitle": "Tayyor xizmatlar",
+  "webpanel.presetsNote": "Bular saytlarning oʻz veb-interfeysi; İlgezdi bu kompaniyalarning API'sidan foydalanmaydi, hisobingizga kirmaydi. Har bir panel oʻzining alohida seansida ochiladi.",
+  "webpanel.unreadNotify": {
+    "one": "{count} oʻqilmagan",
+    "other": "{count} oʻqilmagan"
+  },
+  "webpanel.unreadAria": {
+    "one": "{count} oʻqilmagan",
+    "other": "{count} oʻqilmagan"
+  },
+  "webpanel.sessionNote": "Har bir panelning seansi alohida: bir panelda ochgan hisobingizning cookie fayllari na brauzeringizda, na boshqa panellarda koʻrinadi. Panelni olib tashlasangiz, oʻsha seans ham oʻchiriladi.",
   "webpanel.urlLabel": "Sayt manzili",
   "webpanel.urlPlaceholder": "misol.com",
   "webpanel.addBtn": "Qoʻshish",

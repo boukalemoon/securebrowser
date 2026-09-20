@@ -14,6 +14,9 @@
   let panels = [];
   let openId = null;
   const favicons = {};
+  // Panel başına okunmamış sayısı. Ana süreç sayfa BAŞLIĞINDAN okuyup gönderir
+  // (API yok). Yalnızca bellekte: hangi servise kaç mesaj geldiği diske yazılmaz.
+  const unread = {};
 
   const ICONS = {
     back: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>',
@@ -49,6 +52,18 @@
         b.appendChild(img);
       } else {
         b.textContent = initialOf(p);
+      }
+      // Okunmamış rozeti: simgenin üstünde küçük bir sayı. Sayı yoksa rozet de yok
+      // (site başlık biçimini değiştirirse yanlış sayı göstermek yerine hiç göstermez).
+      const n = unread[p.id] || 0;
+      if (n > 0) {
+        const rozet = document.createElement('span');
+        rozet.className = 'webpanel-badge';
+        rozet.textContent = n > 99 ? '99+' : String(n);
+        rozet.setAttribute('aria-hidden', 'true');
+        b.appendChild(rozet);
+        b.classList.add('has-unread');
+        b.setAttribute('aria-label', b.title + ' · ' + T('webpanel.unreadAria', { count: n }));
       }
       if (addBtn && addBtn.parentNode === box) box.insertBefore(b, addBtn); else box.appendChild(b);
     }
@@ -107,6 +122,11 @@
       </div>
       <div class="panel-body wp-add">
         <p class="wp-hint">${TH('webpanel.addHint')}</p>
+        <div class="wp-presets" id="wp-presets" hidden>
+          <div class="wp-presets-title">${TH('webpanel.presetsTitle')}</div>
+          <div class="wp-presets-grid" id="wp-presets-grid"></div>
+          <p class="wp-hint">${TH('webpanel.presetsNote')}</p>
+        </div>
         <form id="wp-add-form" class="wp-add-form" novalidate>
           <label for="wp-url">${TH('webpanel.urlLabel')}</label>
           <div class="wp-add-row">
@@ -118,6 +138,51 @@
         <p class="wp-error" id="wp-error" role="alert">${message ? esc(message) : ''}</p>
       </div>`;
     setTimeout(() => document.getElementById('wp-url')?.focus(), 50);
+    hazirServisleriDoldur();
+  }
+
+  /**
+   * Hazır servis düğmeleri — kullanıcı adres yazmak yerine tıklar.
+   * Liste ana süreçten gelir; adres dışında hiçbir şey içermez (API, anahtar,
+   * jeton yok). Zaten ekli olan servis listede gösterilmez.
+   */
+  async function hazirServisleriDoldur() {
+    const kutu = document.getElementById('wp-presets');
+    const izgara = document.getElementById('wp-presets-grid');
+    if (!kutu || !izgara) return;
+    let liste = [];
+    try { liste = (await sb.webPanels.presets?.()) || []; } catch {}
+    const ekliMi = (url) => {
+      try {
+        const a = new URL(url);
+        return panels.some((p) => {
+          try {
+            const b = new URL(p.url);
+            return a.hostname.replace(/^www\./, '') === b.hostname.replace(/^www\./, '');
+          } catch { return false; }
+        });
+      } catch { return false; }
+    };
+    const kalan = liste.filter((s) => !ekliMi(s.url));
+    izgara.replaceChildren();
+    if (!kalan.length) { kutu.hidden = true; return; }
+    kutu.hidden = false;
+    for (const s of kalan) {
+      const d = document.createElement('button');
+      d.type = 'button';
+      d.className = 'wp-preset';
+      d.dataset.url = s.url;
+      d.textContent = s.ad;            // marka adı: textContent, çeviri yok
+      izgara.appendChild(d);
+    }
+    // Dinleyici izgaraya bir kez bağlanır; izgara her doldurmada yeniden
+    // oluşturulduğu için ({ once: true } DEĞİL) çoklu tıklama çalışır.
+    izgara.onclick = async (e) => {
+      const d = e.target.closest('.wp-preset');
+      if (!d || d.disabled) return;
+      d.disabled = true;
+      await addFromInput(d.dataset.url);
+    };
   }
 
   async function openPanel(id) {
@@ -172,10 +237,25 @@
         const id = openId;
         window.ilgezdiCloseAllPanels?.();
         const r = await sb.webPanels.remove(id);
-        if (r && r.panels) { panels = r.panels; delete favicons[id]; renderList(); }
+        if (r && r.panels) { panels = r.panels; delete favicons[id]; delete unread[id]; renderList(); }
         return;
       }
       sb.webPanels.action(action);
+    });
+    // Okunmamış sayısı: panel kapalıyken de gelir (panel arka planda yaşıyor).
+    sb.webPanels.onUnread?.(async ({ id, unread: n } = {}) => {
+      if (!id) return;
+      if (n > 0) unread[id] = n; else delete unread[id];
+      // Tanımadığımız bir panel için sayaç geldiyse liste bizde eskimiş demektir
+      // (panel başka bir yoldan eklenmiş olabilir). Sessizce hiçbir şey yapmak
+      // yerine listeyi tazeleriz, yoksa rozet hiç görünmez.
+      if (!panels.some((p) => p.id === id)) {
+        try {
+          const r = await sb.webPanels.list();
+          if (r && Array.isArray(r.panels)) { panels = r.panels; loadFavicons(); }
+        } catch {}
+      }
+      renderList();
     });
     sb.webPanels.onState((st) => {
       openId = st.openId || null;
@@ -207,6 +287,8 @@
     if (!allowed) return;
     panels = r.panels || [];
     openId = r.openId || null;
+    // Uygulama açıkken arayüz yeniden yüklenirse sayaçlar kaybolmasın.
+    for (const [id, n] of Object.entries(r.unread || {})) if (n > 0) unread[id] = n;
     bind();
     renderList();
     loadFavicons();

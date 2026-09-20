@@ -1477,7 +1477,18 @@
   "webpanel.group": "Web panelleri",
   "webpanel.add": "Web paneli ekle",
   "webpanel.addTitle": "Kenar çubuğuna site ekle",
-  "webpanel.addHint": "Sık kullandığınız bir siteyi (mesajlaşma, müzik, notlar) kenar çubuğuna ekleyin. Site sağdaki panelde açılır, paneli kapatınca arka planda açık kalır. Sekmelerle aynı korumalar geçerlidir.",
+  "webpanel.addHint": "Sık kullandığınız bir siteyi (mesajlaşma, müzik, notlar) kenar çubuğuna ekleyin. Site sağdaki panelde açılır, paneli kapatınca arka planda açık kalır ve yeni mesaj gelirse simgesinde sayı görünür. Her panel kendi ayrı oturumunda çalışır. Sekmelerle aynı korumalar geçerlidir.",
+  "webpanel.presetsTitle": "Hazır servisler",
+  "webpanel.presetsNote": "Bunlar sitenin kendi web arayüzüdür; İlgezdi bu şirketlerin API'sini kullanmaz, hesabınıza erişmez. Her panel kendi ayrı oturumunda açılır.",
+  "webpanel.unreadNotify": {
+    "one": "{count} okunmamış",
+    "other": "{count} okunmamış"
+  },
+  "webpanel.unreadAria": {
+    "one": "{count} okunmamış",
+    "other": "{count} okunmamış"
+  },
+  "webpanel.sessionNote": "Her panelin oturumu ayrıdır: bir panelde açtığınız hesabın çerezleri ne gezinmenizde ne öbür panellerde görünür. Paneli kaldırırsanız o oturum da silinir.",
   "webpanel.urlLabel": "Site adresi",
   "webpanel.urlPlaceholder": "ornek.com",
   "webpanel.addBtn": "Ekle",

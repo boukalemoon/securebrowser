@@ -1543,7 +1543,18 @@
   "webpanel.group": "Web-Panels",
   "webpanel.add": "Web-Panel hinzufügen",
   "webpanel.addTitle": "Website zur Seitenleiste hinzufügen",
-  "webpanel.addHint": "Fügen Sie eine oft genutzte Website (Messenger, Musik, Notizen) zur Seitenleiste hinzu. Sie öffnet sich im rechten Bereich und bleibt im Hintergrund geöffnet, wenn Sie den Bereich schließen. Es gelten dieselben Schutzfunktionen wie für Tabs.",
+  "webpanel.addHint": "Fügen Sie eine oft genutzte Website (Messenger, Musik, Notizen) zur Seitenleiste hinzu. Sie öffnet sich im rechten Bereich, bleibt im Hintergrund geöffnet, wenn Sie den Bereich schließen, und zeigt bei neuen Nachrichten eine Zahl auf ihrem Symbol. Jedes Panel läuft in einer eigenen, getrennten Sitzung. Es gelten dieselben Schutzfunktionen wie für Tabs.",
+  "webpanel.presetsTitle": "Vorbereitete Dienste",
+  "webpanel.presetsNote": "Dies sind die Weboberflächen der Websites selbst; İlgezdi nutzt nicht die APIs dieser Unternehmen und hat keinen Zugang zu Ihrem Konto. Jedes Panel öffnet sich in einer eigenen, getrennten Sitzung.",
+  "webpanel.unreadNotify": {
+    "one": "{count} ungelesen",
+    "other": "{count} ungelesen"
+  },
+  "webpanel.unreadAria": {
+    "one": "{count} ungelesen",
+    "other": "{count} ungelesen"
+  },
+  "webpanel.sessionNote": "Jedes Panel hat seine eigene Sitzung: Die Cookies eines Kontos, das Sie in einem Panel öffnen, sind weder beim Surfen noch in den anderen Panels sichtbar. Entfernen Sie ein Panel, wird auch dessen Sitzung gelöscht.",
   "webpanel.urlLabel": "Adresse der Website",
   "webpanel.urlPlaceholder": "beispiel.de",
   "webpanel.addBtn": "Hinzufügen",

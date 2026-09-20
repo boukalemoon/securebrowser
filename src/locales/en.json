@@ -1555,7 +1555,18 @@
   "webpanel.group": "Web panels",
   "webpanel.add": "Add web panel",
   "webpanel.addTitle": "Add a site to the sidebar",
-  "webpanel.addHint": "Add a site you use often (messaging, music, notes) to the sidebar. It opens in the panel on the right and stays open in the background when you close the panel. The same protections as tabs apply.",
+  "webpanel.addHint": "Add a site you use often (messaging, music, notes) to the sidebar. It opens in the panel on the right, stays open in the background when you close the panel, and shows a count on its icon when new messages arrive. Each panel runs in its own separate session. The same protections as tabs apply.",
+  "webpanel.presetsTitle": "Ready-made services",
+  "webpanel.presetsNote": "These are the sites' own web interfaces; İlgezdi does not use these companies' APIs and has no access to your account. Each panel opens in its own separate session.",
+  "webpanel.unreadNotify": {
+    "one": "{count} unread",
+    "other": "{count} unread"
+  },
+  "webpanel.unreadAria": {
+    "one": "{count} unread",
+    "other": "{count} unread"
+  },
+  "webpanel.sessionNote": "Each panel has its own session: the cookies of an account you open in one panel are visible neither in your browsing nor in the other panels. Removing a panel deletes that session too.",
   "webpanel.urlLabel": "Site address",
   "webpanel.urlPlaceholder": "example.com",
   "webpanel.addBtn": "Add",

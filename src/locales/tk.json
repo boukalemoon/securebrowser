@@ -1477,7 +1477,18 @@
   "webpanel.group": "Web panelleri",
   "webpanel.add": "Web panel goş",
   "webpanel.addTitle": "Gapdal panele saýt goş",
-  "webpanel.addHint": "Ýygy-ýygydan ulanýan saýtyňyzy (habarlaşma, aýdym-saz, ýazgylar) gapdal panele goşuň. Saýt sagdaky panelde açylýar, panel ýapylanda fonda açyk galýar. Tablardaky goraglaryň hemmesi bu ýerde hem hereket edýär.",
+  "webpanel.addHint": "Ýygy-ýygydan ulanýan saýtyňyzy (habarlaşma, aýdym-saz, ýazgylar) gapdal panele goşuň. Saýt sagdaky panelde açylýar, panel ýapylanda fonda açyk galýar, täze habar gelse nyşanynda san görünýär. Her panel öz aýratyn sessiýasynda işleýär. Tablardaky goraglaryň hemmesi bu ýerde hem hereket edýär.",
+  "webpanel.presetsTitle": "Taýýar hyzmatlar",
+  "webpanel.presetsNote": "Bular saýtlaryň öz web interfeýsidir; İlgezdi bu kompaniýalaryň API-sini ulanmaýar, hasabyňyza girmeýär. Her panel öz aýratyn sessiýasynda açylýar.",
+  "webpanel.unreadNotify": {
+    "one": "{count} okalmadyk",
+    "other": "{count} okalmadyk"
+  },
+  "webpanel.unreadAria": {
+    "one": "{count} okalmadyk",
+    "other": "{count} okalmadyk"
+  },
+  "webpanel.sessionNote": "Her paneliň sessiýasy aýratyn: bir panelde açan hasabyňyzyň kukileri ne brauzeriňizde, ne-de beýleki panellerde görünýär. Paneli aýyrsaňyz, şol sessiýa hem pozulýar.",
   "webpanel.urlLabel": "Saýtyň salgysy",
   "webpanel.urlPlaceholder": "mysal.com",
   "webpanel.addBtn": "Goş",

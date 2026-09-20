@@ -1315,13 +1315,13 @@ suite('Zararlı site koruması — canlı liste durumu');
     && /if \(!threatSubscribed\) \{\s*threatSubscribed = true;/.test(read('renderer/data-center.js')));
 }
 
-suite('Yayın — v0.8.7');
+suite('Yayın — v0.8.8');
 {
   const ROOTD = path.join(__dirname, '..');
-  check('paket sürümü 0.8.7', JSON.parse(fs.readFileSync(path.join(ROOTD, 'package.json'), 'utf8')).version === '0.8.7');
-  check('kilit dosyası da aynı sürümde (npm ci ile derleniyor)', JSON.parse(fs.readFileSync(path.join(ROOTD, 'package-lock.json'), 'utf8')).version === '0.8.7');
+  check('paket sürümü 0.8.8', JSON.parse(fs.readFileSync(path.join(ROOTD, 'package.json'), 'utf8')).version === '0.8.8');
+  check('kilit dosyası da aynı sürümde (npm ci ile derleniyor)', JSON.parse(fs.readFileSync(path.join(ROOTD, 'package-lock.json'), 'utf8')).version === '0.8.8');
   const sur = fs.readFileSync(path.join(ROOTD, 'site', 'surumler.html'), 'utf8');
-  check('site sürüm notlarında 0.8.7 var', /version: '0.8.7'/.test(sur));
+  check('site sürüm notlarında 0.8.8 var', /version: '0.8.8'/.test(sur));
   const wf = fs.readFileSync(path.join(ROOTD, '.github', 'workflows', 'release.yml'), 'utf8');
   check('yayın otomatik güncelleme dosyalarını da yüklüyor (latest*.yml, blockmap)', wf.includes('dist/latest*.yml') && wf.includes('dist/*.blockmap'));
 }
@@ -2644,13 +2644,66 @@ suite('Kenar çubuğunda web paneli');
     mj.includes("'consents', 'webPanels'];") && require('../src/main/browser-commands.js').RESET_KEEP_KEYS.includes('webPanels')
     && /function mainOnly\(event\) \{\s*const \{ win, state \} = getContextFromEvent\(event\);\s*return state === mainState/.test(mj)
     && /ipcMain\.handle\('webpanel-add', \(event, input\) => \{\s*const win = mainOnly\(event\);\s*if \(!win\) return \{ ok: false, error: 'incognito' \};/.test(mj));
-  check('panel sekmelerle aynı korumalı oturumda; yalnızca web adreslerine gidiyor; yeni pencere sekmede açılıyor',
-    /function createWebPanelView\(win, panel\) \{[\s\S]{0,700}sandbox: true,[\s\S]{0,200}partition: BROWSING_PARTITION,[\s\S]{0,300}configureSession\(wc\.session\);\s*applyWebrtcPolicy\(wc\);/.test(mj)
-    && mj.includes("wc.on('will-navigate', (e, url) => { if (!isWebUrl(url)) e.preventDefault(); });")
+  // Panel başına AYRI kalıcı oturum (20 Eyl 2026). Eskiden BROWSING_PARTITION
+  // paylaşılıyordu: WhatsApp'ın çerezi gezdiğiniz her siteyle aynı kavanozdaydı.
+  check('her panel KENDİ kalıcı oturumunda; korumalar yine devrede',
+    /function createWebPanelView\(win, panel\) \{[\s\S]{0,1400}?partition: webPanels\.panelPartition\(panel\.id\) \|\| BROWSING_PARTITION,[\s\S]{0,400}?configureSession\(wc\.session\);\s*applyWebrtcPolicy\(wc\);/.test(mj));
+  check('panel yalnızca web adreslerine gidiyor; yeni pencere sekmede açılıyor',
+    mj.includes("wc.on('will-navigate', (e, url) => { if (!isWebUrl(url)) e.preventDefault(); });")
     && /wc\.setWindowOpenHandler\(\(\{ url \}\) => \{\s*if \(isWebUrl\(url\)[\s\S]{0,120}return \{ action: 'deny' \};/.test(mj));
+  check('panel kaldırılınca kendi oturumu da siliniyor (çerezler diskte kalmıyor)',
+    /function destroyWebPanel\(win, id\) \{[\s\S]{0,600}?panelPartition\(id\)[\s\S]{0,300}?clearStorageData\(\)/.test(mj));
   check('panel kapanınca görünüm yaşıyor ama ağaçtan çıkıyor; yalnızca ana pencerede',
     /function hideWebPanel\(win\) \{[\s\S]{0,300}win\.contentView\.removeChildView\(view\)/.test(mj) && mj.includes('if (!isOpen && win === mainWindow) hideWebPanel(win);'));
+  // ── Okunmamış sayacı ve hazır servisler ──
+  // Sayaç sayfa BAŞLIĞINDAN okunur: API yok, ek ağ isteği yok.
+  {
+    const w = require('../src/main/web-panels.js');
+    eq('tanınan başlık biçimlerinden sayı çıkıyor',
+      ['(3) WhatsApp', '(12) Telegram', '[5] Discord', 'Gelen Kutusu (7) - a@b.com'].map(w.unreadFromTitle),
+      [3, 12, 5, 7]);
+    eq('tanınmayan biçimde SESSİZCE YANLIŞ SAYI göstermiyor, hiç göstermiyor',
+      ['WhatsApp', '', 'Sayfa (abc) - x', '(0) Boş', 'Bir (5 yazı', 'x (3) y'].map(w.unreadFromTitle),
+      [0, 0, 0, 0, 0, 0]);
+    eq('aşırı büyük sayı 99\'da sabitleniyor, saçma sayı yok sayılıyor',
+      [w.unreadFromTitle('(150) x'), w.unreadFromTitle('(1234567) x')], [99, 0]);
+    check('panel bölümü kalıcı ve kimliğe bağlı; kimlik temizlenmeden kullanılmıyor',
+      w.panelPartition('pab12') === 'persist:panel-pab12'
+      && w.panelPartition('../kotu') === 'persist:panel-kotu' && w.panelPartition('') === null);
+    check('iki panel AYNI bölümü paylaşmıyor', w.panelPartition('pa') !== w.panelPartition('pb'));
+    check('hazır servisler yalnızca ad ve https adres taşıyor — anahtar, jeton, gizli yok',
+      w.PRESETS.length >= 8 && w.PRESETS.every((p) => /^https:\/\//.test(p.url) && p.ad && p.id)
+      && !/token|apiKey|api_key|secret|client_id/i.test(JSON.stringify(w.PRESETS)));
+    check('hazır listede WhatsApp ve Telegram var (Burak\'ın istediği kullanım)',
+      w.PRESETS.some((p) => p.url.includes('web.whatsapp.com')) && w.PRESETS.some((p) => p.url.includes('web.telegram.org')));
+  }
+  check('sayaç ana süreçte başlıktan okunuyor; bildirim genel anahtara da uyuyor',
+    /wc\.on\('page-title-updated', \(_e, title\) => \{[\s\S]{0,200}?unreadFromTitle\(title\)/.test(mj)
+    && /config\.notifications !== false && config\.webPanelNotify !== false/.test(mj));
+  check('açık panelde bildirim çıkmıyor (kullanıcı ona bakıyor)',
+    /if \(webPanelOpenId === panel\.id\) return;/.test(mj));
+  check('bildirim metninde gönderen ya da mesaj içeriği yok — yalnız sayı',
+    /body: T\('webpanel\.unreadNotify', \{ count: sayi \}\)/.test(mj));
+  check('okunmamış sayıları diske YAZILMIYOR (yalnız bellekte)',
+    /const panelUnread = new Map\(\);/.test(mj) && !/webPanelUnread|config\.panelUnread/.test(mj));
+  // Mesajlaşma paneli uyutulmamalı: uyuyan panel mesaj almaz ve sayaç durur.
+  // Yapısal garanti — uyutma yalnızca state.tabs üzerinde geziyor, paneller
+  // webPanelViews'ta. Bu test o ayrımın bozulmasını yakalar.
+  check('sekme uyutma yalnızca sekmelere bakıyor, panelleri uyutmuyor',
+    /function sleepInactiveTabs[\s\S]{0,700}?for \(const \[tabId, tab\] of \[\.\.\.state\.tabs\]\)/.test(mj)
+    && !/sleepInactiveTabs[\s\S]{0,700}?webPanelViews/.test(mj));
+  // Sesli mesaj için mikrofon: panelin izin isteği de bir pencere bulmalı,
+  // yoksa istek sessizce düşer ve WhatsApp sesli mesaj alamaz.
+  check('panelden gelen izin isteği pencere bulabiliyor (sesli mesaj çalışır)',
+    /const parent = BrowserWindow\.getFocusedWindow\(\) \|\| mainWindow;/.test(mj)
+    && /function createWebPanelView[\s\S]{0,1400}?configureSession\(wc\.session\)/.test(mj));
+
   const wp = read('renderer/web-panel.js');
+  check('rozet sayı yoksa hiç çizilmiyor', /const n = unread\[p\.id\] \|\| 0;\s*if \(n > 0\) \{/.test(wp));
+  check('rozet ve servis adları textContent ile yazılıyor (HTML işlenmiyor)',
+    /rozet\.textContent = n > 99/.test(wp) && /d\.textContent = s\.ad;/.test(wp));
+  check('hazır servis listesi zaten ekli olanı göstermiyor', /const kalan = liste\.filter\(\(s\) => !ekliMi\(s\.url\)\);/.test(wp));
+  check('panel kaldırılınca sayacı da siliniyor', /delete unread\[id\];/.test(wp));
   check('başlık ve simge metinleri kaçışlanıyor ya da textContent', wp.includes('${esc(p.title || hostOf(p.url))}') && wp.includes('b.textContent = initialOf(p);') && !/innerHTML = [^`;]*p\.title/.test(wp));
   check('ekle düğmesi listenin sonunda (liste kayınca Ayarlar aşağı itilmez)', wp.includes('if (addBtn && addBtn.parentNode !== box) box.appendChild(addBtn);')
     && read('renderer/styles/main.css').includes('.sidebar > :not(.webpanel-list) { flex-shrink: 0; }'));

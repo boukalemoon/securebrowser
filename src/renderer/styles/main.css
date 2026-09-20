@@ -882,6 +882,16 @@ body.vtabs-collapsed .tab-split-mark { display: none; }
 .webpanel-list[hidden], #webpanel-divider[hidden], #btn-webpanel-add[hidden] { display: none; }
 .webpanel-btn { font: 700 14px var(--font-ui); color: var(--ink-soft); flex-shrink: 0; display: grid; place-items: center; }
 .webpanel-btn img { width: 18px; height: 18px; object-fit: contain; border-radius: 4px; display: block; }
+/* Okunmamış rozeti: simgenin sağ üst köşesinde. Sayı ana süreçte sayfa
+   başlığından okunuyor (web-panels.js › unreadFromTitle) — API yok. */
+.webpanel-btn { position: relative; }
+.webpanel-badge {
+  position: absolute; top: 1px; right: 1px; min-width: 15px; height: 15px; padding: 0 3px;
+  border-radius: 999px; background: var(--danger, #e05252); color: #fff;
+  font: 700 9.5px/15px var(--font-ui); text-align: center; letter-spacing: 0;
+  box-shadow: 0 0 0 2px var(--bg-elev); pointer-events: none;
+}
+.webpanel-btn.has-unread { color: var(--ink); }
 /* Başlık yüksekliği web-panels.js HEADER_HEIGHT ile aynı: site görünümü tam altından başlar. */
 #panel-webpanel .wp-header { height: 44px; box-sizing: border-box; padding: 0 6px 0 12px; gap: 8px; font-family: var(--font-ui); }
 .wp-id { display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1; }
@@ -901,6 +911,19 @@ body.vtabs-collapsed .tab-split-mark { display: none; }
 .wp-body { padding: 0; }
 .wp-add { display: flex; flex-direction: column; gap: 12px; }
 .wp-hint { margin: 0; font-size: 12.5px; color: var(--ink-soft); line-height: 1.55; }
+/* Hazır servisler: adres yazmak yerine tıkla. Marka adları çeviriye girmez. */
+.wp-presets { display: flex; flex-direction: column; gap: 8px; }
+.wp-presets[hidden] { display: none; }
+.wp-presets-title { font-size: 12px; font-weight: 700; color: var(--ink); letter-spacing: .02em; }
+.wp-presets-grid { display: flex; flex-wrap: wrap; gap: 6px; }
+.wp-preset {
+  padding: 6px 11px; border-radius: 999px; border: 1px solid var(--line);
+  background: var(--bg-elev); color: var(--ink-soft); font: 600 12.5px var(--font-ui);
+  cursor: pointer; transition: border-color .15s, color .15s, background .15s;
+}
+.wp-preset:hover:not(:disabled) { border-color: var(--gold); color: var(--ink); background: var(--bg-soft); }
+.wp-preset:focus-visible { outline: 2px solid var(--gold); outline-offset: 1px; }
+.wp-preset:disabled { opacity: .5; cursor: default; }
 .wp-add-form { display: flex; flex-direction: column; gap: 6px; }
 .wp-add-form label { font-size: 12px; color: var(--ink-mute); }
 .wp-add-row { display: flex; gap: 8px; }

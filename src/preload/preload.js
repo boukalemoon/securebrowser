@@ -324,6 +324,10 @@ contextBridge.exposeInMainWorld('secureBrowser', {
     action:    (a)      => ipcRenderer.invoke('webpanel-action', a),
     onState:   (cb)     => ipcRenderer.on('webpanel-state', (_, d) => cb(d)),
     onFavicon: (cb)     => ipcRenderer.on('webpanel-favicon', (_, d) => cb(d)),
+    // Hazır servis listesi (yalnızca ad + adres; anahtar ya da jeton yok).
+    presets:   ()       => ipcRenderer.invoke('webpanel-presets'),
+    // Okunmamış sayısı sayfa başlığından okunur; panel kapalıyken de gelir.
+    onUnread:  (cb)     => ipcRenderer.on('webpanel-unread', (_, d) => cb(d)),
   },
 
   // ── Ekranı bölme ─────────────────────────────────────────────────────────────

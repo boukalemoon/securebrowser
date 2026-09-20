@@ -1471,7 +1471,18 @@
   "webpanel.group": "Veb-panellər",
   "webpanel.add": "Veb-panel əlavə et",
   "webpanel.addTitle": "Yan panelə sayt əlavə et",
-  "webpanel.addHint": "Tez-tez istifadə etdiyiniz saytı (mesajlaşma, musiqi, qeydlər) yan panelə əlavə edin. Sayt sağdakı paneldə açılır, paneli bağladıqda arxa planda açıq qalır. Tablardakı qorumaların hamısı burada da tətbiq olunur.",
+  "webpanel.addHint": "Tez-tez istifadə etdiyiniz saytı (mesajlaşma, musiqi, qeydlər) yan panelə əlavə edin. Sayt sağdakı paneldə açılır, paneli bağladıqda arxa planda açıq qalır və yeni mesaj gəldikdə ikonunda rəqəm görünür. Hər panel öz ayrı sessiyasında işləyir. Tablardakı qorumaların hamısı burada da tətbiq olunur.",
+  "webpanel.presetsTitle": "Hazır servislər",
+  "webpanel.presetsNote": "Bunlar saytların öz veb-interfeysidir; İlgezdi bu şirkətlərin API-sini istifadə etmir, hesabınıza daxil olmur. Hər panel öz ayrı sessiyasında açılır.",
+  "webpanel.unreadNotify": {
+    "one": "{count} oxunmamış",
+    "other": "{count} oxunmamış"
+  },
+  "webpanel.unreadAria": {
+    "one": "{count} oxunmamış",
+    "other": "{count} oxunmamış"
+  },
+  "webpanel.sessionNote": "Hər panelin sessiyası ayrıdır: bir paneldə açdığınız hesabın kukiləri nə baxışınızda, nə də digər panellərdə görünür. Paneli silsəniz, o sessiya da silinir.",
   "webpanel.urlLabel": "Sayt ünvanı",
   "webpanel.urlPlaceholder": "numune.az",
   "webpanel.addBtn": "Əlavə et",
