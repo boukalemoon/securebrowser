@@ -4,7 +4,7 @@
 
 'use strict';
 
-const { app, BrowserWindow, WebContentsView, Menu, clipboard, ipcMain, session, dialog, webContents, shell, screen } = require('electron');
+const { app, BrowserWindow, WebContentsView, Menu, clipboard, ClipboardItem, ipcMain, session, dialog, webContents, shell, screen } = require('electron');
 const path = require('path');
 const fs   = require('fs');
 const { execFile } = require('child_process');
@@ -1661,12 +1661,21 @@ async function takeScreenshot(win, wc) {
     if (image.isEmpty()) throw new Error('boş görüntü');
     const dir = (config.downloadFolder && fs.existsSync(config.downloadFolder)) ? config.downloadFolder : app.getPath('downloads');
     const file = uniquePath(dir, screenshotFileName(wc.getURL()));
-    await fs.promises.writeFile(file, image.toPNG());
-    clipboard.writeImage(image);
+    const png = image.toPNG();
+    await fs.promises.writeFile(file, png);
+    // Electron 44'te clipboard.writeImage KALDIRILDI (pano API'si eşzamansız oldu).
+    // Eski çağrı TypeError atıyordu: dosya diske yazılmış olmasına rağmen aşağıdaki
+    // catch devreye giriyor ve kullanıcıya "alınamadı" deniyordu (sonda, 20 Eyl 2026).
+    // Panoya kopyalama başarısız olsa bile dosya kaydı bildirilir.
+    let panoOk = true;
+    try {
+      await clipboard.write([new ClipboardItem({ 'image/png': new Blob([png], { type: 'image/png' }) })]);
+    } catch (e) { panoOk = false; diag.warn('screenshot', 'Panoya kopyalanamadı', { reason: e.message }); }
     screenshotPaths.add(file);
     if (screenshotPaths.size > 20) screenshotPaths.delete(screenshotPaths.values().next().value);
     diag.info('screenshot', 'Ekran görüntüsü kaydedildi', { width: image.getSize().width, height: image.getSize().height });
-    note({ text: T('screenshot.saved', { file: path.basename(file) }), reveal: file });
+    // Mesaj gerçeği söylemeli: pano kilitliyse "panoya kopyalandı" denmez.
+    note({ text: T(panoOk ? 'screenshot.saved' : 'screenshot.savedOnly', { file: path.basename(file) }), reveal: file });
   } catch (e) {
     logError('screenshot', e);
     note({ text: T('screenshot.failed'), error: true });
@@ -1929,7 +1938,8 @@ function runContextAction(win, state, wc, item, params) {
       // İndirme will-download işleyicisinden geçer: güvenli dosya adı, konum sorma.
       if (isWebUrl(arg) || String(arg).toLowerCase().startsWith('data:image/')) wc.downloadURL(arg);
       break;
-    case 'copy-text':  clipboard.writeText(String(arg || '').slice(0, 8192)); break;
+    // Pano yazımı eşzamansız (Electron 44): reddedilirse süreç geneli bir uyarı çıkmasın.
+    case 'copy-text':  clipboard.writeText(String(arg || '').slice(0, 8192)).catch((e) => diag.warn('clipboard', 'Metin panoya kopyalanamadı', { reason: e.message })); break;
     case 'copy-image': wc.copyImageAt(arg.x, arg.y); break;
     case 'search-selection':
       setActiveTab(win, state, createTab(win, state, searchUrl(String(arg || '').trim().slice(0, 1000))));

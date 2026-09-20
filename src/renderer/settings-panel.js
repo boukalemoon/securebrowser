@@ -756,6 +756,11 @@ function renderPasswordsTab(cfg = {}) {
       <h3>${TH('settings.pw.protection')}</h3>
       <div id="pwd-protection-note" class="s-hint" style="margin-top:0">${TH('settings.defaultBrowser.checking')}</div>
     </div>
+    <div class="settings-section">
+      <h3>${TH('settings.pw.gate.title')}</h3>
+      <p class="s-hint" style="margin-top:0">${TH('settings.pw.gate.hint')}</p>
+      <div id="pw-gate-box"><p class="s-hint">${TH('common.loading')}</p></div>
+    </div>
     <div class="settings-section"><h3>${TH('settings.pw.import')}</h3>
       <p class="s-hint" style="margin-top:0">${TH('settings.pw.importHint')}</p>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
@@ -810,6 +815,129 @@ async function migrateOldPasswords() {
     }
     localStorage.removeItem('ilgezdi-passwords'); // güvensiz base64 kopyayı KALDIR
   } catch {}
+}
+
+// ── Kasa kilidi: şifreleri görüntülemeden önce doğrulama ─────────────────────
+// Doğrulama ANA SÜREÇTE yapılır; burası yalnızca form. Kod ağa çıkmaz, QRtım
+// hesabı ya da internet gerekmez (bkz. main/vault-gate.js).
+let _pwGateTimer = null;
+
+function pwGateApi() { return window.secureBrowser?.passwords?.gate; }
+
+function _pwSure(ms) {
+  const sn = Math.max(0, Math.ceil(ms / 1000));
+  return sn >= 60 ? T('settings.pw.gate.minutes', { count: Math.ceil(sn / 60) }) : T('settings.pw.gate.seconds', { count: sn });
+}
+
+async function renderPwGate() {
+  const box = document.getElementById('pw-gate-box');
+  if (_pwGateTimer) { clearInterval(_pwGateTimer); _pwGateTimer = null; }
+  if (!box) return;
+  const g = pwGateApi();
+  if (!g) { box.innerHTML = `<p class="s-hint">${TH('settings.pw.gate.unavailable')}</p>`; return; }
+  const d = await g.status().catch(() => null);
+  if (!d) { box.innerHTML = `<p class="s-hint">${TH('settings.pw.gate.unavailable')}</p>`; return; }
+
+  if (!d.kurulu) {
+    box.innerHTML = `
+      <div class="s-input-row"><label for="pw-gate-new">${TH('settings.pw.gate.newCode')}</label>
+        <input type="password" id="pw-gate-new" autocomplete="new-password" placeholder="••••••"/></div>
+      <div class="s-input-row"><label for="pw-gate-new2">${TH('settings.pw.gate.repeatCode')}</label>
+        <input type="password" id="pw-gate-new2" autocomplete="new-password" placeholder="••••••"/></div>
+      <p class="s-hint" style="color:var(--warning, #e0a040)">${TH('settings.pw.gate.noRecovery')}</p>
+      <button class="btn-save-settings" id="pw-gate-setup">${TH('settings.pw.gate.setupButton')}</button>
+      <p class="s-hint" id="pw-gate-msg" aria-live="polite"></p>`;
+    document.getElementById('pw-gate-setup').addEventListener('click', async () => {
+      const a = document.getElementById('pw-gate-new').value;
+      const b = document.getElementById('pw-gate-new2').value;
+      const msg = document.getElementById('pw-gate-msg');
+      if (a !== b) { msg.textContent = T('settings.pw.gate.mismatch'); return; }
+      const r = await g.setup(a);
+      if (r && r.ok) { showSettingsToast(T('settings.pw.gate.ready'), 'success'); renderPwGate(); }
+      else msg.textContent = r && r.kod === 'cok_kisa' ? T('settings.pw.gate.tooShort', { count: r.minUzunluk }) : T('settings.pw.gate.failed');
+    });
+    return;
+  }
+
+  if (!d.acik) {
+    const bekliyor = d.beklemeMs > 0;
+    box.innerHTML = `
+      <p class="s-hint" style="margin-top:0">🔒 ${bekliyor ? TH('settings.pw.gate.waiting', { time: _pwSure(d.beklemeMs) }) : TH('settings.pw.gate.locked')}</p>
+      <div class="s-input-row"><label for="pw-gate-code">${TH('settings.pw.gate.code')}</label>
+        <input type="password" id="pw-gate-code" autocomplete="current-password" placeholder="••••••" ${bekliyor ? 'disabled' : ''}/></div>
+      <button class="btn-save-settings" id="pw-gate-unlock" ${bekliyor ? 'disabled' : ''}>${TH('settings.pw.gate.unlockButton')}</button>
+      <p class="s-hint" id="pw-gate-msg" aria-live="polite"></p>`;
+    const dene = async () => {
+      const input = document.getElementById('pw-gate-code');
+      const msg = document.getElementById('pw-gate-msg');
+      const r = await g.unlock(input.value);
+      input.value = '';
+      if (r && r.ok) { showSettingsToast(T('settings.pw.gate.unlocked'), 'success'); renderPwGate(); populatePwdList(); return; }
+      if (r && r.kod === 'bekle') { renderPwGate(); return; }
+      msg.textContent = r && r.beklemeMs > 0
+        ? T('settings.pw.gate.wrongWait', { time: _pwSure(r.beklemeMs) })
+        : T('settings.pw.gate.wrong');
+      if (r && r.beklemeMs > 0) renderPwGate();
+    };
+    document.getElementById('pw-gate-unlock').addEventListener('click', dene);
+    document.getElementById('pw-gate-code').addEventListener('keydown', (e) => { if (e.key === 'Enter') dene(); });
+    if (bekliyor) _pwGateTimer = setInterval(() => { if (document.getElementById('pw-gate-box')) renderPwGate(); else clearInterval(_pwGateTimer); }, 5000);
+    return;
+  }
+
+  box.innerHTML = `
+    <p class="s-hint" style="margin-top:0;color:var(--success)">🔓 ${TH('settings.pw.gate.open', { time: _pwSure(d.kalanMs) })}</p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="pwd-btn" id="pw-gate-lock">${TH('settings.pw.gate.lockNow')}</button>
+      <button class="pwd-btn" id="pw-gate-change-t">${TH('settings.pw.gate.change')}</button>
+      <button class="pwd-btn danger" id="pw-gate-remove-t">${TH('settings.pw.gate.remove')}</button>
+    </div>
+    <div id="pw-gate-sub" hidden></div>
+    <p class="s-hint" id="pw-gate-msg" aria-live="polite"></p>`;
+  document.getElementById('pw-gate-lock').addEventListener('click', async () => {
+    await g.lock(); showSettingsToast(T('settings.pw.gate.lockedNow')); renderPwGate(); populatePwdList();
+  });
+  const sub = document.getElementById('pw-gate-sub');
+  const msg = document.getElementById('pw-gate-msg');
+  document.getElementById('pw-gate-change-t').addEventListener('click', () => {
+    sub.hidden = false;
+    sub.innerHTML = `
+      <div class="s-input-row"><label for="pw-gate-old">${TH('settings.pw.gate.oldCode')}</label><input type="password" id="pw-gate-old" autocomplete="current-password"/></div>
+      <div class="s-input-row"><label for="pw-gate-fresh">${TH('settings.pw.gate.newCode')}</label><input type="password" id="pw-gate-fresh" autocomplete="new-password"/></div>
+      <button class="btn-save-settings" id="pw-gate-change-go">${TH('settings.pw.gate.changeButton')}</button>`;
+    document.getElementById('pw-gate-change-go').addEventListener('click', async () => {
+      const r = await g.change(document.getElementById('pw-gate-old').value, document.getElementById('pw-gate-fresh').value);
+      if (r && r.ok) { showSettingsToast(T('settings.pw.gate.changed'), 'success'); renderPwGate(); return; }
+      msg.textContent = r && r.kod === 'cok_kisa' ? T('settings.pw.gate.tooShort', { count: r.minUzunluk }) : T('settings.pw.gate.wrong');
+    });
+  });
+  document.getElementById('pw-gate-remove-t').addEventListener('click', () => {
+    sub.hidden = false;
+    sub.innerHTML = `
+      <p class="s-hint">${TH('settings.pw.gate.removeHint')}</p>
+      <div class="s-input-row"><label for="pw-gate-rm">${TH('settings.pw.gate.code')}</label><input type="password" id="pw-gate-rm" autocomplete="current-password"/></div>
+      <button class="clear-btn" id="pw-gate-remove-go">${TH('settings.pw.gate.removeButton')}</button>`;
+    document.getElementById('pw-gate-remove-go').addEventListener('click', async () => {
+      const r = await g.remove(document.getElementById('pw-gate-rm').value);
+      if (r && r.ok) { showSettingsToast(T('settings.pw.gate.removed')); renderPwGate(); return; }
+      msg.textContent = T('settings.pw.gate.wrong');
+    });
+  });
+  // Süre dolduğunda kart kendiliğinden "kilitli" hâline geçsin.
+  _pwGateTimer = setInterval(() => {
+    if (!document.getElementById('pw-gate-box')) { clearInterval(_pwGateTimer); _pwGateTimer = null; return; }
+    renderPwGate();
+  }, 15000);
+}
+
+// Kilit kapalıyken göz/kopyala düğmesine basılırsa kullanıcıyı kilit kartına götür.
+function pwGateUyar() {
+  showSettingsToast(T('settings.pw.gate.unlockFirst'), 'error');
+  renderPwGate().then(() => {
+    const box = document.getElementById('pw-gate-box');
+    box?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    document.getElementById('pw-gate-code')?.focus();
+  });
 }
 
 async function populatePwdList() {
@@ -897,14 +1025,32 @@ async function runPwnedCheck() {
   }));
 }
 
+function pwGizle(cell) {
+  if (!cell) return;
+  if (cell._pwGizle) { clearTimeout(cell._pwGizle); cell._pwGizle = null; }
+  cell.textContent = '••••••••';
+}
+
 async function onPwdAction(e) {
   const btn = e.currentTarget, id = btn.getAttribute('data-id'), act = btn.getAttribute('data-act');
   const pw = window.secureBrowser?.passwords;
   if (act === 'reveal') {
     const cell = document.querySelector(`.pwd-pass[data-pass="${id}"]`); if (!cell) return;
-    cell.textContent = cell.textContent === '••••••••' ? (await pw.reveal(id)) : '••••••••';
+    if (cell.textContent !== '••••••••') { pwGizle(cell); return; }
+    const r = await pw.reveal(id);
+    if (!r || r.ok === false) { if (r && r.kod === 'kilitli') pwGateUyar(); return; }
+    cell.textContent = r.sifre;
+    // Ekran açık bırakılırsa şifre kendiliğinden gizlenir.
+    cell._pwGizle = setTimeout(() => pwGizle(cell), r.gizleMs || 20000);
   } else if (act === 'copy') {
-    navigator.clipboard.writeText(await pw.reveal(id)).then(()=>showSettingsToast(T('settings.pw.copied')));
+    // Şifre arayüze GELMEZ: ana süreç panoya yazar ve süre sonunda siler.
+    const r = await pw.copy(id);
+    if (!r || r.ok === false) {
+      if (r && r.kod === 'kilitli') pwGateUyar();
+      else showSettingsToast(T('settings.pw.copyFailed'), 'error');
+      return;
+    }
+    showSettingsToast(T('settings.pw.copiedCleared', { time: _pwSure(r.temizleMs || 30000) }), 'success');
   } else if (act === 'del') {
     if (!confirm(T('settings.pw.confirmDelete'))) return;
     await pw.delete(id); populatePwdList();
@@ -1284,6 +1430,7 @@ function bindPasswordEvents() {
   // bağlıydı; bayrak kaldırıldığı için artık koşulsuz yüklenir. Liste maskeli
   // gelir — tam parola yalnızca ayrı bir "göster" isteğiyle alınır.)
   populatePwdList();
+  renderPwGate();
 }
 
 // Sekme adı sütuna sığmıyorsa (tek uzun sözcük) yazıyı 8 px'e kadar küçült. Panel gizliyken

@@ -24,8 +24,9 @@ const os   = require('os');
 const path = require('path');
 const crypto = require('crypto');
 const { execFileSync } = require('child_process');
-const { dialog } = require('electron');
+const { dialog, clipboard } = require('electron');
 const osCrypto = require('./os-crypto');
+const { createGate } = require('./vault-gate');
 const { auditPasswords } = require('./password-generator');
 const { checkPwnedPasswords } = require('./pwned-check');
 const { log: diag } = require('./diagnostics');
@@ -39,6 +40,98 @@ let vaultLoadError = null; // null | 'encryption_unavailable' | 'decrypt_failed'
 let encryptionOk = false;
 let vaultReady = Promise.resolve();
 let saveChain = Promise.resolve();
+
+// ─── Kasa kilidi (şifre göstermeden önce doğrulama) ───────────────────────────
+// Kayıt yalnızca scrypt özeti ve tuzdur; kodun kendisi hiçbir yerde durmaz.
+// Şifreleme varsa kayıt da .enc olarak yazılır, yoksa düz JSON — özet olduğu için
+// düz metin hâli de sır içermez (bkz. vault-gate.js).
+// Gösterilen şifre bu süre sonunda arayüzde kendiliğinden gizlenir — ekran açık
+// bırakılıp masadan kalkıldığında parola ekranda kalmasın.
+const GOSTER_SURESI_MS = 20 * 1000;
+let GATE_ENC = null;
+let GATE_PLAIN = null;
+let gate = null;
+let gateReady = Promise.resolve();
+let gateRecord = null;
+let gateChain = Promise.resolve();
+
+async function loadGateRecord() {
+  try {
+    if (GATE_ENC && fs.existsSync(GATE_ENC) && (await osCrypto.isAvailable())) {
+      const { text } = await osCrypto.decryptBuffer(fs.readFileSync(GATE_ENC));
+      gateRecord = JSON.parse(text);
+      return;
+    }
+    if (GATE_PLAIN && fs.existsSync(GATE_PLAIN)) gateRecord = JSON.parse(fs.readFileSync(GATE_PLAIN, 'utf8'));
+  } catch (e) {
+    // Kayıt okunamadıysa kilit KURULU SAYILMAZ; aksi halde kullanıcı kendi
+    // kasasından kalıcı olarak kilitlenirdi. Durum tanılamaya yazılır.
+    gateRecord = null;
+    diag.error('passwords', 'Kasa kilidi kaydı okunamadı', { reason: e.message });
+  }
+}
+
+async function persistGateRecord(record) {
+  const write = (file, buf) => {
+    const tmp = file + '.tmp';
+    fs.writeFileSync(tmp, buf, { mode: 0o600 });
+    fs.renameSync(tmp, file);
+  };
+  try {
+    if (!record) {
+      for (const f of [GATE_ENC, GATE_PLAIN]) { try { fs.unlinkSync(f); } catch {} }
+      return;
+    }
+    if (await osCrypto.isAvailable()) {
+      write(GATE_ENC, await osCrypto.encryptText(JSON.stringify(record)));
+      try { fs.unlinkSync(GATE_PLAIN); } catch {}
+    } else {
+      write(GATE_PLAIN, JSON.stringify(record));
+      try { fs.unlinkSync(GATE_ENC); } catch {}
+    }
+  } catch (e) {
+    diag.error('passwords', 'Kasa kilidi kaydı yazılamadı', { reason: e.message });
+  }
+}
+
+/** Kilitliyse şifre döndürmeyi engeller — karar ANA SÜREÇTE verilir. */
+function gateGuard() {
+  if (gate && !gate.izinli()) {
+    const d = gate.durum();
+    return { ok: false, kod: 'kilitli', beklemeMs: d.beklemeMs };
+  }
+  return null;
+}
+
+// Panoya kopyalanan şifre kısa süre sonra silinir; arada kullanıcı başka bir şey
+// kopyaladıysa ONA DOKUNULMAZ (yalnızca hâlâ aynı metin duruyorsa temizlenir).
+// NOT: Electron 44'te pano API'si EŞZAMANSIZ (clipboard.readText/writeText artık
+// Promise döndürür; writeImage ve availableFormats kaldırıldı). Karşılaştırmayı
+// await olmadan yapmak Promise'i metinle kıyaslar — hiç eşleşmez ve pano asla
+// temizlenmezdi. Sonda ile ölçüldü (20 Eyl 2026).
+let panoZaman = null;
+async function panoyaYaz(sifre, sureMs) {
+  // Pano işletim sistemi tarafından kilitlenmiş olabilir (başka bir uygulama tutuyor,
+  // uzak masaüstü oturumu). Bu durumda writeText HATA VERMEDEN çözülüyor ama içerik
+  // panoya girmiyor — sonda ile ölçüldü. Kullanıcıya "kopyalandı" deyip boş pano
+  // bırakmamak için yazım geri okunarak doğrulanır.
+  try {
+    await clipboard.writeText(sifre);
+    let girdi = false;
+    for (let i = 0; i < 3 && !girdi; i++) {
+      if (i) await new Promise((r) => setTimeout(r, 60));
+      girdi = (await clipboard.readText()) === sifre;
+    }
+    if (!girdi) { diag.warn('passwords', 'Pano yazımı doğrulanamadı'); return false; }
+  } catch (e) { diag.warn('passwords', 'Pano yazılamadı', { reason: e.message }); return false; }
+  if (panoZaman) clearTimeout(panoZaman);
+  panoZaman = setTimeout(async () => {
+    panoZaman = null;
+    try { if ((await clipboard.readText()) === sifre) await clipboard.writeText(''); } catch {}
+  }, sureMs);
+  if (panoZaman.unref) panoZaman.unref();
+  return true;
+}
 
 // Kullanıcıya gösterilecek mesajlar — IPC'den ham hata kodu sızdırmak yerine.
 // Metinler locales/*.json içinde: pwImport.err.<kod>.
@@ -394,16 +487,69 @@ async function importFromCsv(win) {
 // ─── IPC ──────────────────────────────────────────────────────────────────────
 function setupPasswordManager(ipcMain, options) {
   VAULT_PATH = path.join(options.userDataPath, 'passwords.enc');
+  GATE_ENC   = path.join(options.userDataPath, 'vault-gate.enc');
+  GATE_PLAIN = path.join(options.userDataPath, 'vault-gate.json');
   vaultReady = loadVault().catch((e) => { diag.error('passwords', 'Kasa yüklenemedi', { reason: e.message }); });
+  gateReady = loadGateRecord().then(() => {
+    gate = createGate({
+      read: () => gateRecord,
+      write: (r) => { gateRecord = r; gateChain = gateChain.then(() => persistGateRecord(r)); },
+    });
+  });
 
   // Listeleme: parolalar MASKELİ döner (güvenlik); tam parola ayrı istekle.
   ipcMain.handle('pw-list', async () => {
     await vaultReady;
     return vault.map(v => ({ id: v.id, url: v.url, username: v.username, source: v.source, createdAt: v.createdAt }));
   });
+  // Şifreyi göster. Kilit kuruluysa önce pw-gate-unlock gerekir; kilit kararı
+  // burada, ana süreçte verilir (eski "ana şifre" ekranının hatası buydu: kilit
+  // yalnızca paneli gizliyordu, IPC kanalları habersizdi).
   ipcMain.handle('pw-reveal', async (e, id) => {
-    await vaultReady;
-    return vault.find(v => v.id === id)?.password || '';
+    await vaultReady; await gateReady;
+    const kilit = gateGuard();
+    if (kilit) return kilit;
+    const v = vault.find(x => x.id === id);
+    if (!v) return { ok: false, kod: 'bulunamadi' };
+    return { ok: true, sifre: v.password || '', gizleMs: GOSTER_SURESI_MS };
+  });
+
+  // Kopyalama: şifre ARAYÜZE HİÇ GELMEZ, panoya ana süreçte yazılır ve kısa
+  // süre sonra silinir. Böylece şifre pano geçmişi araçlarında kalıcı olmaz.
+  ipcMain.handle('pw-copy', async (e, id) => {
+    await vaultReady; await gateReady;
+    const kilit = gateGuard();
+    if (kilit) return kilit;
+    const v = vault.find(x => x.id === id);
+    if (!v || !v.password) return { ok: false, kod: 'bulunamadi' };
+    if (!(await panoyaYaz(v.password, gate.PANO_TEMIZLE_MS))) return { ok: false, kod: 'pano' };
+    return { ok: true, temizleMs: gate.PANO_TEMIZLE_MS };
+  });
+
+  // ── Kasa kilidi ──
+  ipcMain.handle('pw-gate-status', async () => {
+    await gateReady;
+    return gate.durum();
+  });
+  ipcMain.handle('pw-gate-setup', async (e, kod) => {
+    await gateReady;
+    const r = gate.kur(kod);
+    if (r.ok) diag.info('passwords', 'Kasa kilidi kuruldu');
+    return r;
+  });
+  ipcMain.handle('pw-gate-unlock', async (e, kod) => {
+    await gateReady;
+    const r = gate.ac(kod);
+    if (!r.ok && r.kod === 'yanlis') diag.warn('passwords', 'Kasa kilidi yanlış kod', { yanlis: r.yanlis });
+    return r.ok ? { ...r, kalanMs: gate.durum().kalanMs } : r;
+  });
+  ipcMain.handle('pw-gate-lock', async () => { await gateReady; return gate.kilitle(); });
+  ipcMain.handle('pw-gate-change', async (e, { eski, yeni } = {}) => { await gateReady; return gate.degistir(eski, yeni); });
+  ipcMain.handle('pw-gate-remove', async (e, kod) => {
+    await gateReady;
+    const r = gate.kaldir(kod);
+    if (r.ok) diag.info('passwords', 'Kasa kilidi kaldırıldı');
+    return r;
   });
 
   ipcMain.handle('pw-add', async (e, { url, username, password } = {}) => {

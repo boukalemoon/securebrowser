@@ -648,7 +648,8 @@ suite('Sağ tık menüsü');
       mjm.includes("const canInspect = (wc) => !!wc && !wc.isDestroyed() && (isWebUrl(wc.getURL()) || wc.getURL().startsWith('view-source:'));")
       && (mjm.match(/wc\.openDevTools\(\{ mode: 'detach' \}\)/g) || []).length === 2 && mjm.includes("case 'inspect':    inspectElementAt(wc, arg); break;"));
     check('ekran görüntüsü: görünen alan PNG, indirme klasörüne benzersiz adla, panoya; yalnızca kendi yazdığı dosya klasörde gösteriliyor',
-      /async function takeScreenshot\(win, wc\) \{[\s\S]{0,300}wc\.capturePage\(\)[\s\S]{0,400}uniquePath\(dir, screenshotFileName\(wc\.getURL\(\)\)\)[\s\S]{0,200}clipboard\.writeImage\(image\)/.test(mjm)
+      // Pano yazımı Electron 44'te ClipboardItem üzerinden yapılır (writeImage kaldırıldı).
+      /async function takeScreenshot\(win, wc\) \{[\s\S]{0,300}wc\.capturePage\(\)[\s\S]{0,500}uniquePath\(dir, screenshotFileName\(wc\.getURL\(\)\)\)[\s\S]{0,600}clipboard\.write\(\[new ClipboardItem\(/.test(mjm)
       && /ipcMain\.handle\('screenshot-reveal', \(_e, file\) => \{\s*if \(typeof file !== 'string' \|\| !screenshotPaths\.has\(file\)/.test(mjm));
     const appm = read('renderer/app.js');
     check('durum çubuğu bildirimi metni textContent ile yazıyor (HTML işlenmiyor)',
@@ -2874,6 +2875,168 @@ suite('Kaynak dosyalar — ham kontrol baytı yok');
     }
   }
   check('ham kontrol baytı içeren kaynak dosyası yok (' + targets.length + ' dosya tarandı)', offenders.length === 0, offenders);
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Kasa kilidi — şifre göstermeden önce doğrulama (Burak, 20 Eyl 2026:
+// "Şifreleri göstermek için bir doğrulama koymamız gerekiyor")
+// Doğrulama tamamen yerel: kod ağa çıkmaz, hesap ya da internet gerekmez.
+// ══════════════════════════════════════════════════════════════════════════════
+suite('Kasa kilidi — yerel doğrulama');
+{
+  const VG = require('../src/main/vault-gate.js');
+  // Sahte disk + denetlenebilir saat: bekleme süreleri gerçek zaman beklemeden sınanır.
+  const sahteIo = (baslangic = 0) => {
+    const kutu = { kayit: null, yazma: 0, t: baslangic };
+    return {
+      kutu,
+      io: {
+        read: () => kutu.kayit,
+        write: (r) => { kutu.kayit = r ? JSON.parse(JSON.stringify(r)) : null; kutu.yazma++; },
+        now: () => kutu.t,
+      },
+    };
+  };
+
+  const { kutu, io } = sahteIo(1_000_000);
+  const g = VG.createGate(io);
+
+  check('kilit kurulmadıysa şifre göstermeye izin var (kullanıcıya dayatılmaz)', g.izinli() && !g.durum().kurulu);
+  eq('kısa kod reddediliyor', g.kur('12345'), { ok: false, kod: 'cok_kisa', minUzunluk: VG.MIN_UZUNLUK });
+  check('kısa kod reddedildiğinde diske hiçbir şey yazılmadı', kutu.yazma === 0 && kutu.kayit === null);
+
+  check('kod kuruldu', g.kur('gizliKod1').ok === true);
+  check('kuran kişi doğrulanmış sayılır (hemen açık)', g.izinli() && g.durum().acik);
+  check('kod diskte DÜZ METİN olarak durmuyor — yalnız tuz ve scrypt özeti',
+    !JSON.stringify(kutu.kayit).includes('gizliKod1') && !!kutu.kayit.tuz && !!kutu.kayit.ozet,
+    JSON.stringify(Object.keys(kutu.kayit || {})));
+  check('durum() tuzu ya da özeti arayüze SIZDIRMIYOR',
+    !('tuz' in g.durum()) && !('ozet' in g.durum()) && !JSON.stringify(g.durum()).includes(kutu.kayit.ozet));
+
+  g.kilitle();
+  check('kilitlendiğinde izin kalkıyor', !g.izinli() && !g.durum().acik);
+
+  // Yeni bir kapı aynı kaydı okuyor: uygulama yeniden başlayınca KİLİTLİ olmalı.
+  const g2 = VG.createGate(io);
+  check('uygulama yeniden başlayınca kilit kapalı (açıklık diske yazılmıyor)', g2.durum().kurulu && !g2.izinli());
+  check('yanlış kod açmıyor', g2.ac('yanlisKod1').ok === false);
+  check('doğru kod açıyor', g2.ac('gizliKod1').ok === true && g2.izinli());
+
+  // Bekleme: ilk üç yanlış serbest, sonrası artan gecikme; sayaç diske yazılır.
+  const { kutu: k3, io: io3 } = sahteIo(5_000_000);
+  const g3 = VG.createGate(io3);
+  g3.kur('birKodDaha');
+  g3.kilitle();
+  const kodlar = [];
+  for (let i = 0; i < 3; i++) kodlar.push(g3.ac('hatali' + i).kod);
+  eq('ilk üç yanlış deneme serbest (parmağı kayan kullanıcı cezalandırılmıyor)', kodlar, ['yanlis', 'yanlis', 'yanlis']);
+  check('üçüncü yanlıştan sonra bekleme başlıyor',
+    kutu.yazma > 0 && k3.kayit.yanlis === 3 && VG.beklemeSuresi(3) === VG.BEKLEME_MS[3] && g3.durum().beklemeMs > 0,
+    JSON.stringify(g3.durum()));
+  // Sözlük saldırısının hız kazanmasını engelleyen asıl nokta: bekleme sürerken
+  // hiçbir deneme DEĞERLENDİRİLMEZ, dolayısıyla sayaç da artmaz.
+  eq('bekleme sürerken DOĞRU kod bile açmıyor ve deneme sayacı artmıyor',
+    [g3.ac('birKodDaha').kod, g3.ac('yeniBirHata').kod, k3.kayit.yanlis], ['bekle', 'bekle', 3]);
+  check('bekleme her yanlışta uzuyor', VG.beklemeSuresi(5) > VG.beklemeSuresi(4) && VG.beklemeSuresi(4) > 0);
+  check('yanlış sayacı diske yazıldı — uygulamayı kapatmak beklemeyi sıfırlamıyor',
+    VG.createGate(io3).durum().beklemeMs > 0);
+  k3.t += VG.BEKLEME_MS[4] + 1;
+  check('bekleme dolunca doğru kod açıyor ve sayaç sıfırlanıyor',
+    g3.ac('birKodDaha').ok === true && (k3.kayit.yanlis || 0) === 0);
+
+  // Süre dolunca kendiliğinden kilitlenir (ekran açık bırakılırsa).
+  k3.t += VG.ACIK_SURE_MS + 1;
+  check('açık süresi dolunca kendiliğinden kilitleniyor', !g3.izinli());
+
+  // Değiştirme ve kaldırma mevcut kodu ister.
+  check('yanlış eski kodla değiştirilemiyor', g3.degistir('alakasiz1', 'yeniKodum1').ok === false);
+  const eskiOzet = k3.kayit.ozet;
+  check('doğru eski kodla değişiyor ve özet yenileniyor',
+    g3.degistir('birKodDaha', 'yeniKodum1').ok === true && k3.kayit.ozet !== eskiOzet);
+  check('eski kod artık geçersiz', VG.createGate(io3).ac('birKodDaha').ok === false);
+  check('kısa yeni kod değiştirmede de reddediliyor', g3.degistir('yeniKodum1', 'kisa').kod === 'cok_kisa');
+  check('yanlış kodla kilit kaldırılamıyor', g3.kaldir('alakasiz1').ok === false && k3.kayit !== null);
+  check('doğru kodla kilit kalkıyor ve kayıt silindi', g3.kaldir('yeniKodum1').ok === true && k3.kayit === null);
+  check('kilit kalkınca yine izin var', g3.izinli());
+}
+
+suite('Kasa kilidi — ana süreç kararı ve arayüz sözleşmesi');
+{
+  const pm = read('../src/main/password-manager.js');
+  check('pw-reveal kilidi ANA SÜREÇTE denetliyor (eski hata: kilit yalnız paneli gizliyordu)',
+    /ipcMain\.handle\('pw-reveal'[\s\S]{0,400}?gateGuard\(\)/.test(pm));
+  check('pw-copy şifreyi arayüze göndermiyor, panoya ana süreçte yazıyor',
+    /ipcMain\.handle\('pw-copy'[\s\S]{0,400}?panoyaYaz\(/.test(pm) && !/ipcMain\.handle\('pw-copy'[\s\S]{0,400}?sifre:/.test(pm));
+  check('panoya yazılan şifre süre sonunda siliniyor, ama araya giren kopyalama korunuyor',
+    /\(await clipboard\.readText\(\)\) === sifre/.test(pm) && /await clipboard\.writeText\(''\)/.test(pm));
+  check('kilit kaydı okunamazsa kullanıcı kendi kasasından kilitlenmiyor',
+    /gateRecord = null;[\s\S]{0,200}Kasa kilidi kaydı okunamadı/.test(pm));
+  check('gösterilen şifre kendiliğinden gizleniyor', /GOSTER_SURESI_MS\s*=\s*\d+\s*\*\s*1000/.test(pm));
+
+  const sp = read('../src/renderer/settings-panel.js');
+  check('arayüz kilitli yanıtını anlıyor ve kullanıcıyı kilit kartına yönlendiriyor',
+    /r\.kod === 'kilitli'[\s\S]{0,60}pwGateUyar\(\)/.test(sp));
+  check('kopyalama artık şifreyi arayüzde tutmuyor (navigator.clipboard ile şifre yazılmıyor)',
+    !/navigator\.clipboard\.writeText\(await pw\.reveal/.test(sp) && /await pw\.copy\(id\)/.test(sp));
+  check('gösterilen şifre için otomatik gizleme zamanlayıcısı kurulu', /_pwGizle = setTimeout\(/.test(sp));
+
+  const app = read('../src/renderer/app.js');
+  check('paneller kapanınca kasa yeniden kilitleniyor', /gate\?\.lock\?\.\(\)/.test(app));
+
+  const pl = read('../src/preload/preload.js');
+  check('önyükleme köprüsü kilit kanallarını açıyor',
+    ['pw-gate-status', 'pw-gate-setup', 'pw-gate-unlock', 'pw-gate-lock', 'pw-gate-change', 'pw-gate-remove', 'pw-copy']
+      .every((c) => pl.includes(c)));
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Electron 44 — pano API'si eşzamansız oldu; writeImage/readImage/availableFormats
+// KALDIRILDI. Sonda ile ölçüldü (20 Eyl 2026): clipboard.writeImage çağrısı
+// TypeError atıyor, readText Promise döndürüyor. Eski kod bu yüzden sessizce
+// kırılmıştı — ekran görüntüsü diske yazıldığı hâlde kullanıcıya "alınamadı"
+// deniyordu, kopyalanan şifre de asla panodan silinmiyordu.
+// ══════════════════════════════════════════════════════════════════════════════
+suite('Electron 44 — eşzamansız pano API\'si');
+{
+  const KALDIRILAN = ['writeImage', 'readImage', 'availableFormats', 'readHTML', 'writeHTML', 'readRTF', 'writeRTF', 'readBookmark', 'writeBookmark', 'readFindText', 'writeFindText'];
+  const dosyalar = ['../src/main/main.js', '../src/main/password-manager.js', '../src/main/notes.js', '../src/main/glance-main.js', '../src/main/reader.js'];
+  const suclular = [];
+  for (const f of dosyalar) {
+    const src = read(f);
+    for (const y of KALDIRILAN) if (new RegExp('clipboard\\.' + y + '\\s*\\(').test(src)) suclular.push(f + ' → clipboard.' + y);
+  }
+  check('kaldırılmış eşzamanlı pano yöntemi hiçbir yerde çağrılmıyor', suclular.length === 0, suclular.join(', '));
+
+  const m = read('../src/main/main.js');
+  check('ekran görüntüsü panoya yeni yolla (ClipboardItem) yazılıyor',
+    /clipboard\.write\(\[new ClipboardItem\(\{ 'image\/png'/.test(m) && /ClipboardItem, ipcMain/.test(m));
+  check('pano başarısız olsa bile ekran görüntüsü kaydı bildiriliyor (catch dosyayı iptal etmiyor)',
+    /panoOk = false/.test(m) && /panoOk \? 'screenshot\.saved' : 'screenshot\.savedOnly'/.test(m));
+  check('copy-text eşzamansız yazımı yakalıyor (yakalanmamış Promise reddi yok)',
+    /case 'copy-text':[\s\S]{0,200}?\.catch\(/.test(m));
+
+  const pmSrc = read('../src/main/password-manager.js');
+  check('pano yazımı ve okuması await ile yapılıyor (Promise metinle kıyaslanmıyor)',
+    /await clipboard\.writeText\(sifre\)/.test(pmSrc) && /\(await clipboard\.readText\(\)\) === sifre/.test(pmSrc));
+  // Pano kilitliyken writeText HATA VERMEDEN çözülüyor ama içerik girmiyor (sonda ile
+  // ölçüldü). Bu yüzden başarı, yazımın geri okunmasıyla doğrulanır.
+  check('pano yazımı geri okunarak doğrulanıyor — sessiz başarısızlık "kopyalandı" sayılmıyor',
+    /girdi = \(await clipboard\.readText\(\)\) === sifre/.test(pmSrc) && /if \(!girdi\)/.test(pmSrc));
+  check('pano yazılamazsa kullanıcıya "kopyalandı" denmiyor',
+    /return \{ ok: false, kod: 'pano' \}/.test(pmSrc));
+
+  const spSrc = read('../src/renderer/settings-panel.js');
+  check('arayüz pano hatasını kullanıcıya bildiriyor', /settings\.pw\.copyFailed/.test(spSrc));
+
+  // Metinler: 9 dilde de bulunmalı (yeni metin 9 dile eklenir kuralı).
+  const diller = ['tr', 'en', 'de', 'fr', 'az', 'kk', 'uz', 'tk', 'ky'];
+  const eksik = [];
+  for (const d of diller) {
+    const j = JSON.parse(read('../src/locales/' + d + '.json'));
+    for (const k of ['settings.pw.copyFailed', 'screenshot.savedOnly']) if (!j[k]) eksik.push(d + ':' + k);
+    if (j['screenshot.savedOnly'] && !String(j['screenshot.savedOnly']).includes('{file}')) eksik.push(d + ':savedOnly {file} yok');
+  }
+  check('yeni pano metinleri 9 dilde var ve {file} yer tutucusu korunmuş', eksik.length === 0, eksik.join(', '));
 }
 
 // ─── Özet ─────────────────────────────────────────────────────────────────────

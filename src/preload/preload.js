@@ -199,6 +199,17 @@ contextBridge.exposeInMainWorld('secureBrowser', {
     // Oluşturulan şifre form gönderilince kaydedildi (bildirimde parola yok).
     onGeneratedSaved:    (cb) => ipcRenderer.on('pw-generated-saved', (_, d) => cb(d)),
     neverRemove:         (o)  => ipcRenderer.invoke('pw-never-remove', o),
+    // Kopyalama: şifre arayüze gelmez, panoya ana süreçte yazılır ve silinir.
+    copy:                (id) => ipcRenderer.invoke('pw-copy', id),
+    // Kasa kilidi — doğrulama tamamen cihazda, ağa çıkılmadan yapılır.
+    gate: {
+      status: ()              => ipcRenderer.invoke('pw-gate-status'),
+      setup:  (kod)           => ipcRenderer.invoke('pw-gate-setup', kod),
+      unlock: (kod)           => ipcRenderer.invoke('pw-gate-unlock', kod),
+      lock:   ()              => ipcRenderer.invoke('pw-gate-lock'),
+      change: (eski, yeni)    => ipcRenderer.invoke('pw-gate-change', { eski, yeni }),
+      remove: (kod)           => ipcRenderer.invoke('pw-gate-remove', kod),
+    },
   },
 
   // ── Auth (Üyelik Sistemi) ────────────────────────────────────────────────────

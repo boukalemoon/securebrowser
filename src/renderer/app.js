@@ -103,6 +103,9 @@ function closeAllPanels() {
   if (!currentScreen) {
     document.querySelectorAll('.sidebar-btn[data-screen]').forEach((b) => b.classList.toggle('active', b.dataset.screen === 'newtab'));
   }
+  // Ayarlar kapanınca kasa kilidi yeniden devreye girer: panel açıkken bir kez
+  // doğrulayan kişi paneli kapatıp gidince şifreler yeniden korumasız kalmasın.
+  sb.passwords?.gate?.lock?.().catch?.(() => {});
   sb.panelOpened(false);
 }
 
