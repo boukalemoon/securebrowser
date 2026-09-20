@@ -359,6 +359,10 @@ contextBridge.exposeInMainWorld('secureBrowser', {
     veri:    ()        => ipcRenderer.invoke('ulgen-veri'),
     veriSil: ()        => ipcRenderer.invoke('ulgen-veri-sil'),
     ceviriSil: ()      => ipcRenderer.invoke('ulgen-ceviri-sil'),
+    // Ana Ülgen görev kanalı (Katman 2): eşleşme yalnız kullanıcının yazdığı kodla.
+    gorevDurum:  ()     => ipcRenderer.invoke('ulgen-gorev-durum'),
+    gorevEsles:  (kod)  => ipcRenderer.invoke('ulgen-gorev-esles', kod),
+    gorevKaldir: ()     => ipcRenderer.invoke('ulgen-gorev-kaldir'),
     // Dil paketi indirme ilerlemesi. Abonelikten çıkış için işlev döner;
     // panel indirme bitince bırakır, dinleyici birikmez.
     onCeviriDurum: (cb) => {

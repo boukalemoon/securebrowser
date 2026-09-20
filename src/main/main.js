@@ -20,6 +20,7 @@ const { setupBookmarkImport } = require('./bookmark-import');
 const { setupPasswordManager, getForOrigin, classifyCapture, canSavePasswords, saveCapturedCredential } = require('./password-manager');
 const { generatePassword } = require('./password-generator');
 const reader = require('./reader');
+const gorevSayfa = require('./gorev-sayfa');
 const { PWNED_RANGE_URL } = require('./pwned-check');
 const { setupAutoUpdater } = require('./auto-updater');
 const { setupDiagnostics, log: diag, logError } = require('./diagnostics');
@@ -35,6 +36,7 @@ const { createConsentLog } = require('./consent-log');
 const tabGroups = require('./tab-groups');
 const ulgenMotor = require('./ulgen-motor');
 const ulgenCeviri = require('./ulgen-ceviri');
+const ulgenGorev = require('./ulgen-gorev');
 const webPanels = require('./web-panels');
 const notesStore = require('./notes');
 // Veri ve Gizlilik: izin kataloğu arayüzle ortak (renderer/data-catalog.js).
@@ -1767,11 +1769,167 @@ function ulgenIlgiSil() {
   try { fs.rmSync(ULGEN_ILGI_DOSYA, { force: true }); return true; } catch { return false; }
 }
 
+// ── Ülgen görev sayfası: görünmez, temiz oturumlu sayfa okuyucu ──────────────
+// Ana Ülgen'den gelen adres UZAKTAN geliyor; burası bir dış girdi sınırı.
+// Sınırlar (gorev-sayfa.js'teki denetimlerin üstüne):
+//   • Sekme yolundaki korumalarla AYNI oturum yapılandırması (configureSession:
+//     tehdit listesi, engelleyici, sertifika denetimi, başlık kuralları) + aynı
+//     ön yükleme (parmak izi kalkanı, GPC).
+//   • TEMİZ oturum: kendi bölümü, kullanıcının çerezleri ve girişli oturumları
+//     KULLANILMAZ; iş bitince bölüm boşaltılır. Üyelik isteyen sayfaların
+//     okunamaması kabul edilmiş bir sınır (Burak kararı).
+//   • Görünmez: hiçbir pencereye eklenmez, contentRect'e dokunmaz.
+//   • Tek seferde TEK iş; ikincisi 'mesgul' ile reddedilir (görünmez pencere
+//     fabrikasına dönüşmesin).
+//   • İndirme, açılır pencere ve her türlü izin isteği reddedilir.
+//   • Yönlendirme zinciri de denetlenir: http(s) dışına ya da yerel/ayrılmış
+//     bir adrese çıkılırsa iş kesilir (dış sayfa 302 ile 127.0.0.1'e atamasın).
+const GOREV_WORLD_ID = 1021;
+const GOREV_ZAMAN_ASIMI_MS = 30 * 1000;
+let gorevCalisiyor = false;
+let gorevSayac = 0;
+
+async function ulgenGorevSayfasi(url, opts = {}) {
+  if (opts.temizOturum !== true) return { ok: false, sebep: 'temiz_oturum_zorunlu' };
+  const adres = gorevSayfa.gecerliGorevAdresi(url);
+  if (!adres.ok) return adres;
+  if (gorevCalisiyor) return { ok: false, sebep: 'mesgul' };
+  gorevCalisiyor = true;
+
+  const bolum = 'gorev-' + (++gorevSayac) + '-' + Date.now();
+  const zamanAsimi = Math.min(Math.max(Number(opts.zamanAsimiMs) || GOREV_ZAMAN_ASIMI_MS, 5000), 60000);
+  let view = null;
+  let engellendi = false;
+
+  const temizle = async () => {
+    try { if (view && !view.webContents.isDestroyed()) view.webContents.close(); } catch {}
+    // Bölüm kalıcı değil (persist: yok) ama yine de açıkça boşaltılır.
+    try { const s = session.fromPartition(bolum); await s.clearStorageData(); await s.clearCache(); } catch {}
+    gorevCalisiyor = false;
+  };
+
+  try {
+    view = new WebContentsView({
+      webPreferences: {
+        preload: path.join(__dirname, '../preload/page-preload.js'),
+        additionalArguments: config.globalPrivacyControl !== false ? ['--ilgezdi-gpc'] : [],
+        nodeIntegrationInSubFrames: true,
+        contextIsolation: true, nodeIntegration: false, sandbox: true,
+        webSecurity: true, allowRunningInsecureContent: false,
+        partition: bolum,          // persist: YOK → çerezler diske yazılmaz
+      },
+    });
+    const wc = view.webContents;
+    configureSession(wc.session, true);   // gecici = true: izin kararları diske yazılmaz
+    applyWebrtcPolicy(wc);
+
+    // Sayfa hiçbir izin isteyemez ve hiçbir şey indiremez.
+    try {
+      wc.session.setPermissionRequestHandler((_w, _p, cb) => cb(false));
+      wc.session.setPermissionCheckHandler(() => false);
+      wc.session.on('will-download', (e) => e.preventDefault());
+    } catch {}
+    wc.setWindowOpenHandler(() => ({ action: 'deny' }));
+    try { wc.setAudioMuted(true); } catch {}
+
+    // Yönlendirme zinciri denetimi: her adımda aynı kurallar.
+    const zincirDenetle = (hedef) => {
+      const r = gorevSayfa.gecerliGorevAdresi(hedef);
+      if (!r.ok) { engellendi = true; try { wc.stop(); } catch {} }
+    };
+    wc.on('will-redirect', (_e, hedef) => zincirDenetle(hedef));
+    wc.on('will-navigate', (_e, hedef) => zincirDenetle(hedef));
+
+    const yuklendi = new Promise((resolve) => {
+      let bitti = false;
+      const bit = (sonuc) => { if (!bitti) { bitti = true; resolve(sonuc); } };
+      wc.once('did-finish-load', () => bit({ ok: true }));
+      wc.once('did-fail-load', (_e, kod, _a, _b, anaCerceve) => {
+        // -3: iptal/yönlendirme. Tehdit listesi isteği iptal ettiğinde de buraya düşer.
+        if (anaCerceve) bit({ ok: false, sebep: engellendi || kod === -3 ? 'engellendi' : 'hata' });
+      });
+      setTimeout(() => bit({ ok: false, sebep: 'zaman_asimi' }), zamanAsimi).unref?.();
+    });
+
+    wc.loadURL(adres.url).catch(() => {});
+    const sonuc = await yuklendi;
+    if (!sonuc.ok) { await temizle(); return { ok: false, sebep: sonuc.sebep }; }
+    if (engellendi) { await temizle(); return { ok: false, sebep: 'engellendi' }; }
+
+    // Son adres de denetlenir (yönlendirme olaylarını atlayan durumlar için).
+    const sonAdres = gorevSayfa.gecerliGorevAdresi(wc.getURL());
+    if (!sonAdres.ok) { await temizle(); return { ok: false, sebep: 'engellendi' }; }
+
+    if (!readerScript) readerScript = reader.buildExtractScript(fs.readFileSync(require.resolve('@mozilla/readability/Readability.js'), 'utf8'));
+    let ham = null;
+    try { ham = await wc.executeJavaScriptInIsolatedWorld(GOREV_WORLD_ID, [{ code: readerScript }]); } catch {}
+
+    // Makale çıkarılamazsa sayfanın düz metnine düşülür (yalıtılmış dünyada).
+    let metin = '';
+    let baslik = '';
+    if (ham && Array.isArray(ham.nodes)) {
+      metin = gorevSayfa.nodlardanMetin(reader.validateReaderNodes(ham.nodes));
+      baslik = gorevSayfa.basligiKirp(ham.title);
+    }
+    if (!metin) {
+      try {
+        const yedek = await wc.executeJavaScriptInIsolatedWorld(GOREV_WORLD_ID, [{ code:
+          "({ b: document.title || '', m: (document.body && document.body.innerText) || '' })" }]);
+        metin = String((yedek && yedek.m) || '').replace(/\n{3,}/g, '\n\n').trim();
+        if (!baslik) baslik = gorevSayfa.basligiKirp(yedek && yedek.b);
+      } catch {}
+    }
+
+    const kirpma = gorevSayfa.metniKirp(metin);
+    const cikti = {
+      ok: true,
+      metin: kirpma.metin,
+      kirpildi: kirpma.kirpildi,
+      baslik,
+      url: sonAdres.url,
+    };
+    await temizle();
+    // Tanılamaya ADRES YAZILMAZ — yalnız ölçü.
+    diag.info('ulgen', 'Görev sayfası okundu', { uzunluk: cikti.metin.length, kirpildi: cikti.kirpildi });
+    return cikti;
+  } catch (e) {
+    await temizle();
+    logError('ulgen-gorev', e);
+    return { ok: false, sebep: 'hata' };
+  }
+}
+
+// ── ANA ÜLGEN GÖREVLERİ (Katman 2) ───────────────────────────────────────────
+// Ana Ülgen bir sayfanın metnine ihtiyaç duyduğunda İlgezdi onu TEMİZ oturumda
+// açar ve klonun ayıklayıcısıyla metni verir. Varsayılan KAPALI (ulgenTasks).
+// ⛔ Gizli pencere AÇIKKEN görev alınmaz: o pencere iz bırakmama sözüdür.
+ulgenGorev.kur({
+  izin: () => ulgenIzin('ulgenTasks'),
+  gizli: () => !!incognitoWindow && !incognitoWindow.isDestroyed(),
+  // ⛔ Sayfayı İLGEZDİ'NİN KENDİ SEKME YOLU getirir: korumalar (parmak izi
+  // kalkanı, GPC, engelleyici, tehdit listesi, sertifika denetimi) orada.
+  // `ulgenGorevSayfasi` tanımlanana kadar görev dürüstçe reddedilir.
+  sayfaGetir: (url) => (typeof ulgenGorevSayfasi === 'function'
+    ? ulgenGorevSayfasi(url, { temizOturum: true })
+    : { ok: false, sebep: 'sayfa_yolu_yok' }),
+});
+app.whenReady().then(() => { if (ulgenIzin('ulgenTasks')) ulgenGorev.baslat(); });
+app.on('will-quit', () => ulgenGorev.dur());
+
+ipcMain.handle('ulgen-gorev-durum', () => ulgenGorev.durum());
+// Eşleşme YALNIZ kullanıcının panodaki kodu yazmasıyla kurulur.
+ipcMain.handle('ulgen-gorev-esles', async (_e, kod) => {
+  if (!ulgenIzin('ulgenTasks')) return { ok: false, sebep: 'izin_kapali' };
+  return ulgenGorev.esles(typeof kod === 'string' ? kod : '');
+});
+ipcMain.handle('ulgen-gorev-kaldir', () => { ulgenGorev.dur(); return { ok: ulgenGorev.jetonSil() }; });
+
 ipcMain.handle('ulgen-durum', (event) => {
   const { state } = getContextFromEvent(event);
   return { chat: ulgenIzin('ulgenChat'), page: ulgenIzin('ulgenPage'), history: ulgenIzin('ulgenHistory'),
            interests: ulgenIzin('ulgenInterests'), ceviri: ulgenIzin('ulgenTranslate'),
            ceviriPaket: ulgenCeviri.paketDurumu(),   // Veri ve Gizlilik: "kurulu mu" satırı
+           gorev: ulgenGorev.durum(),                // Ana Ülgen görev kanalı
            gizli: state === incognitoState };
 });
 
@@ -2755,6 +2913,9 @@ ipcMain.handle('data-center-set', (e, id, value, from) => {
   // Çeviri izni geri alınınca diskteki ~26 MB dil paketi de gider: izni
   // kapatmak "artık kullanmıyorum" demektir, dosyanın kalması için sebep yok.
   if (!ulgenIzin('ulgenTranslate')) ulgenCeviri.paketSil();
+  // Ana Ülgen görevleri kapatılınca eşleşme (jeton) da silinir: izin kapatmak
+  // "bundan sonrasını durdur" değil, "bağı da kopar" demektir.
+  if (!ulgenIzin('ulgenTasks')) { ulgenGorev.dur(); ulgenGorev.jetonSil(); } else ulgenGorev.baslat();
   const changes = dataCatalog.diff(before, dataCatalog.snapshot(config));
   try { consentLog.recordChanges(changes, source); } catch (err) { console.error('Onay kaydı yazılamadı:', err.message); }
   return { ok: true, changes, ...dataCenterState() };
