@@ -94,7 +94,7 @@ function closeAllPanels() {
     if (name === 'page') { panel.replaceChildren(); panel.dataset.page = ''; }
   });
   // Panel butonlarının aktif stilini kaldır (data-screen butonlarına dokunma)
-  ['btn-shield', 'btn-bookmarks', 'btn-logs', 'btn-blocker', 'btn-settings', 'btn-arku', 'btn-ulgen', 'security-icon', 'btn-webpanel-add', 'btn-profile', 'btn-notes'].forEach(id => {
+  ['btn-shield', 'btn-bookmarks', 'btn-logs', 'btn-blocker', 'btn-settings', 'btn-arku', 'btn-ulgen', 'security-icon', 'btn-webpanel-add', 'btn-profile', 'btn-notes', 'btn-vpn-panel'].forEach(id => {
     document.getElementById(id)?.classList.remove('active');
   });
   document.querySelectorAll('.webpanel-btn.active').forEach((b) => b.classList.remove('active'));
@@ -139,19 +139,30 @@ const PAGE_PANELS = {
   feedback:  { title: 'ui.feedback',   render: () => renderFeedbackPage(),   init: initFeedbackPage },
 };
 
-const FULL_PAGE_ICON = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6"/><path d="M21 3l-8 8"/><path d="M9 21H3v-6"/><path d="M3 21l8-8"/></svg>';
+// Bir sayfa hem panelde hem tam sayfada açılabildiği için "şu an açık olan sayfa" iki yerden
+// gelebilir. Canlı güncellemeler (indirme ilerlemesi, giriş sonrası tazeleme) bunu sorar.
+function acikSayfa() {
+  if (currentScreen) return currentScreen;
+  const panel = document.getElementById('panel-page');
+  return panel && panel.classList.contains('visible') ? (panel.dataset.page || null) : null;
+}
+
+const FULL_PAGE_ICON ='<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6"/><path d="M21 3l-8 8"/><path d="M9 21H3v-6"/><path d="M3 21l8-8"/></svg>';
 
 function openPagePanel(name) {
   const def = PAGE_PANELS[name];
   const panel = document.getElementById('panel-page');
   if (!def || !panel) return;
   const zatenAcik = panel.classList.contains('visible') && panel.dataset.page === name;
-  hideScreen();
+  // Tam sayfa açılmış bir sayfa varsa kapanır (aynı içerik iki yerde çizilirse kimlikler
+  // çakışır ve getElementById gizli kopyayı bulur). Yeni sekme, okuma modu gibi ekranlar
+  // yerinde kalır: panel onların üstünde açılır, kullanıcı bağlamını kaybetmez.
+  if (currentScreen && PAGE_PANELS[currentScreen]) {
+    hideScreen();
+    document.getElementById('screen-content')?.replaceChildren();
+  }
   closeAllPanels();
   if (zatenAcik) return;                       // aynı düğmeye ikinci basış kapatır
-  // Aynı sayfa tam sayfada da çizilmiş olabilir: iki kopya kalırsa kimlikler çakışır ve
-  // getElementById gizli olanı bulur (sonda yakaladı: anahtar görünen panelde çevrilmiyordu).
-  document.getElementById('screen-content')?.replaceChildren();
   panel.dataset.page = name;
   panel.innerHTML = `
     <div class="panel-header">
@@ -1856,8 +1867,8 @@ async function decidePasswordOffer(action) {
 
 // Giriş/çıkış olunca açık topluluk sayfası yerinde güncellenir (yazılan öneri kaybolmaz).
 window.addEventListener('ilgezdi-auth-changed', () => {
-  if (currentScreen === 'discover') initReviewSection();
-  else if (currentScreen === 'feedback') refreshFeedbackAccount();
+  if (acikSayfa() === 'discover') initReviewSection();
+  else if (acikSayfa() === 'feedback') refreshFeedbackAccount();
 });
 
 // Google kısayolları (Haritalar, Gmail, YouTube) kaldırıldı (Burak, 16.09.2026): İlgezdi
@@ -2362,7 +2373,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (!d || d.id == null) return;
     downloadsView.set(d.id, { ...(downloadsView.get(d.id) || {}), ...d });
     updateDownloadsBadge();
-    if (currentScreen === 'downloads') renderDownloadsList();
+    if (acikSayfa() === 'downloads') renderDownloadsList();
   });
 
   // ── Klavye kısayolları ────────────────────────────────────────────────────

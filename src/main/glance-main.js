@@ -18,6 +18,7 @@
 const { WebContentsView, BrowserWindow } = require('electron');
 const { T } = require('./i18n');
 
+const GLANCE_WORLD_ID = 1019;   // main.js ile aynı dünya: önizleme kancaları sayfadan gizli
 let glanceView = null;
 let glanceWin  = null;
 let glanceOpen = false;
@@ -146,8 +147,10 @@ function setupGlance(mainWindow, ipcMain, hooks = {}) {
     view.webContents.on('did-finish-load', () => {
       if (glanceView !== view) return;       // bu arada kapandı/yenisi açıldı
 
-      // Araç çubuğu her yüklemede yeniden gerekir (gezinme DOM'u değiştirir)
-      view.webContents.executeJavaScript(toolbarScript()).catch(() => {});
+      // Araç çubuğu her yüklemede yeniden gerekir (gezinme DOM'u değiştirir).
+      // YALITILMIŞ DÜNYA: bayraklar sayfanın dünyasında olsaydı, önizlenen sayfa
+      // __glanceOpenTab yazıp kendini gerçek sekmeye çevirtebilirdi (denetim, 20 Eyl 2026).
+      view.webContents.executeJavaScriptInIsolatedWorld(GLANCE_WORLD_ID, [{ code: toolbarScript() }]).catch(() => {});
 
       // Arayüz kaplamasını YALNIZCA ilk yüklemede kur — sonraki gezinmelerde
       // tekrar göndermek üst üste binen kaplamalar oluşturuyordu.
@@ -165,10 +168,10 @@ function setupGlance(mainWindow, ipcMain, hooks = {}) {
         glancePoll = setInterval(async () => {
           if (glanceView !== view || !glanceOpen) { stopPoll(); return; }
           try {
-            const r = await view.webContents.executeJavaScript(
-              '(function(){ var c=!!window.__glanceClose, o=!!window.__glanceOpenTab;' +
-              ' window.__glanceClose=false; window.__glanceOpenTab=false; return {c:c,o:o}; })()'
-            );
+            const r = await view.webContents.executeJavaScriptInIsolatedWorld(GLANCE_WORLD_ID, [{
+              code: '(function(){ var c=!!window.__glanceClose, o=!!window.__glanceOpenTab;' +
+                ' window.__glanceClose=false; window.__glanceOpenTab=false; return {c:c,o:o}; })()',
+            }]);
             if (r && r.c) {
               closeGlance();
             } else if (r && r.o) {

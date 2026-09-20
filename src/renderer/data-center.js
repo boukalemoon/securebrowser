@@ -226,7 +226,8 @@
       : T('data.tp.dnsDesc', { name: dnsNames[dns] || dns });
     const rows = [
       { id: 'search', title: T('data.tp.search'), value: names[state.searchEngine] || state.searchEngine, desc: T('data.tp.searchDesc', { name: names[state.searchEngine] || state.searchEngine }), tab: 'general' },
-      { id: 'dns', title: T('data.tp.dns'), value: dns === 'off' ? T('settings.off') : dns === 'automatic' ? T('settings.dns.automatic') : (dnsNames[dns] || dns), desc: dnsDesc, tab: 'privacy' },
+      // DNS seçimi artık bu sayfada (Ağ ve site izinleri); Ayarlar'a göndermek kısır döngü olurdu.
+      { id: 'dns', title: T('data.tp.dns'), value: dns === 'off' ? T('settings.off') : dns === 'automatic' ? T('settings.dns.automatic') : (dnsNames[dns] || dns), desc: dnsDesc, hedef: 'dc-sec-network' },
       { id: 'pwned', title: T('data.tp.pwned'), value: T('data.tp.onDemand'), desc: T('data.tp.pwnedDesc'), tab: 'passwords' },
       { id: 'vpn', title: T('data.tp.vpn'), value: state.vpnEnabled ? T('data.log.on') : T('data.log.off'), desc: T('data.tp.vpnDesc'), vpn: true },
     ];
@@ -236,7 +237,7 @@
           <div class="dc-row-top"><span class="dc-row-title">${esc(r.title)}</span><span class="dc-tp-value">${esc(r.value)}</span></div>
           <p class="dc-row-desc">${esc(r.desc)}</p>
         </div>
-        <button type="button" class="page-btn sm ghost dc-tp-change" data-tab="${esc(r.tab || '')}" ${r.vpn ? 'data-vpn="1"' : ''}>${TH('data.tp.change')}</button>
+        <button type="button" class="page-btn sm ghost dc-tp-change" data-tab="${esc(r.tab || '')}" data-hedef="${esc(r.hedef || '')}" ${r.vpn ? 'data-vpn="1"' : ''}>${TH('data.tp.change')}</button>
       </div>`).join('');
   }
 
@@ -356,7 +357,8 @@
       const change = e.target.closest?.('.dc-tp-change');
       if (change) {
         if (change.dataset.vpn) document.getElementById('btn-vpn-panel')?.click();
-        else window.ilgezdiOpenSettings?.(change.dataset.tab || 'privacy');
+        else if (change.dataset.hedef) document.getElementById(change.dataset.hedef)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        else window.ilgezdiOpenSettings?.(change.dataset.tab || 'general');
         return;
       }
       if (e.target.closest?.('#dc-log-more')) { loadLog(false); return; }

@@ -2400,7 +2400,13 @@ suite('Keşfet — TrendTech yazılımları');
   check('kapanan görünümün içeriği siliniyor (kimlik çakışması yok)',
     /if \(!currentScreen\) \{\s*overlay\.classList\.add\('hidden'\);[\s\S]{0,220}document\.getElementById\('screen-content'\)\?\.replaceChildren\(\);/.test(appJs)
     && /if \(name === 'page'\) \{ panel\.replaceChildren\(\); panel\.dataset\.page = ''; \}/.test(appJs)
-    && /hideScreen\(\);\s*closeAllPanels\(\);[\s\S]{0,320}document\.getElementById\('screen-content'\)\?\.replaceChildren\(\);/.test(appJs));
+    && /if \(currentScreen && PAGE_PANELS\[currentScreen\]\) \{\s*hideScreen\(\);\s*document\.getElementById\('screen-content'\)\?\.replaceChildren\(\);/.test(appJs));
+  // Panelde açılan sayfa da canlı güncellenmeli: indirme ilerlemesi ve giriş sonrası tazeleme
+  // artık currentScreen yerine "açık sayfa"yı soruyor (denetim yakaladı).
+  check('canlı güncellemeler panelde açılan sayfayı da görüyor',
+    /function acikSayfa\(\) \{[\s\S]{0,260}panel\.dataset\.page/.test(appJs)
+    && appJs.includes("if (acikSayfa() === 'downloads') renderDownloadsList();")
+    && appJs.includes("if (acikSayfa() === 'discover') initReviewSection();"));
   check('geçmiş listesinde orta tuş otomatik kaydırmayı başlatmıyor', /list\?\.addEventListener\('mousedown', \(e\) => \{\s*if \(e\.button === 1 && e\.target\.closest\('\.list-row'\)\) e\.preventDefault\(\)/.test(appJs));
   check('kartta orta tuş otomatik kaydırmayı başlatmıyor (yeni sekmede açma çalışsın)', /news-card\[data-source\][\s\S]{0,1200}'mousedown', \(e\) => \{ if \(e\.button === 1\) e\.preventDefault\(\)/.test(appJs));
   check('yeni sekme olayları içerik eklendikten sonra bağlanıyor (her açılış yolunda)',
@@ -2674,6 +2680,34 @@ suite('Profiller');
   check('profil adları kaçışlanıyor', pp.includes('${esc(nameOf(me))}') && pp.includes('${esc(nameOf(p))}') && !/innerHTML[^;]*\bp\.name\b/.test(pp));
 }
 
+// ══════════════════════════════════════════════════════════════════════════════
+// 20 Eyl 2026 güvenlik denetimi — kapatılan iki açık
+// ══════════════════════════════════════════════════════════════════════════════
+suite('Denetim düzeltmeleri — önizleme ve gizli pencere izinleri');
+{
+  const mj = read('main/main.js');
+  const gm = read('main/glance-main.js');
+  // Sayfanın kendi dünyasında olsaydı sayfa __glancePending yazıp kullanıcı tıklaması
+  // olmadan önizleme açtırır, oradan __glanceOpenTab ile gerçek sekmeye geçerdi.
+  check('önizleme kancaları sayfadan gizli (yalıtılmış dünya) ve kullanıcı hareketine bağlı',
+    /executeJavaScriptInIsolatedWorld\(GLANCE_WORLD_ID, \[\{ code: `/.test(mj)
+    && /executeJavaScriptInIsolatedWorld\(GLANCE_WORLD_ID, \[\{\s*code: '\(function\(\)\{ var r=window\.__glancePending/.test(mj)
+    && /const taze = tab\.lastActivation && Date\.now\(\) - tab\.lastActivation < GLANCE_ACTIVATION_MS;/.test(mj)
+    && !/webContents\.executeJavaScript\(\s*'\(function\(\)\{ var r=window\.__glancePending/.test(mj));
+  check('önizleme araç çubuğu da yalıtılmış dünyada (önizlenen sayfa kendini sekmeye çeviremez)',
+    gm.includes('executeJavaScriptInIsolatedWorld(GLANCE_WORLD_ID, [{ code: toolbarScript() }])')
+    && /executeJavaScriptInIsolatedWorld\(GLANCE_WORLD_ID, \[\{\s*code: '\(function\(\)\{ var c=!!window\.__glanceClose/.test(gm)
+    && !gm.includes('executeJavaScript(toolbarScript())'));
+  // Gizli pencere sözü: verilen izin diske yazılmaz, eski karar oraya taşınmaz.
+  check('gizli pencere izinleri yalnız bellekte; pencere kapanınca siliniyor',
+    mj.includes('const gizliIzinler = new Map();')
+    && /function getPermDecision\(origin, permission, gecici = false\) \{[\s\S]{0,260}if \(gecici\) return gizliIzinler/.test(mj)
+    && /function setupPermissionHandler\(ses, gecici = false\)/.test(mj)
+    && mj.includes('configureSession(view.webContents.session, isIncognito);')
+    && mj.includes('setPermDecision(v.origin, v.permission, v.value, state === incognitoState);')
+    && mj.includes('gizliIzinler.clear();'));
+}
+
 suite('Kenar çubuğu standardı ve tek gizlilik yeri');
 {
   const appJs2 = read('renderer/app.js');
@@ -2779,7 +2813,7 @@ suite('Not defteri');
   const idx = read('renderer/index.html');
   check('kenar çubuğu düğmesi, panel kabı ve betik bağlı; panel diğer panellerle kapanıyor',
     /<button class="sidebar-btn" id="btn-notes"[^>]*data-i18n-title="ui\.notes"/.test(idx) && idx.includes('<div id="panel-notes" class="side-panel hidden"></div>')
-    && idx.includes('<script src="notes-panel.js"></script>') && read('renderer/app.js').includes("'btn-profile', 'btn-notes'].forEach"));
+    && idx.includes('<script src="notes-panel.js"></script>') && read('renderer/app.js').includes("'btn-profile', 'btn-notes', 'btn-vpn-panel'].forEach"));
   check('ön yükleme dar bir köprü veriyor', /notes: \{\s*state:[\s\S]{0,900}onClip:\s*\(cb\)\s*=> ipcRenderer\.on\('notes-clip', \(\) => cb\(\)\),\s*\}/.test(read('preload/preload.js')));
   const cat = require('../src/renderer/data-catalog.js');
   check('Veri ve Gizlilik: notların senkronu "yakında" satırı', !!(cat.BY_ID.syncNotes && cat.BY_ID.syncNotes.soon && cat.BY_ID.syncNotes.section === 'account'));

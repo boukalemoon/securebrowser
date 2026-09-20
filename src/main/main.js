@@ -53,7 +53,7 @@ const {
   resetConfig, normalizeTabSleepMinutes, shouldSleepTab, DEFAULT_TAB_SLEEP_MINUTES,
 } = require('./browser-commands');
 const {
-  ACTIVATION_EVENTS, popupVerdict, validatePermissionChange, listDecisions, decisionsForOrigin, permissionLabel,
+  ACTIVATION_EVENTS, ACTIVATION_WINDOW_MS, popupVerdict, validatePermissionChange, listDecisions, decisionsForOrigin, permissionLabel,
   shouldStripThirdPartyCookies, normalizeSecureDns, hostResolverOptions, DEFAULT_SECURE_DNS,
   certificateSummary, errorPageModel, errorPageScript, normalizeOrigin,
   fileExtension, isDangerousFile, downloadNeedsWarning, sourceHost, sanitizeLogIds, sanitizeDownloadHistory,
@@ -319,12 +319,24 @@ const ASK_USER    = new Set(['media', 'display-capture', 'geolocation', 'notific
 // konumu periyodik isteyen siteler için kritik. Kararlar kilit simgesindeki Site
 // Bilgisi panelinden ve Ayarlar › Gizlilik › Site İzinleri listesinden değiştirilir.
 function permKey(origin, permission) { return `${origin}|${permission}`; }
-function getPermDecision(origin, permission) {
-  return config.permissionDecisions ? config.permissionDecisions[permKey(origin, permission)] : undefined;
-}
-function setPermDecision(origin, permission, granted) {
-  if (!config.permissionDecisions) config.permissionDecisions = {};
+// Gizli pencerede verilen izinler DİSKE YAZILMAZ ve normal penceredeki kararlar gizli
+// pencereye taşınmaz: yoksa "gizli pencere iz bırakmaz" sözü tutmazdı — verilen izin
+// config.json'da kalır, eski bir izin de sorulmadan uygulanırdı (denetim, 20 Eyl 2026).
+const gizliIzinler = new Map();
+
+function getPermDecision(origin, permission, gecici = false) {
   const key = permKey(origin, permission);
+  if (gecici) return gizliIzinler.has(key) ? gizliIzinler.get(key) : undefined;
+  return config.permissionDecisions ? config.permissionDecisions[key] : undefined;
+}
+function setPermDecision(origin, permission, granted, gecici = false) {
+  const key = permKey(origin, permission);
+  if (gecici) {
+    if (granted === null) gizliIzinler.delete(key);
+    else gizliIzinler.set(key, granted);
+    return;
+  }
+  if (!config.permissionDecisions) config.permissionDecisions = {};
   if (granted === null) delete config.permissionDecisions[key];   // 'Sor': site yeniden sorar
   else config.permissionDecisions[key] = granted;
   saveConfig(config);
@@ -334,7 +346,7 @@ function originOf(url) {
   try { return new URL(url).origin; } catch { return null; }
 }
 
-function setupPermissionHandler(ses) {
+function setupPermissionHandler(ses, gecici = false) {
   ses.setPermissionRequestHandler((webContents, permission, callback, details) => {
     if (QUIET_ALLOW.has(permission)) return callback(true);
     if (!ASK_USER.has(permission))   return callback(false);
@@ -350,7 +362,8 @@ function setupPermissionHandler(ses) {
     };
 
     // Bu site için daha önce karar verilmişse tekrar SORMA — sessizce uygula.
-    const prior = getPermDecision(origin, permission);
+    // Gizli pencerede yalnızca o oturumda verilen kararlar geçerlidir.
+    const prior = getPermDecision(origin, permission, gecici);
     if (prior === true)  return grant();
     if (prior === false) return callback(false);
 
@@ -365,7 +378,7 @@ function setupPermissionHandler(ses) {
       detail:    T('dialog.permission.detail', { permission: permissionLabel(permission) }),
     }).then(r => {
       const granted = r.response === 1;
-      setPermDecision(origin, permission, granted);
+      setPermDecision(origin, permission, granted, gecici);
       if (granted) grant(); else callback(false);
     }).catch(() => callback(false));
   });
@@ -375,7 +388,7 @@ function setupPermissionHandler(ses) {
   // false → site isteği tetikler, o da yukarıdaki karara/prompt'a düşer.
   ses.setPermissionCheckHandler((webContents, permission, requestingOrigin) => {
     if (QUIET_ALLOW.has(permission)) return true;
-    return getPermDecision(requestingOrigin, permission) === true;
+    return getPermDecision(requestingOrigin, permission, gecici) === true;
   });
 }
 
@@ -547,8 +560,8 @@ function setupDownloads(ses) {
 // bunlar aynı oturuma yalnızca bir kez bağlanmalı.
 const configuredSessions = new WeakSet();
 
-function configureSession(ses) {
-  setupPermissionHandler(ses);
+function configureSession(ses, gecici = false) {
+  setupPermissionHandler(ses, gecici);
 
   if (!configuredSessions.has(ses)) {
     configuredSessions.add(ses);
@@ -829,7 +842,7 @@ function createTabView(win, state, tabId) {
     }
   });
 
-  configureSession(view.webContents.session);
+  configureSession(view.webContents.session, isIncognito);
   applyWebrtcPolicy(view.webContents);
   bindBrowserInput(view.webContents, win, state, 'page');
 
@@ -1014,7 +1027,10 @@ function createTabView(win, state, tabId) {
     // sayfanın ana dünyasına yazılıyordu; görünmez ya da sahte bir form parolayı toplayabilirdi.
 
     // ── Glance: Alt+tıklama yakalama script'i inject et ──
-    view.webContents.executeJavaScript(`
+    // YALITILMIŞ DÜNYADA: sayfanın kendi dünyasında olsaydı sayfa __glancePending'i
+    // kendisi yazıp hiç tıklama olmadan önizleme açtırabilir, oradan da gerçek sekmeye
+    // geçerek açılır pencere engelini atlayabilirdi (denetim, 20 Eyl 2026).
+    view.webContents.executeJavaScriptInIsolatedWorld(GLANCE_WORLD_ID, [{ code: `
       (function() {
         if (window.__ilgezdiGlanceInjected) return;
         window.__ilgezdiGlanceInjected = true;
@@ -1035,7 +1051,7 @@ function createTabView(win, state, tabId) {
           window.__glancePending = { url: link.href, x: e.clientX, y: e.clientY };
         }, true);
       })();
-    `).catch(() => {});
+    ` }]).catch(() => {});
   });
 
   view.webContents.setWindowOpenHandler(({ url: openUrl, disposition }) => {
@@ -1070,6 +1086,9 @@ function createTabView(win, state, tabId) {
 
   return view;
 }
+
+const GLANCE_WORLD_ID = 1019;          // okuma modundan (1017) ayrı
+const GLANCE_ACTIVATION_MS = ACTIVATION_WINDOW_MS;
 
 function createTab(win, state, url = config.homepage, opts = {}) {
   const tabId = ++state.tabCounter;
@@ -1113,11 +1132,13 @@ function createTab(win, state, url = config.homepage, opts = {}) {
     if (!tab) { clearInterval(glancePoll); return; }
     if (tabId !== state.activeTabId || tab.pendingLoad || tab.view.webContents.isDestroyed()) return;
     try {
-      const result = await tab.view.webContents.executeJavaScript(
-        '(function(){ var r=window.__glancePending; window.__glancePending=null; return r||null; })()'
-      );
-      // Sayfa JS'i güvenilmezdir — yalnızca http(s) URL'leri kabul et
-      if (result && typeof result.url === 'string' && /^https?:\/\//i.test(result.url)
+      const result = await tab.view.webContents.executeJavaScriptInIsolatedWorld(GLANCE_WORLD_ID, [{
+        code: '(function(){ var r=window.__glancePending; window.__glancePending=null; return r||null; })()',
+      }]);
+      // Sayfa JS'i güvenilmezdir — yalnızca http(s) URL'leri kabul et ve yalnızca yakın
+      // zamanda gerçek bir kullanıcı hareketi olduysa (açılır pencere kararıyla aynı ölçüt).
+      const taze = tab.lastActivation && Date.now() - tab.lastActivation < GLANCE_ACTIVATION_MS;
+      if (result && taze && typeof result.url === 'string' && /^https?:\/\//i.test(result.url)
           && win && !win.isDestroyed()) {
         win.webContents.send('glance-request', result);
       }
@@ -1947,7 +1968,7 @@ const GLANCE_HOOKS = {
   partitionFor: (win) => (isIncognitoWin(win) ? 'incognito-' + win.id : BROWSING_PARTITION),
   onViewCreated: (view, win) => {
     const state = isIncognitoWin(win) ? incognitoState : mainState;
-    configureSession(view.webContents.session);
+    configureSession(view.webContents.session, isIncognitoWin(win));
     applyWebrtcPolicy(view.webContents);
     view.webContents.on('before-input-event', (event, input) => {
       if (input.type === 'keyDown' && input.key === 'Escape') {
@@ -2015,7 +2036,9 @@ ipcMain.handle('site-info', (event) => {
 ipcMain.handle('site-permission-set', (event, input) => {
   const v = validatePermissionChange(input);
   if (!v.ok) return v;
-  setPermDecision(v.origin, v.permission, v.value);
+  // Gizli pencereden verilen karar da diske yazılmaz.
+  const { state } = getContextFromEvent(event);
+  setPermDecision(v.origin, v.permission, v.value, state === incognitoState);
   diag.info('permissions', 'Site izni değiştirildi', { permission: v.permission, decision: input.decision });
   return { ok: true };
 });
@@ -4040,6 +4063,7 @@ function createIncognitoWindow() {
     }
     incognitoState.tabs.clear();
     incognitoState.activeTabId = null;
+    gizliIzinler.clear();          // o oturumda verilen site izinleri pencereyle gider
     incognitoWindow = null;
   });
 }
