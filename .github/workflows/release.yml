@@ -50,10 +50,16 @@ jobs:
           # macOS imzasını atla (Developer ID yoksa)
           CSC_IDENTITY_AUTO_DISCOVERY: false
 
-      - name: Kurulum dosyalarını yükle (artifact)
+      # Etiketli yayınlarda ara ürün üretilmez: aynı dosyalar zaten GitHub Release'e
+      # ekleniyor ve kimse ara ürünü indirmiyordu. 32 ara ürün 9,3 GB yer kaplayıp
+      # ücretsiz depolama kotasını doldurdu (20 Eyl 2026). Etiketsiz denemelerde
+      # dosyalar üç gün durur, sonra kendiliğinden silinir.
+      - name: Kurulum dosyalarını yükle (yalnızca etiketsiz deneme)
+        if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
         uses: actions/upload-artifact@v4
         with:
           name: ilgezdi-${{ matrix.platform }}
+          retention-days: 3
           path: |
             dist/*.exe
             dist/*.dmg
