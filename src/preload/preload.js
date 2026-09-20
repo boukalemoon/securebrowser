@@ -343,6 +343,7 @@ contextBridge.exposeInMainWorld('secureBrowser', {
     eylem:   (eylem)   => ipcRenderer.invoke('ulgen-eylem', eylem),
     veri:    ()        => ipcRenderer.invoke('ulgen-veri'),
     veriSil: ()        => ipcRenderer.invoke('ulgen-veri-sil'),
+    ceviriSil: ()      => ipcRenderer.invoke('ulgen-ceviri-sil'),
     // Dil paketi indirme ilerlemesi. Abonelikten çıkış için işlev döner;
     // panel indirme bitince bırakır, dinleyici birikmez.
     onCeviriDurum: (cb) => {

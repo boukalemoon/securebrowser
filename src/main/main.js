@@ -1461,6 +1461,7 @@ const zoomStore = createZoomStore({
   },
 });
 app.on('will-quit', () => { if (zoomStore.pending()) zoomStore.flush(); });
+app.on('will-quit', () => ulgenCeviri.motorKapat());
 
 function activeTabContents(state) {
   const tab = state.tabs.get(state.activeTabId);
@@ -1841,6 +1842,9 @@ ipcMain.handle('ulgen-sor', async (event, istek) => {
 // hiçbir şey indirmez. İnen şey MODELDİR — sayfa metni hiçbir yere gitmez.
 async function ulgenCeviriPaketi(event, eylem) {
   if (!ulgenIzin('ulgenTranslate')) return { ok: false, sebep: 'izin_ceviri', durum: 'hata' };
+  // Gizli pencere İZ BIRAKMAZ: 26 MB paket + tarihli damga kalıcı olurdu.
+  // Paket zaten kuruluysa çeviri gizli pencerede de çalışır; yalnız İNDİRME yok.
+  if (getContextFromEvent(event).state === incognitoState) return { ok: false, sebep: 'gizli_pencere', durum: 'hata' };
   const kay = typeof eylem.kaynakDil === 'string' ? eylem.kaynakDil.trim().slice(0, 5) : 'en';
   const hed = typeof eylem.hedefDil === 'string' ? eylem.hedefDil.trim().slice(0, 5) : 'tr';
   const gonder = (d) => { try { if (!event.sender.isDestroyed()) event.sender.send('ulgen-ceviri-durum', d); } catch { /* pencere kapanmış */ } };
@@ -1875,6 +1879,8 @@ ipcMain.handle('ulgen-veri', async () => {
   return { ilgi: Object.entries(ilgi).sort((a, b) => b[1] - a[1]).map(([etiket, sayi]) => ({ etiket, sayi })) };
 });
 ipcMain.handle('ulgen-veri-sil', () => ({ ok: ulgenIlgiSil() }));
+// İndirilen dil paketini kullanıcı isteğiyle siler (Veri ve Gizlilik).
+ipcMain.handle('ulgen-ceviri-sil', () => ({ ok: ulgenCeviri.paketSil() }));
 
 ipcMain.handle('screenshot-reveal', (_e, file) => {
   if (typeof file !== 'string' || !screenshotPaths.has(file) || !fs.existsSync(file)) return false;
@@ -2735,6 +2741,9 @@ ipcMain.handle('data-center-set', (e, id, value, from) => {
   // Ülgen ilgi izni kapandıysa cihazdaki etiketler de silinir: kapatmak
   // "bundan sonrasını durdur" değil, "sakladığını da sil" demektir.
   if (!ulgenIzin('ulgenInterests')) ulgenIlgiSil();
+  // Çeviri izni geri alınınca diskteki ~26 MB dil paketi de gider: izni
+  // kapatmak "artık kullanmıyorum" demektir, dosyanın kalması için sebep yok.
+  if (!ulgenIzin('ulgenTranslate')) ulgenCeviri.paketSil();
   const changes = dataCatalog.diff(before, dataCatalog.snapshot(config));
   try { consentLog.recordChanges(changes, source); } catch (err) { console.error('Onay kaydı yazılamadı:', err.message); }
   return { ok: true, changes, ...dataCenterState() };
