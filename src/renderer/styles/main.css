@@ -85,6 +85,7 @@ input, select, textarea { font-family: var(--font-ui); }
 #tabs-container {
   display: flex; align-items: flex-end; gap: 2px;
   overflow: hidden;
+  flex: 1 1 auto; min-width: 0;
 }
 
 .tab {
@@ -93,7 +94,10 @@ input, select, textarea { font-family: var(--font-ui); }
   background: transparent;
   border: 1px solid transparent; border-bottom: none;
   border-radius: 8px 8px 0 0;
-  height: 30px; min-width: 140px; max-width: 220px;
+  /* Genişlik BAŞLIĞA BAĞLI DEĞİL: sayfa başlığı değişince (ör. sohbet kutusu "(1) …"
+     yazınca) sekme büyüyüp küçülüyordu. Sabit pay + eşit daralma: sekme açıldıkça
+     hepsi birlikte küçülür, kapanınca birlikte büyür (Burak bildirdi, 20 Eyl 2026). */
+  height: 30px; flex: 0 1 190px; width: 190px; min-width: 46px; max-width: 220px;
   font-size: 12px; color: var(--ink-mute);
   cursor: pointer; position: relative;
   user-select: none; transition: all 0.15s;
@@ -118,7 +122,7 @@ input, select, textarea { font-family: var(--font-ui); }
   pointer-events: none;
 }
 .tab-icon  { width: 14px; height: 14px; flex-shrink: 0; display: grid; place-items: center; border-radius: 3px; }
-.tab-title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11.5px; font-weight: 500; }
+.tab-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11.5px; font-weight: 500; }
 .tab-rune  { font-family: var(--font-rune); font-size: 8px; color: var(--rune); letter-spacing: 1px; display: block; line-height: 1; }
 .tab-close {
   width: 16px; height: 16px;
@@ -778,6 +782,8 @@ input, select, textarea { font-family: var(--font-ui); }
 .vtabs-foot .tab-add { margin: 0; }
 body.vertical-tabs #tabs-container { flex-direction: column; align-items: stretch; gap: 2px; overflow: visible; }
 body.vertical-tabs .tab {
+  /* Dikey kipte ana eksen sütun: yatay kipteki flex-basis yüksekliğe uygulanırdı. */
+  flex: 0 0 auto;
   min-width: 0; max-width: none; width: 100%; height: 32px;
   border: 1px solid transparent; border-radius: 8px; padding: 6px 8px 6px 12px;
 }

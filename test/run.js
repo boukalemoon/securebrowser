@@ -2683,6 +2683,18 @@ suite('Profiller');
 // ══════════════════════════════════════════════════════════════════════════════
 // 20 Eyl 2026 güvenlik denetimi — kapatılan iki açık
 // ══════════════════════════════════════════════════════════════════════════════
+suite('Sekme şeridi — genişlik başlığa bağlı değil');
+{
+  const css = read('renderer/styles/main.css');
+  // Sayfa başlığı değişince (sohbet kutusu "(1) …" yazınca) sekmeler büyüyüp küçülüyordu.
+  check('sekmeler sabit paylı ve eşit daralıyor; başlık genişliği etkilemiyor',
+    /\.tab \{[\s\S]{0,420}flex: 0 1 190px; width: 190px; min-width: 46px; max-width: 220px;/.test(css)
+    && /#tabs-container \{[\s\S]{0,160}flex: 1 1 auto; min-width: 0;/.test(css)
+    && /\.tab-title \{ flex: 1; min-width: 0;/.test(css));
+  check('dikey kipte temel değer yüksekliğe uygulanmıyor',
+    /body\.vertical-tabs \.tab \{[\s\S]{0,160}flex: 0 0 auto;/.test(css));
+}
+
 suite('Denetim düzeltmeleri — önizleme ve gizli pencere izinleri');
 {
   const mj = read('main/main.js');
