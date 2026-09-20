@@ -126,7 +126,93 @@ async function keepLive(reason) {
   }
 }
 
+// ─── HaGeZi tehdit istihbaratı listesi ────────────────────────────────────────
+// NEDEN BURADA: liste eskiden her kullanıcının makinesinden doğrudan GitHub'dan
+// (raw.githubusercontent.com, @main dalı) 12 saatte bir çekiliyordu. İki sorun vardı:
+// her kurulumun IP'si GitHub'a görünüyordu ve üçüncü taraf depoya giren bir değişiklik
+// hiçbir denetimden geçmeden 12 saat içinde bütün kullanıcılara ulaşıyordu. Artık liste
+// burada, site derlemesinde çekilir; kullanıcı yalnız kendi sunucumuzdan indirir.
+const HAGEZI_URLS = [
+  'https://raw.githubusercontent.com/hagezi/dns-blocklists/main/wildcard/tif.medium-onlydomains.txt',
+  'https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@main/wildcard/tif.medium-onlydomains.txt',
+];
+const HAGEZI_MIN_ENTRIES = 50000;          // uygulamadaki taban ile aynı
+const HAGEZI_MAX_BYTES = 64 * 1024 * 1024;
+
+async function fetchText(url) {
+  const res = await fetch(url, { headers: { 'user-agent': USER_AGENT }, signal: AbortSignal.timeout(120000) });
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  const declared = Number(res.headers.get('content-length')) || 0;
+  if (declared > HAGEZI_MAX_BYTES) throw new Error('liste beklenenden büyük: ' + declared);
+  const buf = Buffer.from(await res.arrayBuffer());
+  if (buf.length > HAGEZI_MAX_BYTES) throw new Error('liste beklenenden büyük: ' + buf.length);
+  return buf.toString('utf8');
+}
+
+async function keepLiveHagezi(reason) {
+  log('HaGeZi listesi güncellenmedi:', reason);
+  const [gz, meta] = await Promise.all([fetchLive('hagezi.txt.gz'), fetchLive('hagezi.json')]);
+  if (gz && meta && gz[0] === 0x1f && gz[1] === 0x8b) {
+    fs.mkdirSync(OUT_DIR, { recursive: true });
+    fs.writeFileSync(path.join(OUT_DIR, 'hagezi.txt.gz'), gz);
+    fs.writeFileSync(path.join(OUT_DIR, 'hagezi.json'), meta);
+    log('canlı sitedeki mevcut HaGeZi listesi korundu');
+  } else {
+    log('UYARI: canlı sitede de HaGeZi listesi yok; bu dağıtımda yayınlanmayacak');
+  }
+}
+
+/**
+ * HaGeZi listesini indirip site/lists/hagezi.txt.gz olarak yayına hazırlar.
+ * Güvenli düşüş USOM ile aynı: indirilemezse, biçimi bozuksa ya da canlıdakinin
+ * yarısından küçükse mevcut dosya olduğu gibi korunur; dağıtım hiçbir koşulda düşmez.
+ */
+async function buildHagezi() {
+  const t0 = Date.now();
+  let text = null;
+  for (const url of HAGEZI_URLS) {
+    try { text = await fetchText(url); break; } catch (e) { log('HaGeZi kaynağı okunamadı:', url, String(e.message || e)); }
+  }
+  if (!text) return keepLiveHagezi('hiçbir kaynak okunamadı');
+
+  // Yalnızca alan adı satırları; yorumlar ve bozuk satırlar atılır.
+  const lines = [...new Set(text.split('\n')
+    .map((l) => l.trim().toLowerCase())
+    .filter((l) => l && !l.startsWith('#') && /^[a-z0-9._-]+\.[a-z0-9-]{2,}$/.test(l)))].sort();
+  if (lines.length < HAGEZI_MIN_ENTRIES) return keepLiveHagezi(`liste beklenenden küçük (${lines.length})`);
+
+  let liveCount = 0;
+  const liveMeta = await fetchLive('hagezi.json');
+  try { liveCount = liveMeta ? Number(JSON.parse(liveMeta.toString('utf8')).count) || 0 : 0; } catch {}
+  if (liveCount && lines.length < liveCount * MIN_KEEP_RATIO) {
+    return keepLiveHagezi(`yeni liste beklenenden küçük (${lines.length} / canlı ${liveCount})`);
+  }
+
+  const out = [
+    '# İlgezdi — HaGeZi Tehdit İstihbaratı (orta) yansısı',
+    '# Kaynak: https://github.com/hagezi/dns-blocklists (GPL-3.0), wildcard/tif.medium-onlydomains.txt',
+    '# Bu dosya İlgezdi sunucusunda derlenir; eşleşme kullanıcının cihazında yapılır.',
+    ...lines,
+    '',
+  ].join('\n');
+  const gz = zlib.gzipSync(Buffer.from(out, 'utf8'), { level: 9 });
+  const meta = {
+    source: 'hagezi-tif-medium',
+    upstream: HAGEZI_URLS[0],
+    license: 'GPL-3.0',
+    count: lines.length,
+    generatedAt: new Date().toISOString(),
+    bytes: gz.length,
+    sha256: crypto.createHash('sha256').update(gz).digest('hex'),
+  };
+  fs.mkdirSync(OUT_DIR, { recursive: true });
+  fs.writeFileSync(path.join(OUT_DIR, 'hagezi.txt.gz'), gz);
+  fs.writeFileSync(path.join(OUT_DIR, 'hagezi.json'), JSON.stringify(meta, null, 2) + '\n');
+  log(`HaGeZi: ${lines.length} alan adı, ${(gz.length / 1048576).toFixed(2)} MB gz, ${((Date.now() - t0) / 1000).toFixed(1)} sn`);
+}
+
 async function main() {
+  await buildHagezi().catch((e) => log('HaGeZi beklenmeyen hata:', (e && e.stack) || e));
   const t0 = Date.now();
   let result;
   try {
@@ -176,4 +262,4 @@ if (require.main === module) {
   }).finally(() => { process.exitCode = 0; });
 }
 
-module.exports = { toLine, MIN_KEEP_RATIO, MIN_COVERAGE };
+module.exports = { toLine, MIN_KEEP_RATIO, MIN_COVERAGE, buildHagezi };

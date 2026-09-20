@@ -383,12 +383,15 @@ const SOURCES = Object.freeze([
     covers: 'Kimlik avı, zararlı yazılım, dolandırıcılık, kripto madenciliği',
     homepage: 'https://github.com/hagezi/dns-blocklists',
     license: 'GPL-3.0',
-    // Birincil kaynak ve yansısı; sırayla denenir.
+    // İlgezdi sunucusundaki yansı (scripts/build-threat-lists.js her site derlemesinde
+    // tazeler). Eskiden liste her kullanıcının makinesinden doğrudan GitHub'dan çekiliyordu:
+    // her kurulumun IP'si GitHub'a görünüyor ve üçüncü taraf depoya giren bir değişiklik
+    // denetimsiz biçimde 12 saatte herkese ulaşıyordu (denetim, 20 Eyl 2026).
     urls: Object.freeze([
-      'https://raw.githubusercontent.com/hagezi/dns-blocklists/main/wildcard/tif.medium-onlydomains.txt',
-      'https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@main/wildcard/tif.medium-onlydomains.txt',
+      'https://www.ilgezdi.com.tr/lists/hagezi.txt.gz',
+      'https://ilgezdi.vercel.app/lists/hagezi.txt.gz',
     ]),
-    intervalHours: 12,            // dosya başlığı "Expires: 8 hours"; depo günde bir güncelleniyor
+    intervalHours: 24,            // yansı günlük tazeleniyor; ETag ile değişmediyse indirilmez
     maxBytes: 64 * 1024 * 1024,   // 2026-09: 13,4 MB, yaklaşık 778 bin alan adı
     minEntries: 50000,
   }),

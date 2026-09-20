@@ -1103,6 +1103,25 @@ suite('Zararlı site koruması — liste ayrıştırma ve eşleşme');
   check('listedeki alan adı büyük dizinde bulunuyor', !!bm.match('https://www.kotu199999.example/giris'));
 }
 
+// Denetim (20 Eyl 2026): liste her kullanıcının makinesinden doğrudan GitHub'dan
+// çekiliyordu — IP'ler üçüncü tarafa görünüyor ve denetimsiz bir değişiklik 12 saatte
+// herkese ulaşıyordu. Artık USOM gibi kendi sunucumuzda derlenip dağıtılıyor.
+suite('Zararlı site koruması — listeler kendi sunucumuzdan');
+{
+  const tl = require('../src/main/threat-lists.js');
+  const hagezi = tl.SOURCES.find((s) => s.id === 'hagezi-tif-medium');
+  check('HaGeZi kullanıcıya İlgezdi sunucusundan geliyor, GitHub adresi kalmadı',
+    !!hagezi && hagezi.urls.every((u) => /^https:\/\/(www\.ilgezdi\.com\.tr|ilgezdi\.vercel\.app)\/lists\//.test(u))
+    && !JSON.stringify(tl.SOURCES).includes('githubusercontent') && !JSON.stringify(tl.SOURCES).includes('jsdelivr'), hagezi && hagezi.urls);
+  check('güncelleme sıklığı 24 saat (ETag ile değişmediyse indirilmiyor)', !!hagezi && hagezi.intervalHours === 24);
+  const bs = read('../scripts/build-threat-lists.js');
+  check('derleme betiği HaGeZi yansısını üretiyor ve güvenli düşüşü var',
+    bs.includes('async function buildHagezi()') && bs.includes("'hagezi.txt.gz'") && bs.includes('keepLiveHagezi')
+    && /lines\.length < HAGEZI_MIN_ENTRIES/.test(bs) && /lines\.length < liveCount \* MIN_KEEP_RATIO/.test(bs));
+  check('yansı yalnız alan adı satırlarını yayınlıyor (yorum ve bozuk satır atılıyor)',
+    /\/\^\[a-z0-9\._-\]\+\\\.\[a-z0-9-\]\{2,\}\$\//.test(bs) && bs.includes("!l.startsWith('#')"));
+}
+
 suite('Zararlı site koruması — güncelleme ve uyarı sayfası');
 {
   const tl = require('../src/main/threat-lists.js');
