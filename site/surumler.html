@@ -140,7 +140,7 @@ footer a{font-family:var(--font-mono);font-size:12.5px}
 // "En son" etiketi yayınlanmış ilk sürüme verilir.
 const RELEASES = [
   {
-    version: '0.8.7', date: '20 Eylül 2026', title: 'Şifrelerinize kilit, listeler kendi sunucumuzda', upcoming: true,
+    version: '0.8.7', date: '20 Eylül 2026', title: 'Şifrelerinize kilit, listeler kendi sunucumuzda',
     changes: [
       { t:'sec', d:'<b>Kayıtlı şifreyi görmek için doğrulama.</b> Şifreleriniz diskte şifreliydi ama uygulama açıkken bilgisayarınıza oturan biri göz simgesine basıp hepsini okuyabiliyordu. Artık belirlediğiniz bir kod sorulur. Doğrulama tamamen bilgisayarınızda yapılır: kod hiçbir sunucuya gitmez, internet ya da QRtım hesabı gerekmez. İsterseniz kod olarak QRtım şifrenizi kullanabilirsiniz — o zaman da yalnızca geri çevrilemez özeti cihazınızda kalır. Kilit isteğe bağlıdır, Ayarlar › Şifreler\'den kurulur.' },
       { t:'sec', d:'<b>Windows Hello ile açma.</b> Kod yerine yüzünüz, parmak iziniz ya da Windows PIN\'inizle açabilirsiniz. Doğrulama cihazda yapılır; parmak izi ve yüz verisi bilgisayardan çıkmaz, Microsoft\'a gönderilmez, Microsoft hesabı ya da internet gerekmez. Kodunuz her zaman yedekte kalır: Hello kapanırsa ya da cihaz değişirse şifrelerinize yine ulaşırsınız. Varsayılan olarak kapalıdır.' },
