@@ -3126,6 +3126,47 @@ suite('Electron 44 — eşzamansız pano API\'si');
   check('yeni pano metinleri 9 dilde var ve {file} yer tutucusu korunmuş', eksik.length === 0, eksik.join(', '));
 }
 
+// ══════════════════════════════════════════════════════════════════════════════
+// Kurulum dosyası doğrulaması — kod imzalama sertifikası şimdilik alınmadığı için
+// (Burak, 20 Eyl 2026: "önce kazanç ve müşteri sağlayalım") kullanıcının indirdiği
+// dosyayı doğrulayabilmesinin ücretsiz yolu SHA-256 özetlerinin yayınlanması.
+// ══════════════════════════════════════════════════════════════════════════════
+suite('Kurulum dosyası SHA-256 özetleri');
+{
+  const { ozetle } = require('../scripts/write-checksums.js');
+  const os = require('os');
+  const fsx = require('fs');
+  const px = require('path');
+  const gecici = px.join(os.tmpdir(), 'ilgezdi-ozet-sinama-' + process.pid + '.bin');
+  fsx.writeFileSync(gecici, Buffer.from('İlgezdi kurulum sınaması', 'utf8'));
+  const beklenen = require('crypto').createHash('sha256').update(fsx.readFileSync(gecici)).digest('hex');
+  check('özet gerçekten dosya içeriğinin SHA-256\'sı', ozetle(gecici) === beklenen && beklenen.length === 64);
+  fsx.unlinkSync(gecici);
+
+  const wc = read('../scripts/write-checksums.js');
+  check('çıktı sha256sum/shasum biçiminde (iki boşluk + dosya adı)',
+    /ozetle\(path\.join\(dist, f\)\) \+ '  ' \+ f/.test(wc));
+  check('dosya adı platforma göre ayrılıyor — üç iş aynı yayına paralel yüklüyor',
+    /'SHA256SUMS-' \+ platform \+ '\.txt'/.test(wc));
+  check('platform adı dosya adına güvenli biçimde giriyor',
+    /replace\(\/\[\^a-z0-9-\]\/gi, ''\)/.test(wc));
+  check('yalnızca kurulum dosyaları özetleniyor (blockmap ve yml değil)',
+    /UZANTILAR = \['\.exe', '\.dmg', '\.zip', '\.AppImage', '\.deb'\]/.test(wc)
+    && !wc.includes("'.blockmap'") && !wc.includes("'.yml'"));
+
+  const wf = read('../.github/workflows/release.yml');
+  check('özetler yalnızca etiketli yayınlarda üretiliyor',
+    /SHA-256 özetlerini üret[\s\S]{0,200}?startsWith\(github\.ref, 'refs\/tags\/v'\)[\s\S]{0,200}?node scripts\/write-checksums\.js/.test(wf));
+  check('özet dosyası yayına ekleniyor', /dist\/SHA256SUMS-\*\.txt/.test(wf));
+
+  const site = read('../site/index.html');
+  check('sitede doğrulama anlatımı var ve üç işletim sistemi komutu veriliyor',
+    site.includes('SHA256SUMS-win.txt') && site.includes('certutil -hashfile')
+    && site.includes('shasum -a 256') && site.includes('sha256sum '));
+  check('site sertifika durumunu dürüstçe söylüyor (imza yok, özet var)',
+    /kod imzalama sertifikasını gelir sağlandıktan sonra ekleyeceğiz/.test(site));
+}
+
 // ─── Özet ─────────────────────────────────────────────────────────────────────
 console.log('\n' + '─'.repeat(60));
 if (failed === 0) {

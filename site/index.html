@@ -156,6 +156,8 @@ footer{border-top:1px solid var(--line);padding:52px 0 40px;margin-top:20px}
 .ss-body ol{margin:12px 0 12px 20px;display:flex;flex-direction:column;gap:7px}
 .ss-body b{color:var(--ink)}
 .ss-note{margin-top:12px;font-size:12.5px;color:var(--ink-mute)}
+/* Doğrulama komutları: uzun satırlar dar ekranda taşmasın, kopyalanabilir dursun */
+.ss-cmd{display:inline-block;margin-top:4px;padding:3px 8px;background:var(--bg);border:1px solid var(--line);border-radius:6px;font-family:var(--font-mono);font-size:12.5px;color:var(--ink);word-break:break-all}
 
 /* ---- yorumlar ---- */
 .rev-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-bottom:20px}
@@ -295,6 +297,24 @@ footer{border-top:1px solid var(--line);padding:52px 0 40px;margin-top:20px}
           <li>Kurulum sihirbazı başlar; kurulum bitince İlgezdi, Başlat menüsünde ve masaüstünde çıkar.</li>
         </ol>
         <p class="ss-note">Not: Bu uyarı zamanla, yeterli sayıda kullanıcı indirdikçe kendiliğinden kaybolur. Antivirüs uyarısı görürseniz de aynı şekilde "güven / izin ver" diyebilirsiniz.</p>
+      </div>
+    </details>
+
+    <!-- İndirilen dosyanın bizim ürettiğimiz dosya olduğunu doğrulama.
+         Kurulum dosyaları henüz imzalı olmadığı için doğrulamanın ücretsiz
+         yolu budur: her yayında üretilen SHA-256 özetleri ayrı bir dosya
+         olarak yayınlanır (.github/workflows/release.yml). -->
+    <details class="smartscreen">
+      <summary>İndirdiğiniz dosyanın doğru dosya olduğundan emin olmak ister misiniz? &nbsp;<span>Nasıl doğrularım?</span></summary>
+      <div class="ss-body">
+        <p>Her yayında kurulum dosyalarının <b>SHA-256 özetini</b> yayınlıyoruz. Bilgisayarınızdaki dosyanın özeti bu listedekiyle aynıysa, dosya indirme sırasında değiştirilmemiş ve bizim ürettiğimiz dosyadır.</p>
+        <p>Önce özet listesini açın: <a href="https://github.com/boukalemoon/securebrowser/releases/latest" rel="noopener"><b>GitHub Releases</b></a> sayfasındaki <span class="ss-cmd">SHA256SUMS-win.txt</span>, <span class="ss-cmd">SHA256SUMS-mac.txt</span> ya da <span class="ss-cmd">SHA256SUMS-linux.txt</span> dosyası. Sonra kendi dosyanızın özetini alın:</p>
+        <ol>
+          <li><b>Windows</b> — Komut İstemi'nde:<br><span class="ss-cmd">certutil -hashfile Ilgezdi-Kurulum-x64.exe SHA256</span></li>
+          <li><b>macOS</b> — Terminal'de:<br><span class="ss-cmd">shasum -a 256 Ilgezdi-mac-arm64.dmg</span></li>
+          <li><b>Linux</b> — Terminal'de:<br><span class="ss-cmd">sha256sum Ilgezdi-linux-x86_64.AppImage</span></li>
+        </ol>
+        <p class="ss-note">Çıkan 64 haneli değer listedekiyle <b>birebir aynı</b> olmalı. Farklıysa dosyayı çalıştırmayın ve yeniden indirin. Not: Bu doğrulama dosyanın bozulmadığını gösterir; kod imzalama sertifikasını gelir sağlandıktan sonra ekleyeceğiz.</p>
       </div>
     </details>
   </div>
