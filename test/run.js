@@ -1315,10 +1315,13 @@ suite('Zararlı site koruması — canlı liste durumu');
     && /if \(!threatSubscribed\) \{\s*threatSubscribed = true;/.test(read('renderer/data-center.js')));
 }
 
-suite('Yayın — v0.8.6');
+suite('Yayın — v0.8.7');
 {
   const ROOTD = path.join(__dirname, '..');
-  check('paket sürümü 0.8.6', JSON.parse(fs.readFileSync(path.join(ROOTD, 'package.json'), 'utf8')).version === '0.8.6');
+  check('paket sürümü 0.8.7', JSON.parse(fs.readFileSync(path.join(ROOTD, 'package.json'), 'utf8')).version === '0.8.7');
+  check('kilit dosyası da aynı sürümde (npm ci ile derleniyor)', JSON.parse(fs.readFileSync(path.join(ROOTD, 'package-lock.json'), 'utf8')).version === '0.8.7');
+  const sur = fs.readFileSync(path.join(ROOTD, 'site', 'surumler.html'), 'utf8');
+  check('site sürüm notlarında 0.8.7 var', /version: '0.8.7'/.test(sur));
   const wf = fs.readFileSync(path.join(ROOTD, '.github', 'workflows', 'release.yml'), 'utf8');
   check('yayın otomatik güncelleme dosyalarını da yüklüyor (latest*.yml, blockmap)', wf.includes('dist/latest*.yml') && wf.includes('dist/*.blockmap'));
 }
