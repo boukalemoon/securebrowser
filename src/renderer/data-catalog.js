@@ -59,6 +59,11 @@
     { id: 'fingerprint',         section: 'sites',   config: 'fingerprintShield',      def: true,  label: 'settings.identity.fingerprint' },
     { id: 'thirdPartyCookies',   section: 'sites',   config: 'blockThirdPartyCookies', def: true,  label: 'settings.blocking.thirdPartyCookies' },
     { id: 'cleanLinks',          section: 'sites',   config: 'cleanLinks',             def: true,  label: 'settings.identity.cleanLinks' },
+    // Ayarlar › Gizlilik sekmesinden buraya taşındı (Burak, 20 Eyl 2026: gizlilik tek yerde).
+    { id: 'httpsOnly',           section: 'sites',   config: 'httpsOnly',              def: false, label: 'settings.identity.httpsOnly' },
+    { id: 'ipHeaders',           section: 'sites',   config: 'fingerprintProtection',  def: true,  label: 'settings.identity.ipHeaders' },
+    { id: 'blockTrackers',       section: 'sites',   config: 'blockTrackers',          def: true,  label: 'settings.blocking.trackers' },
+    { id: 'blockAds',            section: 'sites',   config: 'blockAds',               def: true,  label: 'settings.blocking.ads' },
   ];
 
   const BY_ID = Object.create(null);

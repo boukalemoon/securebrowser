@@ -1545,5 +1545,11 @@
   "ulgen.info.webTitle": "Internete çykmagy özüňiz saýlaýarsyňyz",
   "ulgen.info.webBody": "Ülgen öz-özünden internete birikmeýär. “Internetde gözle” diňe has gowy sorag teklip edýär; “Gözlegi aç” düwmesine basanyňyzda gözleg saýlan gözleg ulgamyňyzda täze tabda açylýar.",
   "ulgen.info.offlineTitle": "Birikmesiz hem işleýär",
-  "ulgen.info.offlineBody": "Internet kesilen wagty hem açyk sahypany gysgaça beýan edýär, sahypada tapýar we taryhyňyzda gözleýär."
+  "ulgen.info.offlineBody": "Internet kesilen wagty hem açyk sahypany gysgaça beýan edýär, sahypada tapýar we taryhyňyzda gözleýär.",
+  "ui.openFullPage": "Doly sahypada aç",
+  "ulgen.web.opened": "Gözleg täze tabda açyldy",
+  "data.sec.network": "Tor we saýt rugsatlary",
+  "data.sec.networkLead": "Salgylaryň nähili çözülýändigi, hakyky IP salgyňyzy kimleriň görýändigi we saýtlara beren rugsatlaryňyz.",
+  "data.net.saved": "Ýatda saklandy.",
+  "data.settingsMoved": "Ähli gizlinlik sazlamalary Maglumatlar we gizlinlik sahypasynda; şu ýerde ikinji nusgasy ýok."
 }

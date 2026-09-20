@@ -18,6 +18,23 @@
   const SECTION_KEYS = { device: 'device', ilgezdi: 'ilgezdi', account: 'account', ulgen: 'ulgen', sites: 'sites' };
   const LOG_PAGE = 25;
 
+  // Ayarlar › Gizlilik sekmesinden taşınan teknik ayarlar (Burak, 20 Eyl 2026).
+  // Değerler ana süreçte ayrıca doğrulanır (browser-commands.js → normalizeWebrtcPolicy).
+  const SECURE_DNS_CHOICES = [
+    ['automatic',  'settings.dns.automatic'],
+    ['cloudflare', 'Cloudflare (1.1.1.1)'],
+    ['quad9',      'Quad9 (9.9.9.9)'],
+    ['adguard',    'AdGuard DNS'],
+    ['google',     'Google Public DNS'],
+    ['off',        'settings.off'],
+  ];
+  const WEBRTC_OPTIONS = [
+    ['default_public_interface_only',         'settings.webrtc.publicOnly'],
+    ['default_public_and_private_interfaces', 'settings.webrtc.publicPrivate'],
+    ['default',                               'settings.webrtc.all'],
+    ['disable_non_proxied_udp',               'settings.webrtc.noUdp'],
+  ];
+
   let state = null;          // { values, searchEngine, secureDns, vpnEnabled }
   let logEntries = [];
   let logTotal = 0;
@@ -59,8 +76,43 @@
       </section>`;
   }
 
+  // Ağ ve site izinleri: güvenli DNS, WebRTC, zararlı site listeleri ve site izin kayıtları.
+  function networkHtml() {
+    const secim = (id, key, options, current) => `
+      <div class="dc-net-row">
+        <label for="${id}">${TH(key)}</label>
+        <select class="page-select" id="${id}">
+          ${options.map(([v, t]) => `<option value="${esc(v)}"${v === current ? ' selected' : ''}>${t.startsWith('settings.') ? TH(t) : esc(t)}</option>`).join('')}
+        </select>
+      </div>`;
+    return `
+      <section class="dc-section" id="dc-sec-network" aria-labelledby="dc-h-network">
+        <header class="dc-sec-head">
+          <h2 id="dc-h-network">${TH('data.sec.network')}</h2>
+          <p>${TH('data.sec.networkLead')}</p>
+        </header>
+        <div class="dc-net">
+          ${secim('dc-secure-dns', 'settings.dns.label', SECURE_DNS_CHOICES, '')}
+          <p class="dc-net-hint">${TH('settings.dns.hint')}</p>
+          ${secim('dc-webrtc', 'settings.webrtc.label', WEBRTC_OPTIONS, '')}
+          <p class="dc-net-hint">${TH('settings.webrtc.hint')}</p>
+        </div>
+        <div class="dc-net-block">
+          <h3>${TH('settings.threat.title')}</h3>
+          <div id="dc-threat-status" aria-live="polite"><p class="dc-net-hint">${TH('common.loading')}</p></div>
+          <button type="button" class="page-btn sm" id="dc-threat-update">${TH('settings.threat.update')}</button>
+          <p class="dc-net-hint">${TH('settings.threat.hint')}</p>
+        </div>
+        <div class="dc-net-block">
+          <h3>${TH('settings.sitePerms.title')}</h3>
+          <div id="dc-site-perms"><p class="dc-net-hint">${TH('common.loading')}</p></div>
+          <button type="button" class="page-btn sm" id="dc-site-perm-reset">${TH('settings.sitePerms.reset')}</button>
+        </div>
+      </section>`;
+  }
+
   function render() {
-    const jump = [...C().SECTIONS, 'thirdParty', 'log'].map((k) =>
+    const jump = [...C().SECTIONS, 'network', 'thirdParty', 'log'].map((k) =>
       `<button type="button" class="dc-jump-btn" data-target="dc-sec-${k}">${TH('data.sec.' + k)}</button>`).join('');
     const ulgenFoot = `
       <div class="dc-ulgen-foot">
@@ -89,6 +141,7 @@
         ${sectionHtml('account', `<p class="dc-foot-note" id="dc-account-note"></p>`)}
         ${sectionHtml('ulgen', ulgenFoot)}
         ${sectionHtml('sites')}
+        ${networkHtml()}
         <section class="dc-section" id="dc-sec-thirdParty" aria-labelledby="dc-h-thirdParty">
           <header class="dc-sec-head">
             <h2 id="dc-h-thirdParty">${TH('data.sec.thirdParty')}</h2>
@@ -338,21 +391,159 @@
     del.disabled = !tags.length;
   }
 
+  // ── Ağ ve site izinleri ─────────────────────────────────────────────────────
+  // Ayarlar › Gizlilik sekmesinden buraya taşındı. Buradaki iki seçim katalog öğesi
+  // değil (açık/kapalı değil, sağlayıcı seçimi); onay kaydı üretmez, doğrudan kaydedilir.
+  async function initNetwork() {
+    const dns = document.getElementById('dc-secure-dns');
+    const rtc = document.getElementById('dc-webrtc');
+    if (!dns || !rtc) return;
+    let cfg = null;
+    try { cfg = await sb().getConfig(); } catch {}
+    dns.value = (cfg && cfg.secureDns) || 'automatic';
+    rtc.value = (cfg && cfg.webrtcPolicy) || 'default_public_interface_only';
+    dns.addEventListener('change', async () => {
+      await sb().saveConfig({ secureDns: dns.value }).catch(() => null);
+      toast(T('data.net.saved'));
+    });
+    rtc.addEventListener('change', async () => {
+      await sb().saveConfig({ webrtcPolicy: rtc.value }).catch(() => null);
+      toast(T('data.net.saved'));
+    });
+    document.getElementById('dc-site-perm-reset')?.addEventListener('click', async () => {
+      const r = await sb().site?.resetPermissions?.().catch(() => null);
+      if (r && r.ok) toast(T('settings.sitePerms.resetDone'));
+      sitePermsList();
+    });
+    document.getElementById('dc-threat-update')?.addEventListener('click', threatUpdate);
+    if (!threatSubscribed) {
+      threatSubscribed = true;
+      sb().threats?.onStatus?.((st) => { if (document.getElementById('dc-threat-status')) threatStatus(st); });
+    }
+    await Promise.all([sitePermsList(), threatLoad()]);
+  }
+
+  async function sitePermsList() {
+    const box = document.getElementById('dc-site-perms');
+    if (!box) return;
+    let list = [];
+    try { list = (await sb().site?.listPermissions?.()) || []; } catch {}
+    box.replaceChildren();
+    if (!list.length) {
+      const p = document.createElement('p');
+      p.className = 'dc-net-hint';
+      p.textContent = T('settings.sitePerms.none');
+      box.appendChild(p);
+      return;
+    }
+    for (const izin of list) {
+      const satir = document.createElement('div');
+      satir.className = 'dc-perm';
+      const metin = document.createElement('div');
+      const baslik = document.createElement('div');
+      baslik.className = 'dc-perm-origin';
+      baslik.textContent = izin.origin.replace(/^https?:\/\//, '');
+      const alt = document.createElement('div');
+      alt.className = 'dc-net-hint';
+      alt.textContent = izin.label + ' · ' + T(izin.decision === 'allow' ? 'settings.sitePerms.allowed' : 'settings.sitePerms.blocked');
+      metin.append(baslik, alt);
+      const sil = document.createElement('button');
+      sil.type = 'button';
+      sil.className = 'page-btn sm';
+      sil.textContent = T('settings.sitePerms.remove');
+      sil.addEventListener('click', async () => {
+        const r = await sb().site?.setPermission?.(izin.origin, izin.permission, 'ask').catch(() => null);
+        if (r && r.ok === false) toast(r.error || T('settings.sitePerms.removeFailed'), 'error');
+        sitePermsList();
+      });
+      satir.append(metin, sil);
+      box.appendChild(satir);
+    }
+  }
+
+  // Zararlı site listelerinin durumu: kaynak başına kayıt sayısı, son denetim ve hata.
+  // Hata metni ağdan gelebildiği için kutu textContent ile kurulur.
+  let threatSubscribed = false;
+  let lastThreat = null;
+
+  async function threatLoad() {
+    let st = null;
+    try { st = await sb().threats?.status?.(); } catch {}
+    threatStatus(st);
+  }
+
+  function threatStatus(st) {
+    const box = document.getElementById('dc-threat-status');
+    if (!box) return;
+    lastThreat = st || lastThreat;
+    box.replaceChildren();
+    const satir = (cls, text, renk) => {
+      const d = document.createElement('div');
+      d.className = cls;
+      if (renk) d.style.color = renk;
+      d.textContent = text;
+      return d;
+    };
+    if (!st) { box.appendChild(satir('dc-net-hint', T('settings.threat.statusFailed'), 'var(--danger)')); return; }
+    const sayi = (n) => window.ilgezdiI18n.formatNumber(n);
+    for (const s of st.sources || []) {
+      const kutu = document.createElement('div');
+      kutu.className = 'dc-threat-src';
+      const metin = (alan, yedek) => (window.ilgezdiI18n.has('threat.source.' + s.id + '.' + alan) ? T('threat.source.' + s.id + '.' + alan) : yedek);
+      kutu.appendChild(satir('dc-perm-origin', metin('name', s.name)));
+      const zaman = s.updatedAt ? window.ilgezdiI18n.formatDateTime(s.updatedAt, { dateStyle: 'medium', timeStyle: 'short' }) : '';
+      kutu.appendChild(satir('dc-net-hint', s.entries
+        ? `${T('settings.threat.entries', { count: s.entries, when: zaman })}${s.stale ? T('settings.threat.stale') : ''}${st.updating ? T('settings.threat.updating') : ''}`
+        : (st.updating ? T('settings.threat.downloading') : T('settings.threat.notYet'))));
+      if (s.covers) kutu.appendChild(satir('dc-net-hint', metin('covers', s.covers) + (s.license ? T('settings.threat.license', { license: metin('license', s.license) }) : '')));
+      if (s.lastError) kutu.appendChild(satir('dc-net-hint', T('settings.threat.lastError', { error: s.lastError }), 'var(--danger)'));
+      box.appendChild(kutu);
+    }
+    if (!(st.sources || []).length) box.appendChild(satir('dc-net-hint', T('settings.threat.notYet')));
+    if (st.blockedPages || st.blockedResources) {
+      box.appendChild(satir('dc-net-hint', T('settings.threat.blockedSession', { pages: Number(st.blockedPages) || 0, resources: Number(st.blockedResources) || 0 })));
+    }
+  }
+
+  async function threatUpdate(e) {
+    const btn = e.currentTarget;
+    const eski = btn.textContent;
+    const once = lastThreat;
+    btn.disabled = true;
+    btn.textContent = T('pwAudit.checking');
+    let st = null;
+    try { st = await sb().threats?.updateNow?.(); } catch {}
+    btn.disabled = false;
+    btn.textContent = eski;
+    threatStatus(st);
+    if (!st) return;
+    const sayi = (n) => window.ilgezdiI18n.formatNumber(n);
+    const degisti = !once || st.sources.some((s) => {
+      const b = once.sources.find((x) => x.id === s.id);
+      return !b || b.updatedAt !== s.updatedAt || b.lastError !== s.lastError;
+    });
+    if (!st.enabled) toast(T('settings.threat.disabledToast'));
+    else if (st.sources.some((s) => s.lastError)) toast(T('settings.threat.someFailed'), 'error');
+    else if (!degisti) toast(T('settings.threat.recent'));
+    else toast(T('settings.threat.checked', { counts: st.sources.map((s) => sayi(s.entries)).join(' + ') }));
+  }
+
   async function init() {
     bind();
     try { state = await sb().dataCenter.state(); } catch { state = null; }
     applyValues();
-    await Promise.all([loadLog(true), refreshVerify(), refreshUlgenData()]);
+    await Promise.all([loadLog(true), refreshVerify(), refreshUlgenData(), initNetwork()]);
     const target = pendingSection;
     pendingSection = null;
     if (target) document.getElementById('dc-sec-' + target)?.scrollIntoView({ block: 'start' });
   }
 
-  // Başka yerden (Ayarlar › Gizlilik, Ülgen paneli) sayfayı belirli bir bölümde açar.
+  // Başka yerden (Ayarlar, Ülgen paneli) sayfayı belirli bir bölümde açar. Sayfa artık
+  // kenar panelinde de açılabildiği için "açık mı" sorusu DOM'dan sorulur.
   let pendingSection = null;
   function open(section) {
-    pendingSection = SECTION_KEYS[section] || (section === 'log' || section === 'thirdParty' ? section : null);
-    if (typeof currentScreen !== 'undefined' && currentScreen === 'data') {
+    pendingSection = SECTION_KEYS[section] || (['log', 'thirdParty', 'network'].includes(section) ? section : null);
+    if (document.getElementById('data-page')) {
       const target = pendingSection;
       pendingSection = null;
       if (target) document.getElementById('dc-sec-' + target)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -363,7 +554,7 @@
 
   // Ayarlar'dan ya da senkrondan gelen değişiklik: sayfa açıksa yeniden okunur.
   async function refreshIfOpen() {
-    if (typeof currentScreen === 'undefined' || currentScreen !== 'data' || !document.getElementById('data-page')) return;
+    if (!document.getElementById('data-page')) return;
     try { state = await sb().dataCenter.state(); } catch { return; }
     applyValues();
     await Promise.all([loadLog(true), refreshVerify()]);

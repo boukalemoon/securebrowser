@@ -192,11 +192,22 @@ function injectUlgenStyles() {
 const ulgen = { mod: null, durum: null, mesgul: false };
 const U = () => window.secureBrowser && window.secureBrowser.ulgen;
 
-// Ülgen'in işareti (Ülgen uygulamasının simgesinden): altın çift halka ve sekiz kollu güneş.
-const ULGEN_MARK = '<svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-linecap="round" aria-hidden="true">'
-  + '<circle cx="32" cy="32" r="27" stroke-width="4.5"/><circle cx="32" cy="32" r="19.5" stroke-width="2"/>'
-  + '<path stroke-width="2" d="M36.5 32H51M32 36.5V51M27.5 32H13M32 27.5V13M35.2 35.2L45.4 45.4M28.8 35.2L18.6 45.4M28.8 28.8L18.6 18.6M35.2 28.8L45.4 18.6"/>'
-  + '<circle cx="32" cy="32" r="1.6" fill="currentColor" stroke="none"/></svg>';
+// Ülgen'in işareti: Ülgen panosunun sesli komut alanındaki dünya ağacı (AgacGlyph + halkalar),
+// 400'lük çizimden 64'e ölçeklendi. Dallar yukarı, aynısı kökler olarak aşağı yansıtılır.
+// Dört dal ve gövde: panodaki çizimin küçük boyutta okunan sadeleşmiş hâli.
+const ULGEN_DALLAR = 'M32 33V17.6'
+  + 'M32 28.5C28.8 25.2 25.4 24.6 21.8 20.2M32 28.5C35.2 25.2 38.6 24.6 42.2 20.2'
+  + 'M32 23.2C30.2 20.8 28.6 20.2 26.6 17.4M32 23.2C33.8 20.8 35.4 20.2 37.4 17.4';
+const ULGEN_YAPRAK = [[21.8, 20.2], [42.2, 20.2], [26.6, 17.4], [37.4, 17.4], [32, 17.6]];
+const ulgenAgac = (kok) => '<g' + (kok ? ' transform="matrix(1,0,0,-1,0,64)" opacity=".45"' : '') + '>'
+  + '<path d="' + ULGEN_DALLAR + '" stroke-width="2.1"/>'
+  + ULGEN_YAPRAK.map(([x, y]) => '<circle cx="' + x + '" cy="' + y + '" r="1.7" fill="currentColor" stroke="none"/>').join('') + '</g>';
+// Küçük boyutta okunsun diye ağaç halkanın içini dolduracak kadar büyütülür.
+const ULGEN_MARK = '<svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+  + '<circle cx="32" cy="32" r="29" stroke-width="1.8" opacity=".6"/>'
+  + '<circle cx="32" cy="32" r="24.5" stroke-width="1" stroke-dasharray="1.2 3.6" opacity=".65"/>'
+  + '<g transform="translate(32 32) scale(1.12) translate(-32 -32)">' + ulgenAgac(false) + ulgenAgac(true) + '</g>'
+  + '<circle cx="32" cy="32" r="6.4" stroke-width="1.5" opacity=".85"/></svg>';
 const IKON = {
   bilgi: '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M12 11v6M12 7.5v.01"/></svg>',
   cihaz: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="5" width="16" height="11" rx="2"/><path d="M2 19h20"/></svg>',
@@ -337,7 +348,7 @@ function yanitiGoster(r, istek) {
       const ul = el('ul', 'ulgen-hist');
       for (const s of r.sonuclar) {
         const li = el('li');
-        li.appendChild(dugme(s.baslik, () => U()?.eylem({ tur: 'ac', url: s.url }), 'ulgen-link'));
+        li.appendChild(dugme(s.baslik, () => sekmedeAc({ tur: 'ac', url: s.url }), 'ulgen-link'));
         if (s.alan) li.appendChild(el('span', 'ulgen-host', s.alan));
         ul.appendChild(li);
       }
@@ -346,14 +357,22 @@ function yanitiGoster(r, istek) {
     }
     case 'web':
     case 'sorgu': {
+      // Sorguyu gösterip beklemek yerine arama hemen açılır; kayıt sohbette kalır (Burak, 20 Eyl 2026).
       const satir = el('div', 'ulgen-row');
-      satir.appendChild(dugme(T('ulgen.web.open'), () => U()?.eylem({ tur: 'ara', sorgu: r.sorgu }), 'ulgen-btn primary'));
-      mesaj('biz', el('h4', null, T('ulgen.web.head')), el('code', 'ulgen-query', r.sorgu), satir);
+      satir.appendChild(dugme(T('ulgen.web.open'), () => sekmedeAc({ tur: 'ara', sorgu: r.sorgu }), 'ulgen-btn'));
+      mesaj('biz', el('h4', null, T('ulgen.web.opened')), el('code', 'ulgen-query', r.sorgu), satir);
+      sekmedeAc({ tur: 'ara', sorgu: r.sorgu });
       return;
     }
     default:
       mesaj('biz', T('ulgen.help'));
   }
+}
+
+// Sonuç yeni sekmede açılır. Panel açık kalırsa sayfayı örter; bu yüzden kenara çekilir.
+function sekmedeAc(eylem) {
+  U()?.eylem(eylem);
+  window.ilgezdiCloseAllPanels?.();
 }
 
 async function gonder(istek, yazdir = true) {

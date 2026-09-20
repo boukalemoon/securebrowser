@@ -619,3 +619,68 @@ img.lr-icon { object-fit: contain; background: transparent; }
   .dc-page .page-head { flex-direction: column; align-items: flex-start; gap: 10px; }
   .dc-row { gap: 12px; }
 }
+
+/* ══════════════════════════════════════════════════════════
+   Sayfa paneli — Geçmiş, İndirmeler, Keşfet, Veri ve Gizlilik ve Öneri
+   kenar çubuğundaki öbür düğmeler gibi sağda açılır (app.js → openPagePanel).
+   Aynı çizim tam sayfada da kullanıldığı için buradaki kurallar yalnız dar
+   görünümü düzeltir: çok sütunlu satırlar alt alta iner, geniş kutular esner.
+   ══════════════════════════════════════════════════════════ */
+.page-panel-actions { display: flex; align-items: center; gap: 2px; }
+.page-panel-full {
+  width: 28px; height: 28px; border: none; background: transparent;
+  color: var(--ink-mute); border-radius: 6px; display: grid; place-items: center; cursor: pointer; transition: all .15s;
+}
+.page-panel-full:hover { background: var(--bg-soft); color: var(--gold); }
+.page-panel-full:focus-visible, .page-panel-body :focus-visible { outline: 2px solid var(--gold); outline-offset: 1px; }
+.page-panel-body { padding: 0; }
+.page-panel-body .page { padding: 0 0 20px; max-width: none; }
+.page-panel-body .page-head { flex-direction: column; align-items: stretch; gap: 10px; padding: 14px 14px 10px; }
+/* Panel başlığı sayfanın adını zaten yazıyor; ikinci başlık yer kaplıyordu. */
+.page-panel-body .page-head h1 { display: none; }
+.page-panel-body .page-head .right { display: flex; flex-wrap: wrap; width: 100%; gap: 8px; }
+.page-panel-body .page-head .right > * { min-width: 0; }
+.page-panel-body .page-search { flex: 1 1 100%; }
+.page-panel-body .page-select { flex: 1 1 auto; }
+.page-panel-body .page-sub { max-width: none; }
+.page-panel-body .page-search { width: 100%; }
+.page-panel-body .list-row {
+  grid-template-columns: 22px minmax(0, 1fr) auto;
+  grid-template-areas: "icon title more" ". url time";
+  gap: 2px 10px; padding: 9px 12px;
+}
+.page-panel-body .list-row .lr-icon  { grid-area: icon; }
+.page-panel-body .list-row .lr-title { grid-area: title; }
+.page-panel-body .list-row .lr-url   { grid-area: url; }
+.page-panel-body .list-row .lr-time  { grid-area: time; text-align: left; }
+.page-panel-body .list-row .lr-more  { grid-area: more; opacity: 1; }
+.page-panel-body .dl-row { grid-template-columns: 44px minmax(0, 1fr); gap: 8px 12px; padding: 12px; }
+.page-panel-body .dl-row > *:nth-child(n + 3) { grid-column: 2; }
+.page-panel-body .discover-grid,
+.page-panel-body .review-list,
+.page-panel-body .feedback-layout,
+.page-panel-body .feedback-type-grid { grid-template-columns: minmax(0, 1fr); }
+.page-panel-body .discover-grid { padding: 6px 12px 20px; }
+.page-panel-body .feedback-layout { padding: 0 12px 20px; gap: 18px; }
+.page-panel-body .dc-page { padding-inline: 0; }
+.page-panel-body .dc-section { margin-bottom: 24px; }
+.page-panel-body .dc-row { flex-wrap: wrap; gap: 8px 12px; padding: 12px 14px; }
+.page-panel-body .dc-row-desc { max-width: none; }
+.page-panel-body .dc-log-wrap { overflow-x: auto; }
+.page-panel-body .dc-toast { right: 16px; bottom: 16px; max-width: calc(var(--panel-w) - 32px); }
+
+/* Veri ve Gizlilik › Ağ ve site izinleri (Ayarlar'dan taşındı) */
+.dc-net { display: flex; flex-direction: column; gap: 6px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 12px; background: color-mix(in srgb, var(--bg-elev) 70%, transparent); }
+.dc-net-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.dc-net-row label { font-size: 13.5px; color: var(--ink); }
+.dc-net-row select { min-width: 200px; }
+.dc-net-hint { margin: 0; font-size: 12px; line-height: 1.5; color: var(--ink-mute); }
+.dc-net-row + .dc-net-hint { margin-bottom: 8px; }
+.dc-net-block { margin-top: 14px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 12px; background: color-mix(in srgb, var(--bg-elev) 70%, transparent); }
+.dc-net-block h3 { margin: 0 0 8px; font-size: 13.5px; font-weight: 600; color: var(--ink); }
+.dc-net-block .page-btn { margin-top: 10px; }
+.dc-threat-src { padding: 8px 0; border-bottom: 1px solid var(--line); }
+.dc-threat-src:last-child { border-bottom: none; }
+.dc-perm { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.dc-perm:last-child { border-bottom: none; }
+.dc-perm-origin { font-size: 13px; color: var(--ink); }

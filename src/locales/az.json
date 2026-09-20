@@ -1539,5 +1539,11 @@
   "ulgen.info.webTitle": "İnternetə çıxmağa siz qərar verirsiniz",
   "ulgen.info.webBody": "Ülgen özbaşına internetə qoşulmur. “Vebdə axtar” yalnız daha yaxşı sorğu təklif edir; “Axtarışı aç” düyməsini basdıqda axtarış seçdiyiniz axtarış sistemində yeni tabda açılır.",
   "ulgen.info.offlineTitle": "Bağlantı olmadan da işləyir",
-  "ulgen.info.offlineBody": "İnternet kəsiləndə də açıq səhifəni xülasə edir, səhifədə tapır və tarixçənizdə axtarır."
+  "ulgen.info.offlineBody": "İnternet kəsiləndə də açıq səhifəni xülasə edir, səhifədə tapır və tarixçənizdə axtarır.",
+  "ui.openFullPage": "Tam səhifədə aç",
+  "ulgen.web.opened": "Axtarış yeni tabda açıldı",
+  "data.sec.network": "Şəbəkə və sayt icazələri",
+  "data.sec.networkLead": "Ünvanların necə həll olunduğu, real IP ünvanınızın kimlərə göründüyü və saytlara verdiyiniz icazələr.",
+  "data.net.saved": "Yadda saxlanıldı.",
+  "data.settingsMoved": "Bütün məxfilik ayarları Məlumatlar və məxfilik səhifəsindədir; burada onların ikinci kopyası yoxdur."
 }

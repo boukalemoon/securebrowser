@@ -312,25 +312,12 @@ const SETTINGS_FIELDS = {
   'cfg-ask-download':  ['askDownloadLocation', 'checked'],
   'cfg-notifications': ['notifications', 'checked'],
   'cfg-vpn-notify':    ['vpnNotify', 'checked'],
-  'cfg-threat':        ['threatProtection', 'checked'],
-  'cfg-tracker':       ['blockTrackers', 'checked'],
-  'cfg-ads':           ['blockAds', 'checked'],
-  'cfg-3pc':           ['blockThirdPartyCookies', 'checked'],
-  'cfg-fp':            ['fingerprintProtection', 'checked'],
-  'cfg-fp-shield':     ['fingerprintShield', 'checked'],
-  'cfg-https-only':    ['httpsOnly', 'checked'],
-  'cfg-dnt':           ['doNotTrack', 'checked'],
-  'cfg-webrtc':        ['webrtcPolicy', 'value'],
-  'cfg-secure-dns':    ['secureDns', 'value'],
-  'cfg-log':           ['logEnabled', 'checked'],
   'cfg-pw-offer':      ['offerToSavePasswords', 'checked'],
   'cfg-page-zoom':     ['defaultPageZoom', 'value'],
   'cfg-min-font':      ['minimumFontSize', 'value'],
   'cfg-reduce-motion': ['reduceMotion', 'checked'],
   'cfg-high-contrast': ['highContrast', 'checked'],
   'cfg-vertical-tabs': ['verticalTabs', 'checked'],
-  'cfg-gpc':           ['globalPrivacyControl', 'checked'],
-  'cfg-clean-links':   ['cleanLinks', 'checked'],
   'cfg-block-autoplay': ['blockAutoplay', 'checked'],
   'cfg-clear-site-exit': ['clearSiteDataOnExit', 'checked'],
   'cfg-clear-history-exit': ['clearHistoryOnExit', 'checked'],
@@ -355,25 +342,12 @@ function formValuesFrom(cfg) {
     askDownloadLocation:    !!c.askDownloadLocation,
     notifications:          c.notifications !== false,
     vpnNotify:              c.vpnNotify !== false,
-    threatProtection:       c.threatProtection !== false,
-    blockTrackers:          c.blockTrackers !== false,
-    blockAds:               c.blockAds !== false,
-    blockThirdPartyCookies: c.blockThirdPartyCookies !== false,
-    fingerprintProtection:  c.fingerprintProtection !== false,
-    fingerprintShield:      c.fingerprintShield !== false,
-    httpsOnly:              !!c.httpsOnly,
-    doNotTrack:             !!c.doNotTrack,
-    webrtcPolicy:           c.webrtcPolicy || 'default_public_interface_only',
-    secureDns:              c.secureDns || 'automatic',
-    logEnabled:             c.logEnabled !== false,
     offerToSavePasswords:   c.offerToSavePasswords !== false,
     defaultPageZoom:        PAGE_ZOOMS_UI.includes(Number(c.defaultPageZoom)) ? String(Number(c.defaultPageZoom)) : '1',
     minimumFontSize:        MIN_FONTS_UI.some(([v]) => v === Number(c.minimumFontSize)) ? String(Number(c.minimumFontSize)) : '0',
     reduceMotion:           c.reduceMotion === true,
     highContrast:           c.highContrast === true,
     verticalTabs:           c.verticalTabs === true,
-    globalPrivacyControl:   c.globalPrivacyControl !== false,
-    cleanLinks:             c.cleanLinks !== false,
     blockAutoplay:          c.blockAutoplay !== false,
     clearSiteDataOnExit:    c.clearSiteDataOnExit === true,
     clearHistoryOnExit:     c.clearHistoryOnExit === true,
@@ -747,78 +721,16 @@ function renderGeneralTab(cfg) {
     </div>`;
 }
 
-// Değerler ana süreçte ayrıca doğrulanır (site-safety.js → normalizeSecureDns).
-const SECURE_DNS_CHOICES = [
-  ['automatic',  'settings.dns.automatic'],
-  ['cloudflare', 'Cloudflare (1.1.1.1)'],
-  ['quad9',      'Quad9 (9.9.9.9)'],
-  ['adguard',    'AdGuard DNS'],
-  ['google',     'Google Public DNS'],
-  ['off',        'settings.off'],
-];
-
-// Değerler ana süreçte ayrıca doğrulanır (browser-commands.js → normalizeWebrtcPolicy).
-const WEBRTC_OPTIONS = [
-  ['default_public_interface_only',         'settings.webrtc.publicOnly'],
-  ['default_public_and_private_interfaces', 'settings.webrtc.publicPrivate'],
-  ['default',                               'settings.webrtc.all'],
-  ['disable_non_proxied_udp',               'settings.webrtc.noUdp'],
-];
-
-function renderPrivacyTab(cfg) {
-  const row = (id,lbl,sub,chk) => `
-    <div class="s-toggle-row">
-      <div><div class="s-toggle-label">${lbl}</div>${sub?`<div class="s-toggle-sub">${sub}</div>`:''}</div>
-      <label class="switch"><input type="checkbox" id="${id}" ${chk?'checked':''}/><span class="slider"></span></label>
-    </div>`;
+// Gizlilik ayarlarının tek yeri Veri ve Gizlilik sayfasıdır (Burak, 20 Eyl 2026:
+// "gizlilik ayarlarını tek yere odaklayalım diğerini kaldıralım"). Aynı anahtarlar
+// iki menüde durduğu için hangisinin geçerli olduğu karışıyordu. Sekme yerinde
+// kalır ki Ayarlar'da gizliliği arayan kullanıcı doğru yere gitsin.
+function renderPrivacyTab() {
   return `
     <div class="settings-section"><h3>${TH('data.title')}</h3>
       <p class="s-hint" style="margin-top:0">${TH('data.settingsHint')}</p>
+      <p class="s-hint">${TH('data.settingsMoved')}</p>
       <button class="clear-btn" id="btn-open-data-center" style="margin-top:8px">${TH('data.open')}</button>
-    </div>
-    <div class="settings-section"><h3>${TH('settings.threat.title')}</h3>
-      ${row('cfg-threat',TH('settings.threat.toggle'),TH('settings.threat.toggleHint'),cfg.threatProtection!==false)}
-      <div id="threat-status" aria-live="polite"><p class="s-hint" style="margin-top:0">${TH('common.loading')}</p></div>
-      <button class="clear-btn" id="btn-threat-update" style="margin-top:8px">${TH('settings.threat.update')}</button>
-      <p class="s-hint">${TH('settings.threat.hint')}</p>
-    </div>
-    <div class="settings-section"><h3>${TH('settings.blocking.title')}</h3>
-      ${row('cfg-tracker',TH('settings.blocking.trackers'),TH('settings.blocking.trackersHint'),cfg.blockTrackers!==false)}
-      ${row('cfg-ads',TH('settings.blocking.ads'),TH('settings.blocking.adsHint'),cfg.blockAds!==false)}
-      ${row('cfg-3pc',TH('settings.blocking.thirdPartyCookies'),TH('settings.blocking.thirdPartyCookiesHint'),cfg.blockThirdPartyCookies!==false)}
-    </div>
-    <div class="settings-section"><h3>${TH('settings.identity.title')}</h3>
-      ${row('cfg-fp-shield',TH('settings.identity.fingerprint'),TH('settings.identity.fingerprintHint'),cfg.fingerprintShield!==false)}
-      ${row('cfg-fp',TH('settings.identity.ipHeaders'),TH('settings.identity.ipHeadersHint'),cfg.fingerprintProtection!==false)}
-      ${row('cfg-https-only',TH('settings.identity.httpsOnly'),TH('settings.identity.httpsOnlyHint'),cfg.httpsOnly)}
-      ${row('cfg-clean-links',TH('settings.identity.cleanLinks'),TH('settings.identity.cleanLinksHint'),cfg.cleanLinks!==false)}
-      ${row('cfg-gpc',TH('settings.identity.gpc'),TH('settings.identity.gpcHint'),cfg.globalPrivacyControl!==false)}
-      ${row('cfg-dnt',TH('settings.identity.dnt'),TH('settings.identity.dntHint'),cfg.doNotTrack)}
-    </div>
-    <div class="settings-section"><h3>${TH('settings.webrtc.title')}</h3>
-      <div class="s-input-row">
-        <label for="cfg-webrtc">${TH('settings.webrtc.label')}</label>
-        <select id="cfg-webrtc">
-          ${WEBRTC_OPTIONS.map(([v, key]) => `<option value="${v}" ${(cfg.webrtcPolicy || 'default_public_interface_only') === v ? 'selected' : ''}>${TH(key)}</option>`).join('')}
-        </select>
-      </div>
-      <p class="s-hint">${TH('settings.webrtc.hint')}</p>
-    </div>
-    <div class="settings-section"><h3>${TH('settings.dns.title')}</h3>
-      <div class="s-input-row">
-        <label for="cfg-secure-dns">${TH('settings.dns.label')}</label>
-        <select id="cfg-secure-dns">
-          ${SECURE_DNS_CHOICES.map(([v, t]) => `<option value="${v}" ${(cfg.secureDns || 'automatic') === v ? 'selected' : ''}>${t.startsWith('settings.') ? TH(t) : window.ilgezdiHtml.esc(t)}</option>`).join('')}
-        </select>
-      </div>
-      <p class="s-hint">${TH('settings.dns.hint')}</p>
-    </div>
-    <div class="settings-section"><h3>${TH('settings.sitePerms.title')}</h3>
-      <div id="site-perm-list"><p class="s-hint" style="margin-top:0">${TH('common.loading')}</p></div>
-      <button class="clear-btn" id="btn-site-perm-reset" style="margin-top:8px">${TH('settings.sitePerms.reset')}</button>
-    </div>
-    <div class="settings-section"><h3>${TH('settings.log.title')}</h3>
-      ${row('cfg-log',TH('settings.log.toggle'),TH('settings.log.toggleHint'),cfg.logEnabled!==false)}
     </div>`;
 }
 
@@ -1038,14 +950,14 @@ function renderSettingsTab(tabId, cfg) {
   if      (tabId==='customization') content.innerHTML = renderCustomizationTab(cfg);
   else if (tabId==='account')       content.innerHTML = renderAccountTab();
   else if (tabId==='general')       content.innerHTML = renderGeneralTab(cfg);
-  else if (tabId==='privacy')       content.innerHTML = renderPrivacyTab(cfg);
+  else if (tabId==='privacy')       content.innerHTML = renderPrivacyTab();
   else if (tabId==='passwords')     content.innerHTML = renderPasswordsTab(cfg);
   else if (tabId==='diag')          content.innerHTML = window.ilgezdiDiagPanel?.render?.()
                                       || `<p class="s-hint">${TH('settings.diag.loadFailed')}</p>`;
   if (tabId==='customization') { bindCustomizationEvents(); updatePreviewBox(); }
   if (tabId==='account')       bindAccountEvents();
   if (tabId==='general')       bindGeneralEvents();
-  if (tabId==='privacy')       bindPrivacyEvents();
+  if (tabId==='privacy')       document.getElementById('btn-open-data-center')?.addEventListener('click', () => window.ilgezdiDataCenter?.open());
   if (tabId==='passwords')     bindPasswordEvents();
   if (tabId==='diag')          window.ilgezdiDiagPanel?.bind?.();
 }
@@ -1185,119 +1097,6 @@ function bindCustomizationEvents() {
     const w = document.getElementById('custom-newtab-wrap');
     if (w) w.style.display = e.target.value === 'custom' ? '' : 'none';
   });
-}
-
-// ─── Gizlilik sekmesi: site izinleri listesi ──────────────────────────────────
-async function populateSitePermissions() {
-  const box = document.getElementById('site-perm-list');
-  if (!box) return;
-  const H = window.ilgezdiHtml;
-  let list = [];
-  try { list = (await window.secureBrowser?.site?.listPermissions?.()) || []; } catch {}
-  if (!list.length) {
-    box.innerHTML = `<p class="s-hint" style="margin-top:0">${TH('settings.sitePerms.none')}</p>`;
-    return;
-  }
-  box.innerHTML = list.map((p, i) => `
-    <div class="s-toggle-row">
-      <div><div class="s-toggle-label">${H.esc(p.origin.replace(/^https?:\/\//, ''))}</div>
-      <div class="s-toggle-sub">${H.esc(p.label)} · ${p.decision === 'allow' ? TH('settings.sitePerms.allowed') : TH('settings.sitePerms.blocked')}</div></div>
-      <button class="folder-btn" data-perm-index="${i}">${TH('settings.sitePerms.remove')}</button>
-    </div>`).join('');
-  box.querySelectorAll('[data-perm-index]').forEach((btn) => {
-    btn.addEventListener('click', async () => {
-      const p = list[Number(btn.dataset.permIndex)];
-      const r = await window.secureBrowser?.site?.setPermission?.(p.origin, p.permission, 'ask');
-      if (r && r.ok === false) showSettingsToast(r.error || T('settings.sitePerms.removeFailed'), 'error');
-      populateSitePermissions();
-    });
-  });
-}
-
-function bindPrivacyEvents() {
-  document.getElementById('btn-open-data-center')?.addEventListener('click', () => window.ilgezdiDataCenter?.open());
-  populateSitePermissions();
-  populateThreatStatus();
-  document.getElementById('btn-site-perm-reset')?.addEventListener('click', async () => {
-    const r = await window.secureBrowser?.site?.resetPermissions?.();
-    if (r?.ok) showSettingsToast(T('settings.sitePerms.resetDone'));
-    populateSitePermissions();
-  });
-  document.getElementById('btn-threat-update')?.addEventListener('click', async (e) => {
-    const btn = e.currentTarget;
-    const old = btn.textContent;
-    const before = _lastThreatStatus;
-    btn.disabled = true;
-    btn.textContent = T('pwAudit.checking');
-    let st = null;
-    try { st = await window.secureBrowser?.threats?.updateNow?.(); } catch {}
-    btn.disabled = false;
-    btn.textContent = old;
-    renderThreatStatus(st);
-    if (!st) return;
-    const fmt = { format: (n) => window.ilgezdiI18n.formatNumber(n) };
-    const changed = !before || st.sources.some((s) => {
-      const b = before.sources.find((x) => x.id === s.id);
-      return !b || b.updatedAt !== s.updatedAt || b.lastError !== s.lastError;
-    });
-    if (!st.enabled) showSettingsToast(T('settings.threat.disabledToast'));
-    else if (st.sources.some((s) => s.lastError)) showSettingsToast(T('settings.threat.someFailed'));
-    else if (!changed) showSettingsToast(T('settings.threat.recent'));
-    else showSettingsToast(T('settings.threat.checked', { counts: st.sources.map((s) => fmt.format(s.entries)).join(' + ') }));
-  });
-}
-
-// Zararlı site koruması durumu: kaynak başına kayıt sayısı, son denetim ve hata.
-// DOM textContent ile kurulur (hata metni ağdan gelebilir).
-let _lastThreatStatus = null;
-async function populateThreatStatus() {
-  subscribeThreatStatus();
-  let st = null;
-  try { st = await window.secureBrowser?.threats?.status?.(); } catch {}
-  renderThreatStatus(st);
-}
-
-// Ana süreç liste durumu değişince haber verir (güncelleme başladı, bir liste bitti);
-// Gizlilik sekmesi açıksa kutu yerinde yenilenir. Eskiden yalnızca sekme açılırken
-// bir kez çiziliyordu. Abonelik bir kez kurulur.
-let _threatStatusSubscribed = false;
-function subscribeThreatStatus() {
-  if (_threatStatusSubscribed) return;
-  _threatStatusSubscribed = true;
-  window.secureBrowser?.threats?.onStatus?.((st) => {
-    if (document.getElementById('threat-status')) renderThreatStatus(st);
-  });
-}
-
-function renderThreatStatus(st) {
-  const box = document.getElementById('threat-status');
-  if (!box) return;
-  box.replaceChildren();
-  const line = (cls, text, color) => {
-    const d = document.createElement('div');
-    d.className = cls;
-    if (color) d.style.color = color;
-    d.textContent = text;
-    return d;
-  };
-  if (!st) { box.appendChild(line('s-hint', T('settings.threat.statusFailed'), 'var(--danger)')); return; }
-  const fmt = { format: (n) => window.ilgezdiI18n.formatNumber(n) };
-  for (const s of st.sources || []) {
-    const item = document.createElement('div');
-    item.style.cssText = 'padding:8px 0;border-bottom:1px solid var(--border-color)';
-    const srcText = (field, fallback) => (window.ilgezdiI18n.has('threat.source.' + s.id + '.' + field) ? T('threat.source.' + s.id + '.' + field) : fallback);
-    item.appendChild(line('s-toggle-label', srcText('name', s.name)));
-    const when = s.updatedAt ? window.ilgezdiI18n.formatDateTime(s.updatedAt, { dateStyle: 'medium', timeStyle: 'short' }) : '';
-    item.appendChild(line('s-toggle-sub', s.entries
-      ? `${T('settings.threat.entries', { count: s.entries, when })}${s.stale ? T('settings.threat.stale') : ''}${st.updating ? T('settings.threat.updating') : ''}`
-      : (st.updating ? T('settings.threat.downloading') : T('settings.threat.notYet'))));
-    if (s.covers) item.appendChild(line('s-toggle-sub', srcText('covers', s.covers) + (s.license ? T('settings.threat.license', { license: srcText('license', s.license) }) : '')));
-    if (s.lastError) item.appendChild(line('s-toggle-sub', T('settings.threat.lastError', { error: s.lastError }), 'var(--danger)'));
-    box.appendChild(item);
-  }
-  if (st.blockedPages || st.blockedResources) {
-    box.appendChild(line('s-hint', T('settings.threat.blockedSession', { pages: Number(st.blockedPages) || 0, resources: Number(st.blockedResources) || 0 })));
-  }
 }
 
 // Varsayılan tarayıcı durumu: Windows'ta kullanıcının seçtiği uygulamanın kimliği (ProgId)

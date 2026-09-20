@@ -1626,5 +1626,11 @@
   "ulgen.info.webTitle": "Vous décidez quand aller en ligne",
   "ulgen.info.webBody": "Ülgen ne se connecte jamais seul à Internet. « Rechercher sur le web » propose seulement une meilleure requête ; quand vous appuyez sur « Lancer la recherche », elle s’ouvre dans un nouvel onglet avec le moteur de recherche que vous avez choisi.",
   "ulgen.info.offlineTitle": "Fonctionne sans connexion",
-  "ulgen.info.offlineBody": "Même sans Internet, Ülgen résume la page ouverte, y trouve du texte et cherche dans votre historique."
+  "ulgen.info.offlineBody": "Même sans Internet, Ülgen résume la page ouverte, y trouve du texte et cherche dans votre historique.",
+  "ui.openFullPage": "Ouvrir en pleine page",
+  "ulgen.web.opened": "Recherche ouverte dans un nouvel onglet",
+  "data.sec.network": "Réseau et autorisations des sites",
+  "data.sec.networkLead": "Comment les adresses sont résolues, qui voit votre adresse IP réelle et les autorisations que vous avez accordées aux sites.",
+  "data.net.saved": "Enregistré.",
+  "data.settingsMoved": "Tous les réglages de confidentialité se trouvent sur la page « Données et confidentialité » ; il n’y en a pas de copie ici."
 }

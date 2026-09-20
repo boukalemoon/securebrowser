@@ -728,7 +728,9 @@ suite('WebRTC IP koruması ve gizli pencere önizlemesi');
   check('önizleme pencereye yalnızca güvenli yardımcıyla mesaj gönderiyor',
     glanceJs.split('.webContents.send(').length - 1 === 1 && glanceJs.includes('win.webContents.isDestroyed()'));
   check('önizlemenin penceresi kapanınca önizleme durumu sıfırlanıyor', glanceJs.includes("win.on('closed'"));
-  check('ayarlarda WebRTC seçimi var ve kaydediliyor', /'cfg-webrtc':\s*\['webrtcPolicy', 'value'\]/.test(read('renderer/settings-panel.js')));
+  check('WebRTC seçimi Veri ve Gizlilik sayfasında ve kaydediliyor',
+    /secim\('dc-webrtc', 'settings\.webrtc\.label'/.test(read('renderer/data-center.js'))
+    && read('renderer/data-center.js').includes('saveConfig({ webrtcPolicy: rtc.value })'));
 }
 
 suite('Erişilebilirlik tabanı');
@@ -830,7 +832,9 @@ suite('Güvenli DNS');
   const mainJs = read('main/main.js');
   check('varsayılan yapılandırmada kullanılmayan dnsServer yerine secureDns', !mainJs.includes('dnsServer:') && /secureDns:\s*DEFAULT_SECURE_DNS/.test(mainJs));
   check('açılışta ve ayar değişince uygulanıyor', (mainJs.match(/applySecureDns\(\);/g) || []).length >= 2);
-  check('ayarlarda seçim var ve kaydediliyor', /'cfg-secure-dns':\s*\['secureDns', 'value'\]/.test(read('renderer/settings-panel.js')));
+  check('güvenli DNS seçimi Veri ve Gizlilik sayfasında ve kaydediliyor',
+    /secim\('dc-secure-dns', 'settings\.dns\.label'/.test(read('renderer/data-center.js'))
+    && read('renderer/data-center.js').includes('saveConfig({ secureDns: dns.value })'));
 }
 
 suite('Hata sayfası ve sertifika');
@@ -987,7 +991,7 @@ suite('İndirme güvenliği ve indirme geçmişi');
   check('indirme geçmişi ziyaret günlüğü anahtarıyla şifreli yazılıyor', mainJs.includes('writeProtectedJson(DOWNLOADS_ENC, DOWNLOADS_PLAIN, list)'));
   const appJs = read('renderer/app.js');
   check('geçmiş ve indirilenler sayfaları artık "Yakında" değil',
-    appJs.includes("showScreen('history', renderHistoryPage)") && appJs.includes("showScreen('downloads', renderDownloadsPage)") && !/history:\s*'Geçmiş'/.test(appJs));
+    appJs.includes('render: () => renderHistoryPage()') && appJs.includes('render: () => renderDownloadsPage()') && !/history:\s*'Geçmiş'/.test(appJs));
   check('geçmişten açılan adres yalnızca http(s)', appJs.includes('if (!isWebHref(url)) return;'));
   check('boş sekme ve hata belgesi ziyaret günlüğüne yazılmıyor', read('main/main.js').includes('if (!isIncognito && isWebUrl(tab.url)) {'));
   // Ana süreç duraklatılan indirmeyi 'paused' durumuyla gönderir; sayfa bunu süren indirme saymazsa
@@ -1157,8 +1161,9 @@ suite('Zararlı site koruması — ana süreç bağlantıları');
   check('küçük ya da bozuk indirme mevcut listenin yerine geçmiyor', tp.includes('MIN_KEEP_RATIO') && tp.includes('compiled.index.length < floor'));
   check('"devam et" izni diske yazılmıyor, oturuma bağlı', tp.includes('const bypass = new WeakMap()') && !/bypass[\s\S]{0,80}writeFile/.test(tp));
   const setJs = read('renderer/settings-panel.js');
-  check('ayarlarda anahtar, durum kutusu ve elle güncelleme var; ayar kaydediliyor',
-    setJs.includes("row('cfg-threat'") && setJs.includes('populateThreatStatus();') && /'cfg-threat':\s*\['threatProtection', 'checked'\]/.test(setJs));
+  check('Veri ve Gizlilik sayfasında anahtar, durum kutusu ve elle güncelleme var',
+    require('../src/renderer/data-catalog.js').BY_ID.threatLists.config === 'threatProtection'
+    && read('renderer/data-center.js').includes('id="dc-threat-status"') && read('renderer/data-center.js').includes('id="dc-threat-update"'));
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -1284,8 +1289,10 @@ suite('Zararlı site koruması — canlı liste durumu');
   check('durum değişince bildiriliyor (başlangıç, her liste, bitiş)', (tp.match(/notifyStatus\(\);/g) || []).length >= 3 && /onStatus: \(fn\) =>/.test(tp));
   check('süren güncelleme varken "Şimdi güncelle" onun bitmesini bekliyor', tp.includes('if (inFlight) return inFlight;'));
   check('ana süreç açık pencerelere durum gönderiyor', read('main/main.js').includes('threats.onStatus((st) =>') && read('main/main.js').includes("'threats-status-changed'"));
-  check('önyükleme köprüsü ve Ayarlar aboneliği (bir kez)',
-    read('preload/preload.js').includes("ipcRenderer.on('threats-status-changed'") && /let _threatStatusSubscribed = false;[\s\S]{0,200}if \(_threatStatusSubscribed\) return;/.test(read('renderer/settings-panel.js')));
+  check('önyükleme köprüsü ve Veri ve Gizlilik aboneliği (bir kez)',
+    read('preload/preload.js').includes("ipcRenderer.on('threats-status-changed'")
+    && read('renderer/data-center.js').includes('let threatSubscribed = false;')
+    && /if \(!threatSubscribed\) \{\s*threatSubscribed = true;/.test(read('renderer/data-center.js')));
 }
 
 suite('Yayın — v0.8.4');
@@ -1428,7 +1435,7 @@ suite('Keşfet — TrendTech yazılımları');
     const fields = [...spJs.matchAll(/^\s*'([\w-]+)':\s*\['(\w+)', '(value|checked)'\]/gm)];
     const valuesFn = spJs.slice(spJs.indexOf('function formValuesFrom'), spJs.indexOf('function initFormState'));
     check('form alan listesi sekmelerdeki kimliklerle ve varsayılan değerlerle eşleşiyor',
-      fields.length === 34
+      fields.length === 21
       && fields.every(([, id]) => spJs.includes(`id="${id}"`) || spJs.includes(`row('${id}'`))
       && fields.every(([, , key]) => new RegExp(`\\n\\s*${key}:\\s`).test(valuesFn)), fields.length);
 
@@ -1499,7 +1506,7 @@ suite('Keşfet — TrendTech yazılımları');
     const communityCode = appSrc.slice(appSrc.indexOf('// ─── Topluluk:'), appSrc.indexOf('const QUICK_LINKS'));
     check('yorum ve öneri arayüzü sunucu metnini innerHTML ile basmıyor', communityCode.length > 2000 && !communityCode.includes('innerHTML'));
     check('sol menüde Öneri düğmesi var ve sayfaya yönleniyor',
-      /id="sb-feedback"[\s\S]{0,80}data-screen="feedback"/.test(read('renderer/index.html')) && appSrc.includes("showScreen('feedback', renderFeedbackPage).then(initFeedbackPage)"));
+      /id="sb-feedback"[\s\S]{0,80}data-screen="feedback"/.test(read('renderer/index.html')) && appSrc.includes("feedback:  { title: 'ui.feedback',   render: () => renderFeedbackPage()"));
     check('yorum bölümü Keşfet sayfasında; oturum yoksa QRtım girişine yönlendiriyor',
       appSrc.includes('initReviewSection();') && /review-login[\s\S]{0,120}ilgezdiAuth\?\.open\?\.\(\)/.test(appSrc));
     check('hesapla gönderilen öneride oturum yenilenemezse sessizce anonime düşülmüyor', /session && !token\s*\?\s*Promise\.resolve\(SESSION_LOST\)/.test(appSrc));
@@ -1715,7 +1722,7 @@ suite('Keşfet — TrendTech yazılımları');
       && idx.includes('<div id="panel-ulgen" class="side-panel hidden"></div>')
       && idx.includes('<script src="ulgen-panel.js"></script>'));
     check('panel diğer panellerle aynı akışta: açılınca sayfa görünümü daralıyor, kapanınca hepsi kapanıyor',
-      appU.includes("const ALL_PANELS = ['settings', 'logs', 'bookmarks', 'blocker', 'shield', 'vpn', 'arku', 'ulgen', 'siteinfo', 'webpanel', 'profiles', 'notes'];")
+      appU.includes("const ALL_PANELS = ['settings', 'logs', 'bookmarks', 'blocker', 'shield', 'vpn', 'arku', 'ulgen', 'siteinfo', 'webpanel', 'profiles', 'notes', 'page'];")
       && appU.includes("'btn-arku', 'btn-ulgen', 'security-icon'")
       && up.includes('window.secureBrowser?.panelOpened(true);') && up.includes("window.ilgezdiCloseAllPanels?.();"));
     check('"İnternetsiz" rozeti bir düğme; basınca ne demek olduğunu anlatan kart açılıyor',
@@ -1734,9 +1741,12 @@ suite('Keşfet — TrendTech yazılımları');
     check('güvenilmez metin textContent ile basılıyor; innerHTML yalnız sabit iskelette, satır içi olay işleyicisi yok',
       (up.match(/\.innerHTML\s*=/g) || []).length === 1 && up.includes('e.textContent = metin;')
       && !/\son[a-z]+=\s*["']/i.test(up));
-    check('eylemler yalnız kullanıcının bastığı düğmeden gidiyor (motor sekme açmıyor)',
-      /dugme\(T\('ulgen\.web\.open'\), \(\) => U\(\)\?\.eylem\(\{ tur: 'ara'/.test(up)
-      && /dugme\(s\.baslik, \(\) => U\(\)\?\.eylem\(\{ tur: 'ac'/.test(up));
+    check('eylemler yalnız kullanıcının isteğiyle gidiyor; sonuç açılınca panel kenara çekiliyor',
+      /dugme\(T\('ulgen\.web\.open'\), \(\) => sekmedeAc\(\{ tur: 'ara'/.test(up)
+      && /dugme\(s\.baslik, \(\) => sekmedeAc\(\{ tur: 'ac'/.test(up)
+      && /function sekmedeAc\(eylem\) \{\s*U\(\)\?\.eylem\(eylem\);\s*window\.ilgezdiCloseAllPanels\?\.\(\);/.test(up));
+    check('"Web\'de ara" sorgusu beklemeden yeni sekmede açılıyor',
+      up.includes("sekmedeAc({ tur: 'ara', sorgu: r.sorgu });") && up.includes("T('ulgen.web.opened')"));
     check('izin kapalıyken Veri ve Gizlilik sayfasına yönlendiriyor (izni panel kendisi açmıyor)',
       up.includes("window.ilgezdiDataCenter?.open?.('ulgen');") && !up.includes('dataCenter.set('));
   }
@@ -1906,7 +1916,8 @@ suite('Keşfet — TrendTech yazılımları');
       && ppF.indexOf("ipcRenderer.sendSync('fp-script')") > 0 && ppF.indexOf("ipcRenderer.sendSync('fp-script')") < ppF.indexOf('function setupPasswordHelpers()')
       && ppF.trimEnd().endsWith('if (process.isMainFrame) setupPasswordHelpers();')
       && (mjF.match(/if \(!event\.senderFrame \|\| event\.senderFrame\.parent\) return;   \/\/ yalnızca ana çerçeve/g) || []).length === 2);
-    check('Ayarlar › Gizlilik anahtarı ve senkron', read('renderer/settings-panel.js').includes("row('cfg-fp-shield',TH('settings.identity.fingerprint'),TH('settings.identity.fingerprintHint'),cfg.fingerprintShield!==false)")
+    check('parmak izi anahtarı Veri ve Gizlilik sayfasında ve senkronda',
+      require('../src/renderer/data-catalog.js').BY_ID.fingerprint.config === 'fingerprintShield'
       && read('renderer/sync-manager.js').includes("'fingerprintShield',"));
   }
 
@@ -2377,7 +2388,13 @@ suite('Keşfet — TrendTech yazılımları');
   check('kart metni kaçışlanıyor (çevirisi de); kart tıklanınca (ya da Enter) kaynağı açılıyor, orta tıkla yeni sekmede', appJs.includes("H.esc(title === 'cards.' + item.id + '.title' ? item.title : title)") && /\.news-card\[data-source\][\s\S]{0,700}sb\.navigate\([\s\S]{0,300}sb\.newTab\(/.test(appJs) && /news-card\[data-source\][\s\S]{0,700}'Enter'/.test(appJs));
   check('ekran kapanışının bekleyen gizleme zamanlayıcısı yeni açılan ekranı gizlemiyor',
     /async function showScreen[\s\S]{0,900}clearTimeout\(screenHideTimer\)[\s\S]{0,200}classList\.remove\('hidden'\)/.test(appJs)
-    && /screenHideTimer = setTimeout\(\(\) => \{\s*screenHideTimer = null;\s*if \(!currentScreen\) overlay\.classList\.add\('hidden'\);/.test(appJs));
+    && /screenHideTimer = setTimeout\(\(\) => \{\s*screenHideTimer = null;\s*if \(!currentScreen\) \{\s*overlay\.classList\.add\('hidden'\);/.test(appJs));
+  // Aynı sayfa hem panelde hem tam sayfada çizilebiliyor: kapanan kopya DOM'dan silinmezse
+  // kimlikler çakışıyor ve getElementById gizli kopyayı buluyor (sonda yakaladı).
+  check('kapanan görünümün içeriği siliniyor (kimlik çakışması yok)',
+    /if \(!currentScreen\) \{\s*overlay\.classList\.add\('hidden'\);[\s\S]{0,220}document\.getElementById\('screen-content'\)\?\.replaceChildren\(\);/.test(appJs)
+    && /if \(name === 'page'\) \{ panel\.replaceChildren\(\); panel\.dataset\.page = ''; \}/.test(appJs)
+    && /hideScreen\(\);\s*closeAllPanels\(\);[\s\S]{0,320}document\.getElementById\('screen-content'\)\?\.replaceChildren\(\);/.test(appJs));
   check('geçmiş listesinde orta tuş otomatik kaydırmayı başlatmıyor', /list\?\.addEventListener\('mousedown', \(e\) => \{\s*if \(e\.button === 1 && e\.target\.closest\('\.list-row'\)\) e\.preventDefault\(\)/.test(appJs));
   check('kartta orta tuş otomatik kaydırmayı başlatmıyor (yeni sekmede açma çalışsın)', /news-card\[data-source\][\s\S]{0,1200}'mousedown', \(e\) => \{ if \(e\.button === 1\) e\.preventDefault\(\)/.test(appJs));
   check('yeni sekme olayları içerik eklendikten sonra bağlanıyor (her açılış yolunda)',
@@ -2645,6 +2662,40 @@ suite('Profiller');
     /app\.on\('will-quit', \(\) => \{\s*if \(!activeProfile\.private\) return;[\s\S]{0,200}if \(!path\.basename\(dir\)\.startsWith\(profiles\.PRIVATE_PREFIX\)\) return;[\s\S]{0,300}if \(process\.platform === 'win32' && \/\["&\|<>\^%!\]\/\.test\(dir\)\) return;/.test(mj));
   const pp = read('renderer/profiles-panel.js');
   check('profil adları kaçışlanıyor', pp.includes('${esc(nameOf(me))}') && pp.includes('${esc(nameOf(p))}') && !/innerHTML[^;]*\bp\.name\b/.test(pp));
+}
+
+suite('Kenar çubuğu standardı ve tek gizlilik yeri');
+{
+  const appJs2 = read('renderer/app.js');
+  const setJs2 = read('renderer/settings-panel.js');
+  const dcJs2 = read('renderer/data-center.js');
+  const cat2 = require('../src/renderer/data-catalog.js');
+  eq('beş sayfa da kenar panelinde açılıyor (tam sayfa yalnız istenirse)',
+    Object.keys(appJs2.match(/const PAGE_PANELS = \{[\s\S]*?\n\};/)[0].match(/^\s{2}(\w+):/gm).reduce((o, s) => (o[s.trim().replace(':', '')] = 1, o), {})),
+    ['history', 'downloads', 'discover', 'data', 'feedback']);
+  check('düğme paneli açıyor; panel başlığında "Tam sayfa aç" var',
+    /\} else if \(PAGE_PANELS\[screen\]\) \{\s*openPagePanel\(screen\);/.test(appJs2)
+    && appJs2.includes("id=\"page-panel-full\" title=\"${TH('ui.openFullPage')}\"")
+    && /showScreen\(name, def\.render\)\.then\(\(\) => def\.init && def\.init\(\)\)/.test(appJs2));
+  check('panel kapanınca kenar çubuğundaki işaret kalkıyor; sayfa paneli panel listesinde',
+    appJs2.includes("'notes', 'page'];") && /if \(!currentScreen\) \{\s*document\.querySelectorAll\('\.sidebar-btn\[data-screen\]'\)/.test(appJs2)
+    && read('renderer/index.html').includes('<div id="panel-page" class="side-panel hidden"></div>'));
+  check('dar panelde çok sütunlu satırlar alt alta iniyor',
+    read('renderer/styles/pages.css').includes('.page-panel-body .list-row {') && read('renderer/styles/pages.css').includes('.page-panel-body .dl-row { grid-template-columns: 44px minmax(0, 1fr);'));
+
+  // Gizlilik anahtarları tek yerde: Ayarlar'daki kopyalar kaldırıldı (Burak, 20 Eyl 2026).
+  check('Ayarlar › Gizlilik yalnızca Veri ve Gizlilik sayfasına yönlendiriyor',
+    /function renderPrivacyTab\(\) \{[\s\S]{0,600}btn-open-data-center[\s\S]{0,200}^\}/m.test(setJs2)
+    && !/cfg-(threat|tracker|ads|3pc|fp|fp-shield|https-only|dnt|gpc|clean-links|log|webrtc|secure-dns)\b/.test(setJs2)
+    && setJs2.includes("TH('data.settingsMoved')"));
+  check('taşınan anahtarlar katalogda: HTTPS, IP başlıkları, izleyici ve reklam engelleme',
+    ['httpsOnly', 'ipHeaders', 'blockTrackers', 'blockAds'].every((id) => cat2.BY_ID[id] && cat2.BY_ID[id].section === 'sites')
+    && cat2.BY_ID.httpsOnly.config === 'httpsOnly' && cat2.BY_ID.ipHeaders.config === 'fingerprintProtection');
+  check('DNS ve WebRTC seçimleri onay kaydı üretmeyen ayarlar olarak sayfada',
+    dcJs2.includes("id=\"dc-sec-network\"") && dcJs2.includes('SECURE_DNS_CHOICES') && dcJs2.includes('WEBRTC_OPTIONS')
+    && !cat2.BY_ID.secureDns && !cat2.BY_ID.webrtcPolicy);
+  check('site izinleri ve zararlı liste durumu textContent ile yazılıyor (ağdan gelen metin)',
+    dcJs2.includes('d.textContent = text;') && dcJs2.includes('baslik.textContent = izin.origin.replace') && !/innerHTML[^;]*lastError/.test(dcJs2));
 }
 
 suite('Not defteri');

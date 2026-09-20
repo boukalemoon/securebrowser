@@ -81,7 +81,7 @@ function truncateUrl(url, maxLen = 80) {
 }
 
 // ─── Panel Yönetimi ────────────────────────────────────────────────────────────
-const ALL_PANELS = ['settings', 'logs', 'bookmarks', 'blocker', 'shield', 'vpn', 'arku', 'ulgen', 'siteinfo', 'webpanel', 'profiles', 'notes'];
+const ALL_PANELS = ['settings', 'logs', 'bookmarks', 'blocker', 'shield', 'vpn', 'arku', 'ulgen', 'siteinfo', 'webpanel', 'profiles', 'notes', 'page'];
 
 function closeAllPanels() {
   ALL_PANELS.forEach(name => {
@@ -89,12 +89,20 @@ function closeAllPanels() {
     if (!panel) return;
     panel.classList.remove('visible');
     panel.classList.add('hidden');
+    // Sayfa paneli kapanınca içeriği bırakılmaz: aynı sayfa tam sayfada açılırsa
+    // kimlikler çakışır ve arayüz gizli kopyayı bulur.
+    if (name === 'page') { panel.replaceChildren(); panel.dataset.page = ''; }
   });
   // Panel butonlarının aktif stilini kaldır (data-screen butonlarına dokunma)
   ['btn-shield', 'btn-bookmarks', 'btn-logs', 'btn-blocker', 'btn-settings', 'btn-arku', 'btn-ulgen', 'security-icon', 'btn-webpanel-add', 'btn-profile', 'btn-notes'].forEach(id => {
     document.getElementById(id)?.classList.remove('active');
   });
   document.querySelectorAll('.webpanel-btn.active').forEach((b) => b.classList.remove('active'));
+  // Sayfa paneli kapanınca kenar çubuğundaki işaret de kalkar; tam sayfa açıksa
+  // işareti showScreen kendi koyar (bu sırada currentScreen doludur).
+  if (!currentScreen) {
+    document.querySelectorAll('.sidebar-btn[data-screen]').forEach((b) => b.classList.toggle('active', b.dataset.screen === 'newtab'));
+  }
   sb.panelOpened(false);
 }
 
@@ -117,6 +125,55 @@ function togglePanel(panelName, btnEl, onOpen) {
 // Diğer panel JS dosyaları bu fonksiyonlara ihtiyaç duyar
 window.ilgezdiTogglePanel    = togglePanel;
 window.ilgezdiCloseAllPanels = closeAllPanels;
+
+// ─── Sayfa panelleri ──────────────────────────────────────────────────────────
+// Kenar çubuğundaki her düğme aynı yerde açılır: sağdaki panel (Burak'ın kararı,
+// 20 Eyl 2026 — "bazıları sağda küçük, bazıları komple büyük menü açıyor"). Uzun
+// listeler için panel başlığındaki "Tam sayfa aç" aynı içeriği eski geniş
+// görünümde açar; çizim ve olay bağlama işini iki görünüm de paylaşır.
+const PAGE_PANELS = {
+  history:   { title: 'ui.history',    render: () => renderHistoryPage(),    init: initHistoryPage },
+  downloads: { title: 'ui.downloads',  render: () => renderDownloadsPage(),  init: initDownloadsPage },
+  discover:  { title: 'ui.discover',   render: () => renderDiscoverPage(),   init: initDiscoverPage },
+  data:      { title: 'ui.dataCenter', render: () => window.ilgezdiDataCenter?.render() || '', init: () => window.ilgezdiDataCenter?.init() },
+  feedback:  { title: 'ui.feedback',   render: () => renderFeedbackPage(),   init: initFeedbackPage },
+};
+
+const FULL_PAGE_ICON = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6"/><path d="M21 3l-8 8"/><path d="M9 21H3v-6"/><path d="M3 21l8-8"/></svg>';
+
+function openPagePanel(name) {
+  const def = PAGE_PANELS[name];
+  const panel = document.getElementById('panel-page');
+  if (!def || !panel) return;
+  const zatenAcik = panel.classList.contains('visible') && panel.dataset.page === name;
+  hideScreen();
+  closeAllPanels();
+  if (zatenAcik) return;                       // aynı düğmeye ikinci basış kapatır
+  // Aynı sayfa tam sayfada da çizilmiş olabilir: iki kopya kalırsa kimlikler çakışır ve
+  // getElementById gizli olanı bulur (sonda yakaladı: anahtar görünen panelde çevrilmiyordu).
+  document.getElementById('screen-content')?.replaceChildren();
+  panel.dataset.page = name;
+  panel.innerHTML = `
+    <div class="panel-header">
+      <h2>${TH(def.title)}</h2>
+      <div class="page-panel-actions">
+        <button class="page-panel-full" id="page-panel-full" title="${TH('ui.openFullPage')}" aria-label="${TH('ui.openFullPage')}">${FULL_PAGE_ICON}</button>
+        <button class="panel-close" data-panel="page" aria-label="${TH('common.closePanel')}">✕</button>
+      </div>
+    </div>
+    <div class="panel-body page-panel-body" id="page-panel-body"></div>`;
+  document.getElementById('page-panel-body').innerHTML = def.render();
+  document.getElementById('page-panel-full').addEventListener('click', () => {
+    closeAllPanels();                      // panelin kopyası kalmasın (kimlik çakışması)
+    showScreen(name, def.render).then(() => def.init && def.init());
+  });
+  panel.classList.remove('hidden');
+  requestAnimationFrame(() => panel.classList.add('visible'));
+  document.querySelectorAll('.sidebar-btn[data-screen]').forEach((b) => b.classList.remove('active'));
+  document.querySelector(`.sidebar-btn[data-screen="${name}"]`)?.classList.add('active');
+  sb.panelOpened(true);
+  if (def.init) def.init();
+}
 
 // ─── Ekran (Screen Overlay) ────────────────────────────────────────────────────
 async function showScreen(name, renderFn) {
@@ -166,7 +223,12 @@ function hideScreen() {
     clearTimeout(screenHideTimer);
     screenHideTimer = setTimeout(() => {
       screenHideTimer = null;
-      if (!currentScreen) overlay.classList.add('hidden');
+      if (!currentScreen) {
+        overlay.classList.add('hidden');
+        // Kapanma animasyonu bitti: içerik bırakılmaz, yoksa aynı sayfa panelde
+        // açılınca kimlikler çakışır (getElementById gizli kopyayı bulur).
+        document.getElementById('screen-content')?.replaceChildren();
+      }
     }, 200);
   }
 
@@ -2127,16 +2189,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
       if (screen === 'newtab') {
         showScreen('newtab', renderNewTab).then(initNewTabEvents);
-      } else if (screen === 'history') {
-        showScreen('history', renderHistoryPage).then(initHistoryPage);
-      } else if (screen === 'downloads') {
-        showScreen('downloads', renderDownloadsPage).then(initDownloadsPage);
-      } else if (screen === 'discover') {
-        showScreen('discover', renderDiscoverPage).then(initDiscoverPage);
-      } else if (screen === 'feedback') {
-        showScreen('feedback', renderFeedbackPage).then(initFeedbackPage);
-      } else if (screen === 'data' && window.ilgezdiDataCenter) {
-        showScreen('data', window.ilgezdiDataCenter.render).then(window.ilgezdiDataCenter.init);
+      } else if (PAGE_PANELS[screen]) {
+        openPagePanel(screen);
       } else {
         showScreen(screen, () => `
           <div class="page fade-up">

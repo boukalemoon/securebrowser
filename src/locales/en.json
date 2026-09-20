@@ -1623,5 +1623,11 @@
   "ulgen.info.webTitle": "You decide when to go online",
   "ulgen.info.webBody": "Ülgen never connects to the internet on its own. “Search the web” only suggests a better query; when you press “Open search”, the search opens in a new tab with the search engine you chose.",
   "ulgen.info.offlineTitle": "Works without a connection",
-  "ulgen.info.offlineBody": "Even when the internet is down, it summarizes the open page, finds text on it and searches your history."
+  "ulgen.info.offlineBody": "Even when the internet is down, it summarizes the open page, finds text on it and searches your history.",
+  "ui.openFullPage": "Open full page",
+  "ulgen.web.opened": "Search opened in a new tab",
+  "data.sec.network": "Network and site permissions",
+  "data.sec.networkLead": "How addresses are resolved, who can see your real IP address, and the permissions you have given to sites.",
+  "data.net.saved": "Saved.",
+  "data.settingsMoved": "All privacy settings live on the Data and Privacy page; there is no second copy here."
 }

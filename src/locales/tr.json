@@ -1545,5 +1545,11 @@
   "ulgen.info.webTitle": "İnternete siz çıkarsınız",
   "ulgen.info.webBody": "Ülgen kendi başına internete bağlanmaz. “Web'de ara” yalnızca daha iyi bir sorgu önerir; “Aramayı aç”a bastığınızda arama, seçtiğiniz arama motorunda yeni sekmede açılır.",
   "ulgen.info.offlineTitle": "Bağlantı olmadan da çalışır",
-  "ulgen.info.offlineBody": "İnternet kesikken de açık sayfayı özetler, sayfada bulur ve geçmişinizde arar."
+  "ulgen.info.offlineBody": "İnternet kesikken de açık sayfayı özetler, sayfada bulur ve geçmişinizde arar.",
+  "ui.openFullPage": "Tam sayfa aç",
+  "ulgen.web.opened": "Arama yeni sekmede açıldı",
+  "data.sec.network": "Ağ ve site izinleri",
+  "data.sec.networkLead": "Adreslerin nasıl çözüldüğü, gerçek IP adresinizin kimlere göründüğü ve sitelere verdiğiniz izinler.",
+  "data.net.saved": "Kaydedildi.",
+  "data.settingsMoved": "Gizlilik ayarlarının tamamı Veri ve Gizlilik sayfasında; burada ikinci bir kopyası yok."
 }

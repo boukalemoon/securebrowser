@@ -1611,5 +1611,11 @@
   "ulgen.info.webTitle": "Sie entscheiden, wann es online geht",
   "ulgen.info.webBody": "Ülgen verbindet sich nie von selbst mit dem Internet. „Im Web suchen“ schlägt nur eine bessere Suchanfrage vor; erst wenn Sie „Suche öffnen“ drücken, öffnet sich die Suche mit Ihrer gewählten Suchmaschine in einem neuen Tab.",
   "ulgen.info.offlineTitle": "Funktioniert auch ohne Verbindung",
-  "ulgen.info.offlineBody": "Auch ohne Internet fasst Ülgen die geöffnete Seite zusammen, findet Text darauf und durchsucht Ihren Verlauf."
+  "ulgen.info.offlineBody": "Auch ohne Internet fasst Ülgen die geöffnete Seite zusammen, findet Text darauf und durchsucht Ihren Verlauf.",
+  "ui.openFullPage": "Ganze Seite öffnen",
+  "ulgen.web.opened": "Suche in einem neuen Tab geöffnet",
+  "data.sec.network": "Netzwerk und Website-Berechtigungen",
+  "data.sec.networkLead": "Wie Adressen aufgelöst werden, wer Ihre echte IP-Adresse sieht und welche Berechtigungen Sie Websites erteilt haben.",
+  "data.net.saved": "Gespeichert.",
+  "data.settingsMoved": "Alle Datenschutzeinstellungen stehen auf der Seite „Daten und Datenschutz“; hier gibt es keine zweite Kopie."
 }

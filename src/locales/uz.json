@@ -1539,5 +1539,11 @@
   "ulgen.info.webTitle": "Internetga chiqishni oʻzingiz hal qilasiz",
   "ulgen.info.webBody": "Ülgen oʻz-oʻzidan internetga ulanmaydi. “Internetdan qidirish” faqat yaxshiroq soʻrov taklif qiladi; “Qidiruvni ochish” tugmasini bosganingizda qidiruv siz tanlagan qidiruv tizimida yangi varaqda ochiladi.",
   "ulgen.info.offlineTitle": "Ulanishsiz ham ishlaydi",
-  "ulgen.info.offlineBody": "Internet uzilgan paytda ham ochiq sahifani qisqacha bayon qiladi, sahifadan topadi va tarixingizdan qidiradi."
+  "ulgen.info.offlineBody": "Internet uzilgan paytda ham ochiq sahifani qisqacha bayon qiladi, sahifadan topadi va tarixingizdan qidiradi.",
+  "ui.openFullPage": "Toʻliq sahifada ochish",
+  "ulgen.web.opened": "Qidiruv yangi varaqda ochildi",
+  "data.sec.network": "Tarmoq va sayt ruxsatlari",
+  "data.sec.networkLead": "Manzillar qanday aniqlanishi, haqiqiy IP manzilingizni kimlar koʻrishi va saytlarga bergan ruxsatlaringiz.",
+  "data.net.saved": "Saqlandi.",
+  "data.settingsMoved": "Barcha maxfiylik sozlamalari Maʼlumotlar va maxfiylik sahifasida; bu yerda ikkinchi nusxasi yoʻq."
 }
