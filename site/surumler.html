@@ -140,6 +140,17 @@ footer a{font-family:var(--font-mono);font-size:12.5px}
 // "En son" etiketi yayınlanmış ilk sürüme verilir.
 const RELEASES = [
   {
+    version: '0.8.5', date: '20 Eylül 2026', title: 'Ülgen çalışıyor, Not Defteri ve tek gizlilik sayfası', upcoming: true,
+    changes: [
+      { t:'new', d:'<b>Ülgen artık çalışıyor.</b> Yan paneldeki asistan açık sayfayı özetler, sayfa içinde bir konuyu bulur, daha önce gezdiğiniz sayfalarda arar ve daha iyi bir arama sorgusu önerir. Hepsi bilgisayarınızda yapılır: yazdıklarınız, sayfanın metni ve geçmişiniz hiçbir sunucuya gönderilmez, internet bağlantınız yokken bile çalışır. Özet, sayfanın kendi cümlelerinden seçilir; Ülgen cümle uydurmaz.' },
+      { t:'new', d:'<b>Not Defteri.</b> Gezinirken not alın: ayrı ayrı notlar, tarihe göre gruplanan liste, arama ve yazarken kendiliğinden kaydetme. Bir sayfada metni seçip sağ tıklayın, "Nota ekle" deyin; metin kaynağıyla birlikte notunuza düşer. Notu açık sayfaya bağlayabilir, Markdown olarak dışa aktarabilir, sildiğiniz notu geri alabilirsiniz. Notlar bu cihazda şifreli saklanır.' },
+      { t:'imp', d:'<b>Ülgen paneli yeniden tasarlandı.</b> Gece göğü başlık, altın dünya ağacı işareti, karşılama ekranı ve açıklamalı iş kartları. "Bu cihazda · İnternetsiz" rozetine basınca bunun ne demek olduğu tek tek anlatılır.' },
+      { t:'imp', d:'<b>Web\'de arama doğrudan açılıyor.</b> Ülgen\'e "Web\'de ara" dediğinizde sorgu beklemeden yeni sekmede açılır ve panel kenara çekilir.' },
+      { t:'sec', d:'<b>Gizlilik ayarları tek yerde.</b> Aynı anahtarların Ayarlar\'daki ikinci kopyası kaldırıldı; hepsi Veri ve Gizlilik sayfasında toplandı. Sayfaya "Ağ ve site izinleri" bölümü eklendi: güvenli DNS, WebRTC, zararlı site listelerinin durumu ve sitelere verdiğiniz izinler. Yalnızca HTTPS, IP başlıkları, izleyici ve reklam engelleme de artık buradan yönetilir ve her değişiklik onay kayıtlarına yazılır.' },
+      { t:'imp', d:'<b>Sol menüde tek düzen.</b> Geçmiş, İndirmeler, Keşfet, Veri ve Gizlilik ve Öneri de öbür düğmeler gibi sağdaki panelde açılıyor; panel başlığındaki düğmeyle aynı içeriği tam sayfada görebilirsiniz.' },
+    ],
+  },
+  {
     version: '0.8.4', date: '19 Eylül 2026', title: 'Veri ve Gizlilik, profiller ve yeni sekme düzenleri',
     changes: [
       { t:'sec', d:'<b>Veri ve Gizlilik sayfası.</b> Kenar çubuğundaki yeni düğmeyle hangi verinizin cihazınızda kaldığını, hangisinin nereye gittiğini tek sayfada görürsünüz. Hata raporları, güncelleme denetimi, zararlı site listeleri, Keşfet listesi, QRtım senkronu ve Ülgen izinleri ayrı ayrı açılıp kapatılır. Ülgen izinleri varsayılan olarak kapalıdır.' },
