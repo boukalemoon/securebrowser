@@ -654,6 +654,11 @@
   "settings.pw.gate.removeHint": "Without the lock, anyone who reaches your computer while the app is open can see your saved passwords.",
   "settings.pw.gate.removeButton": "Remove the lock",
   "settings.pw.gate.removed": "Lock removed.",
+  "settings.pw.gate.helloLabel": "Unlock with Windows Hello",
+  "settings.pw.gate.helloHint": "Unlock with your face, fingerprint or Windows PIN instead of the code. Verification happens on the device; fingerprint and face data never leave the computer and are not sent to Microsoft. Windows only keeps a \"Hello was used\" counter in its own diagnostics. Your code stays as the fallback: if Hello is turned off or the device changes, you can still reach your passwords.",
+  "settings.pw.gate.helloUnlock": "Unlock with Windows Hello",
+  "settings.pw.gate.helloFailed": "Windows Hello verification did not complete. You can unlock with your code.",
+  "settings.pw.gate.helloPrompt": "İlgezdi — verify to show your saved passwords",
   "settings.pw.gate.unlockFirst": "Unlock first.",
   "settings.pw.gate.unavailable": "The lock state could not be read.",
   "settings.pw.gate.minutes": {

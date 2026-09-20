@@ -615,6 +615,11 @@
   "settings.pw.gate.removeHint": "Gulp aýrylsa, programma açykka kompýuteriňize ýeten her bir adam ýatda saklanan açar sözleriňizi görüp biler.",
   "settings.pw.gate.removeButton": "Gulpy aýyr",
   "settings.pw.gate.removed": "Gulp aýryldy.",
+  "settings.pw.gate.helloLabel": "Windows Hello bilen aç",
+  "settings.pw.gate.helloHint": "Kodyň ýerine ýüzüňiz, barmak yzyňyz ýa-da Windows PIN koduňyz bilen açyp bilersiňiz. Barlag enjamyň özünde geçirilýär; barmak yzy we ýüz maglumatlary kompýuterden çykmaýar, Microsoft-a iberilmeýär. Windows diňe \"Hello ulanyldy\" hasaplaýjysyny öz diagnostikasynda saklaýar. Koduňyz ätiýaçlyk hökmünde galýar: Hello öçürilse ýa-da enjam çalyşsa, açar sözleriňize ýene ýetip bilersiňiz.",
+  "settings.pw.gate.helloUnlock": "Windows Hello bilen aç",
+  "settings.pw.gate.helloFailed": "Windows Hello barlagy tamamlanmady. Koduňyz bilen açyp bilersiňiz.",
+  "settings.pw.gate.helloPrompt": "İlgezdi — ýatda saklanan açar sözleriňizi görkezmek üçin tassyklaň",
   "settings.pw.gate.unlockFirst": "Ilki gulpy açyň.",
   "settings.pw.gate.unavailable": "Gulpuň ýagdaýy okalmady.",
   "settings.pw.gate.minutes": {

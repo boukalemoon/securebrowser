@@ -645,6 +645,11 @@
   "settings.pw.gate.removeHint": "Ohne die Sperre kann jede Person, die bei geöffneter App an Ihren Computer kommt, Ihre gespeicherten Passwörter sehen.",
   "settings.pw.gate.removeButton": "Sperre entfernen",
   "settings.pw.gate.removed": "Sperre entfernt.",
+  "settings.pw.gate.helloLabel": "Mit Windows Hello entsperren",
+  "settings.pw.gate.helloHint": "Statt des Codes können Sie mit Ihrem Gesicht, Ihrem Fingerabdruck oder Ihrer Windows-PIN entsperren. Die Prüfung erfolgt auf dem Gerät; Fingerabdruck- und Gesichtsdaten verlassen den Computer nicht und werden nicht an Microsoft gesendet. Windows führt lediglich einen Zähler „Hello wurde verwendet“ in seinen eigenen Diagnosedaten. Ihr Code bleibt als Reserve bestehen: Wird Hello abgeschaltet oder wechselt das Gerät, kommen Sie weiterhin an Ihre Passwörter.",
+  "settings.pw.gate.helloUnlock": "Mit Windows Hello entsperren",
+  "settings.pw.gate.helloFailed": "Die Überprüfung mit Windows Hello wurde nicht abgeschlossen. Sie können mit Ihrem Code entsperren.",
+  "settings.pw.gate.helloPrompt": "İlgezdi – bestätigen Sie, um Ihre gespeicherten Passwörter anzuzeigen",
   "settings.pw.gate.unlockFirst": "Entsperren Sie zuerst.",
   "settings.pw.gate.unavailable": "Der Sperrzustand konnte nicht gelesen werden.",
   "settings.pw.gate.minutes": {

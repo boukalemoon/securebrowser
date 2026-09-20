@@ -615,6 +615,11 @@
   "settings.pw.gate.removeHint": "Qulf olib tashlansa, ilova ochiq turganda kompyuteringizga kirgan har qanday odam saqlangan parollaringizni koʻra oladi.",
   "settings.pw.gate.removeButton": "Qulfni olib tashlash",
   "settings.pw.gate.removed": "Qulf olib tashlandi.",
+  "settings.pw.gate.helloLabel": "Windows Hello bilan ochish",
+  "settings.pw.gate.helloHint": "Kod oʻrniga yuzingiz, barmoq izingiz yoki Windows PIN kodingiz bilan ochishingiz mumkin. Tekshiruv qurilmaning oʻzida bajariladi; barmoq izi va yuz maʼlumotlari kompyuterdan chiqmaydi, Microsoftga yuborilmaydi. Windows faqat «Hello ishlatildi» hisoblagichini oʻz diagnostikasida saqlaydi. Kodingiz zaxira sifatida qoladi: Hello oʻchirilsa yoki qurilma almashsa, parollaringizga baribir kira olasiz.",
+  "settings.pw.gate.helloUnlock": "Windows Hello bilan ochish",
+  "settings.pw.gate.helloFailed": "Windows Hello tekshiruvi yakunlanmadi. Kodingiz bilan ochishingiz mumkin.",
+  "settings.pw.gate.helloPrompt": "İlgezdi — saqlangan parollaringizni koʻrsatish uchun tasdiqlang",
   "settings.pw.gate.unlockFirst": "Avval qulfni oching.",
   "settings.pw.gate.unavailable": "Qulf holatini oʻqib boʻlmadi.",
   "settings.pw.gate.minutes": {

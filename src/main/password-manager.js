@@ -27,6 +27,7 @@ const { execFileSync } = require('child_process');
 const { dialog, clipboard } = require('electron');
 const osCrypto = require('./os-crypto');
 const { createGate } = require('./vault-gate');
+const winHello = require('./win-hello');
 const { auditPasswords } = require('./password-generator');
 const { checkPwnedPasswords } = require('./pwned-check');
 const { log: diag } = require('./diagnostics');
@@ -544,6 +545,32 @@ function setupPasswordManager(ipcMain, options) {
     return r.ok ? { ...r, kalanMs: gate.durum().kalanMs } : r;
   });
   ipcMain.handle('pw-gate-lock', async () => { await gateReady; return gate.kilitle(); });
+
+  // ── Windows Hello (isteğe bağlı hızlı yol; kod her zaman yedek kalır) ──
+  ipcMain.handle('pw-gate-hello-status', async () => {
+    await gateReady;
+    const u = await winHello.uygunMu();
+    return { ...u, acik: gate.helloIzinli() };
+  });
+  ipcMain.handle('pw-gate-hello-set', async (e, acik) => {
+    await gateReady;
+    if (acik) {
+      // Açarken bir kez doğrula: çalışmayan bir kapıyı "açık" göstermeyelim.
+      const u = await winHello.uygunMu();
+      if (!u.uygun) return { ok: false, kod: u.neden };
+      const d = await winHello.dogrula(T('settings.pw.gate.helloPrompt'));
+      if (!d.ok) return { ok: false, kod: d.neden };
+    }
+    return gate.helloAyarla(acik === true);
+  });
+  ipcMain.handle('pw-gate-hello-unlock', async () => {
+    await gateReady;
+    if (!gate.helloIzinli()) return { ok: false, kod: 'hello_kapali' };
+    const d = await winHello.dogrula(T('settings.pw.gate.helloPrompt'));
+    if (!d.ok) return { ok: false, kod: d.neden };
+    const r = gate.helloAc();
+    return r.ok ? { ...r, kalanMs: gate.durum().kalanMs } : r;
+  });
   ipcMain.handle('pw-gate-change', async (e, { eski, yeni } = {}) => { await gateReady; return gate.degistir(eski, yeni); });
   ipcMain.handle('pw-gate-remove', async (e, kod) => {
     await gateReady;

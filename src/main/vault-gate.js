@@ -96,7 +96,37 @@ function createGate(io) {
         beklemeMs: beklemeKalan(),
         yanlis: kurulu() ? (kayit.yanlis || 0) : 0,
         minUzunluk: MIN_UZUNLUK,
+        hello: kurulu() && kayit.hello === true,
       };
+    },
+
+    /**
+     * Windows Hello'yu hızlı yol olarak aç/kapat. Kod HER ZAMAN kurulu kalır:
+     * Hello yalnızca bir kapıdır, kasanın şifrelemesi ona bağlanmaz. Cihaz
+     * değişir ya da kurum ilkesi Hello'yu kapatırsa kullanıcı koduyla girer.
+     */
+    helloAyarla(acik) {
+      if (!kurulu()) return { ok: false, kod: 'kurulu_degil' };
+      if (!acikMi()) return { ok: false, kod: 'kilitli' };
+      kayit.hello = acik === true;
+      yaz();
+      return { ok: true, hello: kayit.hello };
+    },
+
+    helloIzinli() { return kurulu() && kayit.hello === true; },
+
+    /**
+     * Hello doğrulaması BAŞARILI olduğunda kilidi açar. Doğrulamanın kendisi
+     * ana süreçte (win-hello.js) yapılır; buraya yalnızca sonucu gelir.
+     * Kod için işleyen bekleme bunu engellemez: Hello'nun kendi donanım
+     * sınırlaması (TPM) zaten var ve farklı bir etkendir.
+     */
+    helloAc() {
+      if (!kurulu()) return { ok: true };
+      if (!this.helloIzinli()) return { ok: false, kod: 'hello_kapali' };
+      if (kayit.yanlis) { kayit.yanlis = 0; kayit.sonYanlisAt = 0; yaz(); }
+      acikSonu = now() + ACIK_SURE_MS;
+      return { ok: true };
     },
 
     /** Kilit kurulu değilse şifre göstermeye izin var (kullanıcı seçmemiş). */

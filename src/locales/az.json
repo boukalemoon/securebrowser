@@ -615,6 +615,11 @@
   "settings.pw.gate.removeHint": "Kilid silinsə, tətbiq açıq olanda kompüterinizə çatan hər kəs saxlanılmış parollarınızı görə bilər.",
   "settings.pw.gate.removeButton": "Kilidi sil",
   "settings.pw.gate.removed": "Kilid silindi.",
+  "settings.pw.gate.helloLabel": "Windows Hello ilə aç",
+  "settings.pw.gate.helloHint": "Kod əvəzinə üzünüz, barmaq iziniz ya da Windows PIN-inizlə aça bilərsiniz. Doğrulama cihazda aparılır; barmaq izi və üz məlumatları kompüterdən çıxmır, Microsoft-a göndərilmir. Windows yalnız \"Hello istifadə olundu\" sayğacını öz diaqnostikasında saxlayır. Kodunuz ehtiyat olaraq qalır: Hello söndürülsə ya da cihaz dəyişsə, parollarınıza yenə çata bilərsiniz.",
+  "settings.pw.gate.helloUnlock": "Windows Hello ilə aç",
+  "settings.pw.gate.helloFailed": "Windows Hello doğrulaması tamamlanmadı. Kodunuzla aça bilərsiniz.",
+  "settings.pw.gate.helloPrompt": "İlgezdi — saxlanılmış parollarınızı göstərmək üçün doğrulayın",
   "settings.pw.gate.unlockFirst": "Əvvəlcə kilidi açın.",
   "settings.pw.gate.unavailable": "Kilid vəziyyəti oxunmadı.",
   "settings.pw.gate.minutes": {

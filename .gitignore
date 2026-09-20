@@ -17,3 +17,6 @@ serviceAccount*.json
 service-account*.json
 # Site derlemesinde üretilen tehdit listeleri (scripts/build-threat-lists.js)
 site/lists/
+
+# Windows Hello yardımcısı derleme çıktısı (paketlemede beforePack üretir)
+build/win-hello/*.exe

@@ -615,6 +615,11 @@
   "settings.pw.gate.removeHint": "Құлып алынып тасталса, қолданба ашық кезде компьютеріңізге қол жеткізген кез келген адам сақталған құпия сөздеріңізді көре алады.",
   "settings.pw.gate.removeButton": "Құлыпты алып тастау",
   "settings.pw.gate.removed": "Құлып алынып тасталды.",
+  "settings.pw.gate.helloLabel": "Windows Hello арқылы ашу",
+  "settings.pw.gate.helloHint": "Кодтың орнына бетіңізбен, саусақ ізіңізбен немесе Windows PIN кодыңызбен аша аласыз. Тексеру құрылғының өзінде жүреді; саусақ ізі мен бет деректері компьютерден шықпайды, Microsoft-қа жіберілмейді. Windows тек «Hello пайдаланылды» санағышын өзінің диагностикасында сақтайды. Кодыңыз қосалқы жол ретінде қалады: Hello өшірілсе немесе құрылғы ауысса, құпия сөздеріңізге бәрібір жете аласыз.",
+  "settings.pw.gate.helloUnlock": "Windows Hello арқылы ашу",
+  "settings.pw.gate.helloFailed": "Windows Hello тексеруі аяқталмады. Кодыңызбен аша аласыз.",
+  "settings.pw.gate.helloPrompt": "İlgezdi — сақталған құпия сөздеріңізді көрсету үшін растаңыз",
   "settings.pw.gate.unlockFirst": "Әуелі құлыпты ашыңыз.",
   "settings.pw.gate.unavailable": "Құлып күйі оқылмады.",
   "settings.pw.gate.minutes": {

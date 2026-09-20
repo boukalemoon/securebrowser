@@ -615,6 +615,11 @@
   "settings.pw.gate.removeHint": "Kilit kaldırılırsa uygulama açıkken bilgisayarınıza erişen herkes kayıtlı şifrelerinizi görebilir.",
   "settings.pw.gate.removeButton": "Kilidi kaldır",
   "settings.pw.gate.removed": "Kilit kaldırıldı.",
+  "settings.pw.gate.helloLabel": "Windows Hello ile aç",
+  "settings.pw.gate.helloHint": "Kod yerine yüzünüz, parmak iziniz ya da Windows PIN'inizle açabilirsiniz. Doğrulama cihazda yapılır; parmak izi ve yüz verisi bilgisayardan çıkmaz, Microsoft'a gönderilmez. Windows yalnızca \"Hello kullanıldı\" sayacını kendi tanılamasında tutar. Kodunuz yedek olarak kalır: Hello kapanırsa ya da cihaz değişirse şifrelerinize yine ulaşırsınız.",
+  "settings.pw.gate.helloUnlock": "Windows Hello ile aç",
+  "settings.pw.gate.helloFailed": "Windows Hello doğrulaması tamamlanmadı. Kodunuzla açabilirsiniz.",
+  "settings.pw.gate.helloPrompt": "İlgezdi — kayıtlı şifrelerinizi göstermek için doğrulayın",
   "settings.pw.gate.unlockFirst": "Önce kilidi açın.",
   "settings.pw.gate.unavailable": "Kilit durumu okunamadı.",
   "settings.pw.gate.minutes": {

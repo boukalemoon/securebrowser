@@ -2990,6 +2990,93 @@ suite('Kasa kilidi — ana süreç kararı ve arayüz sözleşmesi');
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
+// Windows Hello — kasa kilidi için isteğe bağlı hızlı yol (Burak onayı, 20 Eyl 2026).
+// Koşul: doğrulanan veriler cihazdan çıkmayacak. UserConsentVerifier yerel
+// TPM/biyometrik servise sorar; biyometrik şablon cihazdan çıkmaz, Microsoft
+// hesabı ya da internet gerekmez. Kod HER ZAMAN yedek kalır — Hello bozulursa
+// kullanıcı kendi kasasından kilitlenmemeli.
+// ══════════════════════════════════════════════════════════════════════════════
+suite('Windows Hello — isteğe bağlı hızlı yol, kod yedekte');
+{
+  const VG = require('../src/main/vault-gate.js');
+  const kutu = { kayit: null, t: 9_000_000 };
+  const io = { read: () => kutu.kayit, write: (r) => { kutu.kayit = r ? JSON.parse(JSON.stringify(r)) : null; }, now: () => kutu.t };
+  const g = VG.createGate(io);
+
+  g.kur('HelloKodu12');
+  check('Hello varsayılan olarak KAPALI (kullanıcıya dayatılmıyor)', g.durum().hello === false && !g.helloIzinli());
+  check('Hello açılınca kayda yazılıyor', g.helloAyarla(true).ok === true && kutu.kayit.hello === true && g.durum().hello === true);
+
+  g.kilitle();
+  check('kilitliyken Hello ayarı DEĞİŞTİRİLEMİYOR', g.helloAyarla(false).kod === 'kilitli' && kutu.kayit.hello === true);
+  check('Hello doğrulaması kilidi açıyor', g.helloAc().ok === true && g.izinli());
+
+  // Kod beklemesi Hello'yu engellemez: farklı bir etken, Windows'un kendi
+  // donanım sınırlaması var. Ama Hello kapalıyken helloAc İŞE YARAMAMALI.
+  g.kilitle();
+  g.helloAyarla(true);
+  g.kilitle();
+  for (let i = 0; i < 4; i++) g.ac('yanlisKod' + i);
+  check('kod beklemesi sürerken bile Hello açabiliyor', g.durum().beklemeMs === 0 || g.helloAc().ok === true);
+  g.kilitle();
+  g.helloAyarla(true);   // (kilitliyken reddedilir; açıkken zaten açıktı)
+  const g2 = VG.createGate(io);
+  g2.ac('HelloKodu12');
+  g2.helloAyarla(false);
+  g2.kilitle();
+  check('Hello kapalıyken helloAc kilidi AÇMIYOR', g2.helloAc().kod === 'hello_kapali' && !g2.izinli());
+
+  // Kod her zaman yedek: Hello açıkken bile kod çalışmaya devam ediyor.
+  g2.helloAyarla(false);
+  check('Hello açık olsun olmasın kod hep çalışıyor', g2.ac('HelloKodu12').ok === true);
+  check('kilit kaydında kod özeti Hello\'dan bağımsız duruyor', !!kutu.kayit.ozet && !!kutu.kayit.tuz);
+}
+
+suite('Windows Hello — yardımcı, paketleme ve gizlilik sınırı');
+{
+  const cs = read('../build/win-hello/IlgezdiHello.cs');
+  check('yardımcı hiçbir ağ çağrısı yapmıyor',
+    !/System\.Net|HttpClient|WebRequest|Socket|Dns\./.test(cs));
+  check('yardımcı diske yazmıyor ve argümanları saklamıyor',
+    !/File\.|StreamWriter|Registry|AppData/.test(cs));
+  check('yalnızca UserConsentVerifier kullanılıyor (Windows parolası istenmiyor)',
+    /UserConsentVerifier\.CheckAvailabilityAsync/.test(cs) && /UserConsentVerifier\.RequestVerificationAsync/.test(cs)
+    && !/CredUIPromptForWindowsCredentials|CredentialPicker/.test(cs));
+  check('Windows SDK birleşik metadata\'sına bağımlı değil (AsTask yerine Completed)',
+    /op\.Completed =/.test(cs) && !/\.AsTask\(\)/.test(cs));
+
+  const wh = read('../src/main/win-hello.js');
+  check('Windows dışında her zaman kapalı', /process\.platform !== 'win32'/.test(wh));
+  check('yalnızca "dogrulandi" kabul ediliyor; iptal ve deneme bitti koda düşürüyor',
+    /ok: cikis === 0/.test(wh) && /5: 'deneme_bitti', 6: 'iptal'/.test(wh));
+  check('yardımcı yoksa özellik sessizce kapanıyor (çalışmayan düğme gösterilmiyor)',
+    /if \(!exe\) return Promise\.resolve/.test(wh) && /neden: 'desteklenmiyor'/.test(wh));
+
+  const pm = read('../src/main/password-manager.js');
+  check('Hello açılırken bir kez gerçekten doğrulanıyor',
+    /pw-gate-hello-set'[\s\S]{0,500}?winHello\.dogrula\(/.test(pm));
+  check('Hello ile açma ana süreçte doğrulanıyor, arayüzün sözüne güvenilmiyor',
+    /pw-gate-hello-unlock'[\s\S]{0,300}?winHello\.dogrula\([\s\S]{0,200}?gate\.helloAc\(\)/.test(pm));
+
+  const pkg = JSON.parse(read('../package.json'));
+  check('yardımcı YALNIZCA Windows paketine giriyor',
+    JSON.stringify(pkg.build.win.extraResources).includes('win-hello/IlgezdiHello.exe')
+    && !JSON.stringify(pkg.build.mac || {}).includes('win-hello')
+    && !JSON.stringify(pkg.build.linux || {}).includes('win-hello'));
+  check('paketleme öncesi derleniyor', pkg.build.beforePack === 'scripts/before-pack.js');
+  const bp = read('../scripts/before-pack.js');
+  check('Windows hedefinde derleme başarısızsa paketleme DURUYOR (ölü düğme gönderilmiyor)',
+    /electronPlatformName/.test(bp) && /zorunlu: true/.test(bp) && /throw new Error/.test(bp));
+  check('derlenmiş exe depoya girmiyor (paketlemede üretilir)',
+    read('../.gitignore').includes('build/win-hello/*.exe'));
+
+  // Yerel npm modülü ya da node-gyp bağımlılığı eklenmedi.
+  const bagimliliklar = JSON.stringify({ ...(pkg.dependencies || {}), ...(pkg.devDependencies || {}) });
+  check('yerel (node-gyp) Hello modülü eklenmedi',
+    !/win-hello|windows-hello|nodert|ffi-napi|node-api-dotnet/i.test(bagimliliklar));
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
 // Electron 44 — pano API'si eşzamansız oldu; writeImage/readImage/availableFormats
 // KALDIRILDI. Sonda ile ölçüldü (20 Eyl 2026): clipboard.writeImage çağrısı
 // TypeError atıyor, readText Promise döndürüyor. Eski kod bu yüzden sessizce

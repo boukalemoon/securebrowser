@@ -209,6 +209,10 @@ contextBridge.exposeInMainWorld('secureBrowser', {
       lock:   ()              => ipcRenderer.invoke('pw-gate-lock'),
       change: (eski, yeni)    => ipcRenderer.invoke('pw-gate-change', { eski, yeni }),
       remove: (kod)           => ipcRenderer.invoke('pw-gate-remove', kod),
+      // Windows Hello: yalnızca hızlı yol. Doğrulama cihazda yapılır, kod yedek kalır.
+      helloStatus: ()         => ipcRenderer.invoke('pw-gate-hello-status'),
+      helloSet:    (acik)     => ipcRenderer.invoke('pw-gate-hello-set', acik),
+      helloUnlock: ()         => ipcRenderer.invoke('pw-gate-hello-unlock'),
     },
   },
 

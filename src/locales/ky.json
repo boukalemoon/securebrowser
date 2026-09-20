@@ -615,6 +615,11 @@
   "settings.pw.gate.removeHint": "Кулпу алып салынса, колдонмо ачык турганда компьютериңизге жеткен ар бир адам сакталган сырсөздөрүңүздү көрө алат.",
   "settings.pw.gate.removeButton": "Кулпуну алып салуу",
   "settings.pw.gate.removed": "Кулпу алып салынды.",
+  "settings.pw.gate.helloLabel": "Windows Hello менен ачуу",
+  "settings.pw.gate.helloHint": "Коддун ордуна жүзүңүз, манжа изиңиз же Windows PIN кодуңуз менен ача аласыз. Текшерүү түзмөктүн өзүндө жүргүзүлөт; манжа изи жана жүз маалыматтары компьютерден чыкпайт, Microsoft'ко жөнөтүлбөйт. Windows «Hello колдонулду» эсептегичин гана өзүнүн диагностикасында сактайт. Кодуңуз кошумча жол катары калат: Hello өчүрүлсө же түзмөк алмашса, сырсөздөрүңүзгө дагы эле жете аласыз.",
+  "settings.pw.gate.helloUnlock": "Windows Hello менен ачуу",
+  "settings.pw.gate.helloFailed": "Windows Hello текшерүүсү аяктаган жок. Кодуңуз менен ача аласыз.",
+  "settings.pw.gate.helloPrompt": "İlgezdi — сакталган сырсөздөрүңүздү көрсөтүү үчүн ырастаңыз",
   "settings.pw.gate.unlockFirst": "Алгач кулпуну ачыңыз.",
   "settings.pw.gate.unavailable": "Кулпунун абалы окулбады.",
   "settings.pw.gate.minutes": {

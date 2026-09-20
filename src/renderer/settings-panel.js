@@ -861,12 +861,24 @@ async function renderPwGate() {
 
   if (!d.acik) {
     const bekliyor = d.beklemeMs > 0;
+    // Hello açıksa kod beklemesi onu engellemez: farklı bir etken ve Windows'un
+    // kendi donanım sınırlaması var.
+    const helloVar = d.hello && (await g.helloStatus().catch(() => null))?.uygun;
     box.innerHTML = `
       <p class="s-hint" style="margin-top:0">🔒 ${bekliyor ? TH('settings.pw.gate.waiting', { time: _pwSure(d.beklemeMs) }) : TH('settings.pw.gate.locked')}</p>
+      ${helloVar ? `<button class="btn-save-settings" id="pw-gate-hello-go" style="margin-bottom:10px">${TH('settings.pw.gate.helloUnlock')}</button>` : ''}
       <div class="s-input-row"><label for="pw-gate-code">${TH('settings.pw.gate.code')}</label>
         <input type="password" id="pw-gate-code" autocomplete="current-password" placeholder="••••••" ${bekliyor ? 'disabled' : ''}/></div>
       <button class="btn-save-settings" id="pw-gate-unlock" ${bekliyor ? 'disabled' : ''}>${TH('settings.pw.gate.unlockButton')}</button>
       <p class="s-hint" id="pw-gate-msg" aria-live="polite"></p>`;
+    document.getElementById('pw-gate-hello-go')?.addEventListener('click', async (ev) => {
+      ev.currentTarget.disabled = true;
+      const r = await g.helloUnlock();
+      if (r && r.ok) { showSettingsToast(T('settings.pw.gate.unlocked'), 'success'); renderPwGate(); populatePwdList(); return; }
+      const msg = document.getElementById('pw-gate-msg');
+      if (msg) msg.textContent = T('settings.pw.gate.helloFailed');
+      renderPwGate();
+    });
     const dene = async () => {
       const input = document.getElementById('pw-gate-code');
       const msg = document.getElementById('pw-gate-msg');
@@ -885,8 +897,14 @@ async function renderPwGate() {
     return;
   }
 
+  const hello = await g.helloStatus().catch(() => null);
   box.innerHTML = `
     <p class="s-hint" style="margin-top:0;color:var(--success)">🔓 ${TH('settings.pw.gate.open', { time: _pwSure(d.kalanMs) })}</p>
+    ${hello && (hello.uygun || hello.acik) ? `
+    <div class="s-toggle-row">
+      <div><div class="s-toggle-label">${TH('settings.pw.gate.helloLabel')}</div><div class="s-toggle-sub">${TH('settings.pw.gate.helloHint')}</div></div>
+      <label class="switch"><input type="checkbox" id="pw-gate-hello" ${hello.acik ? 'checked' : ''}/><span class="slider"></span></label>
+    </div>` : ''}
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       <button class="pwd-btn" id="pw-gate-lock">${TH('settings.pw.gate.lockNow')}</button>
       <button class="pwd-btn" id="pw-gate-change-t">${TH('settings.pw.gate.change')}</button>
@@ -894,6 +912,16 @@ async function renderPwGate() {
     </div>
     <div id="pw-gate-sub" hidden></div>
     <p class="s-hint" id="pw-gate-msg" aria-live="polite"></p>`;
+  document.getElementById('pw-gate-hello')?.addEventListener('change', async (ev) => {
+    const istenen = ev.currentTarget.checked;
+    ev.currentTarget.disabled = true;
+    const r = await g.helloSet(istenen);
+    if (!r || r.ok === false) {
+      ev.currentTarget.checked = !istenen;
+      document.getElementById('pw-gate-msg').textContent = T('settings.pw.gate.helloFailed');
+    }
+    ev.currentTarget.disabled = false;
+  });
   document.getElementById('pw-gate-lock').addEventListener('click', async () => {
     await g.lock(); showSettingsToast(T('settings.pw.gate.lockedNow')); renderPwGate(); populatePwdList();
   });
@@ -923,10 +951,13 @@ async function renderPwGate() {
       msg.textContent = T('settings.pw.gate.wrong');
     });
   });
-  // Süre dolduğunda kart kendiliğinden "kilitli" hâline geçsin.
+  // Süre dolduğunda kart kendiliğinden "kilitli" hâline geçsin. Kullanıcı alt
+  // formda bir şey yazıyorsa yenileme ERTELENİR — yoksa yazdığı kod silinirdi.
   _pwGateTimer = setInterval(() => {
     if (!document.getElementById('pw-gate-box')) { clearInterval(_pwGateTimer); _pwGateTimer = null; return; }
-    renderPwGate();
+    const alt = document.getElementById('pw-gate-sub');
+    const yaziyor = alt && !alt.hidden && [...alt.querySelectorAll('input')].some((i) => i.value || i === document.activeElement);
+    if (!yaziyor) renderPwGate();
   }, 15000);
 }
 

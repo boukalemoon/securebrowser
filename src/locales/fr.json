@@ -651,6 +651,11 @@
   "settings.pw.gate.removeHint": "Sans le verrou, toute personne qui accède à votre ordinateur pendant que l’application est ouverte peut voir vos mots de passe enregistrés.",
   "settings.pw.gate.removeButton": "Supprimer le verrou",
   "settings.pw.gate.removed": "Verrou supprimé.",
+  "settings.pw.gate.helloLabel": "Déverrouiller avec Windows Hello",
+  "settings.pw.gate.helloHint": "Déverrouillez avec votre visage, votre empreinte digitale ou votre code PIN Windows au lieu du code. La vérification a lieu sur l’appareil ; les données d’empreinte et de visage ne quittent pas l’ordinateur et ne sont pas envoyées à Microsoft. Windows conserve uniquement un compteur « Hello a été utilisé » dans ses propres diagnostics. Votre code reste la solution de secours : si Hello est désactivé ou si vous changez d’appareil, vous pourrez toujours accéder à vos mots de passe.",
+  "settings.pw.gate.helloUnlock": "Déverrouiller avec Windows Hello",
+  "settings.pw.gate.helloFailed": "La vérification Windows Hello n’a pas abouti. Vous pouvez déverrouiller avec votre code.",
+  "settings.pw.gate.helloPrompt": "İlgezdi — vérifiez votre identité pour afficher vos mots de passe enregistrés",
   "settings.pw.gate.unlockFirst": "Déverrouillez d’abord.",
   "settings.pw.gate.unavailable": "Impossible de lire l’état du verrou.",
   "settings.pw.gate.minutes": {
