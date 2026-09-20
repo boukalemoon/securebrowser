@@ -2419,7 +2419,11 @@ suite('Veri ve Gizlilik — izin kataloğu');
   eq('boş yapılandırmada varsayılanlar (hata raporu henüz sorulmadı)', [base.visitLog, base.updateCheck, base.restoreSession, base.diagnostics, base.ulgenChat, base.gpc, base.dnt], [true, true, false, null, false, true, false]);
   eq('metin değerli ayar (başlangıç kipi) açık/kapalı sayılıyor', [C.valueOf(C.BY_ID.restoreSession, { startupMode: 'restore' }), C.configValue(C.BY_ID.restoreSession, true), C.configValue(C.BY_ID.restoreSession, false)], [true, 'restore', 'homepage']);
   eq('fark listesi yalnızca değişenler', C.diff(base, C.snapshot({ consents: { ulgenChat: true }, autoUpdateCheck: false })), [{ id: 'updateCheck', from: true, to: false }, { id: 'ulgenChat', from: false, to: true }]);
-  eq('sohbet izninin bağlı izinleri', C.dependentsOf('ulgenChat').sort(), ['ulgenHistory', 'ulgenInterests', 'ulgenPage']);
+  eq('sohbet izninin bağlı izinleri', C.dependentsOf('ulgenChat').sort(), ['ulgenHistory', 'ulgenInterests', 'ulgenPage', 'ulgenTranslate']);
+  // Çeviri sayfa iznine bağlı (özeti çevirir) ve dil paketi sunucudan indiği için dışarıya bağlanır.
+  check('çeviri izni: sayfa iznine bağlı, varsayılan kapalı, hedefi İlgezdi sunucusu',
+    C.BY_ID.ulgenTranslate.requires === 'ulgenPage' && C.BY_ID.ulgenTranslate.def === false
+    && C.BY_ID.ulgenTranslate.dest === 'ilgezdi' && C.sendsData(C.BY_ID.ulgenTranslate));
   check('"yakında" öğeler anlık görüntüye girmiyor ve veri gönderen sayılmıyor', !('syncPasswords' in base) && !C.sendsData(C.BY_ID.syncPasswords));
   check('cihazda kalanlar, yerel Ülgen ve site korumaları "dışarıya bağlanan" sayılmıyor', !C.sendsData(C.BY_ID.visitLog) && !C.sendsData(C.BY_ID.gpc) && C.sendsData(C.BY_ID.updateCheck) && !C.sendsData(C.BY_ID.ulgenChat) && !C.sendsData(C.BY_ID.ulgenPage));
   const tr = JSON.parse(read('locales/tr.json'));

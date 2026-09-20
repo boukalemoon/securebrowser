@@ -139,6 +139,11 @@ function injectUlgenStyles() {
     .ulgen-sum li { counter-increment:ulgen; position:relative; padding-left:24px; color:var(--ink-soft); }
     .ulgen-sum li::before { content:counter(ulgen); position:absolute; left:0; top:1px; width:17px; height:17px; border-radius:50%;
       display:grid; place-items:center; font:700 10px var(--font-mono); color:var(--bg); background:linear-gradient(135deg, var(--gold), var(--copper)); }
+    /* Çeviri: özgün cümlenin altında, ayrı renkte ve ince bir çizgiyle */
+    .ulgen-tr { margin-top:4px; padding-left:8px; border-left:2px solid color-mix(in srgb, var(--copper) 55%, transparent);
+      font-size:12.5px; line-height:1.5; color:var(--ink); }
+    .ulgen-tr-foot { display:inline-flex; align-items:center; gap:5px; }
+    .ulgen-tr-foot::before { content:''; width:5px; height:5px; border-radius:50%; background:var(--copper); }
     .ulgen-quote { padding:6px 10px; border-left:2px solid var(--gold); border-radius:0 8px 8px 0; background:color-mix(in srgb, var(--gold) 6%, transparent); color:var(--ink-soft); }
     .ulgen-quote mark { background:color-mix(in srgb, var(--gold) 38%, transparent); color:var(--ink); border-radius:3px; padding:0 2px; }
     .ulgen-foot { font-size:11px; color:var(--ink-mute); margin-top:8px; line-height:1.5; }
@@ -325,9 +330,16 @@ function yanitiGoster(r, istek) {
   switch (r.tur) {
     case 'ozet': {
       const ol = el('ol', 'ulgen-sum');
-      for (const c of r.cumleler || []) ol.appendChild(el('li', null, c));
+      const cev = r.ceviri && r.ceviri.durum === 'hazir' ? r.ceviri.cumleler || [] : [];
+      (r.cumleler || []).forEach((c, i) => {
+        const li = el('li', null, c);
+        // Özgün cümle kaybolmaz: çeviri altında, makine çevirisi damgasıyla durur.
+        if (cev[i]) li.appendChild(el('div', 'ulgen-tr', cev[i]));
+        ol.appendChild(li);
+      });
       const m = mesaj('biz', el('h4', null, r.baslik || ''), el('div', 'ulgen-source', hostOf(r.url)), ol,
         el('div', 'ulgen-foot', T('ulgen.sum.foot', { count: (r.cumleler || []).length, total: r.toplam || 0 })));
+      if (m) ceviriNotu(balon(m), r.ceviri, istek);
       if (m && r.etiket && r.etiket.length) {
         balon(m).appendChild(el('div', 'ulgen-foot', T('ulgen.sum.tagsLabel')));
         const kutu = el('div', 'ulgen-tags');
@@ -370,14 +382,64 @@ function yanitiGoster(r, istek) {
 }
 
 // Sonuç yeni sekmede açılır. Panel açık kalırsa sayfayı örter; bu yüzden kenara çekilir.
+/**
+ * Özetin altındaki çeviri notu. Sayfanın dili arayüz diliyle aynıysa ya da motor dili
+ * bilmiyorsa hiçbir şey gösterilmez — kimseye çeviri dayatılmaz. Paket yoksa indirme
+ * düğmesi çıkar ve "sayfa metni gitmiyor, yalnızca dil paketi iniyor" ayrımı yazılır.
+ */
+function ceviriNotu(kutu, ceviri, istek) {
+  if (!kutu || !ceviri || !ceviri.durum || ceviri.durum === 'dil_bilinmiyor') return;
+  if (ceviri.kaynakDil && ceviri.kaynakDil === hedefDil()) return;
+  if (ceviri.durum === 'hazir') {
+    kutu.appendChild(el('div', 'ulgen-foot ulgen-tr-foot', T('ulgen.tr.stamp')));
+    return;
+  }
+  if (ceviri.durum === 'kapali') {
+    kutu.appendChild(el('div', 'ulgen-foot', T('ulgen.tr.off')));
+    const satir = el('div', 'ulgen-row');
+    satir.appendChild(dugme(T('ulgen.tr.turnOn'), veriSayfasi));
+    kutu.appendChild(satir);
+    return;
+  }
+  if (ceviri.durum === 'paket_yok') {
+    kutu.appendChild(el('div', 'ulgen-foot', T('ulgen.tr.downloadNote')));
+    const satir = el('div', 'ulgen-row');
+    const btn = dugme(T('ulgen.tr.download'), () => paketIndir(btn, ceviri.kaynakDil, istek), 'ulgen-btn primary');
+    satir.appendChild(btn);
+    kutu.appendChild(satir);
+  }
+}
+
+async function paketIndir(btn, kaynakDil, istek) {
+  const kopru = U();
+  if (!kopru || !btn || btn.disabled) return;
+  const eski = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = T('ulgen.tr.downloading');
+  let r = null;
+  try { r = await kopru.eylem({ tur: 'ceviriPaketi', kaynakDil }); } catch { r = null; }
+  btn.disabled = false;
+  btn.textContent = eski;
+  if (r && r.ok !== false && r.durum !== 'hata') {
+    // Paket indi: aynı özet yeniden istenir, bu kez çeviriyle gelir.
+    gonder({ tur: (istek && istek.tur) || 'ozet', metin: T('ulgen.act.summary'), onay: istek && istek.onay });
+  } else {
+    mesaj('biz', T('ulgen.tr.failed'));
+  }
+}
+
 function sekmedeAc(eylem) {
   U()?.eylem(eylem);
   window.ilgezdiCloseAllPanels?.();
 }
 
+// Arayüz dili çevirinin hedefi: Kazakça arayüzde özet Kazakçaya çevrilir.
+const hedefDil = () => (window.ilgezdiI18n && window.ilgezdiI18n.locale) || 'tr';
+
 async function gonder(istek, yazdir = true) {
   const kopru = U();
   if (!kopru || ulgen.mesgul) return;
+  if (istek.tur === 'ozet' && !istek.hedefDil) istek = { ...istek, hedefDil: hedefDil() };
   if (yazdir && istek.metin) mesaj('siz', istek.metin);
   ulgen.mesgul = true;
   const bekle = mesaj('biz', T('ulgen.busy'));

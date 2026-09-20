@@ -1551,5 +1551,14 @@
   "data.sec.network": "Ağ ve site izinleri",
   "data.sec.networkLead": "Adreslerin nasıl çözüldüğü, gerçek IP adresinizin kimlere göründüğü ve sitelere verdiğiniz izinler.",
   "data.net.saved": "Kaydedildi.",
-  "data.settingsMoved": "Gizlilik ayarlarının tamamı Veri ve Gizlilik sayfasında; burada ikinci bir kopyası yok."
+  "data.settingsMoved": "Gizlilik ayarlarının tamamı Veri ve Gizlilik sayfasında; burada ikinci bir kopyası yok.",
+  "ulgen.tr.stamp": "Çeviri bu cihazda yapıldı · makine çevirisi",
+  "ulgen.tr.off": "Bu sayfa başka dilde. Özeti dilinize çevirmek kapalı.",
+  "ulgen.tr.turnOn": "Çeviriyi aç",
+  "ulgen.tr.download": "Dil paketini indir (~16 MB)",
+  "ulgen.tr.downloadNote": "Sayfanın metni cihazdan çıkmaz; yalnızca dil paketi İlgezdi sunucusundan iner.",
+  "ulgen.tr.downloading": "Dil paketi iniyor…",
+  "ulgen.tr.failed": "Dil paketi indirilemedi. Bağlantınızı denetleyip yeniden deneyin.",
+  "data.item.ulgenTranslate.title": "Özeti dilime çevir",
+  "data.item.ulgenTranslate.desc": "Yabancı dildeki sayfaların özeti arayüz dilinize çevrilir. Çeviri bu cihazda yapılır; sayfanın metni hiçbir sunucuya gönderilmez. İlk kullanımda dil paketi (yaklaşık 16 MB) İlgezdi sunucusundan iner. Özgün cümleler çevirinin yanında kalır."
 }

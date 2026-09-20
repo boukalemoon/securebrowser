@@ -1632,5 +1632,14 @@
   "data.sec.network": "Réseau et autorisations des sites",
   "data.sec.networkLead": "Comment les adresses sont résolues, qui voit votre adresse IP réelle et les autorisations que vous avez accordées aux sites.",
   "data.net.saved": "Enregistré.",
-  "data.settingsMoved": "Tous les réglages de confidentialité se trouvent sur la page « Données et confidentialité » ; il n’y en a pas de copie ici."
+  "data.settingsMoved": "Tous les réglages de confidentialité se trouvent sur la page « Données et confidentialité » ; il n’y en a pas de copie ici.",
+  "ulgen.tr.stamp": "Traduit sur cet appareil · traduction automatique",
+  "ulgen.tr.off": "Cette page est dans une autre langue. La traduction du résumé est désactivée.",
+  "ulgen.tr.turnOn": "Activer la traduction",
+  "ulgen.tr.download": "Télécharger le pack de langue (~16 Mo)",
+  "ulgen.tr.downloadNote": "Le texte de la page ne quitte pas votre appareil ; seul le pack de langue est téléchargé depuis le serveur İlgezdi.",
+  "ulgen.tr.downloading": "Téléchargement du pack de langue…",
+  "ulgen.tr.failed": "Le pack de langue n’a pas pu être téléchargé. Vérifiez votre connexion et réessayez.",
+  "data.item.ulgenTranslate.title": "Traduire les résumés dans ma langue",
+  "data.item.ulgenTranslate.desc": "Les résumés des pages en langue étrangère sont traduits dans la langue de votre interface. La traduction se fait sur cet appareil ; le texte de la page n’est jamais envoyé à un serveur. La première fois, un pack de langue (environ 16 Mo) est téléchargé depuis le serveur İlgezdi. Les phrases d’origine restent à côté de la traduction."
 }

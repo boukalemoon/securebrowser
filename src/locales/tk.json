@@ -1551,5 +1551,14 @@
   "data.sec.network": "Tor we saýt rugsatlary",
   "data.sec.networkLead": "Salgylaryň nähili çözülýändigi, hakyky IP salgyňyzy kimleriň görýändigi we saýtlara beren rugsatlaryňyz.",
   "data.net.saved": "Ýatda saklandy.",
-  "data.settingsMoved": "Ähli gizlinlik sazlamalary Maglumatlar we gizlinlik sahypasynda; şu ýerde ikinji nusgasy ýok."
+  "data.settingsMoved": "Ähli gizlinlik sazlamalary Maglumatlar we gizlinlik sahypasynda; şu ýerde ikinji nusgasy ýok.",
+  "ulgen.tr.stamp": "Terjime bu enjamda edildi · maşyn terjimesi",
+  "ulgen.tr.off": "Bu sahypa başga dilde. Gysgaça beýany diliňize terjime etmek öçük.",
+  "ulgen.tr.turnOn": "Terjimäni aç",
+  "ulgen.tr.download": "Dil paketini ýükläp al (~16 MB)",
+  "ulgen.tr.downloadNote": "Sahypanyň teksti enjamdan çykmaýar; diňe dil paketi İlgezdi serwerinden ýüklenip alynýar.",
+  "ulgen.tr.downloading": "Dil paketi ýükläp alynýar…",
+  "ulgen.tr.failed": "Dil paketini ýükläp bolmady. Birikmäňizi barlap, gaýtadan synanyşyň.",
+  "data.item.ulgenTranslate.title": "Gysgaça beýany dilime terjime et",
+  "data.item.ulgenTranslate.desc": "Başga dildäki sahypalaryň gysgaça beýany interfeýs diliňize terjime edilýär. Terjime bu enjamda edilýär; sahypanyň teksti hiç bir serwere iberilmeýär. Ilkinji ulanylanda dil paketi (takmynan 16 MB) İlgezdi serwerinden ýüklenip alynýar. Asyl sözlemler terjimäniň ýanynda galýar."
 }

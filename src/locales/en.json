@@ -1629,5 +1629,14 @@
   "data.sec.network": "Network and site permissions",
   "data.sec.networkLead": "How addresses are resolved, who can see your real IP address, and the permissions you have given to sites.",
   "data.net.saved": "Saved.",
-  "data.settingsMoved": "All privacy settings live on the Data and Privacy page; there is no second copy here."
+  "data.settingsMoved": "All privacy settings live on the Data and Privacy page; there is no second copy here.",
+  "ulgen.tr.stamp": "Translated on this device · machine translation",
+  "ulgen.tr.off": "This page is in another language. Translating the summary is off.",
+  "ulgen.tr.turnOn": "Turn on translation",
+  "ulgen.tr.download": "Download language pack (~16 MB)",
+  "ulgen.tr.downloadNote": "The page text never leaves your device; only the language pack is downloaded from the İlgezdi server.",
+  "ulgen.tr.downloading": "Downloading language pack…",
+  "ulgen.tr.failed": "The language pack couldn't be downloaded. Check your connection and try again.",
+  "data.item.ulgenTranslate.title": "Translate summaries into my language",
+  "data.item.ulgenTranslate.desc": "Summaries of pages in other languages are translated into your interface language. The translation runs on this device; the page text is never sent to a server. The first time, a language pack (about 16 MB) is downloaded from the İlgezdi server. The original sentences stay next to the translation."
 }

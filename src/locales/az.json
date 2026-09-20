@@ -1545,5 +1545,14 @@
   "data.sec.network": "Şəbəkə və sayt icazələri",
   "data.sec.networkLead": "Ünvanların necə həll olunduğu, real IP ünvanınızın kimlərə göründüyü və saytlara verdiyiniz icazələr.",
   "data.net.saved": "Yadda saxlanıldı.",
-  "data.settingsMoved": "Bütün məxfilik ayarları Məlumatlar və məxfilik səhifəsindədir; burada onların ikinci kopyası yoxdur."
+  "data.settingsMoved": "Bütün məxfilik ayarları Məlumatlar və məxfilik səhifəsindədir; burada onların ikinci kopyası yoxdur.",
+  "ulgen.tr.stamp": "Tərcümə bu cihazda edildi · maşın tərcüməsi",
+  "ulgen.tr.off": "Bu səhifə başqa dildədir. Xülasəni dilinizə tərcümə etmək deaktivdir.",
+  "ulgen.tr.turnOn": "Tərcüməni aktiv et",
+  "ulgen.tr.download": "Dil paketini endir (~16 MB)",
+  "ulgen.tr.downloadNote": "Səhifənin mətni cihazdan çıxmır; yalnız dil paketi İlgezdi serverindən endirilir.",
+  "ulgen.tr.downloading": "Dil paketi endirilir…",
+  "ulgen.tr.failed": "Dil paketini endirmək alınmadı. Bağlantınızı yoxlayıb yenidən cəhd edin.",
+  "data.item.ulgenTranslate.title": "Xülasəni dilimə tərcümə et",
+  "data.item.ulgenTranslate.desc": "Yad dildəki səhifələrin xülasəsi interfeys dilinizə tərcümə olunur. Tərcümə bu cihazda edilir; səhifənin mətni heç bir serverə göndərilmir. İlk istifadədə dil paketi (təxminən 16 MB) İlgezdi serverindən endirilir. Orijinal cümlələr tərcümənin yanında qalır."
 }
