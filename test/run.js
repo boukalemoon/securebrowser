@@ -1295,10 +1295,10 @@ suite('Zararlı site koruması — canlı liste durumu');
     && /if \(!threatSubscribed\) \{\s*threatSubscribed = true;/.test(read('renderer/data-center.js')));
 }
 
-suite('Yayın — v0.8.5');
+suite('Yayın — v0.8.6');
 {
   const ROOTD = path.join(__dirname, '..');
-  check('paket sürümü 0.8.5', JSON.parse(fs.readFileSync(path.join(ROOTD, 'package.json'), 'utf8')).version === '0.8.5');
+  check('paket sürümü 0.8.6', JSON.parse(fs.readFileSync(path.join(ROOTD, 'package.json'), 'utf8')).version === '0.8.6');
   const wf = fs.readFileSync(path.join(ROOTD, '.github', 'workflows', 'release.yml'), 'utf8');
   check('yayın otomatik güncelleme dosyalarını da yüklüyor (latest*.yml, blockmap)', wf.includes('dist/latest*.yml') && wf.includes('dist/*.blockmap'));
 }

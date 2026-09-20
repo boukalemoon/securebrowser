@@ -140,6 +140,17 @@ footer a{font-family:var(--font-mono);font-size:12.5px}
 // "En son" etiketi yayınlanmış ilk sürüme verilir.
 const RELEASES = [
   {
+    version: '0.8.6', date: '20 Eylül 2026', title: 'Sayfa özetini kendi dilinize çevirme', upcoming: true,
+    changes: [
+      { t:'new', d:'<b>Özeti kendi dilinize çevirme.</b> Yabancı dildeki bir sayfayı Ülgen\'e özetlettiğinizde her cümlenin altında kendi dilinizdeki karşılığı çıkar. Çeviri bilgisayarınızda yapılır: sayfanın metni hiçbir sunucuya gönderilmez ve internet bağlantınız olmasa da çalışır. İlk kullanımda dil paketi (yaklaşık 16 MB) İlgezdi sunucusundan iner — Google\'a değil. Özgün cümleler yerinde kalır ve çeviri "makine çevirisi" damgası taşır; uydurma yok. Özellik varsayılan olarak kapalıdır, Veri ve Gizlilik\'ten açılır.' },
+      { t:'sec', d:'<b>Dil paketi denetimli iner ve silinebilir.</b> İnen her dosyanın boyutu ve parmak izi uygulamanın içinde yazılıdır; tutmayan bir dosya kurulmaz, sunucu ele geçse bile kullanıcıya yazılmaz. Paket gizli pencerede indirilmez (iz bırakmaz) ve Veri ve Gizlilik sayfasından tek düğmeyle silinir; çeviri iznini kapatırsanız kendiliğinden silinir.' },
+      { t:'sec', d:'<b>Önizleme artık yalnız sizin isteğinizle açılıyor.</b> Bir web sayfası, siz Alt+tıklamadan önizleme penceresi açtırıp onu gerçek bir sekmeye çevirebiliyordu; böylece açılır pencere engeli aşılabiliyordu. Bu yol kapatıldı: önizleme kancaları artık sayfanın erişemediği bir alanda çalışıyor.' },
+      { t:'sec', d:'<b>Gizli pencere izinleri artık diske yazılmıyor.</b> Gizli pencerede bir siteye verdiğiniz kamera, mikrofon ya da konum izni kalıcı olarak kaydediliyordu; ayrıca normal pencerede önceden verdiğiniz izin gizli pencerede sorulmadan uygulanıyordu. Gizli pencerede verilen kararlar artık yalnızca o pencere kapanana kadar yaşıyor.' },
+      { t:'fix', d:'<b>Kenar çubuğunda Ayarlar kaybolmuyor.</b> Düğmeler sığmadığında Öneri ve Ayarlar ekranın dışına taşabiliyordu; çubuk artık kayıyor, bu iki düğme her zaman görünür.' },
+      { t:'fix', d:'<b>Yan panelde açılan sayfalar canlı güncelleniyor.</b> İndirme yüzdesi donuyor, QRtım\'a giriş yaptıktan sonra Öneri ve Keşfet panelleri eski hâlinde kalıyordu. Ayrıca Veri ve Gizlilik\'teki "Güvenli DNS → Değiştir" kısır döngüye giriyordu ve VPN paneli kapandıktan sonra düğmesi vurgulu kalıyordu.' },
+    ],
+  },
+  {
     version: '0.8.5', date: '20 Eylül 2026', title: 'Ülgen çalışıyor, Not Defteri ve tek gizlilik sayfası',
     changes: [
       { t:'new', d:'<b>Ülgen artık çalışıyor.</b> Yan paneldeki asistan açık sayfayı özetler, sayfa içinde bir konuyu bulur, daha önce gezdiğiniz sayfalarda arar ve daha iyi bir arama sorgusu önerir. Hepsi bilgisayarınızda yapılır: yazdıklarınız, sayfanın metni ve geçmişiniz hiçbir sunucuya gönderilmez, internet bağlantınız yokken bile çalışır. Özet, sayfanın kendi cümlelerinden seçilir; Ülgen cümle uydurmaz.' },
