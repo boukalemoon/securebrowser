@@ -428,7 +428,21 @@ function ceviriNotu(kutu, ceviri, istek) {
     const btn = dugme(T('ulgen.tr.download'), () => paketIndir(btn, ceviri.kaynakDil, istek), 'ulgen-btn primary');
     satir.appendChild(btn);
     kutu.appendChild(satir);
+    return;
   }
+  // Dil çifti yoksa sessizce geçmek yerine tek satır: kullanıcı neden çevrilmediğini bilsin.
+  if (ceviri.durum === 'desteklenmiyor') {
+    kutu.appendChild(el('div', 'ulgen-foot', T('ulgen.tr.unsupported')));
+    return;
+  }
+  if (ceviri.durum === 'hata') {
+    kutu.appendChild(el('div', 'ulgen-foot', T('ulgen.tr.error')));
+    const satir = el('div', 'ulgen-row');
+    const btn = dugme(T('ulgen.tr.retry'), () => paketIndir(btn, ceviri.kaynakDil, istek));
+    satir.appendChild(btn);
+    kutu.appendChild(satir);
+  }
+  // 'gerek_yok' ve 'dil_bilinmiyor': sayfa zaten hedef dilde ya da dil bilinmiyor — hiçbir şey gösterilmez.
 }
 
 async function paketIndir(btn, kaynakDil, istek) {
