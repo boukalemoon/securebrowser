@@ -66,26 +66,35 @@ gzip -dc bergamot-translator-worker.wasm.gz | sha256sum
 (ölçüldü 20.09.2026: damgalı 1.857.913 bayt / `b28dc11c…`, damgasız 1.857.881
 bayt / `24b80fdd…`). Koda yazılı olan **damgasız** olandır.
 
-## ⚠️ Sunucu ayarı — tek kritik nokta
+## ⚠️ Sunucu ayarı
 
-Dosyalar **ham `.gz` baytı olarak** gitmeli. Sunucu bunlara
-`Content-Encoding: gzip` başlığı **EKLEMEMELİ**: eklerse tarayıcı katmanı
-kendiliğinden açar, uygulamanın gördüğü baytlar değişir ve **SHA-256 tutmaz →
-paket kurulmaz**. Doğru başlık:
+Tehlikeli olan tek şey: `.gz` dosyasını **`Content-Encoding: gzip`** diye
+etiketlemek. O zaman istemci katmanı dosyayı kendiliğinden açar, uygulamanın
+gördüğü baytlar `.gz` değil `.bin` olur, **SHA-256 tutmaz ve paket kurulmaz**.
+Doğru etiket:
 
 ```
 Content-Type: application/octet-stream
 ```
 
-Nginx'te `gzip off;` / `gzip_static off;` bu konum için yeterli; Vercel'de
-`vercel.json` üzerinden bu yola `Content-Type` verilmesi yeterlidir.
+**Taşıma sıkıştırması ayrı bir şeydir ve sorun değildir.** Ölçüldü
+(20.09.2026, canlı): Vercel bu dosyaları `content-encoding: br` ile
+gönderiyor, istemci şeffaf biçimde açıyor ve elimize yine birebir `.gz`
+baytları geçiyor — indirme ve özet doğrulaması sorunsuz çalıştı.
 
-Yükleme sonrası tek satırlık denetim:
+⚠️ **`curl -sI` ile denetim YANILTIR:** curl varsayılan olarak sıkıştırma
+istemediği için `content-encoding` satırını hiç görmezsiniz; Node/Chromium
+ister ve görür. Yani başlığa bakmak yerine **uçtan uca** denetleyin:
 
 ```sh
-curl -sI https://www.ilgezdi.com.tr/ceviri/en-tr/vocab.entr.spm.gz | grep -i "content-encoding\|content-length"
-# content-encoding BAŞLIĞI ÇIKMAMALI, content-length 395473 olmalı
+# İnen dosya, koddaki özetle birebir mi? (taşıma sıkıştırmasından bağımsız)
+curl -sL --compressed https://www.ilgezdi.com.tr/ceviri/en-tr/vocab.entr.spm.gz | sha256sum
+# → 01e55973e65a34c5efbdce3968857d4e53998b4bef131c5125a19f8e44d8f87c
+curl -sL --compressed https://www.ilgezdi.com.tr/ceviri/motor/bergamot-translator-worker.wasm.gz | gzip -dc | sha256sum
+# → 735d4d95ede043c48f146b9a89336077f18885ad30b7e9a6a86c51a73ca02e7b   (açılmış WASM)
 ```
+
+Bu iki satır tutuyorsa yayın doğrudur; başlıklar ne derse desin.
 
 ## Yeni dil çifti eklerken
 
