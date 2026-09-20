@@ -1558,5 +1558,12 @@
   "ulgen.tr.downloadingPct": "Тіл пакеті жүктелуде… {pct}%",
   "ulgen.tr.unsupported": "Бұл тіл үшін аударма әзірге жоқ.",
   "ulgen.tr.error": "Аудару мүмкін болмады.",
-  "ulgen.tr.retry": "Қайталау"
+  "ulgen.tr.retry": "Қайталау",
+  "data.ulgen.pack": "Жүктеп алынған тіл пакеті",
+  "data.ulgen.packYes": "Орнатылған · шамамен 26 МБ",
+  "data.ulgen.packNone": "Жүктеп алынмаған",
+  "data.ulgen.packUnknown": "Белгісіз",
+  "data.ulgen.packDelete": "Пакетті жою",
+  "data.ulgen.packDeleted": "Тіл пакеті жойылды.",
+  "ulgen.tr.privateWindow": "Тіл пакеті жасырын терезеде жүктеп алынмайды. Қалыпты терезеде жүктеп алсаңыз, жасырын терезеде де жұмыс істейді."
 }

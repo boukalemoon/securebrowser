@@ -124,6 +124,13 @@
           </div>
           <button type="button" class="page-btn sm danger" id="dc-ulgen-delete" disabled>${TH('data.ulgen.delete')}</button>
         </div>
+        <div class="dc-stored">
+          <div>
+            <div class="dc-stored-title">${TH('data.ulgen.pack')}</div>
+            <div class="dc-stored-value" id="dc-ceviri-paket">${TH('data.ulgen.packUnknown')}</div>
+          </div>
+          <button type="button" class="page-btn sm danger" id="dc-ceviri-sil">${TH('data.ulgen.packDelete')}</button>
+        </div>
       </div>`;
     return `
       <div class="page fade-up dc-page" id="data-page">
@@ -369,6 +376,15 @@
         await refreshUlgenData();
         return;
       }
+      // İndirilen çeviri dil paketini sil: izin kapatılınca motor zaten siliyor, bu düğme
+      // izni açık tutup yalnız paketi kaldırmak isteyen için.
+      if (e.target.closest?.('#dc-ceviri-sil')) {
+        let r = null;
+        try { r = await sb().ulgen?.ceviriSil?.(); } catch {}
+        toast(r && r.ok ? T('data.ulgen.packDeleted') : T('data.ulgen.packNone'));
+        await refreshUlgenData();
+        return;
+      }
       if (e.target.closest?.('#dc-log-verify')) { await refreshVerify(); return; }
       if (e.target.closest?.('#dc-log-export')) {
         let r = null;
@@ -391,6 +407,19 @@
       ? T('data.ulgen.storedTags', { count: tags.length, tags: tags.slice(0, 8).map((t) => t.etiket).join(', ') })
       : T('data.ulgen.storedNone');
     del.disabled = !tags.length;
+
+    // Dil paketi durumu: motor bildirirse kurulu/indirilmedi yazılır, bildirmezse
+    // satır "bilinmiyor" kalır ve düğme yine de silmeyi dener (köprü eski olabilir).
+    const paket = document.getElementById('dc-ceviri-paket');
+    const sil = document.getElementById('dc-ceviri-sil');
+    if (!paket || !sil) return;
+    let durum = null;
+    try { durum = await sb().ulgen?.durum?.(); } catch { durum = null; }
+    const kurulu = durum && durum.ceviriPaket ? durum.ceviriPaket.kurulu : null;
+    paket.textContent = kurulu === true ? T('data.ulgen.packYes')
+      : kurulu === false ? T('data.ulgen.packNone')
+      : T('data.ulgen.packUnknown');
+    sil.disabled = kurulu === false;
   }
 
   // ── Ağ ve site izinleri ─────────────────────────────────────────────────────

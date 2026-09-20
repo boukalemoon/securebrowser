@@ -1251,7 +1251,7 @@
   "ulgen.err.noPage": "Açıq veb səhifə yoxdur.",
   "ulgen.err.noArticle": "Bu səhifədə oxunacaq mətn tapılmadı.",
   "ulgen.err.navigated": "Səhifə dəyişdi, yenidən cəhd edin.",
-  "ulgen.err.incognito": "Gizli pəncərədə tarixçə axtarışı bağlıdır.",
+  "ulgen.err.incognito": "Məxfi pəncərədə tarixçə axtarışı bağlıdır.",
   "ulgen.err.historyOff": "Tarixçədə axtarmaq üçün Məlumatlar və məxfilik bölməsində “Baxış tarixçəmə əsasən fərdiləşdir” icazəsini aktivləşdirin.",
   "ulgen.err.emptyQuery": "Nəyi axtarmalı olduğumu yazın.",
   "ulgen.err.generic": "Problem yarandı, yenidən cəhd edin.",
@@ -1558,5 +1558,12 @@
   "ulgen.tr.downloadingPct": "Dil paketi endirilir… {pct}%",
   "ulgen.tr.unsupported": "Bu dil üçün tərcümə hələ yoxdur.",
   "ulgen.tr.error": "Tərcümə alınmadı.",
-  "ulgen.tr.retry": "Yenidən cəhd et"
+  "ulgen.tr.retry": "Yenidən cəhd et",
+  "data.ulgen.pack": "Endirilmiş dil paketi",
+  "data.ulgen.packYes": "Quraşdırılıb · təxminən 26 MB",
+  "data.ulgen.packNone": "Endirilməyib",
+  "data.ulgen.packUnknown": "Bilinmir",
+  "data.ulgen.packDelete": "Paketi sil",
+  "data.ulgen.packDeleted": "Dil paketi silindi.",
+  "ulgen.tr.privateWindow": "Dil paketi məxfi pəncərədə endirilmir. Normal pəncərədə endirsəniz, məxfi pəncərədə də işləyir."
 }

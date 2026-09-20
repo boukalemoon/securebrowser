@@ -1642,5 +1642,12 @@
   "ulgen.tr.downloadingPct": "Downloading language pack… {pct}%",
   "ulgen.tr.unsupported": "Translation isn’t available for this language yet.",
   "ulgen.tr.error": "Couldn’t translate.",
-  "ulgen.tr.retry": "Try again"
+  "ulgen.tr.retry": "Try again",
+  "data.ulgen.pack": "Downloaded language pack",
+  "data.ulgen.packYes": "Installed · about 26 MB",
+  "data.ulgen.packNone": "Not downloaded",
+  "data.ulgen.packUnknown": "Unknown",
+  "data.ulgen.packDelete": "Delete pack",
+  "data.ulgen.packDeleted": "The language pack was deleted.",
+  "ulgen.tr.privateWindow": "The language pack isn’t downloaded in a private window. If you download it in a normal window, it works in private windows too."
 }

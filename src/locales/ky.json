@@ -1564,5 +1564,12 @@
   "ulgen.tr.downloadingPct": "Тил пакети жүктөлүп алынууда… {pct}%",
   "ulgen.tr.unsupported": "Бул тил үчүн котормо азырынча жок.",
   "ulgen.tr.error": "Которуу мүмкүн болгон жок.",
-  "ulgen.tr.retry": "Кайра аракет кылуу"
+  "ulgen.tr.retry": "Кайра аракет кылуу",
+  "data.ulgen.pack": "Жүктөлүп алынган тил пакети",
+  "data.ulgen.packYes": "Орнотулган · болжол менен 26 МБ",
+  "data.ulgen.packNone": "Жүктөлүп алынган эмес",
+  "data.ulgen.packUnknown": "Белгисиз",
+  "data.ulgen.packDelete": "Пакетти өчүрүү",
+  "data.ulgen.packDeleted": "Тил пакети өчүрүлдү.",
+  "ulgen.tr.privateWindow": "Тил пакети жашыруун терезеде жүктөлүп алынбайт. Кадимки терезеде жүктөп алсаңыз, жашыруун терезеде да иштейт."
 }

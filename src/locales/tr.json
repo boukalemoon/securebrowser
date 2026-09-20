@@ -1564,5 +1564,12 @@
   "ulgen.tr.downloadingPct": "Dil paketi iniyor… %{pct}",
   "ulgen.tr.unsupported": "Bu dil için çeviri henüz yok.",
   "ulgen.tr.error": "Çeviri yapılamadı.",
-  "ulgen.tr.retry": "Yeniden dene"
+  "ulgen.tr.retry": "Yeniden dene",
+  "data.ulgen.pack": "İndirilen dil paketi",
+  "data.ulgen.packYes": "Kurulu · yaklaşık 26 MB",
+  "data.ulgen.packNone": "İndirilmedi",
+  "data.ulgen.packUnknown": "Bilinmiyor",
+  "data.ulgen.packDelete": "Paketi sil",
+  "data.ulgen.packDeleted": "Dil paketi silindi.",
+  "ulgen.tr.privateWindow": "Dil paketi gizli pencerede indirilmez. Normal pencerede indirirseniz gizli pencerede de çalışır."
 }

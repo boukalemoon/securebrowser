@@ -1630,5 +1630,12 @@
   "ulgen.tr.downloadingPct": "Sprachpaket wird geladen … {pct} %",
   "ulgen.tr.unsupported": "Für diese Sprache gibt es noch keine Übersetzung.",
   "ulgen.tr.error": "Die Übersetzung ist fehlgeschlagen.",
-  "ulgen.tr.retry": "Erneut versuchen"
+  "ulgen.tr.retry": "Erneut versuchen",
+  "data.ulgen.pack": "Heruntergeladenes Sprachpaket",
+  "data.ulgen.packYes": "Installiert · etwa 26 MB",
+  "data.ulgen.packNone": "Nicht heruntergeladen",
+  "data.ulgen.packUnknown": "Unbekannt",
+  "data.ulgen.packDelete": "Paket löschen",
+  "data.ulgen.packDeleted": "Das Sprachpaket wurde gelöscht.",
+  "ulgen.tr.privateWindow": "In einem privaten Fenster wird das Sprachpaket nicht geladen. Wenn Sie es in einem normalen Fenster herunterladen, funktioniert es auch in privaten Fenstern."
 }

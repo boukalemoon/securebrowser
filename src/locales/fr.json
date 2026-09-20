@@ -1645,5 +1645,12 @@
   "ulgen.tr.downloadingPct": "Téléchargement du pack de langue… {pct} %",
   "ulgen.tr.unsupported": "La traduction n’est pas encore disponible pour cette langue.",
   "ulgen.tr.error": "La traduction a échoué.",
-  "ulgen.tr.retry": "Réessayer"
+  "ulgen.tr.retry": "Réessayer",
+  "data.ulgen.pack": "Pack de langue téléchargé",
+  "data.ulgen.packYes": "Installé · environ 26 Mo",
+  "data.ulgen.packNone": "Non téléchargé",
+  "data.ulgen.packUnknown": "Inconnu",
+  "data.ulgen.packDelete": "Supprimer le pack",
+  "data.ulgen.packDeleted": "Le pack de langue a été supprimé.",
+  "ulgen.tr.privateWindow": "Le pack de langue n’est pas téléchargé dans une fenêtre privée. Si vous le téléchargez dans une fenêtre normale, il fonctionne aussi en fenêtre privée."
 }

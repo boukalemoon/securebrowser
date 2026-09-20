@@ -1558,5 +1558,12 @@
   "ulgen.tr.downloadingPct": "Til paketi yuklab olinmoqda… {pct}%",
   "ulgen.tr.unsupported": "Bu til uchun tarjima hozircha yoʻq.",
   "ulgen.tr.error": "Tarjima qilib boʻlmadi.",
-  "ulgen.tr.retry": "Qayta urinish"
+  "ulgen.tr.retry": "Qayta urinish",
+  "data.ulgen.pack": "Yuklab olingan til paketi",
+  "data.ulgen.packYes": "Oʻrnatilgan · taxminan 26 MB",
+  "data.ulgen.packNone": "Yuklab olinmagan",
+  "data.ulgen.packUnknown": "Nomaʼlum",
+  "data.ulgen.packDelete": "Paketni oʻchirish",
+  "data.ulgen.packDeleted": "Til paketi oʻchirildi.",
+  "ulgen.tr.privateWindow": "Til paketi maxfiy oynada yuklab olinmaydi. Oddiy oynada yuklab olsangiz, maxfiy oynada ham ishlaydi."
 }

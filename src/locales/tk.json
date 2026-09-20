@@ -1564,5 +1564,12 @@
   "ulgen.tr.downloadingPct": "Dil paketi ýükläp alynýar… {pct}%",
   "ulgen.tr.unsupported": "Bu dil üçin terjime entek ýok.",
   "ulgen.tr.error": "Terjime edip bolmady.",
-  "ulgen.tr.retry": "Gaýtadan synanyş"
+  "ulgen.tr.retry": "Gaýtadan synanyş",
+  "data.ulgen.pack": "Ýükläp alnan dil paketi",
+  "data.ulgen.packYes": "Gurnalan · takmynan 26 MB",
+  "data.ulgen.packNone": "Ýükläp alynmady",
+  "data.ulgen.packUnknown": "Näbelli",
+  "data.ulgen.packDelete": "Paketi poz",
+  "data.ulgen.packDeleted": "Dil paketi pozuldy.",
+  "ulgen.tr.privateWindow": "Dil paketi gizlin penjirede ýüklenip alynmaýar. Adaty penjirede ýükläp alsaňyz, gizlin penjirede hem işleýär."
 }

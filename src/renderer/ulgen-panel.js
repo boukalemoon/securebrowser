@@ -467,6 +467,9 @@ async function paketIndir(btn, kaynakDil, istek) {
   if (r && r.ok !== false && r.durum !== 'hata') {
     // Paket indi: aynı özet yeniden istenir, bu kez çeviriyle gelir.
     gonder({ tur: (istek && istek.tur) || 'ozet', metin: T('ulgen.act.summary'), onay: istek && istek.onay });
+  } else if (r && r.sebep === 'gizli_pencere') {
+    // Gizli pencerede paket inmez: 26 MB'lık kalıcı iz bırakırdı.
+    mesaj('biz', T('ulgen.tr.privateWindow'));
   } else {
     mesaj('biz', T('ulgen.tr.failed'));
   }
