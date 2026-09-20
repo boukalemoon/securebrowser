@@ -119,6 +119,12 @@ function durum(kaynakDil, hedefDil) {
   return paketVar('motor') && paketVar(cift) ? 'hazir' : 'paket_yok';
 }
 
+/** Arayüz için: dil paketi kurulu mu, hangi çiftler var. */
+function paketDurumu() {
+  const ciftler = [...DESTEKLENEN].filter((c) => paketVar(c));
+  return { kurulu: paketVar('motor') && ciftler.length > 0, ciftler };
+}
+
 /** Gövdeyi PARÇA PARÇA okur ve beklenen boyu aşınca hemen keser.
  *  ⛔ Tek seferde arrayBuffer() almak, sunucu gigabaytlık akış verirse ana
  *  süreci şişirirdi ve SHA-256 denetimi hiç sıraya gelmezdi. */
@@ -358,4 +364,4 @@ async function cevir(cumleler, { kaynakDil, hedefDil }) {
   }
 }
 
-module.exports = { dilBul, durum, paketIndir, paketVar, paketSil, cevir, motorKapat, DESTEKLENEN, PAKETLER, TABAN };
+module.exports = { dilBul, durum, paketIndir, paketVar, paketDurumu, paketSil, cevir, motorKapat, DESTEKLENEN, PAKETLER, TABAN };

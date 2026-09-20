@@ -1762,6 +1762,7 @@ ipcMain.handle('ulgen-durum', (event) => {
   const { state } = getContextFromEvent(event);
   return { chat: ulgenIzin('ulgenChat'), page: ulgenIzin('ulgenPage'), history: ulgenIzin('ulgenHistory'),
            interests: ulgenIzin('ulgenInterests'), ceviri: ulgenIzin('ulgenTranslate'),
+           ceviriPaket: ulgenCeviri.paketDurumu(),   // Veri ve Gizlilik: "kurulu mu" satırı
            gizli: state === incognitoState };
 });
 

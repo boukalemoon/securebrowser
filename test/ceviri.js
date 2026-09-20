@@ -194,8 +194,13 @@ const kur = async () => { temizle(); yanitla = duzgun; return ceviri.paketIndir(
   const n2 = istekler.length;
   await ceviri.paketIndir('en', 'tr', () => {});
   ol('kurulu paket tekrar indirilmiyor', istekler.length === n2);
+  ol('paket durumu arayüze doğru bildiriliyor (kurulu + çiftler)',
+    ceviri.paketDurumu().kurulu === true && JSON.stringify(ceviri.paketDurumu().ciftler) === '["en-tr"]',
+    JSON.stringify(ceviri.paketDurumu()));
   ol('paketSil diskteki her şeyi siliyor',
     ceviri.paketSil() === true && !fs.existsSync(path.join(TMP, 'ulgen-ceviri')) && ceviri.durum('en', 'tr') === 'paket_yok');
+  ol('silindikten sonra durum "kurulu değil"',
+    ceviri.paketDurumu().kurulu === false && ceviri.paketDurumu().ciftler.length === 0);
   r = await ceviri.paketIndir('de', 'tr', () => {});
   ol('desteklenmeyen çiftte ağa çıkılmıyor', r.ok === false && r.hata === 'desteklenmiyor');
 
@@ -222,6 +227,7 @@ const kur = async () => { temizle(); yanitla = duzgun; return ceviri.paketIndir(
     /ulgenCeviriPaketi[\s\S]{0,600}incognitoState[\s\S]{0,120}gizli_pencere/.test(main));
   ol('izin geri alınınca indirilen paket siliniyor', main.includes("if (!ulgenIzin('ulgenTranslate')) ulgenCeviri.paketSil();"));
   ol('kapanışta motor kapatılıyor', /will-quit[\s\S]{0,80}ulgenCeviri\.motorKapat\(\)/.test(main));
+  ol('ulgen-durum paket durumunu taşıyor', main.includes('ceviriPaket: ulgenCeviri.paketDurumu()'));
   ol('köprüde abonelik ve silme var',
     pre.includes('onCeviriDurum:') && /ipcRenderer\.off\('ulgen-ceviri-durum'/.test(pre) && pre.includes("ceviriSil:"));
   ol('⛔ motor modülünde uzak çeviri API adresi YOK',
