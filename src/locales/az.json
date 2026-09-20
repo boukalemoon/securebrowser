@@ -1604,6 +1604,8 @@
   "ulgen.tr.failed": "Dil paketini endirmək alınmadı. Bağlantınızı yoxlayıb yenidən cəhd edin.",
   "data.item.ulgenTranslate.title": "Xülasəni dilimə tərcümə et",
   "data.item.ulgenTranslate.desc": "Yad dildəki səhifələrin xülasəsi interfeys dilinizə tərcümə olunur. Tərcümə bu cihazda edilir; səhifənin mətni heç bir serverə göndərilmir. İlk istifadədə dil paketi (təxminən 16 MB) İlgezdi serverindən endirilir. Orijinal cümlələr tərcümənin yanında qalır.",
+  "data.item.ulgenTasks.title": "Əsas Ülgen üçün səhifə oxuma",
+  "data.item.ulgenTasks.desc": "Ülgen bir araşdırma apararkən səhifənin məzmununa ehtiyac duyarsa, səhifəni İlgezdi təmiz bir sessiyada açır və Ülgen-ə yalnız onun MƏTNİNİ verir. Kukiləriniz və girişli sessiyalarınız istifadə olunmur; bu səbəbdən üzvlük tələb edən səhifələr oxunmur. Açılan səhifə görünmür, tablarınıza toxunmur və iş bitən kimi silinir. Yerli şəbəkənizdəki ünvanlar (modem interfeysi kimi) heç bir zaman açılmır. Məxfi pəncərə açıq olanda heç bir iş qəbul edilmir.",
   "ulgen.tr.downloadingPct": "Dil paketi endirilir… {pct}%",
   "ulgen.tr.unsupported": "Bu dil üçün tərcümə hələ yoxdur.",
   "ulgen.tr.error": "Tərcümə alınmadı.",
@@ -1614,5 +1616,17 @@
   "data.ulgen.packUnknown": "Bilinmir",
   "data.ulgen.packDelete": "Paketi sil",
   "data.ulgen.packDeleted": "Dil paketi silindi.",
-  "ulgen.tr.privateWindow": "Dil paketi məxfi pəncərədə endirilmir. Normal pəncərədə endirsəniz, məxfi pəncərədə də işləyir."
+  "ulgen.tr.privateWindow": "Dil paketi məxfi pəncərədə endirilmir. Normal pəncərədə endirsəniz, məxfi pəncərədə də işləyir.",
+  "ulgen.gorev.title": "Əsas Ülgen ilə bağlantı",
+  "ulgen.gorev.pairHint": "Ülgen idarə panelində görünən 6 rəqəmli kodu buraya yazın. Bağlantı qurulduqdan sonra Ülgen araşdırma apararkən İlgezdi-dən səhifə mətni istəyə bilər.",
+  "ulgen.gorev.codeLabel": "Cütləşmə kodu",
+  "ulgen.gorev.codeShort": "Kod 6 rəqəmli olmalıdır.",
+  "ulgen.gorev.pair": "Cütləşdir",
+  "ulgen.gorev.pairing": "Cütləşdirilir…",
+  "ulgen.gorev.paired": "Bağlantı quruldu.",
+  "ulgen.gorev.pairFailed": "Kod doğrulanmadı. Ülgen idarə panelindəki kodu yenidən alıb cəhd edin.",
+  "ulgen.gorev.connected": "Bağlıdır. Ülgen səhifə mətni istəyə bilər; kukiləriniz və girişli sessiyalarınız istifadə olunmur.",
+  "ulgen.gorev.pairedOffline": "Cütləşmə qurulub, lakin Ülgen-ə hazırda çatmaq mümkün deyil.",
+  "ulgen.gorev.unpair": "Bağlantını kəs",
+  "ulgen.gorev.unpaired": "Bağlantı kəsildi."
 }

@@ -1604,6 +1604,8 @@
   "ulgen.tr.failed": "Til paketini yuklab boʻlmadi. Ulanishni tekshirib, qayta urinib koʻring.",
   "data.item.ulgenTranslate.title": "Xulosani tilimga tarjima qilish",
   "data.item.ulgenTranslate.desc": "Boshqa tildagi sahifalarning xulosasi interfeys tilingizga tarjima qilinadi. Tarjima shu qurilmada bajariladi; sahifaning matni hech qanday serverga yuborilmaydi. Birinchi marta ishlatilganda til paketi (taxminan 16 MB) İlgezdi serveridan yuklab olinadi. Asl gaplar tarjima yonida qoladi.",
+  "data.item.ulgenTasks.title": "Asosiy Ülgen uchun sahifa oʻqish",
+  "data.item.ulgenTasks.desc": "Ülgen tadqiqot olib borayotganda biror sahifaning mazmuni kerak boʻlsa, İlgezdi oʻsha sahifani toza seansda ochadi va Ülgen yordamchisiga faqat uning MATNINI beradi. Cookie fayllaringiz va tizimga kirgan seanslaringiz ishlatilmaydi; shu sababli hisob talab qiladigan sahifalar oʻqilmaydi. Ochilgan sahifa koʻrinmaydi, varaqlaringizga tegmaydi va ish tugashi bilan oʻchiriladi. Mahalliy tarmogʻingizdagi manzillar (modem interfeysi kabi) hech qachon ochilmaydi. Maxfiy oyna ochiq turganda hech qanday ish qabul qilinmaydi.",
   "ulgen.tr.downloadingPct": "Til paketi yuklab olinmoqda… {pct}%",
   "ulgen.tr.unsupported": "Bu til uchun tarjima hozircha yoʻq.",
   "ulgen.tr.error": "Tarjima qilib boʻlmadi.",
@@ -1614,5 +1616,17 @@
   "data.ulgen.packUnknown": "Nomaʼlum",
   "data.ulgen.packDelete": "Paketni oʻchirish",
   "data.ulgen.packDeleted": "Til paketi oʻchirildi.",
-  "ulgen.tr.privateWindow": "Til paketi maxfiy oynada yuklab olinmaydi. Oddiy oynada yuklab olsangiz, maxfiy oynada ham ishlaydi."
+  "ulgen.tr.privateWindow": "Til paketi maxfiy oynada yuklab olinmaydi. Oddiy oynada yuklab olsangiz, maxfiy oynada ham ishlaydi.",
+  "ulgen.gorev.title": "Asosiy Ülgen bilan aloqa",
+  "ulgen.gorev.pairHint": "Ülgen boshqaruv panelida koʻrinadigan 6 xonali kodni shu yerga yozing. Aloqa oʻrnatilgach, Ülgen tadqiqot olib borayotganda İlgezdidan sahifa matnini soʻrashi mumkin.",
+  "ulgen.gorev.codeLabel": "Juftlash kodi",
+  "ulgen.gorev.codeShort": "Kod 6 xonali boʻlishi kerak.",
+  "ulgen.gorev.pair": "Juftlash",
+  "ulgen.gorev.pairing": "Juftlanmoqda…",
+  "ulgen.gorev.paired": "Aloqa oʻrnatildi.",
+  "ulgen.gorev.pairFailed": "Kodni tasdiqlab boʻlmadi. Ülgen boshqaruv panelidan yangi kod olib, qayta urinib koʻring.",
+  "ulgen.gorev.connected": "Ulangan. Ülgen sahifa matnini soʻrashi mumkin; cookie fayllaringiz va tizimga kirgan seanslaringiz ishlatilmaydi.",
+  "ulgen.gorev.pairedOffline": "Juftlangan, lekin Ülgen yordamchisiga hozir ulanib boʻlmaydi.",
+  "ulgen.gorev.unpair": "Aloqani uzish",
+  "ulgen.gorev.unpaired": "Aloqa uzildi."
 }

@@ -1688,6 +1688,8 @@
   "ulgen.tr.failed": "The language pack couldn't be downloaded. Check your connection and try again.",
   "data.item.ulgenTranslate.title": "Translate summaries into my language",
   "data.item.ulgenTranslate.desc": "Summaries of pages in other languages are translated into your interface language. The translation runs on this device; the page text is never sent to a server. The first time, a language pack (about 16 MB) is downloaded from the İlgezdi server. The original sentences stay next to the translation.",
+  "data.item.ulgenTasks.title": "Reading pages for main Ülgen",
+  "data.item.ulgenTasks.desc": "When Ülgen needs a page's content during research, İlgezdi opens that page in a clean session and gives Ülgen its TEXT only. Your cookies and signed-in sessions are not used, so pages that require an account cannot be read. The page opens invisibly, does not touch your tabs, and is discarded as soon as the job ends. Addresses on your local network (such as a router interface) are never opened. No job is accepted while an incognito window is open.",
   "ulgen.tr.downloadingPct": "Downloading language pack… {pct}%",
   "ulgen.tr.unsupported": "Translation isn’t available for this language yet.",
   "ulgen.tr.error": "Couldn’t translate.",
@@ -1698,5 +1700,17 @@
   "data.ulgen.packUnknown": "Unknown",
   "data.ulgen.packDelete": "Delete pack",
   "data.ulgen.packDeleted": "The language pack was deleted.",
-  "ulgen.tr.privateWindow": "The language pack isn’t downloaded in a private window. If you download it in a normal window, it works in private windows too."
+  "ulgen.tr.privateWindow": "The language pack isn’t downloaded in a private window. If you download it in a normal window, it works in private windows too.",
+  "ulgen.gorev.title": "Connection to main Ülgen",
+  "ulgen.gorev.pairHint": "Enter the 6-digit code shown on the Ülgen dashboard. Once connected, Ülgen can ask İlgezdi for a page's text while it researches.",
+  "ulgen.gorev.codeLabel": "Pairing code",
+  "ulgen.gorev.codeShort": "The code must be 6 digits.",
+  "ulgen.gorev.pair": "Pair",
+  "ulgen.gorev.pairing": "Pairing…",
+  "ulgen.gorev.paired": "Connected.",
+  "ulgen.gorev.pairFailed": "The code could not be verified. Get a fresh code from the Ülgen dashboard and try again.",
+  "ulgen.gorev.connected": "Connected. Ülgen may ask for page text; your cookies and signed-in sessions are not used.",
+  "ulgen.gorev.pairedOffline": "Paired, but Ülgen cannot be reached right now.",
+  "ulgen.gorev.unpair": "Disconnect",
+  "ulgen.gorev.unpaired": "Disconnected."
 }

@@ -1610,6 +1610,8 @@
   "ulgen.tr.failed": "Dil paketi indirilemedi. Bağlantınızı denetleyip yeniden deneyin.",
   "data.item.ulgenTranslate.title": "Özeti dilime çevir",
   "data.item.ulgenTranslate.desc": "Yabancı dildeki sayfaların özeti arayüz dilinize çevrilir. Çeviri bu cihazda yapılır; sayfanın metni hiçbir sunucuya gönderilmez. İlk kullanımda dil paketi (yaklaşık 16 MB) İlgezdi sunucusundan iner. Özgün cümleler çevirinin yanında kalır.",
+  "data.item.ulgenTasks.title": "Ana Ülgen için sayfa okuma",
+  "data.item.ulgenTasks.desc": "Ülgen bir araştırma yaparken bir sayfanın içeriğine ihtiyaç duyarsa, sayfayı İlgezdi temiz bir oturumda açar ve yalnızca METNİNİ Ülgen'e verir. Çerezleriniz ve girişli oturumlarınız kullanılmaz; bu yüzden üyelik isteyen sayfalar okunamaz. Açılan sayfa görünmez, sekmelerinize dokunmaz ve iş biter bitmez silinir. Yerel ağınızdaki adresler (modem arayüzü gibi) hiçbir zaman açılmaz. Gizli pencere açıkken hiç iş alınmaz.",
   "ulgen.tr.downloadingPct": "Dil paketi iniyor… %{pct}",
   "ulgen.tr.unsupported": "Bu dil için çeviri henüz yok.",
   "ulgen.tr.error": "Çeviri yapılamadı.",
@@ -1620,5 +1622,17 @@
   "data.ulgen.packUnknown": "Bilinmiyor",
   "data.ulgen.packDelete": "Paketi sil",
   "data.ulgen.packDeleted": "Dil paketi silindi.",
-  "ulgen.tr.privateWindow": "Dil paketi gizli pencerede indirilmez. Normal pencerede indirirseniz gizli pencerede de çalışır."
+  "ulgen.tr.privateWindow": "Dil paketi gizli pencerede indirilmez. Normal pencerede indirirseniz gizli pencerede de çalışır.",
+  "ulgen.gorev.title": "Ana Ülgen ile bağlantı",
+  "ulgen.gorev.pairHint": "Ülgen panosunda görünen 6 haneli kodu buraya yazın. Bağlantı kurulduktan sonra Ülgen bir araştırma yaparken İlgezdi'den sayfa metni isteyebilir.",
+  "ulgen.gorev.codeLabel": "Eşleşme kodu",
+  "ulgen.gorev.codeShort": "Kod 6 haneli olmalı.",
+  "ulgen.gorev.pair": "Eşleştir",
+  "ulgen.gorev.pairing": "Eşleştiriliyor…",
+  "ulgen.gorev.paired": "Bağlantı kuruldu.",
+  "ulgen.gorev.pairFailed": "Kod doğrulanamadı. Ülgen panosundaki kodu yeniden alıp deneyin.",
+  "ulgen.gorev.connected": "Bağlı. Ülgen sayfa metni isteyebilir; çerezleriniz ve girişli oturumlarınız kullanılmaz.",
+  "ulgen.gorev.pairedOffline": "Eşleşme kurulu ama Ülgen'e şu anda ulaşılamıyor.",
+  "ulgen.gorev.unpair": "Bağlantıyı kes",
+  "ulgen.gorev.unpaired": "Bağlantı kesildi."
 }

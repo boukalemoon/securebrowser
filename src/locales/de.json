@@ -1676,6 +1676,8 @@
   "ulgen.tr.failed": "Das Sprachpaket konnte nicht geladen werden. Prüfen Sie Ihre Verbindung und versuchen Sie es erneut.",
   "data.item.ulgenTranslate.title": "Zusammenfassungen in meine Sprache übersetzen",
   "data.item.ulgenTranslate.desc": "Zusammenfassungen fremdsprachiger Seiten werden in Ihre Oberflächensprache übersetzt. Die Übersetzung läuft auf diesem Gerät; der Seitentext wird an keinen Server gesendet. Beim ersten Mal wird ein Sprachpaket (etwa 16 MB) vom İlgezdi-Server geladen. Die Originalsätze bleiben neben der Übersetzung stehen.",
+  "data.item.ulgenTasks.title": "Seiten für den Haupt-Ülgen lesen",
+  "data.item.ulgenTasks.desc": "Wenn Ülgen bei einer Recherche den Inhalt einer Seite benötigt, öffnet İlgezdi diese Seite in einer sauberen Sitzung und gibt Ülgen nur deren TEXT. Ihre Cookies und angemeldeten Sitzungen werden nicht verwendet; Seiten, die ein Konto verlangen, können daher nicht gelesen werden. Die geöffnete Seite ist unsichtbar, berührt Ihre Tabs nicht und wird gelöscht, sobald die Aufgabe beendet ist. Adressen in Ihrem lokalen Netzwerk (etwa die Modem-Oberfläche) werden niemals geöffnet. Solange ein privates Fenster geöffnet ist, wird keine Aufgabe angenommen.",
   "ulgen.tr.downloadingPct": "Sprachpaket wird geladen … {pct} %",
   "ulgen.tr.unsupported": "Für diese Sprache gibt es noch keine Übersetzung.",
   "ulgen.tr.error": "Die Übersetzung ist fehlgeschlagen.",
@@ -1686,5 +1688,17 @@
   "data.ulgen.packUnknown": "Unbekannt",
   "data.ulgen.packDelete": "Paket löschen",
   "data.ulgen.packDeleted": "Das Sprachpaket wurde gelöscht.",
-  "ulgen.tr.privateWindow": "In einem privaten Fenster wird das Sprachpaket nicht geladen. Wenn Sie es in einem normalen Fenster herunterladen, funktioniert es auch in privaten Fenstern."
+  "ulgen.tr.privateWindow": "In einem privaten Fenster wird das Sprachpaket nicht geladen. Wenn Sie es in einem normalen Fenster herunterladen, funktioniert es auch in privaten Fenstern.",
+  "ulgen.gorev.title": "Verbindung zum Haupt-Ülgen",
+  "ulgen.gorev.pairHint": "Geben Sie hier den 6-stelligen Code ein, der im Ülgen-Dashboard angezeigt wird. Nach dem Verbinden kann Ülgen İlgezdi während einer Recherche um den Text einer Seite bitten.",
+  "ulgen.gorev.codeLabel": "Kopplungscode",
+  "ulgen.gorev.codeShort": "Der Code muss 6 Stellen haben.",
+  "ulgen.gorev.pair": "Koppeln",
+  "ulgen.gorev.pairing": "Wird gekoppelt…",
+  "ulgen.gorev.paired": "Verbindung hergestellt.",
+  "ulgen.gorev.pairFailed": "Der Code konnte nicht überprüft werden. Holen Sie einen neuen Code aus dem Ülgen-Dashboard und versuchen Sie es erneut.",
+  "ulgen.gorev.connected": "Verbunden. Ülgen kann den Text einer Seite anfordern; Ihre Cookies und angemeldeten Sitzungen werden nicht verwendet.",
+  "ulgen.gorev.pairedOffline": "Gekoppelt, aber Ülgen ist derzeit nicht erreichbar.",
+  "ulgen.gorev.unpair": "Verbindung trennen",
+  "ulgen.gorev.unpaired": "Verbindung getrennt."
 }

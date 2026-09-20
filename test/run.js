@@ -3170,6 +3170,111 @@ suite('Kurulum dosyası SHA-256 özetleri');
     /kod imzalama sertifikasını gelir sağlandıktan sonra ekleyeceğiz/.test(site));
 }
 
+// ══════════════════════════════════════════════════════════════════════════════
+// Ülgen görev sayfası — Ana Ülgen'den gelen adres UZAKTAN geliyor, yani bu bir
+// dış girdi sınırı. Sayfa İlgezdi'nin kendi yolundan, temiz oturumda açılır.
+// ══════════════════════════════════════════════════════════════════════════════
+suite('Ülgen görev sayfası — adres sınırı ve metin kırpma');
+{
+  const G = require('../src/main/gorev-sayfa.js');
+  const red = (u) => { const r = G.gecerliGorevAdresi(u); return r.ok ? 'KABUL' : r.sebep; };
+
+  eq('yalnız http(s) kabul ediliyor',
+    ['https://ornek.com/a', 'http://ornek.com'].map(red), ['KABUL', 'KABUL']);
+  eq('dosya ve dahili şemalar reddediliyor — "şu yerel dosyayı oku" yolu yok',
+    ['file:///C:/Users/x/gizli.txt', 'data:text/html,<b>x', 'blob:https://a/b', 'view-source:https://a',
+     'javascript:alert(1)', 'chrome://settings', 'about:blank', 'ftp://a.com/x'].map(red),
+    ['gecersiz_adres', 'gecersiz_adres', 'gecersiz_adres', 'gecersiz_adres', 'gecersiz_adres', 'gecersiz_adres', 'gecersiz_adres', 'gecersiz_adres']);
+  // Uzaktan gelen bir iş kullanıcının EV AĞINI okutamamalı: İlgezdi o ağın
+  // içinde olduğu için güvenlik duvarı bu isteği durdurmaz.
+  eq('yerel ve ayrılmış adresler reddediliyor',
+    ['http://localhost:8080/', 'http://127.0.0.1/', 'http://192.168.1.1/', 'http://10.0.0.5/',
+     'http://172.16.0.1/', 'http://169.254.169.254/', 'http://modem.local/', 'http://[::1]/'].map(red),
+    ['yerel_adres', 'yerel_adres', 'yerel_adres', 'yerel_adres', 'yerel_adres', 'yerel_adres', 'yerel_adres', 'yerel_adres']);
+  eq('kimlik gömülü adres reddediliyor', red('https://kullanici:parola@ornek.com/'), 'gecersiz_adres');
+  eq('boş, çöp ve aşırı uzun adres reddediliyor',
+    ['', '   ', 'çöp', 'https://a.com/' + 'x'.repeat(3000)].map(red),
+    ['gecersiz_adres', 'gecersiz_adres', 'gecersiz_adres', 'gecersiz_adres']);
+
+  // Kırpma: Ülgen yarım metni TAM sanmamalı.
+  const kisa = G.metniKirp('kısa metin');
+  eq('sınır altındaki metin kırpılmıyor', [kisa.metin, kisa.kirpildi], ['kısa metin', false]);
+  const uzun = G.metniKirp('a'.repeat(50) + ' ' + 'b'.repeat(200), 100);
+  check('sınır üstündeki metin kırpılıyor ve bildiriliyor',
+    uzun.kirpildi === true && uzun.metin.length <= 100, { uzunluk: uzun.metin.length, kirpildi: uzun.kirpildi });
+  check('kırpma kelime ortasında kesmemeye çalışıyor', G.metniKirp('x'.repeat(95) + ' kuyruk', 100).metin.endsWith('x'));
+
+  eq('okuma düğümlerinden düz metin (liste öğeleri tireli)',
+    G.nodlardanMetin([{ tag: 'h1', text: 'Başlık' }, { tag: 'p', text: 'Gövde' }, { tag: 'li', text: 'Madde' }]),
+    'Başlık\n\nGövde\n\n- Madde');
+  eq('bozuk düğüm listesi çökertmiyor', [G.nodlardanMetin(null), G.nodlardanMetin([null, 5, {}])], ['', '']);
+  eq('başlık tek satıra indiriliyor ve kırpılıyor', G.basligiKirp('  çok\n\nboşluklu   başlık '), 'çok boşluklu başlık');
+}
+
+suite('Ülgen görev kanalı — izin ve eşleşme arayüzü');
+{
+  const dc = read('../src/renderer/data-catalog.js');
+  check('ulgenTasks izni katalogda, onaya bağlı ve varsayılan KAPALI',
+    /\{ id: 'ulgenTasks',\s+section: 'ulgen',\s+consent: true, def: false, dest: 'ulgen' \}/.test(dc));
+
+  const up = read('../src/renderer/ulgen-panel.js');
+  check('eşleşme kartı yalnızca izin açıkken görünüyor',
+    /if \(!g \|\| g\.izin !== true\) \{ kart\.hidden = true; return; \}/.test(up));
+  // Pencere geniş tutuluyor: aradaki satırlar büyüdüğünde test sessizce
+  // yanlış "başarısız" vermesin (daha önce sekme testinde bu tuzağa düşüldü).
+  check('kart durum yenilenince güncelleniyor',
+    /async function durumuUygula\(\)[\s\S]{0,1200}?gorevKartiniUygula\(\);/.test(up));
+  check('kod alanı yalnız rakam kabul ediyor ve 6 hane ile sınırlı',
+    /value\.replace\(\/\\D\/g, ''\)\.slice\(0, 6\)/.test(up));
+  check('6 haneden kısa kod sunucuya GÖNDERİLMİYOR',
+    /if \(deger\.length !== 6\) \{[\s\S]{0,120}?return; \}/.test(up));
+  check('deneme sonrası kod alanı temizleniyor (ekranda kod kalmıyor)',
+    /kod\.value = '';[\s\S]{0,200}?durumuUygula\(\)/.test(up));
+  check('panelde izin ANAHTARI yok — gizliliğin tek yeri Veri ve Gizlilik',
+    !/dataCenter\.set\(\s*'ulgenTasks'/.test(up));
+  // Metinler 9 dilde olmalı; "Ülgen panosundaki 6 haneli kod" kullanıcının
+  // nereye bakacağını söylüyor, eksikse akış anlaşılmaz.
+  const diller = ['tr', 'en', 'de', 'fr', 'az', 'kk', 'uz', 'tk', 'ky'];
+  const eksik = [];
+  const ANAHTARLAR = ['ulgen.gorev.title', 'ulgen.gorev.pairHint', 'ulgen.gorev.pair', 'ulgen.gorev.unpair',
+    'ulgen.gorev.connected', 'ulgen.gorev.pairFailed', 'data.item.ulgenTasks.title', 'data.item.ulgenTasks.desc'];
+  for (const d of diller) {
+    const j = JSON.parse(read('../src/locales/' + d + '.json'));
+    for (const k of ANAHTARLAR) if (!j[k]) eksik.push(d + ':' + k);
+    if (j['ulgen.gorev.pairHint'] && !/6/.test(j['ulgen.gorev.pairHint'])) eksik.push(d + ': pairHint 6 yok');
+  }
+  check('eşleşme ve izin metinleri 9 dilde var, "6" hanesi korunmuş', eksik.length === 0, eksik.join(', '));
+}
+
+suite('Ülgen görev sayfası — ana süreçteki sınırlar');
+{
+  const m = read('../src/main/main.js');
+  check('görev sayfası İlgezdi\'nin kendi oturum yapılandırmasından geçiyor (korumalar devrede)',
+    /async function ulgenGorevSayfasi[\s\S]{0,3000}?configureSession\(wc\.session, true\)/.test(m));
+  check('sayfa ön yüklemesi var — parmak izi kalkanı ve GPC görev sayfasında da çalışıyor',
+    /async function ulgenGorevSayfasi[\s\S]{0,1500}?page-preload\.js/.test(m));
+  check('temiz oturum ZORUNLU; false geçilirse reddediliyor',
+    /opts\.temizOturum !== true\) return \{ ok: false, sebep: 'temiz_oturum_zorunlu' \}/.test(m));
+  check('kullanıcının çerezleri kullanılmıyor: kalıcı olmayan ayrı bölüm ve iş sonunda temizlik',
+    /partition: bolum/.test(m) && /clearStorageData\(\)/.test(m) && !/partition: 'persist:gorev/.test(m));
+  check('tek seferde tek iş — ikincisi mesgul ile reddediliyor',
+    /if \(gorevCalisiyor\) return \{ ok: false, sebep: 'mesgul' \}/.test(m));
+  check('izin, indirme ve açılır pencere reddediliyor',
+    /setPermissionRequestHandler\(\(_w, _p, cb\) => cb\(false\)\)/.test(m)
+    && /will-download', \(e\) => e\.preventDefault\(\)/.test(m)
+    && /setWindowOpenHandler\(\(\) => \(\{ action: 'deny' \}\)\)/.test(m));
+  check('yönlendirme zinciri de denetleniyor (302 ile yerel adrese atılamıyor)',
+    /will-redirect'[\s\S]{0,80}zincirDenetle/.test(m) && /will-navigate'[\s\S]{0,80}zincirDenetle/.test(m));
+  check('ayıklama kendi izole dünyasında (1021), reader ve glance dünyalarına girmiyor',
+    /GOREV_WORLD_ID = 1021/.test(m) && /executeJavaScriptInIsolatedWorld\(GOREV_WORLD_ID/.test(m));
+  check('zaman aşımı sınırlanmış (çağıran sonsuz süre veremiyor)',
+    /Math\.min\(Math\.max\(Number\(opts\.zamanAsimiMs\) \|\| GOREV_ZAMAN_ASIMI_MS, 5000\), 60000\)/.test(m));
+  check('tanılamaya ziyaret edilen ADRES yazılmıyor',
+    /Görev sayfası okundu', \{ uzunluk: [^}]*\}/.test(m) && !/Görev sayfası okundu'[^)]*url/.test(m));
+  check('görünmez: hiçbir pencereye eklenmiyor, contentRect\'e dokunulmuyor',
+    !/async function ulgenGorevSayfasi[\s\S]{0,3000}?contentView\.addChildView/.test(m));
+}
+
 // ─── Özet ─────────────────────────────────────────────────────────────────────
 console.log('\n' + '─'.repeat(60));
 if (failed === 0) {

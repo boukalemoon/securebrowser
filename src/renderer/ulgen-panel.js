@@ -60,6 +60,21 @@ function injectUlgenStyles() {
       border:1px solid color-mix(in srgb, var(--success, #4ade80) 35%, var(--line));
       background:linear-gradient(160deg, color-mix(in srgb, var(--success, #4ade80) 7%, var(--bg-elev)), var(--bg-elev)); }
     .ulgen-info[hidden] { display:none; }
+    /* Ana Ülgen görev kanalı eşleşme kartı — bilgi kartıyla aynı dilde. */
+    .ulgen-gorev { flex-shrink:0; padding:12px 14px; border-radius:14px; animation:ulgenIn .2s ease-out both;
+      background:color-mix(in srgb, var(--gold) 7%, var(--bg-elev)); border:1px solid color-mix(in srgb, var(--gold) 26%, var(--line)); }
+    .ulgen-gorev[hidden] { display:none; }
+    .ulgen-gorev h3 { margin:0 0 6px; font-size:13px; font-weight:700; color:var(--ink); }
+    .ulgen-gorev p { margin:0; font-size:11.5px; line-height:1.5; color:var(--ink-mute); }
+    .ulgen-gorev-form { display:flex; gap:8px; margin-top:10px; }
+    .ulgen-gorev-form[hidden] { display:none; }
+    .ulgen-gorev-form input { flex:1; min-width:0; padding:7px 10px; border-radius:9px; border:1px solid var(--line);
+      background:var(--bg); color:var(--ink); font-family:var(--font-mono, ui-monospace, monospace);
+      font-size:15px; letter-spacing:.22em; text-align:center; }
+    .ulgen-gorev-form input:focus-visible { outline:2px solid var(--gold); outline-offset:1px; }
+    .ulgen-gorev #ulgen-gorev-kaldir { margin-top:10px; }
+    .ulgen-gorev-not:empty { display:none; }
+    .ulgen-gorev-not { margin-top:8px; }
     .ulgen-info h3 { margin:0 28px 10px 0; font-size:13px; font-weight:700; color:var(--ink); }
     .ulgen-info ul { margin:0; padding:0; list-style:none; display:flex; flex-direction:column; gap:10px; }
     .ulgen-info li { display:grid; grid-template-columns:26px 1fr; gap:9px; align-items:start; }
@@ -544,6 +559,62 @@ async function durumuUygula() {
     if (e) e.disabled = !acik;
   }
   document.querySelectorAll('.ulgen-chip').forEach((c) => { c.disabled = !acik; });
+  gorevKartiniUygula();
+}
+
+// Ana Ülgen görev kanalı. Kart YALNIZCA izin açıkken görünür; izin Veri ve
+// Gizlilik'ten açılır (burada bir izin anahtarı göstermiyoruz — gizlilik
+// ayarlarının tek yeri orası).
+function gorevKartiniUygula() {
+  const kart = document.getElementById('ulgen-gorev');
+  if (!kart) return;
+  const g = (ulgen.durum && ulgen.durum.gorev) || null;
+  if (!g || g.izin !== true) { kart.hidden = true; return; }
+  kart.hidden = false;
+  const form = document.getElementById('ulgen-gorev-form');
+  const kaldir = document.getElementById('ulgen-gorev-kaldir');
+  const metin = document.getElementById('ulgen-gorev-durum');
+  if (g.eslesti) {
+    // "bagli" sunucuya ulaşılabildiğini, "calisiyor" döngünün açık olduğunu söyler.
+    metin.textContent = T(g.bagli ? 'ulgen.gorev.connected' : 'ulgen.gorev.pairedOffline');
+    form.hidden = true;
+    kaldir.hidden = false;
+  } else {
+    metin.textContent = T('ulgen.gorev.pairHint');
+    form.hidden = false;
+    kaldir.hidden = true;
+  }
+}
+
+function gorevBagla() {
+  const kod = document.getElementById('ulgen-gorev-kod');
+  const esles = document.getElementById('ulgen-gorev-esles');
+  const kaldir = document.getElementById('ulgen-gorev-kaldir');
+  const msg = document.getElementById('ulgen-gorev-msg');
+  if (!kod || !esles || !kaldir) return;
+  // Yalnızca rakam: yapıştırılan boşluklu/tireli kod da çalışsın.
+  kod.addEventListener('input', () => { kod.value = kod.value.replace(/\D/g, '').slice(0, 6); });
+  const dene = async () => {
+    const deger = kod.value.replace(/\D/g, '');
+    if (deger.length !== 6) { msg.textContent = T('ulgen.gorev.codeShort'); return; }
+    esles.disabled = true;
+    msg.textContent = T('ulgen.gorev.pairing');
+    let r = null;
+    try { r = await U()?.gorevEsles(deger); } catch {}
+    esles.disabled = false;
+    kod.value = '';
+    msg.textContent = r && r.ok ? T('ulgen.gorev.paired') : T('ulgen.gorev.pairFailed');
+    durumuUygula();
+  };
+  esles.addEventListener('click', dene);
+  kod.addEventListener('keydown', (e) => { if (e.key === 'Enter') dene(); });
+  kaldir.addEventListener('click', async () => {
+    kaldir.disabled = true;
+    try { await U()?.gorevKaldir(); } catch {}
+    kaldir.disabled = false;
+    msg.textContent = T('ulgen.gorev.unpaired');
+    durumuUygula();
+  });
 }
 
 function ulgenBuildPanel() {
@@ -580,6 +651,20 @@ function ulgenBuildPanel() {
             <li><span class="ulgen-info-icon">${IKON.web}</span><div><strong>${TH('ulgen.info.webTitle')}</strong><span>${TH('ulgen.info.webBody')}</span></div></li>
             <li><span class="ulgen-info-icon">${IKON.cevrimdisi}</span><div><strong>${TH('ulgen.info.offlineTitle')}</strong><span>${TH('ulgen.info.offlineBody')}</span></div></li>
           </ul>
+        </section>
+        <!-- Ana Ülgen görev kanalı: eşleşme YALNIZ kullanıcının Ülgen panosundaki
+             6 haneli kodu buraya yazmasıyla kurulur. İzin kapalıysa kart hiç
+             görünmez (izin Veri ve Gizlilik'ten açılır). -->
+        <section class="ulgen-gorev" id="ulgen-gorev" hidden>
+          <h3>${TH('ulgen.gorev.title')}</h3>
+          <p id="ulgen-gorev-durum"></p>
+          <div class="ulgen-gorev-form" id="ulgen-gorev-form">
+            <input type="text" id="ulgen-gorev-kod" inputmode="numeric" autocomplete="off" maxlength="6"
+              placeholder="000000" aria-label="${TH('ulgen.gorev.codeLabel')}" />
+            <button type="button" class="ulgen-btn primary" id="ulgen-gorev-esles">${TH('ulgen.gorev.pair')}</button>
+          </div>
+          <button type="button" class="ulgen-btn" id="ulgen-gorev-kaldir" hidden>${TH('ulgen.gorev.unpair')}</button>
+          <p class="ulgen-gorev-not" id="ulgen-gorev-msg" aria-live="polite"></p>
         </section>
         <div class="ulgen-welcome hidden" id="ulgen-welcome">
           <div class="ulgen-halo"><div class="ulgen-mark">${ULGEN_MARK}</div></div>
@@ -618,6 +703,7 @@ function ulgenBuildPanel() {
     window.ilgezdiCloseAllPanels?.();
   });
   document.getElementById('ulgen-open-data')?.addEventListener('click', veriSayfasi);
+  gorevBagla();
   document.getElementById('ulgen-new')?.addEventListener('click', yeniSohbet);
   const rozet = document.getElementById('ulgen-status');
   const bilgi = document.getElementById('ulgen-info');

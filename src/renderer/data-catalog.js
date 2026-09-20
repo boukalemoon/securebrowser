@@ -52,6 +52,9 @@
     { id: 'ulgenInterests',      section: 'ulgen',   consent: true, def: false, dest: 'device', requires: 'ulgenChat' },
     // Çeviri: sayfa metni cihazdan çıkmaz, ama dil paketi İlgezdi sunucusundan iner.
     { id: 'ulgenTranslate',      section: 'ulgen',   consent: true, def: false, dest: 'ilgezdi', requires: 'ulgenPage' },
+    // Ana Ülgen'in istediği sayfaları İlgezdi TEMİZ bir oturumda açar (çerezsiz,
+    // girişli oturumunuz kullanılmaz) ve yalnız METNİNİ verir. Varsayılan kapalı.
+    { id: 'ulgenTasks',          section: 'ulgen',   consent: true, def: false, dest: 'ulgen' },
     { id: 'ulgenAccount',        section: 'ulgen',   soon: true,                  dest: 'qrtim' },
     { id: 'ulgenRecommend',      section: 'ulgen',   soon: true,                  dest: 'ulgen' },
     { id: 'ulgenImprove',        section: 'ulgen',   soon: true,                  dest: 'ulgen' },
