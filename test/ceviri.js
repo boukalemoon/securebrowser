@@ -152,6 +152,14 @@ const temizle = () => fs.rmSync(path.join(TMP, 'ulgen-ceviri'), { recursive: tru
     !/api\.|translate\.google|deepl|riva|8765/i.test(fs.readFileSync(path.join(kok, 'src', 'main', 'ulgen-ceviri.js'), 'utf8')
       .replace(/^\s*\*.*$/gm, '')));
 
+  baslik('Gerçek paket tanımı — özetler yerinde');
+  // ⚠️ Özet koddan düşerse indirme doğrulaması SESSİZCE anlamsızlaşır.
+  const gercek = Object.values(gercekPaketler).flat();
+  ol('her dosyanın 64 haneli SHA-256 özeti ve boyu var',
+    gercek.length === 4 && gercek.every((d) => /^[0-9a-f]{64}$/.test(d.sha256) && d.bayt > 0), JSON.stringify(gercek.map((d) => d.ad)));
+  ol('uzak yollar ceviri kökünün altında ve .gz',
+    gercek.every((d) => /^[a-z-]+\/[\w.-]+\.gz$/.test(d.uzak)));
+
   Object.assign(ceviri.PAKETLER, gercekPaketler);
   fs.rmSync(TMP, { recursive: true, force: true });
   console.log(`\n${kalan ? '\x1b[31m' : '\x1b[32m'}SONUÇ: ${gecen} geçti · ${kalan} kaldı\x1b[0m`);

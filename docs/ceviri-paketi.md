@@ -20,7 +20,7 @@ sunmak İlgezdi'nin duruşuyla tutarlı ve MPL-2.0 buna izin veriyor
 
 | Dosya | Boyut (gz) | SHA-256 |
 |---|---|---|
-| `motor/bergamot-translator-worker.wasm.gz` | 1.857.913 | `b28dc11c488b58c0114da34d2409f4c9e1c4ef16529fa9746360010862aec86e` |
+| `motor/bergamot-translator-worker.wasm.gz` | 1.857.881 | `24b80fdd0cfe326a69fdb3f8f17619cad0e6179098bd71636445d0e4803514d2` |
 | `en-tr/model.entr.intgemm.alphas.bin.gz` | 13.159.314 | `52d10136b1a4804879989aa9ee146e83ced75aa0ce2d371b4e582473ed6b9020` |
 | `en-tr/lex.50.50.entr.s2t.bin.gz` | 1.546.258 | `cf74d4edec0b51affd30a43e6bd2c2274bf4ce7fd54c24fd293db2c5c4bf043d` |
 | `en-tr/vocab.entr.spm.gz` | 395.473 | `01e55973e65a34c5efbdce3968857d4e53998b4bef131c5125a19f8e44d8f87c` |
@@ -48,14 +48,23 @@ WASM motoru npm paketinden çıkar ve burada sıkıştırılır:
 ```sh
 npm pack @mkljczk/bergamot-translator@0.4.16
 tar xf mkljczk-bergamot-translator-0.4.16.tgz package/worker/bergamot-translator-worker.wasm
-gzip -9 -c package/worker/bergamot-translator-worker.wasm > bergamot-translator-worker.wasm.gz
+# -n ŞART: gzip normalde dosya adını ve zaman damgasını baytlara gömer,
+# o zaman aynı içerikten her seferinde BAŞKA bir özet çıkar.
+gzip -9 -n -c package/worker/bergamot-translator-worker.wasm > bergamot-translator-worker.wasm.gz
 ```
 
 Yükledikten sonra özetleri doğrula:
 
 ```sh
 sha256sum *.gz          # yukarıdaki tabloyla birebir aynı olmalı
+# İçerik denetimi (sıkıştırmadan bağımsız): açılmış WASM her zaman
+gzip -dc bergamot-translator-worker.wasm.gz | sha256sum
+# → 735d4d95ede043c48f146b9a89336077f18885ad30b7e9a6a86c51a73ca02e7b
 ```
+
+⚠️ `-n` olmadan üretilen dosya **aynı boyutta ama başka özette** çıkar
+(ölçüldü 20.09.2026: damgalı 1.857.913 bayt / `b28dc11c…`, damgasız 1.857.881
+bayt / `24b80fdd…`). Koda yazılı olan **damgasız** olandır.
 
 ## ⚠️ Sunucu ayarı — tek kritik nokta
 

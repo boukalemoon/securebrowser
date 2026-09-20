@@ -39,8 +39,11 @@ const AZAMI_CUMLE_HARF = 600;
 /* Dosya listesi + özetler uygulamayla gelir; sunucudan LİSTE ÇEKİLMEZ. */
 const PAKETLER = {
   motor: [
+    // ⚠️ gzip dosya ADINI ve ZAMAN DAMGASINI baytlara gömer; bu yüzden paket
+    // `gzip -9 -n` (damgasız) ile üretilir, yoksa her üretimde özet DEĞİŞİR.
+    // Açılmış WASM: 735d4d95ede043c48f146b9a89336077f18885ad30b7e9a6a86c51a73ca02e7b
     { ad: 'bergamot-translator-worker.wasm', uzak: 'motor/bergamot-translator-worker.wasm.gz',
-      bayt: 1857913, sha256: 'b28dc11c488b58c0114da34d2409f4c9e1c4ef16529fa9746360010862aec86e' },
+      bayt: 1857881, sha256: '24b80fdd0cfe326a69fdb3f8f17619cad0e6179098bd71636445d0e4803514d2' },
   ],
   'en-tr': [
     { ad: 'model.bin', uzak: 'en-tr/model.entr.intgemm.alphas.bin.gz',
