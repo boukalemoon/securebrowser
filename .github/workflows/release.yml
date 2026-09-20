@@ -70,7 +70,9 @@ jobs:
 
       - name: GitHub Release'e ekle
         if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v2
+        # Üçüncü taraf eylem commit kimliğine sabitlendi: etiket taşınırsa (ya da depo
+        # ele geçerse) yayın işimiz contents:write yetkisiyle başkasının kodunu çalıştırırdı.
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
           # latest*.yml ve .blockmap: uygulama içi otomatik güncelleme bunlara bakar.
           # 0.7.3'te elle yüklenmişti; artık her yayında otomatik.

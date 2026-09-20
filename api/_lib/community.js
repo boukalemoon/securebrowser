@@ -57,8 +57,19 @@ function hashKey(salt, value) {
   return crypto.createHash('sha256').update(String(salt) + '|' + String(value)).digest('hex').slice(0, 32);
 }
 
+// Hız sınırı sayaçlarının anahtarı IP'den türetilir. Tuz koda yazılı olsaydı (depo herkese
+// açık) özetler geri çözülebilirdi: IPv4 uzayı saniyeler içinde denenir ve Firestore'daki
+// anahtarlar IP listesine dönerdi. Ortam değişkeni yoksa soğuk başlangıçta rastgele bir tuz
+// üretilir — sayaç örnek ömrü boyunca çalışır, özet geri çözülemez. Kalıcı sınır için
+// Vercel'de RATE_LIMIT_SALT tanımlanmalıdır (uyarı bir kez basılır).
+let _rastgeleTuz = null;
 function rateSalt() {
-  return process.env.RATE_LIMIT_SALT || 'ilgezdi-reviews';
+  if (process.env.RATE_LIMIT_SALT) return process.env.RATE_LIMIT_SALT;
+  if (!_rastgeleTuz) {
+    _rastgeleTuz = crypto.randomBytes(32).toString('hex');
+    console.warn('[community] RATE_LIMIT_SALT tanımlı değil; bu örnek için rastgele tuz üretildi (hız sınırı örnekler arasında paylaşılmaz).');
+  }
+  return _rastgeleTuz;
 }
 
 /** true → saatlik sınır aşıldı. Sayaç dokümanı saatlik anahtarla tutulur. */
