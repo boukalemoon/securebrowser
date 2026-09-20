@@ -437,8 +437,17 @@ async function paketIndir(btn, kaynakDil, istek) {
   const eski = btn.textContent;
   btn.disabled = true;
   btn.textContent = T('ulgen.tr.downloading');
+  // Motor ilerleme bildiriyorsa yüzde yazılır; bildirmiyorsa düğme "iniyor" der ve bekler.
+  let birak = null;
+  try {
+    birak = kopru.onCeviriDurum?.((d) => {
+      if (!d || d.durum !== 'iniyor' || !Number.isFinite(d.yuzde)) return;
+      btn.textContent = T('ulgen.tr.downloadingPct', { pct: Math.max(0, Math.min(100, Math.round(d.yuzde))) });
+    });
+  } catch { birak = null; }
   let r = null;
-  try { r = await kopru.eylem({ tur: 'ceviriPaketi', kaynakDil }); } catch { r = null; }
+  try { r = await kopru.eylem({ tur: 'ceviriPaketi', kaynakDil, hedefDil: hedefDil() }); } catch { r = null; }
+  if (typeof birak === 'function') { try { birak(); } catch {} }
   btn.disabled = false;
   btn.textContent = eski;
   if (r && r.ok !== false && r.durum !== 'hata') {

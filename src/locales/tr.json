@@ -1555,10 +1555,11 @@
   "ulgen.tr.stamp": "Çeviri bu cihazda yapıldı · makine çevirisi",
   "ulgen.tr.off": "Bu sayfa başka dilde. Özeti dilinize çevirmek kapalı.",
   "ulgen.tr.turnOn": "Çeviriyi aç",
-  "ulgen.tr.download": "Dil paketini indir (~16 MB)",
+  "ulgen.tr.download": "Dil paketini indir (~20 MB)",
   "ulgen.tr.downloadNote": "Sayfanın metni cihazdan çıkmaz; yalnızca dil paketi İlgezdi sunucusundan iner.",
   "ulgen.tr.downloading": "Dil paketi iniyor…",
   "ulgen.tr.failed": "Dil paketi indirilemedi. Bağlantınızı denetleyip yeniden deneyin.",
   "data.item.ulgenTranslate.title": "Özeti dilime çevir",
-  "data.item.ulgenTranslate.desc": "Yabancı dildeki sayfaların özeti arayüz dilinize çevrilir. Çeviri bu cihazda yapılır; sayfanın metni hiçbir sunucuya gönderilmez. İlk kullanımda dil paketi (yaklaşık 16 MB) İlgezdi sunucusundan iner. Özgün cümleler çevirinin yanında kalır."
+  "data.item.ulgenTranslate.desc": "Yabancı dildeki sayfaların özeti arayüz dilinize çevrilir. Çeviri bu cihazda yapılır; sayfanın metni hiçbir sunucuya gönderilmez. İlk kullanımda dil paketi (yaklaşık 20 MB) İlgezdi sunucusundan iner. Özgün cümleler çevirinin yanında kalır.",
+  "ulgen.tr.downloadingPct": "Dil paketi iniyor… %{pct}"
 }

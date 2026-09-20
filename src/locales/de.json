@@ -1621,10 +1621,11 @@
   "ulgen.tr.stamp": "Auf diesem Gerät übersetzt · maschinelle Übersetzung",
   "ulgen.tr.off": "Diese Seite ist in einer anderen Sprache. Das Übersetzen der Zusammenfassung ist aus.",
   "ulgen.tr.turnOn": "Übersetzung einschalten",
-  "ulgen.tr.download": "Sprachpaket herunterladen (~16 MB)",
+  "ulgen.tr.download": "Sprachpaket herunterladen (~20 MB)",
   "ulgen.tr.downloadNote": "Der Seitentext verlässt Ihr Gerät nicht; nur das Sprachpaket wird vom İlgezdi-Server geladen.",
   "ulgen.tr.downloading": "Sprachpaket wird geladen …",
   "ulgen.tr.failed": "Das Sprachpaket konnte nicht geladen werden. Prüfen Sie Ihre Verbindung und versuchen Sie es erneut.",
   "data.item.ulgenTranslate.title": "Zusammenfassungen in meine Sprache übersetzen",
-  "data.item.ulgenTranslate.desc": "Zusammenfassungen fremdsprachiger Seiten werden in Ihre Oberflächensprache übersetzt. Die Übersetzung läuft auf diesem Gerät; der Seitentext wird an keinen Server gesendet. Beim ersten Mal wird ein Sprachpaket (etwa 16 MB) vom İlgezdi-Server geladen. Die Originalsätze bleiben neben der Übersetzung stehen."
+  "data.item.ulgenTranslate.desc": "Zusammenfassungen fremdsprachiger Seiten werden in Ihre Oberflächensprache übersetzt. Die Übersetzung läuft auf diesem Gerät; der Seitentext wird an keinen Server gesendet. Beim ersten Mal wird ein Sprachpaket (etwa 20 MB) vom İlgezdi-Server geladen. Die Originalsätze bleiben neben der Übersetzung stehen.",
+  "ulgen.tr.downloadingPct": "Sprachpaket wird geladen … {pct} %"
 }

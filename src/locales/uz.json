@@ -1549,10 +1549,11 @@
   "ulgen.tr.stamp": "Tarjima shu qurilmada bajarildi · mashina tarjimasi",
   "ulgen.tr.off": "Bu sahifa boshqa tilda. Xulosani tilingizga tarjima qilish oʻchiq.",
   "ulgen.tr.turnOn": "Tarjimani yoqish",
-  "ulgen.tr.download": "Til paketini yuklab olish (~16 MB)",
+  "ulgen.tr.download": "Til paketini yuklab olish (~20 MB)",
   "ulgen.tr.downloadNote": "Sahifaning matni qurilmadan chiqmaydi; faqat til paketi İlgezdi serveridan yuklab olinadi.",
   "ulgen.tr.downloading": "Til paketi yuklab olinmoqda…",
   "ulgen.tr.failed": "Til paketini yuklab boʻlmadi. Ulanishni tekshirib, qayta urinib koʻring.",
   "data.item.ulgenTranslate.title": "Xulosani tilimga tarjima qilish",
-  "data.item.ulgenTranslate.desc": "Boshqa tildagi sahifalarning xulosasi interfeys tilingizga tarjima qilinadi. Tarjima shu qurilmada bajariladi; sahifaning matni hech qanday serverga yuborilmaydi. Birinchi marta ishlatilganda til paketi (taxminan 16 MB) İlgezdi serveridan yuklab olinadi. Asl gaplar tarjima yonida qoladi."
+  "data.item.ulgenTranslate.desc": "Boshqa tildagi sahifalarning xulosasi interfeys tilingizga tarjima qilinadi. Tarjima shu qurilmada bajariladi; sahifaning matni hech qanday serverga yuborilmaydi. Birinchi marta ishlatilganda til paketi (taxminan 20 MB) İlgezdi serveridan yuklab olinadi. Asl gaplar tarjima yonida qoladi.",
+  "ulgen.tr.downloadingPct": "Til paketi yuklab olinmoqda… {pct}%"
 }
