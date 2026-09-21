@@ -45,7 +45,7 @@ async function sayfaAc(url) {
   if (kod >= 400) return { ok: false, sebep: `http_${kod}` };
   // ⛔ PDF/ikili içerik: kaba çıkarım ham bayt döndürüyordu (ölçüldü).
   //    Üründe okuyucu bunu zaten yapmaz; burada da reddediyoruz.
-  if (/^%PDF-|^PK/.test(govde.slice(0, 8))) return { ok: false, sebep: 'pdf_okunamaz' };
+  if (/^%PDF-|^PK\x03\x04/.test(govde.slice(0, 8))) return { ok: false, sebep: 'pdf_okunamaz' };
   const bloklar = govde
     .replace(/<(script|style|nav|footer|header|aside|form)[\s\S]*?<\/\1>/gi, '')
     .split(/<\/p>|<\/li>|<\/h[1-6]>|<\/div>|<\/td>|<\/th>|<\/tr>/i)

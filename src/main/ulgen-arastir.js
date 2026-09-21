@@ -228,11 +228,35 @@ function varlikCikar(bloklar, coz, azami = 8) {
 // yuksek : en az iki BAĞIMSIZ kaynak aynı şeyi söylüyor
 // orta   : tek kaynak, ama metni doğrulanabilir (HTML)
 // dusuk  : metin çıkarımı kırılgan (PDF vb.) — kullanıcıya böyle sunulur
+// ⛔ BAĞIMSIZLIK `hostname` İLE ÖLÇÜLMEZ. ilgezdi-15 dört kör nokta ölçtü
+//    (22.09.2026) ve dördü de sahte "yüksek" üretiyordu:
+//      tr.wikipedia.org + en.wikipedia.org   → aynı kaynağın iki DİLİ
+//      tr.wikipedia.org + tr.m.wikipedia.org → aynı sayfanın MOBİL sürümü
+//      ornek.com        + www.ornek.com      → kelimenin tam anlamıyla aynı site
+//      []  (hiç kaynak)                      → `liste.length` 0 falsy olduğu
+//                                              için PDF dalı atlanıp "orta"
+//                                              düşüyordu: kaynaksız iddiaya
+//                                              orta güven.
+//    Göktürk sorusunda iki kaynak da tr.wikipedia.org olduğu için tesadüfen
+//    yakalanmıştı; biri en.wikipedia.org gelse sahte "yüksek" çıkacaktı.
+//
+// ⚠️ Çözüm depoda ZATEN VARDI: `blocker-main.registrableDomain()` — üçüncü
+//    taraf çerez engellemede üretimde kullanılıyor, Public Suffix List'in
+//    yaygın kısmını (com.tr, gov.tr, edu.tr, co.uk…) biliyor. Ölçtüm:
+//    tr.wikipedia.org → wikipedia.org · acikders.ankara.edu.tr → ankara.edu.tr
+//
+// ⚠️ BİLİNEN SINIR: içerik YANSILARINI ayırt etmez (wikipedia.org ile
+//    wikiwand.com farklı alan adı ama aynı içerik). Bunun için yansı listesi
+//    gerekir; şimdilik kayıtlı bir sınır olarak duruyor.
+const { registrableDomain } = require('./blocker-main');
+
 function guvenDuzeyi(kaynaklar) {
   const liste = kaynaklar || [];
-  const kirilgan = liste.every((k) => /\.pdf($|\?)/i.test(k.url || ''));
-  if (kirilgan && liste.length) return 'dusuk';
-  const bagimsiz = new Set(liste.map((k) => { try { return new URL(k.url).hostname; } catch { return k.url; } }));
+  if (!liste.length) return 'dusuk';                       // kaynaksız iddia
+  if (liste.every((k) => /\.pdf($|\?)/i.test(k.url || ''))) return 'dusuk';
+  const bagimsiz = new Set(liste.map((k) => {
+    try { return registrableDomain(new URL(k.url).hostname); } catch { return String(k.url || ''); }
+  }));
   return bagimsiz.size >= 2 ? 'yuksek' : 'orta';
 }
 
