@@ -116,5 +116,31 @@ console.log('\n\x1b[1mCümle sayısı sayfa uzunluğuna göre ölçekleniyor\x1b
      ozet(SAYISAL, 'Yağmur suyu hasadı').length >= 3, String(ozet(SAYISAL, 'Yağmur suyu hasadı').length));
 }
 
+// ── Giriş (tanım) cümlesi garanti ─────────────────────────────────────
+// ⛔ NEDEN VAR (Burak bildirdi 22.09.2026): "Anatomi" sayfasının özeti tanımı
+// atlayıp Leonardo da Vinci'yi ve 1863'te ders veren bir profesörü getiriyordu.
+// Puan = sıklık toplamı / √uzunluk olduğu için UZUN cümle kısa tanımı hep
+// yeniyor. Ağırlık taraması (0 / 0,3 / 0,6 / 1,0 / 1,6) ÇÖZMEDİ — çözüm,
+// belgenin ilk cümlesini puandan bağımsız özete almak.
+console.log('\n\x1b[1mGiriş (tanım) cümlesi her zaman özete giriyor\x1b[0m');
+{
+  // Tanım KISA, gerisi UZUN ve sık sözcüklü: eski kural tanımı eliyordu.
+  const ANSIKLOPEDI = [
+    'Anatomi, organizmaların yapısının incelenmesiyle ilgili biyoloji dalıdır.',
+    'Makroskopik anatomi veya kaba anatomi, bir hayvanın vücut parçalarının çıplak gözle incelenmesidir ve yüzey anatomisini de kapsar.',
+    'İngiltere\'de anatomi öğretimi 1863\'ten 1889\'a kadar Aberdeen Üniversitesi\'nde Regius Anatomi Profesörü olan bir hekim tarafından dönüştürülmüştür.',
+    'Leonardo da Vinci anatomi eğitimi almış ve anatomi bilgisini sanat çalışmalarında kullanarak insan iskeletini ayrıntılı biçimde çizmiştir.',
+    'Karşılaştırmalı anatomi, insan ile başka canlıların vücut yapılarındaki benzer ve farklı tarafları karşılaştırmalı olarak ele alan anatomi dalıdır.',
+  ];
+  const c = ozet(ANSIKLOPEDI, 'Anatomi');
+  ol('tanım cümlesi özette VAR', c.some((x) => /biyoloji dalıdır/.test(x)),
+     c.map((x) => x.slice(0, 26)).join(' // '));
+  ol('tanım cümlesi BİRİNCİ sırada', /biyoloji dalıdır/.test(c[0] || ''), (c[0] || '').slice(0, 50));
+  // ⛔ Giriş zaten seçilmişse İKİNCİ KEZ eklenmemeli (ölçüldü: ekleniyordu).
+  ol('⛔ hiçbir cümle tekrarlanmıyor', new Set(c).size === c.length, String(c.length));
+  // ⛔ Giriş eklenirken cümle sayısı tavanı aşılmamalı.
+  ol('cümle sayısı tavanı aşılmıyor', c.length <= 5, String(c.length));
+}
+
 console.log(`\n${kalan ? '\x1b[31m' : '\x1b[32m'}SONUÇ: ${gecen} geçti · ${kalan} kaldı\x1b[0m`);
 process.exit(kalan ? 1 : 0);

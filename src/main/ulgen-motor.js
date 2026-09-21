@@ -178,6 +178,30 @@ function ozetle(bloklar, secenek = {}) {
     });
     if (!benzer) secilen.push(c);
   }
+
+  // ⛔ GİRİŞ CÜMLESİ GARANTİ. Burak bildirdi 22.09.2026: "Anatomi" sayfasının
+  // özeti tanımı atlayıp Leonardo da Vinci'yi ve 1863'te ders veren bir
+  // profesörü getiriyordu. Kök sebep ağırlık ayarı DEĞİL: puan = sıklık
+  // toplamı / √uzunluk olduğu için UZUN cümle kısa tanımı her zaman yeniyor;
+  // tanım cümlesi aday listesinde olduğu hâlde hiç seçilmiyordu. Ağırlık
+  // taraması (0 / 0,3 / 0,6 / 1,0 / 1,6) denendi ve ÜÇ SAYFADA DA ÇÖZMEDİ.
+  // Çözüm: belgenin ilk uygun cümlesi puanına bakılmaksızın özete girer ve
+  // başa yazılır — ansiklopedi, haber ve makalede tanım oradadır.
+  // ÖLÇÜLDÜ (tr.wikipedia düz metin):
+  //   Anatomi    → "...organizmaların ve parçalarının yapısının incelenmesi
+  //                 ile ilgili biyoloji dalıdır." (önce: yoktu)
+  //   Yapay zekâ → "...öğrenme, akıl, problem çözme, algılama ve karar verme
+  //                 gibi..." (önce: yoktu)
+  // ⚠️ `puanli[0]`, `tum[0]` DEĞİL: `i` alanı puanlama sırasında atanıyor.
+  // tum[0] kullanınca `i` undefined kalıyor, cümle hem sona düşüyor hem
+  // zaten seçilmişse İKİNCİ KEZ ekleniyordu (ölçüldü, Çanakkale sınaması).
+  const giris = puanli[0];                    // belge sırasındaki ilk uygun cümle
+  if (giris && !secilen.some((c) => c.i === giris.i)) {
+    // En zayıf seçimi bırakıp yerine girişi alıyoruz (liste puan sırasında).
+    if (secilen.length >= azami) secilen.pop();
+    secilen.push(giris);
+  }
+
   secilen.sort((a, b) => a.i - b.i);
   return { cumleler: secilen.map((c) => c.metin), toplam: tum.length };
 }
