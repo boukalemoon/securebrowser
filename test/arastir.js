@@ -82,7 +82,7 @@ const SORULAR = [
       console.log(`\n  CEVAP — ${s.adlar.length} ad (${s.kaynakSayisi} kaynak · ${s.iz.toplamMs} ms):`);
       s.adlar.forEach((v, i) => {
         console.log(`   ${i + 1}. ${v.ad}${v.unvan ? ' ' + v.unvan : ''}${v.yil ? '  (' + v.yil + ')' : ''}`
-          + `   · ${v.sayi} kez · ${v.kaynaklar.length} kaynak`);
+          + `   · ${v.sayi} kez · ${v.kaynaklar.length} kaynak · güven: ${v.guven}`);
       });
       console.log('\n  bağlam cümleleri:');
     } else {

@@ -218,6 +218,24 @@ function varlikCikar(bloklar, coz, azami = 8) {
   return liste.sort((a, b) => (b.sayi - a.sayi) || ((a.yil ?? 9999) - (b.yil ?? 9999))).slice(0, azami);
 }
 
+// ── 3c. Güven düzeyi ──────────────────────────────────────────────────────
+// ⛔ NEDEN (ilgezdi-15 uyarısı + ölçümü, 22.09.2026): HTML'de cümlenin sayfada
+//    aynen geçtiği doğrulanabiliyor. PDF'te satır kırılması ve sütun düzeni
+//    yüzünden çıkarılan metin bozulabiliyor. Zincirin "uydurmasız, kaynaklı"
+//    sözünü korumak için kaynağın CİNSİ kullanıcıya görünmeli — aynı kefeye
+//    koyarsak bozuk bir PDF satırı ansiklopedi cümlesi gibi görünür.
+//
+// yuksek : en az iki BAĞIMSIZ kaynak aynı şeyi söylüyor
+// orta   : tek kaynak, ama metni doğrulanabilir (HTML)
+// dusuk  : metin çıkarımı kırılgan (PDF vb.) — kullanıcıya böyle sunulur
+function guvenDuzeyi(kaynaklar) {
+  const liste = kaynaklar || [];
+  const kirilgan = liste.every((k) => /\.pdf($|\?)/i.test(k.url || ''));
+  if (kirilgan && liste.length) return 'dusuk';
+  const bagimsiz = new Set(liste.map((k) => { try { return new URL(k.url).hostname; } catch { return k.url; } }));
+  return bagimsiz.size >= 2 ? 'yuksek' : 'orta';
+}
+
 // ── 4/5. Birleştir ve yaz ─────────────────────────────────────────────────
 // Aynı bilgiyi iki kaynak söylüyorsa bir kez yazılır ama İKİ kaynak gösterilir.
 function birlestir(parcalar, coz) {
@@ -230,7 +248,9 @@ function birlestir(parcalar, coz) {
     }
   }
   // İki kaynağın doğruladığı bilgi öne alınır — tek kaynaklı iddiadan güçlüdür.
-  return kume.sort((a, b) => b.kaynaklar.length - a.kaynaklar.length).slice(0, coz.tip === 'liste' ? 8 : 5);
+  return kume.sort((a, b) => b.kaynaklar.length - a.kaynaklar.length)
+    .slice(0, coz.tip === 'liste' ? 8 : 5)
+    .map((k) => ({ ...k, guven: guvenDuzeyi(k.kaynaklar) }));
 }
 
 function ortakOran(a, b) {
@@ -313,7 +333,8 @@ async function arastir(soru, kanca, secenek = {}) {
     }
     const adlar = [...tekil.values()]
       .sort((a, b) => (b.kaynaklar.length - a.kaynaklar.length) || ((a.yil ?? 9999) - (b.yil ?? 9999)))
-      .slice(0, 10);
+      .slice(0, 10)
+      .map((k) => ({ ...k, guven: guvenDuzeyi(k.kaynaklar) }));
     if (adlar.length) {
       return { ok: true, tip: 'liste', soru, adlar,
                maddeler: birlestir(parcalar, coz).slice(0, 3),   // bağlam cümleleri
@@ -325,4 +346,4 @@ async function arastir(soru, kanca, secenek = {}) {
 }
 
 module.exports = { arastir, soruCoz, kaynakPuani, kaynaklariSuz, cevapCumleleri,
-                   birlestir, metinKalitesi, varlikCikar, ESANLAM };
+                   birlestir, metinKalitesi, varlikCikar, guvenDuzeyi, ESANLAM };
