@@ -1,0 +1,34 @@
+# İlgezdi — satır sonları
+#
+# Neden: depo LF saklıyor ama Windows'ta core.autocrlf=true çalışma ağacındaki
+# bazı dosyaları CRLF'e çeviriyordu. Sonuç sinsi: testlerimizin bir bölümü
+# kaynağı HAM okuyup düzenli ifadeyle sınıyor (`\n  });` gibi). CRLF olan bir
+# dosyada bu eşleşme sessizce bozuluyor, `git diff` ise hiçbir fark göstermiyor
+# çünkü git commit ederken zaten LF'e çeviriyor. 21 Eyl 2026'da tam bu oldu:
+# bir oturum testin neden düştüğünü ararken hatayı başka bir oturumun
+# işlenmemiş çalışmasında sandı.
+#
+# eol=lf: git bu dosyaları her zaman LF ile çıkarıyor, autocrlf ne olursa olsun.
+# Depo içeriği DEĞİŞMİYOR (blob'lar zaten LF), yalnız çalışma ağacı tutarlı hâle
+# geliyor. test/run.js içindeki "Satır sonları" süiti bunu ayrıca denetliyor.
+
+* text=auto eol=lf
+
+# İkili dosyalar dönüştürülmemeli.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.ico binary
+*.gif binary
+*.webp binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary
+*.gz binary
+*.zip binary
+*.exe binary
+*.dll binary
+*.node binary
+*.asar binary
+*.wasm binary
