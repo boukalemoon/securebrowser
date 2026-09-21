@@ -89,5 +89,32 @@ ol('0,8 ağırlık ZARARLI (tanım cümlesini düşürüyor) — seçilmeme sebe
      k.map((c) => c.slice(0, 28)).join(' // '));
 }
 
+// ── Cümle sayısı sayfa uzunluğuna göre ölçekleniyor mu ────────────────
+// ⛔ NEDEN VAR (ilgezdi-15, 22.09.2026): "Kısa sayfalarda özet pek
+// kısaltmıyor." Sabit 3 cümlelik özet, 5 cümlelik bir haberin %61'iydi.
+// ÖLÇÜLDÜ: haber 3c/0,61 → 2c/0,45 · vakıf ve su metinleri DEĞİŞMEDİ.
+console.log('\n\x1b[1mCümle sayısı sayfa uzunluğuna göre ölçekleniyor\x1b[0m');
+{
+  const HABER = [
+    'Merkez Bankası bugün politika faizini sabit bıraktığını açıkladı ve kararın gerekçesini paylaştı.',
+    'Karar, piyasa beklentileriyle uyumlu biçimde geldi ve borsada sınırlı bir hareket yarattı.',
+    'Enflasyonun yıl sonunda yüzde 28 seviyesine gerilemesi bekleniyor.',
+    'Kurul üyeleri kararın oybirliğiyle alındığını belirtti ve sıkı duruşun süreceğini söyledi.',
+    'Bir sonraki toplantı gelecek ay yapılacak ve piyasa o tarihi bekliyor.',
+  ];
+  const oran = (b, c) => c.join(' ').length / b.join(' ').length;
+  const h = ozet(HABER, 'Faiz kararı');
+  ol('kısa sayfada özet GERÇEKTEN kısaltıyor (oran < 0,50)',
+     oran(HABER, h) < 0.5, `${h.length} cümle · oran ${oran(HABER, h).toFixed(2)}`);
+  // ⛔ Taban 2'nin altına inmemeli: tek cümle özet değil, başlık olur.
+  ol('en az 2 cümle kalıyor', h.length >= 2, String(h.length));
+  // ⛔ Orta boy sayfa bu değişiklikten ETKİLENMEMELİ — vakıf metninde 2 cümleye
+  //    inince sayı ağırlığı tanım cümlesini düşürüyordu (yukarıda sınanıyor).
+  ol('orta boy sayfa (8 cümle) 3 cümlede kalıyor',
+     ozet(TARIHSEL, 'Vakıf sistemi').length === 3, String(ozet(TARIHSEL, 'Vakıf sistemi').length));
+  ol('uzun sayfa (10 cümle) 3 cümleden AZ vermiyor',
+     ozet(SAYISAL, 'Yağmur suyu hasadı').length >= 3, String(ozet(SAYISAL, 'Yağmur suyu hasadı').length));
+}
+
 console.log(`\n${kalan ? '\x1b[31m' : '\x1b[32m'}SONUÇ: ${gecen} geçti · ${kalan} kaldı\x1b[0m`);
 process.exit(kalan ? 1 : 0);

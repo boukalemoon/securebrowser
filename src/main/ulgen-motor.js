@@ -156,7 +156,17 @@ function ozetle(bloklar, secenek = {}) {
     return { ...c, i, puan: p * konum * sayi, s };
   });
 
-  const azami = secenek.azami || (tum.length > 40 ? 5 : tum.length > 12 ? 4 : 3);
+  // CÜMLE SAYISI SAYFAYA GÖRE ÖLÇEKLENİR. Sabit 3 cümle, 5 cümlelik bir
+  // haberde özet sayılmıyordu (ilgezdi-15: "kısa sayfalarda özet pek
+  // kısaltmıyor"). ÖLÇÜLDÜ 22.09.2026, aynı metinler önce/sonra:
+  //   haber   5 cümle → 3c/0,61  →  2c/0,45   ← düzelen
+  //   vakıf   8 cümle → 3c/0,39  →  3c/0,39   (değişmedi)
+  //   su     10 cümle → 3c/0,35  →  3c/0,35   (değişmedi)
+  // Yani kural yalnız kısa sayfaya dokunuyor; tanım ve sayı cümleleri duruyor.
+  // ⚠️ TABAN 8+ cümlede 3: 2'ye indirince sayı ağırlığıyla birleşip tanım
+  // cümlesini düşürdü (vakıf metni, ölçüldü). Kısa sayfada 2 yeterli.
+  const taban = tum.length >= 8 ? 3 : 2;
+  const azami = secenek.azami || Math.max(taban, Math.min(5, Math.round(tum.length * 0.3)));
   const secilen = [];
   for (const c of [...puanli].sort((a, b) => b.puan - a.puan)) {
     if (secilen.length >= azami) break;

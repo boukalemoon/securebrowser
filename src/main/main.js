@@ -1746,7 +1746,10 @@ async function ulgenSayfaMetni(state) {
   if (wc.isDestroyed() || wc.getURL() !== url) return { ok: false, sebep: 'sayfa_degisti' };
   if (!raw || raw.error || !Array.isArray(raw.nodes)) return { ok: false, sebep: 'makale_yok' };
   const nodes = reader.validateReaderNodes(raw.nodes);
-  if (reader.readerTextLength(nodes) < 200) return { ok: false, sebep: 'makale_yok' };
+  // Düz yazı yoksa uydurmuyoruz; kaç karakter olduğunu da söylüyoruz ki
+  // panel kullanıcıya yol gösterebilsin (ilgezdi-15 gözlemi).
+  const duzYaziHarf = reader.readerTextLength(nodes);
+  if (duzYaziHarf < 200) return { ok: false, sebep: 'makale_yok', karakter: duzYaziHarf };
   return { ok: true, url, baslik: typeof raw.title === 'string' ? raw.title.slice(0, 300) : '', ...ulgenMotor.duzMetin(nodes) };
 }
 
@@ -1961,7 +1964,7 @@ ipcMain.handle('ulgen-sor', async (event, istek) => {
       const aranan = tur === 'sayfada' ? (ulgenMotor.sorguOner(arg) || arg) : '';
       if (tur === 'sayfada' && !aranan) return { ok: false, sebep: 'sorgu_bos', tur };
       const s = await ulgenSayfaMetni(state);
-      if (!s.ok) return { ok: false, sebep: s.sebep, tur };
+      if (!s.ok) return { ok: false, sebep: s.sebep, tur, karakter: s.karakter };
       if (tur === 'sayfada') {
         return { ok: true, tur, baslik: s.baslik, url: s.url, sorgu: aranan, sonuclar: ulgenMotor.sayfadaAra(s.bloklar, aranan) };
       }
