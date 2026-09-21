@@ -1301,6 +1301,10 @@
   "ulgen.help": "Bu sahifani qisqacha bayon qila olaman, undan biror narsa topa olaman, tarixingizdan qidira olaman va yaxshiroq qidiruv soʻrovini taklif qila olaman. Tugmalardan foydalaning yoki yozing.",
   "ulgen.err.noPage": "Ochiq veb-sahifa yoʻq.",
   "ulgen.err.noArticle": "Bu sahifada oʻqiladigan matn topilmadi.",
+  "ulgen.err.noArticleCount": {
+    "one": "Bu sahifada qisqacha bayon qiladigan matn yoʻq (faqat {count} belgi matn bor). Bu yerda biror narsani qidirmoqchi boʻlsangiz, “Sahifadan topish” yordam berishi mumkin.",
+    "other": "Bu sahifada qisqacha bayon qiladigan matn yoʻq (faqat {count} belgi matn bor). Bu yerda biror narsani qidirmoqchi boʻlsangiz, “Sahifadan topish” yordam berishi mumkin."
+  },
   "ulgen.err.navigated": "Sahifa oʻzgardi, qayta urinib koʻring.",
   "ulgen.err.incognito": "Maxfiy oynada tarixdan qidirish oʻchiq.",
   "ulgen.err.historyOff": "Tarixdan qidirish uchun Maʼlumotlar va maxfiylik boʻlimida “Brauzer tarixim asosida moslashtirish” ruxsatini yoqing.",

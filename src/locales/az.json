@@ -1301,6 +1301,10 @@
   "ulgen.help": "Bu səhifəni xülasə edə, orada nəyisə tapa, tarixçənizdə axtara və daha yaxşı axtarış sorğusu təklif edə bilərəm. Düymələrdən istifadə edin və ya yazın.",
   "ulgen.err.noPage": "Açıq veb səhifə yoxdur.",
   "ulgen.err.noArticle": "Bu səhifədə oxunacaq mətn tapılmadı.",
+  "ulgen.err.noArticleCount": {
+    "one": "Bu səhifədə xülasə edilə bilən yazı yoxdur (yalnız {count} simvol mətn var). Burada bir şey axtarmaq istəyirsinizsə, “Səhifədə tap” işinizə yaraya bilər.",
+    "other": "Bu səhifədə xülasə edilə bilən yazı yoxdur (yalnız {count} simvol mətn var). Burada bir şey axtarmaq istəyirsinizsə, “Səhifədə tap” işinizə yaraya bilər."
+  },
   "ulgen.err.navigated": "Səhifə dəyişdi, yenidən cəhd edin.",
   "ulgen.err.incognito": "Məxfi pəncərədə tarixçə axtarışı bağlıdır.",
   "ulgen.err.historyOff": "Tarixçədə axtarmaq üçün Məlumatlar və məxfilik bölməsində “Baxış tarixçəmə əsasən fərdiləşdir” icazəsini aktivləşdirin.",

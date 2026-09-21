@@ -1307,6 +1307,10 @@
   "ulgen.help": "Şunları yapabilirim: bu sayfayı özetlemek, sayfada bir şey bulmak, geçmişinizde aramak ve daha iyi bir arama sorgusu önermek. Düğmeleri kullanabilir ya da yazabilirsiniz.",
   "ulgen.err.noPage": "Açık bir web sayfası yok.",
   "ulgen.err.noArticle": "Bu sayfada okunacak bir metin bulunamadı.",
+  "ulgen.err.noArticleCount": {
+    "one": "Bu sayfada özetlenecek bir yazı yok (yalnız {count} karakter metin var). Sayfada bir şey aramak isterseniz \"Sayfada bul\" işinize yarayabilir.",
+    "other": "Bu sayfada özetlenecek bir yazı yok (yalnız {count} karakter metin var). Sayfada bir şey aramak isterseniz \"Sayfada bul\" işinize yarayabilir."
+  },
   "ulgen.err.navigated": "Sayfa değişti, yeniden deneyin.",
   "ulgen.err.incognito": "Gizli pencerede geçmiş araması kapalıdır.",
   "ulgen.err.historyOff": "Geçmişte aramak için Veri ve Gizlilik sayfasında “Gezinti geçmişimden kişiselleştir” iznini açın.",

@@ -3298,6 +3298,37 @@ suite('Ülgen — sayfa erişimi onayı (bu sefer / her zaman)');
   check('onay metinleri 9 dilde var, kullanılmayan anahtar kalmadı', eksik.length === 0, eksik.join(', '));
 }
 
+// Özetlenecek yazısı olmayan sayfa (ürün sayfası, giriş ekranı, pano): Ülgen
+// cümle uydurmadığı için reddetmesi DOĞRU, ama kullanıcıyı elinde hiçbir şeyle
+// bırakması değil. Ölçüyü söylüyor ve "Sayfada bul"u öneriyor.
+suite('Ülgen — özetlenecek yazı yokken kullanıcı yönlendiriliyor');
+{
+  const up = read('../src/renderer/ulgen-panel.js');
+  check('makale_yok ayrı ele alınıyor, genel hata metnine düşmüyor',
+    /if \(sebep === 'makale_yok'\) \{/.test(up));
+  check('karakter sayısı varsa ölçü söyleniyor, yoksa eski metne düşülüyor',
+    /Number\.isFinite\(r && r\.karakter\)/.test(up) && /ulgen\.err\.noArticleCount/.test(up) && /ulgen\.err\.noArticle'\)/.test(up));
+  check('"Sayfada bul" düğmesi sunuluyor ve kipi açıyor',
+    /dugme\(T\('ulgen\.act\.find'\), \(\) => modSec\('find'\)\)/.test(up));
+
+  const mj = read('../src/main/main.js');
+  check('ana süreç karakter sayısını bildiriyor', /sebep: 'makale_yok', karakter:/.test(mj));
+
+  const diller = ['tr', 'en', 'de', 'fr', 'az', 'kk', 'uz', 'tk', 'ky'];
+  const eksik = [];
+  for (const d of diller) {
+    const j = JSON.parse(read('../src/locales/' + d + '.json'));
+    const v = j['ulgen.err.noArticleCount'];
+    if (!v || typeof v !== 'object') { eksik.push(d + ': yok ya da çoğul değil'); continue; }
+    for (const biçim of ['one', 'other']) if (!String(v[biçim] || '').includes('{count}')) eksik.push(d + ':' + biçim + ' {count} yok');
+    // Önerilen eylemin adı o dosyanın kendi etiketiyle aynı olmalı, yoksa
+    // kullanıcı mesajdaki adı paneldeki düğmede bulamaz.
+    const etiket = j['ulgen.act.find'];
+    if (etiket && !String(v.other || '').includes(etiket)) eksik.push(d + ': "Sayfada bul" etiketi metinle uyuşmuyor');
+  }
+  check('metin 9 dilde, {count} korunmuş ve eylem adı panelle aynı', eksik.length === 0, eksik.join(', '));
+}
+
 suite('Ülgen görev kanalı — izin ve eşleşme arayüzü');
 {
   const dc = read('../src/renderer/data-catalog.js');
@@ -3370,6 +3401,43 @@ suite('Ülgen görev sayfası — ana süreçteki sınırlar');
 // Bu denetim o sınıfı kalıcı olarak yakalar: çalışan kodun çağırdığı her yerel
 // modül depoda olmalı.
 // ══════════════════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════════════
+// Satır sonları (21 Eyl 2026): testlerimizin bir bölümü kaynağı HAM okuyup
+// düzenli ifadeyle sınıyor ("\n  });" gibi). Bir dosya CRLF'e dönerse o eşleşme
+// SESSİZCE bozuluyor ve `git diff` hiçbir fark göstermiyor, çünkü git commit
+// ederken zaten LF'e çeviriyor. Bir oturum testin neden düştüğünü ararken
+// hatayı başka bir oturumun işlenmemiş çalışmasında sandı. .gitattributes bunu
+// önlüyor; bu denetim önlemin çalıştığını doğruluyor.
+// ══════════════════════════════════════════════════════════════════════════════
+suite('Satır sonları — kaynak dosyalar LF');
+{
+  const ROOTD = path.join(__dirname, '..');
+  const ga = fs.existsSync(path.join(ROOTD, '.gitattributes'))
+    ? fs.readFileSync(path.join(ROOTD, '.gitattributes'), 'utf8') : '';
+  check('.gitattributes satır sonunu LF\'e sabitliyor', /^\*\s+text=auto\s+eol=lf\s*$/m.test(ga));
+  check('ikili dosyalar dönüştürülmüyor', /\*\.png\s+binary/.test(ga) && /\*\.gz\s+binary/.test(ga));
+
+  const UZANTI = /\.(js|json|css|html|md|yml)$/;
+  const suclu = [];
+  const gez = (dir) => {
+    for (const ad of fs.readdirSync(dir)) {
+      if (ad === 'node_modules' || ad === '.git') continue;
+      const p = path.join(dir, ad);
+      let st; try { st = fs.statSync(p); } catch { continue; }
+      if (st.isDirectory()) gez(p);
+      else if (UZANTI.test(ad)) {
+        // Ham bayt: satır sonu dönüşümü yapılmadan okunur.
+        if (fs.readFileSync(p).includes('\r\n')) suclu.push(path.relative(ROOTD, p).replace(/\\/g, '/'));
+      }
+    }
+  };
+  for (const k of ['src', 'test', 'scripts', 'site']) {
+    const d = path.join(ROOTD, k);
+    if (fs.existsSync(d)) gez(d);
+  }
+  check('hiçbir kaynak dosyada CRLF yok', suclu.length === 0, suclu.slice(0, 8).join(', '));
+}
+
 suite('Depo bütünlüğü — çağrılan her yerel modül var');
 {
   const SRC_DIR = path.join(__dirname, '..', 'src');

@@ -1385,6 +1385,10 @@
   "ulgen.help": "I can summarize this page, find something on it, search your history and suggest a better search query. Use the buttons or type.",
   "ulgen.err.noPage": "There is no open web page.",
   "ulgen.err.noArticle": "No readable text was found on this page.",
+  "ulgen.err.noArticleCount": {
+    "one": "There is no article to summarise on this page (only {count} characters of text). If you want to look something up here, \"Find on page\" may help.",
+    "other": "There is no article to summarise on this page (only {count} characters of text). If you want to look something up here, \"Find on page\" may help."
+  },
   "ulgen.err.navigated": "The page changed, please try again.",
   "ulgen.err.incognito": "History search is off in private windows.",
   "ulgen.err.historyOff": "To search your history, turn on “Personalize from my browsing history” in Data and Privacy.",

@@ -369,6 +369,18 @@ function yanitiGoster(r, istek) {
       balon(m)?.appendChild(satir);
       return;
     }
+    // "Makale yok": kullanıcıyı elinde hiçbir şeyle bırakma. Ölçüyü söyle
+    // (ana süreç `karakter` döndürüyor) ve ne yapabileceğini göster — bu
+    // sayfalarda "Sayfada bul" genellikle çalışır. Ülgen cümle uydurmadığı
+    // için reddetmek doğru, ama sessiz kalmak değil.
+    if (sebep === 'makale_yok') {
+      const az = Number.isFinite(r && r.karakter);
+      const m2 = mesaj('biz', az ? T('ulgen.err.noArticleCount', { count: r.karakter }) : T('ulgen.err.noArticle'));
+      const satir = el('div', 'ulgen-row');
+      satir.appendChild(dugme(T('ulgen.act.find'), () => modSec('find')));
+      balon(m2)?.appendChild(satir);
+      return;
+    }
     const m = mesaj('biz', T(HATA[sebep] || 'ulgen.err.generic'));
     if (m && (sebep === 'izin_chat' || sebep === 'izin_history')) {
       const satir = el('div', 'ulgen-row');

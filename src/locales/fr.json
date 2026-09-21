@@ -1388,6 +1388,10 @@
   "ulgen.help": "Je peux résumer cette page, y trouver quelque chose, rechercher dans votre historique et proposer une meilleure requête. Utilisez les boutons ou écrivez.",
   "ulgen.err.noPage": "Aucune page web n’est ouverte.",
   "ulgen.err.noArticle": "Aucun texte lisible n’a été trouvé sur cette page.",
+  "ulgen.err.noArticleCount": {
+    "one": "Il n’y a aucun article à résumer sur cette page (seulement {count} caractère de texte). Si vous voulez y chercher quelque chose, « Rechercher dans la page » peut vous aider.",
+    "other": "Il n’y a aucun article à résumer sur cette page (seulement {count} caractères de texte). Si vous voulez y chercher quelque chose, « Rechercher dans la page » peut vous aider."
+  },
   "ulgen.err.navigated": "La page a changé, veuillez réessayer.",
   "ulgen.err.incognito": "La recherche dans l’historique est désactivée dans les fenêtres privées.",
   "ulgen.err.historyOff": "Pour rechercher dans votre historique, activez « Personnaliser à partir de mon historique » dans Données et confidentialité.",

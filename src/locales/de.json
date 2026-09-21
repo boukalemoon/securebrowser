@@ -1373,6 +1373,10 @@
   "ulgen.help": "Ich kann diese Seite zusammenfassen, etwas darauf finden, Ihren Verlauf durchsuchen und eine bessere Suchanfrage vorschlagen. Nutzen Sie die Schaltflächen oder schreiben Sie.",
   "ulgen.err.noPage": "Es ist keine Webseite geöffnet.",
   "ulgen.err.noArticle": "Auf dieser Seite wurde kein lesbarer Text gefunden.",
+  "ulgen.err.noArticleCount": {
+    "one": "Auf dieser Seite gibt es keinen Artikel zum Zusammenfassen (nur {count} Zeichen Text). Wenn Sie hier etwas nachschlagen möchten, hilft vielleicht „Auf der Seite suchen“.",
+    "other": "Auf dieser Seite gibt es keinen Artikel zum Zusammenfassen (nur {count} Zeichen Text). Wenn Sie hier etwas nachschlagen möchten, hilft vielleicht „Auf der Seite suchen“."
+  },
   "ulgen.err.navigated": "Die Seite hat sich geändert, bitte erneut versuchen.",
   "ulgen.err.incognito": "In privaten Fenstern ist die Verlaufssuche ausgeschaltet.",
   "ulgen.err.historyOff": "Um im Verlauf zu suchen, aktivieren Sie „Anhand meines Verlaufs personalisieren“ unter Daten und Datenschutz.",
