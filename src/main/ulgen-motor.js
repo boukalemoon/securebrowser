@@ -128,6 +128,13 @@ function sozcukler(metin) {
 //        × konum çarpanı (ilk paragraflar haberin özüdür) × başlık çarpanı.
 // ⚠️ Bu bir DİL MODELİ ÖZETİ DEĞİLDİR: cümleler olduğu gibi seçilir. Yanlış
 //    cümle seçilebilir ama sayfada olmayan bir iddia ASLA üretilmez.
+// Sayı taşıyan cümleye verilen ek ağırlık (ölçümle seçildi; aşağıdaki
+// yorumda tablo var). En az iki basamaklı sayı ya da yüzde aranır: "üç
+// bölümden oluşur" gibi yazıyla geçen sayılar ve tek haneli sıra numaraları
+// sinyal sayılmaz.
+const SAYILI = /(\d{2,}|%\s*\d|\d+([.,]\d+)+)/;
+const SAYI_AGIRLIGI = 0.35;
+
 function ozetle(bloklar, secenek = {}) {
   const tum = cumleler(bloklar).filter((c) => c.metin.length >= 40 && c.metin.length <= 450);
   if (!tum.length) return { cumleler: [], toplam: 0 };
@@ -143,7 +150,10 @@ function ozetle(bloklar, secenek = {}) {
     for (const w of s) p += (siklik.get(w) || 0) * (baslikSoz.has(w) ? 1.6 : 1);
     p /= Math.sqrt(s.length);
     const konum = 1 + 0.6 * (1 - c.blok / blokSayisi);
-    return { ...c, i, puan: p * konum, s };
+    // SAYI AĞIRLIĞI: "843 mm yağış", "84 m³" gibi cümleler sıklık puanında
+    // geride kalıyordu; oysa kullanıcının aradığı bilgi çoğu kez orada.
+    const sayi = SAYILI.test(c.metin) ? 1 + (secenek.sayiAgirligi ?? SAYI_AGIRLIGI) : 1;
+    return { ...c, i, puan: p * konum * sayi, s };
   });
 
   const azami = secenek.azami || (tum.length > 40 ? 5 : tum.length > 12 ? 4 : 3);
