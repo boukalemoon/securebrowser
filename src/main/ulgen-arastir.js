@@ -260,6 +260,80 @@ function guvenDuzeyi(kaynaklar) {
   return bagimsiz.size >= 2 ? 'yuksek' : 'orta';
 }
 
+// ── 3d. KONU DOĞRULAMA ────────────────────────────────────────────────────
+// ⛔⛔ EN ÖNEMLİ DENETİM (düşmanca ölçüm, 22.09.2026 — kendi sınamam yakaladı):
+//    Zincir cümle UYDURMUYOR ama ALAKASIZ kaynağı cevapmış gibi sunuyordu.
+//    Ölçülen üç vaka:
+//      "Zıpzıp Kağanlığının hükümdarları kimlerdir?" → 7 GÖKTÜRK kağanı saydı
+//         (öyle bir devlet yok; arama Göktürk sayfalarını getirdi)
+//      "2026'da Mars'a inen ilk Türk astronot"       → Alper Gezeravcı'yı verdi
+//         (Gezeravcı 2024'te İSS'e gitti, Mars'a DEĞİL — yanlış öncül kabul edildi)
+//      "Nobel FİZİK Ödülü kazanan Türk bilim insanları" → "Osmanlı İmparatorluğu"
+//    Pratikte uydurmadan farkı yok: kullanıcı kaynaklı bir cevap görüyor.
+//
+// KURAL: cevabın DAYANAĞI, sorunun ayırt edici terimini taşımalı. Taşımıyorsa
+// o madde düşer; hiçbiri taşımıyorsa zincir "bulamadım" der.
+// ⚠️ Genel sözcükler (tarih, önemli, bilim…) ayırt edici SAYILMAZ; yoksa her
+//    sayfa her soruyu "doğrular".
+const GENEL_SOZCUK = new Set([
+  'tarih', 'tarihi', 'tarihinde', 'tarihindeki', 'onemli', 'önemli', 'bilim', 'bilimi',
+  'biliminde', 'insan', 'insani', 'insanlari', 'insanları', 'buyuk', 'büyük', 'ilk', 'son',
+  'yil', 'yıl', 'yilinda', 'yılında', 'adi', 'adı', 'kim', 'kisi', 'kişi', 'devlet', 'ulke', 'ülke',
+  'donem', 'dönem', 'yapan', 'olan', 'kazanan', 'inen', 'hakkinda', 'hakkında', 'nedir',
+]);
+
+// Soru sözcükleri özel ad değildir; cümle başında büyük harfle yazılsalar bile.
+const SORU_SOZCUGU = /^(kim|kimler|kimlerdir|hangi|hangileri|ne|neler|nedir|nasıl|neden|niçin|kaç|nerede|ne zaman|bana|lütfen|acaba)$/i;
+
+/**
+ * Sorunun KONUSUNU belirleyen terimler. Cevabın geldiği sayfa bunların
+ * HEPSİNİ taşımalı — biri bile yoksa sayfa o soruyu cevaplamıyordur.
+ *
+ * ⛔ Ölçüldü 22.09: "Bor madeninin kullanım alanları" sorusunda "Bor" listeye
+ *    HİÇ girmiyordu (cümle başı büyük harf alınmıyordu, üstelik 3 harfli
+ *    olduğu için içerik sözcüğü de sayılmıyordu) → doğru cevap reddedildi.
+ * ⛔ Ölçüldü 22.09: "2026'da Mars'a inen ilk Türk astronot" sorusunda
+ *    terimlerden HERHANGİ BİRİ yetiyordu; "türk" her sayfada geçtiği için
+ *    Gezeravcı sayfası "doğrulanmış" sayılıyordu. Artık "mars" da şart.
+ */
+function ayirtEdiciTerimler(soru) {
+  const m = String(soru || '');
+  // Büyük harfli sözcükler — cümle başındaki DAHİL ("Bor", "Zıpzıp", "Nobel").
+  const ozel = (m.match(/\b[A-ZÇĞİÖŞÜ][a-zçğıöşü]{1,}/g) || [])
+    .filter((w) => !SORU_SOZCUGU.test(w));
+  const sayi = (m.match(/\b\d{3,4}\b/g) || []);
+  const icerik = motor.sozcukler(m).filter((w) => w.length >= 5 && !GENEL_SOZCUK.has(w));
+  const hepsi = [...ozel, ...sayi, ...(ozel.length ? [] : icerik.slice(0, 3))];
+  return [...new Set(hepsi.map((x) => kok(duzle(x))))]
+    .filter((x) => x.length >= 3 && !GENEL_SOZCUK.has(x));
+}
+
+// Türkçe ek kırpması: tam kök çıkarmıyoruz, ÖNEKİ arıyoruz. "Marsa"→"mars",
+// "Kağanlığının"→"kağan", "Enstitüsünü"→"ensti". En çok 6 harf; daha uzun
+// önek eklerle bozulur, daha kısa önek yanlış eşleşir (kar→karşı tuzağı).
+function kok(s) {
+  const t = duzle(s);
+  return t.length <= 6 ? t : t.slice(0, 6);
+}
+
+/**
+ * Sayfa gerçekten bu soruyu mu konu ediyor? Terimlerin HEPSİ geçmeli.
+ * ⛔ "herhangi biri" kuralı yanıltıcıydı: alakasız sayfa tek genel sözcükle
+ *    kendini doğrulatıyordu (ilgezdi-15 ölçümü: "Kayseri Kuantum Enstitüsü"
+ *    sorusuna Mete Atatüre sayfası `yuksek` güvenle cevap oldu).
+ */
+function konuGecti(dayanak, terimler) {
+  if (!terimler.length) return true;              // denetleyecek terim yok
+  // ⚠️ Kesme işareti düzlenir: sayfa "Mars'a" yazarken soru "Marsa" diyor;
+  //    düzlemezsek doğru sayfa bile konu dışı sayılır (Türkçe ek tuzağı).
+  const d = duzle(dayanak);
+  return terimler.every((t) => d.includes(t));
+}
+
+function duzle(s) {
+  return String(s || '').toLocaleLowerCase('tr').replace(/['’‘`´]/g, '');
+}
+
 // ── 4/5. Birleştir ve yaz ─────────────────────────────────────────────────
 // Aynı bilgiyi iki kaynak söylüyorsa bir kez yazılır ama İKİ kaynak gösterilir.
 function birlestir(parcalar, coz) {
@@ -322,12 +396,22 @@ async function arastir(soru, kanca, secenek = {}) {
   }
   if (!secili.length) return { ok: false, sebep: 'kaynak_yok', iz };
 
+  // ⛔ KONU DOĞRULAMA sayfa düzeyinde: sayfa sorunun bütün ayırt edici
+  //    terimlerini taşımıyorsa o soruyu konu etmiyordur, hiç kullanılmaz.
+  const terimler = ayirtEdiciTerimler(soru);
+  iz.adimlar.push({ adim: 'konu_terimleri', terimler });
+
   const parcalar = [];
   for (const s of secili) {
     const t0 = Date.now();
     let sayfa;
     try { sayfa = await kanca.sayfaAc(s.url); } catch (e) { sayfa = { ok: false, sebep: String(e && e.message) }; }
     if (!sayfa || !sayfa.ok) { iz.adimlar.push({ adim: 'sayfa', url: s.url, ok: false, sebep: sayfa && sayfa.sebep, ms: Date.now() - t0 }); continue; }
+    // Sayfa soruyu konu etmiyorsa hiç işlenmez — alakasız kaynak cevaba giremez.
+    if (!konuGecti((sayfa.bloklar || []).join(' '), terimler)) {
+      iz.adimlar.push({ adim: 'sayfa', url: s.url, ok: false, sebep: 'konu_disi', ms: Date.now() - t0 });
+      continue;
+    }
     const cumleler = cevapCumleleri(sayfa.bloklar, coz, coz.tip === 'liste' ? 4 : 3);
     // LİSTE sorusunda adlar tabloda olabilir; cümle seçimi onları göremez.
     const varliklar = coz.tip === 'liste' ? varlikCikar(sayfa.bloklar, coz) : [];
@@ -340,6 +424,7 @@ async function arastir(soru, kanca, secenek = {}) {
   if (!parcalar.length) return { ok: false, sebep: 'metin_yok', iz };
 
   iz.toplamMs = Date.now() - iz.baslangic;
+
   if (coz.tip === 'liste') {
     // Adları kaynaklar arasında birleştir: iki kaynakta geçen ad daha güvenilir.
     const tekil = new Map();
@@ -359,6 +444,11 @@ async function arastir(soru, kanca, secenek = {}) {
       .sort((a, b) => (b.kaynaklar.length - a.kaynaklar.length) || ((a.yil ?? 9999) - (b.yil ?? 9999)))
       .slice(0, 10)
       .map((k) => ({ ...k, guven: guvenDuzeyi(k.kaynaklar) }));
+    // ⛔ Ad bulunamadıysa VAZGEÇİLMEZ, cümle yoluna düşülür. Ölçüldü 22.09:
+    //    "Bor madeninin kullanım alanları" bir LİSTE sorusudur ama KİŞİ
+    //    listesi değildir; varlık çıkarımı 0 ad bulunca zincir haksız yere
+    //    "bulamadım" diyordu. (Bu gerilemeyi konu doğrulamayı eklerken ben
+    //    soktum, düşmanca ölçüm yakaladı.)
     if (adlar.length) {
       return { ok: true, tip: 'liste', soru, adlar,
                maddeler: birlestir(parcalar, coz).slice(0, 3),   // bağlam cümleleri
@@ -366,8 +456,13 @@ async function arastir(soru, kanca, secenek = {}) {
     }
   }
   const maddeler = birlestir(parcalar, coz);
+  if (!maddeler.length) {
+    iz.adimlar.push({ adim: 'konu_dogrulanmadi', tip: coz.tip });
+    return { ok: false, sebep: 'konu_dogrulanmadi', iz };
+  }
   return { ok: true, tip: coz.tip, soru, maddeler, kaynakSayisi: parcalar.length, iz };
 }
 
 module.exports = { arastir, soruCoz, kaynakPuani, kaynaklariSuz, cevapCumleleri,
-                   birlestir, metinKalitesi, varlikCikar, guvenDuzeyi, ESANLAM };
+                   birlestir, metinKalitesi, varlikCikar, guvenDuzeyi,
+                   ayirtEdiciTerimler, konuGecti, ESANLAM };
