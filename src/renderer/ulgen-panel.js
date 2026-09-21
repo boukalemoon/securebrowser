@@ -349,8 +349,22 @@ function yanitiGoster(r, istek) {
       const m = mesaj('biz', bas);
       balon(m)?.classList.add('ulgen-consent');
       const satir = el('div', 'ulgen-row');
+      // İki ayrı seçenek: "bu sefer" hiçbir yere yazılmaz, "her zaman" Veri ve
+      // Gizlilik'teki ulgenPage iznini açar. Burası ikinci bir ayar yeri DEĞİL —
+      // aynı izni açıyor, onay kaydına da yazıyor; geri almak yine oradan.
+      // Eskiden yalnız "bu sefer" vardı ve her özet isteğinde yeniden soruyordu.
+      const herZaman = dugme(T('ulgen.ask.always'), async () => {
+        herZaman.disabled = true;
+        let r = null;
+        try { r = await window.secureBrowser?.dataCenter?.set('ulgenPage', true, 'ulgen-panel'); } catch {}
+        satir.remove();
+        // İzin yazılamadıysa kullanıcı boşa beklemesin: bu seferlik geçir ve söyle.
+        if (!r || r.ok === false) mesaj('biz', T('ulgen.ask.alwaysFailed'));
+        gonder({ ...istek, onay: true }, false);
+      }, 'ulgen-btn primary');
       satir.append(
-        dugme(T('ulgen.ask.allow'), () => { satir.remove(); gonder({ ...istek, onay: true }, false); }, 'ulgen-btn primary'),
+        herZaman,
+        dugme(T('ulgen.ask.once'), () => { satir.remove(); gonder({ ...istek, onay: true }, false); }),
         dugme(T('ulgen.ask.cancel'), () => satir.remove()));
       balon(m)?.appendChild(satir);
       return;

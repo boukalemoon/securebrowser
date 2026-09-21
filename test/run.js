@@ -3264,6 +3264,40 @@ suite('Ülgen görev sayfası — adres sınırı ve metin kırpma');
   eq('başlık tek satıra indiriliyor ve kırpılıyor', G.basligiKirp('  çok\n\nboşluklu   başlık '), 'çok boşluklu başlık');
 }
 
+// ══════════════════════════════════════════════════════════════════════════════
+// Sayfa erişimi onayı (Burak, 21 Eyl 2026: Opera AI'daki "sayfa erişimine izin
+// ver" düğmesi). Bizde tek seferlik onay zaten vardı ama KALICI seçenek yoktu,
+// yani her özet isteğinde yeniden soruyordu. Artık iki seçenek var.
+// ══════════════════════════════════════════════════════════════════════════════
+suite('Ülgen — sayfa erişimi onayı (bu sefer / her zaman)');
+{
+  const up = read('../src/renderer/ulgen-panel.js');
+  check('üç seçenek de var: her zaman, bu sefer, vazgeç',
+    /ulgen\.ask\.always/.test(up) && /ulgen\.ask\.once/.test(up) && /ulgen\.ask\.cancel/.test(up));
+  // "Her zaman" İKİNCİ BİR AYAR YERİ değil: Veri ve Gizlilik'teki aynı izni
+  // açıyor ve onay kaydına yazıyor (Burak'ın "gizlilik tek yerde" kararı).
+  check('"her zaman" aynı izni açıyor, ayrı bir bayrak tutmuyor',
+    /dataCenter\?\.set\('ulgenPage', true, 'ulgen-panel'\)/.test(up)
+    && !/localStorage[\s\S]{0,40}ulgenPage/.test(up));
+  check('"bu sefer" kalıcı izni AÇMIYOR — yalnız o isteği geçiriyor',
+    /dugme\(T\('ulgen\.ask\.once'\), \(\) => \{ satir\.remove\(\); gonder\(\{ \.\.\.istek, onay: true \}, false\); \}\)/.test(up));
+  check('kalıcı izin yazılamazsa kullanıcı boşa beklemiyor, dürüstçe söyleniyor',
+    /if \(!r \|\| r\.ok === false\) mesaj\('biz', T\('ulgen\.ask\.alwaysFailed'\)\)/.test(up));
+
+  const mj = read('../src/main/main.js');
+  check('karar ANA SÜREÇTE: izin yoksa ve onay gelmediyse sayfa metni verilmiyor',
+    /if \(!ulgenIzin\('ulgenPage'\) && istek\?\.onay !== true\) return \{ ok: false, sebep: 'onay_gerek'/.test(mj));
+
+  const diller = ['tr', 'en', 'de', 'fr', 'az', 'kk', 'uz', 'tk', 'ky'];
+  const eksik = [];
+  for (const d of diller) {
+    const j = JSON.parse(read('../src/locales/' + d + '.json'));
+    for (const k of ['ulgen.ask.once', 'ulgen.ask.always', 'ulgen.ask.alwaysFailed', 'ulgen.ask.page']) if (!j[k]) eksik.push(d + ':' + k);
+    if (j['ulgen.ask.allow']) eksik.push(d + ': kullanılmayan ask.allow kalmış');
+  }
+  check('onay metinleri 9 dilde var, kullanılmayan anahtar kalmadı', eksik.length === 0, eksik.join(', '));
+}
+
 suite('Ülgen görev kanalı — izin ve eşleşme arayüzü');
 {
   const dc = read('../src/renderer/data-catalog.js');
