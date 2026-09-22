@@ -37,6 +37,7 @@ const tabGroups = require('./tab-groups');
 const ulgenMotor = require('./ulgen-motor');
 const ulgenCeviri = require('./ulgen-ceviri');
 const ulgenGorev = require('./ulgen-gorev');
+const ulgenArastir = require('./ulgen-arastir');
 const webPanels = require('./web-panels');
 const notesStore = require('./notes');
 // Veri ve Gizlilik: izin kataloğu arayüzle ortak (renderer/data-catalog.js).
@@ -1792,6 +1793,24 @@ const GOREV_ZAMAN_ASIMI_MS = 30 * 1000;
 let gorevCalisiyor = false;
 let gorevSayac = 0;
 
+// Blok kipinde kırpma PARAGRAF sınırında yapılır: düz metindeki gibi cümlenin
+// ortasından kesilmez, çünkü yarım cümle araştırma zincirine "kaynaktan alınmış
+// gerçek cümle" diye girer. Tek blok bile sınırı aşıyorsa o blok kırpılır ki
+// sayfa büsbütün boş dönmesin.
+function gorevSayfaBloklariKirp(bloklar, sinir = gorevSayfa.METIN_SINIRI) {
+  const kalan = [];
+  let toplam = 0;
+  for (const b of bloklar) {
+    if (toplam + b.length > sinir) {
+      if (!kalan.length) kalan.push(b.slice(0, sinir));
+      return { bloklar: kalan, kirpildi: true };
+    }
+    kalan.push(b);
+    toplam += b.length;
+  }
+  return { bloklar: kalan, kirpildi: false };
+}
+
 async function ulgenGorevSayfasi(url, opts = {}) {
   if (opts.temizOturum !== true) return { ok: false, sebep: 'temiz_oturum_zorunlu' };
   const adres = gorevSayfa.gecerliGorevAdresi(url);
@@ -1866,6 +1885,30 @@ async function ulgenGorevSayfasi(url, opts = {}) {
     if (!readerScript) readerScript = reader.buildExtractScript(fs.readFileSync(require.resolve('@mozilla/readability/Readability.js'), 'utf8'));
     let ham = null;
     try { ham = await wc.executeJavaScriptInIsolatedWorld(GOREV_WORLD_ID, [{ code: readerScript }]); } catch {}
+
+    // ── BLOK KİPİ (araştırma zinciri) ────────────────────────────────────────
+    // Cümle seçimi PARAGRAF sınırı ister: tek bir düz metinde menü satırıyla
+    // makale cümlesi aynı kefeye girer. `duzMetin` blok/başlık ayrımını korur.
+    // ⛔ innerText'e DÜŞÜLMEZ: Readability başarısızsa sayfada makale yoktur;
+    //    gezinti, çerez uyarısı ve altbilgi metnini "kaynaklı cevap" diye
+    //    sunmaktansa dürüstçe `makale_yok` denir.
+    if (opts.bloklar === true) {
+      const duz = (ham && Array.isArray(ham.nodes))
+        ? ulgenMotor.duzMetin(reader.validateReaderNodes(ham.nodes)) : null;
+      if (!duz || !duz.bloklar.length) { await temizle(); return { ok: false, sebep: 'makale_yok' }; }
+      const kirpma = gorevSayfaBloklariKirp(duz.bloklar);
+      const cikti = {
+        ok: true,
+        bloklar: kirpma.bloklar,
+        basliklar: duz.basliklar,
+        baslik: gorevSayfa.basligiKirp(ham.title),
+        kirpildi: kirpma.kirpildi,
+      };
+      await temizle();
+      // Tanılamaya ADRES YAZILMAZ — yalnız ölçü.
+      diag.info('ulgen', 'Görev sayfası okundu (blok)', { blok: cikti.bloklar.length, kirpildi: cikti.kirpildi });
+      return cikti;
+    }
 
     // Makale çıkarılamazsa sayfanın düz metnine düşülür (yalıtılmış dünyada).
     let metin = '';
@@ -1947,6 +1990,38 @@ async function ulgenOzetCevir(cumleler, hedefDil) {
   return { durum: r.durum, motor: r.motor, kaynakDil, hedefDil, cumleler: r.cumleler };
 }
 
+// ── Klon Ülgen web araması (araştırma zincirinin "ara" kancası) ─────────────
+// Sorgu KENDİ arama sunucumuza gider (SearXNG, varsayılan yerel): Google'a da
+// Bing'e de kullanıcı sorusu düşmez. Adres yalnız geliştirme için ortam
+// değişkeniyle değiştirilebilir; uygulama hiçbir yerde kendiliğinden değiştirmez.
+// ⛔ Tanılamaya SORGU DA ADRES DE yazılmaz — yalnız hatanın TÜRÜ. Kullanıcının
+//    ne sorduğu günlüğe düşerse gizlilik sözü ölçüsünde bozulur.
+const ULGEN_SEARX = process.env.ILGEZDI_SEARX || 'http://127.0.0.1:8888';
+const ULGEN_ARA_ZAMAN_ASIMI_MS = 15 * 1000;
+const ULGEN_ARA_AZAMI_SONUC = 12;
+
+async function ulgenWebAra(sorgu) {
+  const q = String(sorgu || '').trim();
+  if (!q) return [];
+  try {
+    const r = await fetch(`${ULGEN_SEARX}/search?q=${encodeURIComponent(q)}&format=json&language=tr`, {
+      headers: { Accept: 'application/json' },
+      signal: AbortSignal.timeout(ULGEN_ARA_ZAMAN_ASIMI_MS),
+    });
+    if (!r.ok) { diag.warn('ulgen', 'Arama başarısız', { tur: 'http_' + r.status }); return []; }
+    const d = await r.json();
+    const sonuclar = Array.isArray(d && d.results) ? d.results : [];
+    return sonuclar.slice(0, ULGEN_ARA_AZAMI_SONUC).map((s) => ({
+      baslik: typeof s?.title === 'string' ? s.title : '',
+      url: typeof s?.url === 'string' ? s.url : '',
+      parcacik: typeof s?.content === 'string' ? s.content : '',
+    })).filter((s) => s.url);
+  } catch (e) {
+    diag.warn('ulgen', 'Arama başarısız', { tur: (e && e.name) || 'hata' });
+    return [];
+  }
+}
+
 const ULGEN_TURLER = ['ozet', 'sayfada', 'gecmis', 'web', 'sorgu', 'yardim'];
 
 ipcMain.handle('ulgen-sor', async (event, istek) => {
@@ -2004,8 +2079,23 @@ ipcMain.handle('ulgen-sor', async (event, istek) => {
       if (!sorgu) return { ok: false, sebep: 'sorgu_bos', tur };
       return { ok: true, tur, sorgu, eylem: { tur: 'ara', sorgu } };
     }
-    default:
-      return { ok: true, tur: tur === 'bilinmiyor' ? 'bilinmiyor' : 'yardim', metin };
+    default: {
+      // ⛔ Niyet çözülemiyorsa artık "bilinmiyor" DENMEZ. Genel soru zaten
+      //    klonun asıl işidir: araştırma zinciri soruyu internette arar,
+      //    sayfaları TEMİZ oturumda açar ve cevabı kaynağıyla yazar. Cümle
+      //    uydurulmaz; bulunamazsa zincirin kendi `ok:false` sebebi döner.
+      if (tur === 'bilinmiyor') {
+        const sonuc = await ulgenArastir.arastir(metin, {
+          ara: ulgenWebAra,
+          // Sayfa İLGEZDİ'NİN korumalı yolundan açılır: temiz oturum, engelleyici,
+          // parmak izi kalkanı. `temizOturum` bu yolun açık rızası — kalkarsa
+          // `ulgenGorevSayfasi` işi dürüstçe reddeder.
+          sayfaAc: (u) => ulgenGorevSayfasi(u, { bloklar: true, temizOturum: true }),
+        }, { azamiKaynak: 4 });
+        return { ...sonuc, tur: 'arastir' };
+      }
+      return { ok: true, tur: 'yardim', metin };
+    }
   }
 });
 

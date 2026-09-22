@@ -20,3 +20,7 @@ site/lists/
 
 # Windows Hello yardımcısı derleme çıktısı (paketlemede beforePack üretir)
 build/win-hello/*.exe
+
+.claude/settings.local.json
+
+.claude/settings.local.json
