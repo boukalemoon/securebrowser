@@ -56,7 +56,9 @@ function soruCoz(soru) {
   for (const [k, v] of Object.entries(ESANLAM)) {
     if (new RegExp(k.replace(' ', '\\s*'), 'i').test(m)) esanlam.push(...v);
   }
-  return { tip, sorgu, esanlam, soru: m };
+  // Konu terimleri BİR KEZ çözülür: sayfa düzeyi denetim (hepsi) ile cümle
+  // düzeyi denetim (en az biri) aynı listeyi kullanmalı, yoksa ayrışırlar.
+  return { tip, sorgu, esanlam, soru: m, terimler: ayirtEdiciTerimler(m) };
 }
 
 // ── 2. Kaynak süzgeci ─────────────────────────────────────────────────────
@@ -96,6 +98,10 @@ const COP = [
   [/\{\{|\}\}|\[\[|\]\]|\|url=|\|yayıncı=|\|erişimtarihi=|ref name=/i, 'wiki_sablonu'],
   [/^\s*[•·▪]\s|(\s[•·▪]\s.*){3,}/, 'gezinti_listesi'],
   [/^(Unvan|Kaynakça|Dış bağlantılar|Ayrıca bakınız|İçindekiler|Öncüller)\b/i, 'tablo_basligi'],
+  // ⛔ Vikipedi DİPNOT satırı (ölçüldü 23.09, baraj sorusu): "^A 300m ve 280m
+  //    yükseklikteki tasarımlar…" cevaba girdi. Baştaki ^ / ^A / ^ a b geri
+  //    bağlantı işaretidir; o satır kaynakçanın parçasıdır, cevap cümlesi değil.
+  [/^\s*\^/, 'dipnot_satiri'],
 ];
 
 function metinKalitesi(metin) {
@@ -130,12 +136,30 @@ function cevapCumleleri(bloklar, coz, azami = 3) {
   // ⛔ Kalite süzgeci seçimden ÖNCE: çöp cümle hiç aday olmasın.
   let liste = [...bulgu.values()].filter((x) => metinKalitesi(x.metin).ok)
     .sort((a, b) => b.isabet - a.isabet);
+  // ⛔ CÜMLE DÜZEYİ ALAKA (ölçüldü 23.09): sayfa konuyu geçse bile İÇİNDEKİ
+  //    her cümle o konuyu anlatmıyor. "Türkiye'nin en yüksek barajları"
+  //    sorusunda dünya barajlarıyla ilgili cümle ve Vikipedi dipnotu cevaba
+  //    girdi: ikisi de sorunun HİÇBİR konu terimini taşımıyordu. Bir cümle
+  //    ancak terimlerden en az birini KENDİ İÇİNDE taşıyorsa cevaba girer.
+  //    ⚠️ Sayfa düzeyinde kural "hepsi" (konuGecti), cümle düzeyinde "en az
+  //    biri": tek cümleden sorunun tamamını istemek doğru cümleleri de eler.
+  //    ⚠️ Sıra önemli: kalite süzgecinden SONRA. Çöp cümle zaten adaylıktan
+  //    düşmüş olur, alaka denetimi yalnız gerçek cümleleri tartar.
+  const terimler = coz.terimler || ayirtEdiciTerimler(coz.soru || '');
+  liste = liste.filter((x) => cumleAlakali(x.metin, terimler));
   // Liste sorusunda özel ad taşıyan cümle daha değerli.
   if (coz.tip === 'liste') {
     liste = liste.sort((a, b) => (ozelAdSayisi(b.metin) - ozelAdSayisi(a.metin)) || (b.isabet - a.isabet));
   }
   // Tanım sorusunda giriş cümlesi zaten özette garanti (ulgen-motor).
   return liste.slice(0, azami).map((x) => x.metin);
+}
+
+// Cümlenin KENDİSİ konuya değiyor mu? Terim yoksa denetlenecek bir şey yok.
+function cumleAlakali(cumle, terimler) {
+  if (!terimler || !terimler.length) return true;
+  const d = duzle(cumle);
+  return terimler.some((t) => d.includes(t));
 }
 
 const OZEL_AD = /(?<![.!?]\s)\b[A-ZÇĞİÖŞÜ][a-zçğıöşü]{2,}\b/g;
@@ -280,10 +304,15 @@ const GENEL_SOZCUK = new Set([
   'biliminde', 'insan', 'insani', 'insanlari', 'insanları', 'buyuk', 'büyük', 'ilk', 'son',
   'yil', 'yıl', 'yilinda', 'yılında', 'adi', 'adı', 'kim', 'kisi', 'kişi', 'devlet', 'ulke', 'ülke',
   'donem', 'dönem', 'yapan', 'olan', 'kazanan', 'inen', 'hakkinda', 'hakkında', 'nedir',
+  // ⛔ SIRALAMA SIFATI konu değildir (ölçüldü 23.09): "Türkiye'nin en YÜKSEK
+  //    barajları" sorusunun konusu barajdır; "yüksek" hem barajda hem dağda
+  //    hem binada geçer, hiçbir sayfayı diğerinden ayırmaz.
+  'yuksek', 'yüksek', 'kucuk', 'küçük', 'genis', 'geniş', 'hizli', 'hızlı', 'uzun',
+  'kisa', 'kısa', 'eski', 'derin', 'zengin', 'pahali', 'pahalı', 'ucuz', 'agir', 'ağır',
 ]);
 
 // Soru sözcükleri özel ad değildir; cümle başında büyük harfle yazılsalar bile.
-const SORU_SOZCUGU = /^(kim|kimler|kimlerdir|hangi|hangileri|ne|neler|nedir|nasıl|neden|niçin|kaç|nerede|ne zaman|bana|lütfen|acaba)$/i;
+const SORU_SOZCUGU = /^(kim|kimler|kimlerdir|kimdir|hangi|hangileri|hangileridir|ne|neler|nedir|nelerdir|nasıl|neden|niçin|kaç|kaçtır|nerede|nerededir|ne zaman|bana|lütfen|acaba)$/i;
 
 /**
  * Sorunun KONUSUNU belirleyen terimler. Cevabın geldiği sayfa bunların
@@ -295,6 +324,12 @@ const SORU_SOZCUGU = /^(kim|kimler|kimlerdir|hangi|hangileri|ne|neler|nedir|nas�
  * ⛔ Ölçüldü 22.09: "2026'da Mars'a inen ilk Türk astronot" sorusunda
  *    terimlerden HERHANGİ BİRİ yetiyordu; "türk" her sayfada geçtiği için
  *    Gezeravcı sayfası "doğrulanmış" sayılıyordu. Artık "mars" da şart.
+ * ⛔ Ölçüldü 23.09: "Türkiye'nin en yüksek barajları hangileri?" sorusunda
+ *    terim YALNIZCA ["türkiy"] çıktı — özel ad bulununca içerik sözcükleri
+ *    topluca dışlanıyordu (`ozel.length ? [] : icerik`). Sonuç: Türkiye geçen
+ *    her sayfa konuyu "doğruladı", dünya barajlarıyla ilgili cümle ve
+ *    Vikipedi dipnotu cevaba girdi. Artık özel adların TAMAMI + en ayırt
+ *    edici EN ÇOK İKİ içerik sözcüğü birlikte kullanılıyor.
  */
 function ayirtEdiciTerimler(soru) {
   const m = String(soru || '');
@@ -302,18 +337,75 @@ function ayirtEdiciTerimler(soru) {
   const ozel = (m.match(/\b[A-ZÇĞİÖŞÜ][a-zçğıöşü]{1,}/g) || [])
     .filter((w) => !SORU_SOZCUGU.test(w));
   const sayi = (m.match(/\b\d{3,4}\b/g) || []);
-  const icerik = motor.sozcukler(m).filter((w) => w.length >= 5 && !GENEL_SOZCUK.has(w));
-  const hepsi = [...ozel, ...sayi, ...(ozel.length ? [] : icerik.slice(0, 3))];
+  const ozelKok = new Set([...ozel, ...sayi].map((x) => kok(duzle(x))));
+  const hepsi = [...ozel, ...sayi, ...icerikTerimleri(m, ozelKok)];
   return [...new Set(hepsi.map((x) => kok(duzle(x))))]
     .filter((x) => x.length >= 3 && !GENEL_SOZCUK.has(x));
+}
+
+// ⛔ FİİL ÇEKİMİ konu değildir. Ölçüldü 23.09: "Matematik biliminde ÇAĞ
+//    ATLATACAK buluşlar yapan bilim insanları" sorusunda tek aday
+//    "atlatacak" kalıyordu; sayfadan bir söz sanatını şart koşmak, çalışan
+//    ölçümü kırardı. Yalnız tartışmasız fiil ekleri elenir — "orman",
+//    "zaman" gibi adları yemesin diye -an/-en KURALA ALINMADI.
+const FIIL_EKI = /(acak|ecek|mak|mek|mış|miş|muş|müş|makta|mekte|yordu)$/;
+
+// ⛔ EŞANLAMLISI BİLİNEN sözcük konu denetimine KONMAZ: ESANLAM tablosunun
+//    varlık sebebi sayfanın başka sözcük kullanabilmesidir ("hükümdar" →
+//    "kağan"). Böyle bir sözcüğü "sayfa bunu taşımalı" diye dayatırsak
+//    doğru sayfayı eleriz — Göktürk ölçümü tam buradan geçiyor.
+function esanlamliMi(w) {
+  const d = duzle(w);
+  return Object.keys(ESANLAM).some((k) => d.includes(duzle(k)));
+}
+
+/**
+ * Sorunun içerik sözcüklerinden en ayırt edici olanlar (en çok iki tane).
+ * ⚠️ "En ayırt edici" ölçüsü UZUNLUK: Türkçede uzun sözcük daha özgüldür
+ *    ("barajları" > "yüksek"). Elimizde sıklık sayımı yok; uzunluk, bedava
+ *    ve ölçülen vakaların hepsinde doğru sözcüğü seçen vekil.
+ * ⚠️ İKİ İLE SINIRLI: her terim sayfadan geçmek ZORUNDA (konuGecti "hepsi"
+ *    kuralı). Sınırsız terim, doğru sayfayı da eleyen bir denetim olurdu.
+ */
+const ICERIK_AZAMI = 2;
+function icerikTerimleri(m, ozelKok) {
+  // Soru kalıbı ("hangileri", "sırala", "istiyorum") konu değildir: atılır.
+  const adaylar = motor.sozcukler(String(m).replace(SORU_KALIBI, ' '))
+    .filter((w) => w.length >= 5 && !GENEL_SOZCUK.has(w) && !SORU_SOZCUGU.test(w))
+    .filter((w) => !/^\d/.test(w))          // "2026da" → yıl zaten `sayi` yolundan
+    .filter((w) => !FIIL_EKI.test(w) && !esanlamliMi(w))
+    .sort((a, b) => b.length - a.length);
+  // Özel adın kökünü tekrarlayan sözcük slot harcamaz ("Türkiye" + "türkiye").
+  const gorulen = new Set(ozelKok);
+  const secili = [];
+  for (const w of adaylar) {
+    const k = kok(duzle(w));
+    if (gorulen.has(k)) continue;
+    gorulen.add(k);
+    secili.push(w);
+    if (secili.length >= ICERIK_AZAMI) break;
+  }
+  return secili;
 }
 
 // Türkçe ek kırpması: tam kök çıkarmıyoruz, ÖNEKİ arıyoruz. "Marsa"→"mars",
 // "Kağanlığının"→"kağan", "Enstitüsünü"→"ensti". En çok 6 harf; daha uzun
 // önek eklerle bozulur, daha kısa önek yanlış eşleşir (kar→karşı tuzağı).
 function kok(s) {
-  const t = duzle(s);
+  const t = cogulsuz(duzle(s));
   return t.length <= 6 ? t : t.slice(0, 6);
+}
+
+// ⛔ ÇOĞUL EKİ KIRPILIR (ölçüldü 23.09): "barajları" altı harfe kesilince
+//    kök "barajl" oluyor ve sayfadaki "Barajı" / "baraj" ile EŞLEŞMİYOR —
+//    yani doğru sayfa konu dışı sayılıyor. Ek kırpılınca kök "baraj".
+// ⚠️ Kırpma yalnız geriye EN AZ 4 harf kalıyorsa yapılır: "dolar" → "do",
+//    "sular" → "su" olurdu; bunlar çoğul değil, kök de değil. Fazla kırpmak
+//    eşleşmeyi gevşetir (kök önek olarak aranıyor), az kırpmak DOĞRU sayfayı
+//    eler; bu yüzden sınır kırpmama yönüne konmuştur.
+function cogulsuz(t) {
+  const m = t.match(/^(.+?)(l[ae]r)(?:[ıiuü][a-zçğıöşü]*)?$/);
+  return m && m[1].length >= 4 ? m[1] : t;
 }
 
 /**
@@ -323,11 +415,19 @@ function kok(s) {
  *    sorusuna Mete Atatüre sayfası `yuksek` güvenle cevap oldu).
  */
 function konuGecti(dayanak, terimler) {
-  if (!terimler.length) return true;              // denetleyecek terim yok
-  // ⚠️ Kesme işareti düzlenir: sayfa "Mars'a" yazarken soru "Marsa" diyor;
-  //    düzlemezsek doğru sayfa bile konu dışı sayılır (Türkçe ek tuzağı).
+  return eksikTerimler(dayanak, terimler).length === 0;
+}
+
+/**
+ * Dayanakta BULUNAMAYAN terimler. Denetimin kendisi buradan geçer, böylece
+ * "geçti mi" ile "neden geçmedi" aynı kuralı kullanır, ayrışamaz.
+ * ⚠️ Kesme işareti düzlenir: sayfa "Mars'a" yazarken soru "Marsa" diyor;
+ *    düzlemezsek doğru sayfa bile konu dışı sayılır (Türkçe ek tuzağı).
+ */
+function eksikTerimler(dayanak, terimler) {
+  if (!terimler || !terimler.length) return [];   // denetleyecek terim yok
   const d = duzle(dayanak);
-  return terimler.every((t) => d.includes(t));
+  return terimler.filter((t) => !d.includes(t));
 }
 
 function duzle(s) {
@@ -398,7 +498,7 @@ async function arastir(soru, kanca, secenek = {}) {
 
   // ⛔ KONU DOĞRULAMA sayfa düzeyinde: sayfa sorunun bütün ayırt edici
   //    terimlerini taşımıyorsa o soruyu konu etmiyordur, hiç kullanılmaz.
-  const terimler = ayirtEdiciTerimler(soru);
+  const terimler = coz.terimler;
   iz.adimlar.push({ adim: 'konu_terimleri', terimler });
 
   const parcalar = [];
@@ -408,8 +508,14 @@ async function arastir(soru, kanca, secenek = {}) {
     try { sayfa = await kanca.sayfaAc(s.url); } catch (e) { sayfa = { ok: false, sebep: String(e && e.message) }; }
     if (!sayfa || !sayfa.ok) { iz.adimlar.push({ adim: 'sayfa', url: s.url, ok: false, sebep: sayfa && sayfa.sebep, ms: Date.now() - t0 }); continue; }
     // Sayfa soruyu konu etmiyorsa hiç işlenmez — alakasız kaynak cevaba giremez.
-    if (!konuGecti((sayfa.bloklar || []).join(' '), terimler)) {
+    const sayfaMetni = (sayfa.bloklar || []).join(' ');
+    const eksik = eksikTerimler(sayfaMetni, terimler);
+    if (eksik.length) {
       iz.adimlar.push({ adim: 'sayfa', url: s.url, ok: false, sebep: 'konu_disi', ms: Date.now() - t0 });
+      // ⛔ "konu_disi" tek başına denetimin haklı mı yoksa fazla mı sıkı
+      //    olduğunu söylemiyor. HANGİ terimin bulunamadığı yazılır; adres
+      //    yazılmaz — bir önceki satır zaten sayfanın kaydı.
+      iz.adimlar.push({ adim: 'konu_disi', eksik });
       continue;
     }
     const cumleler = cevapCumleleri(sayfa.bloklar, coz, coz.tip === 'liste' ? 4 : 3);
@@ -465,4 +571,4 @@ async function arastir(soru, kanca, secenek = {}) {
 
 module.exports = { arastir, soruCoz, kaynakPuani, kaynaklariSuz, cevapCumleleri,
                    birlestir, metinKalitesi, varlikCikar, guvenDuzeyi,
-                   ayirtEdiciTerimler, konuGecti, ESANLAM };
+                   ayirtEdiciTerimler, konuGecti, eksikTerimler, cumleAlakali, ESANLAM };
