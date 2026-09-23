@@ -1645,5 +1645,18 @@
   "ulgen.gorev.connected": "Ulangan. Ülgen sahifa matnini soʻrashi mumkin; cookie fayllaringiz va tizimga kirgan seanslaringiz ishlatilmaydi.",
   "ulgen.gorev.pairedOffline": "Juftlangan, lekin Ülgen yordamchisiga hozir ulanib boʻlmaydi.",
   "ulgen.gorev.unpair": "Aloqani uzish",
-  "ulgen.gorev.unpaired": "Aloqa uzildi."
+  "ulgen.gorev.unpaired": "Aloqa uzildi.",
+  "ulgen.res.head": "Tadqiqot natijasi",
+  "ulgen.res.names": "Topilgan nomlar",
+  "ulgen.res.context": "Kontekst gaplari",
+  "ulgen.res.foot": "{count} manbadan toʻplandi. Har bir band — ochilgan sahifadan olingan haqiqiy gap; Ülgen gap toʻqimaydi.",
+  "ulgen.res.trust.high": "yuqori ishonch",
+  "ulgen.res.trust.mid": "oʻrta ishonch",
+  "ulgen.res.trust.low": "past ishonch",
+  "ulgen.res.trust.hint": "Yuqori: kamida ikkita mustaqil manba bir xil narsani aytadi va band savolning barcha atamalarini oʻz ichiga oladi. Oʻrta: yagona manba yoki yetishmayotgan atama. Past: matn ajratib olish ishonchsiz (PDF kabi) yoki manba yoʻq.",
+  "ulgen.res.busy1": "Internetdan qidiryapman…",
+  "ulgen.res.busy2": "Sahifalarni oʻqib, manbalarni solishtiryapman…",
+  "ulgen.res.err.noSource": "Bu savol uchun oʻqiladigan manba topa olmadim. Bilmaganimni toʻqimayman; savolingizni biroz oʻzgartirib qayta urinib koʻring.",
+  "ulgen.res.err.noText": "Ochgan sahifalarimdan bu savolga javob beradigan matn ajratib ololmadim. Manbasiz gap toʻqimayman — shuning uchun boʻsh qaytdim.",
+  "ulgen.res.err.offTopic": "Topgan sahifalarim siz soʻragan mavzuda emas edi. Aloqasiz manbani javob sifatida koʻrsatmayman; savolni aniqroq yozsangiz yana qarayman."
 }

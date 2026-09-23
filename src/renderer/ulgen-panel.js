@@ -172,6 +172,23 @@ function injectUlgenStyles() {
     .ulgen-tags { display:flex; flex-wrap:wrap; gap:5px; margin-top:8px; }
     .ulgen-tag { font:500 10.5px var(--font-mono); padding:1px 8px; border-radius:999px; color:var(--gold); border:1px solid color-mix(in srgb, var(--gold) 40%, transparent); }
     .ulgen-hist li { display:flex; flex-direction:column; gap:1px; }
+    /* Araştırma yanıtı: madde + güven rozeti + kaynakları */
+    .ulgen-madde { display:flex; flex-wrap:wrap; align-items:baseline; gap:6px; color:var(--ink-soft); }
+    .ulgen-ad { font-weight:600; color:var(--ink); }
+    .ulgen-guven { flex-shrink:0; font:600 9.5px var(--font-mono); letter-spacing:.3px;
+      padding:1px 7px; border-radius:999px; border:1px solid currentColor; }
+    .ulgen-guven-yuksek { color:var(--success, #4ade80); }
+    .ulgen-guven-orta { color:var(--gold); }
+    .ulgen-guven-dusuk { color:var(--ink-mute); }
+    .ulgen-bubble ul.ulgen-kaynak { margin-top:5px; gap:2px; }
+    .ulgen-kaynak li { display:flex; flex-wrap:wrap; align-items:baseline; gap:6px; }
+    .ulgen-kaynak .ulgen-link { font-size:11.5px; font-weight:500; }
+    .ulgen-baglam { margin-top:12px; }
+    /* Belirsiz bekleme çubuğu — araştırma 10-13 saniye sürebiliyor. */
+    .ulgen-bekle { position:relative; height:2px; margin-top:7px; border-radius:2px; overflow:hidden;
+      background:color-mix(in srgb, var(--gold) 14%, transparent); }
+    .ulgen-bekle::after { content:''; position:absolute; top:0; bottom:0; left:0; width:38%; border-radius:2px;
+      background:linear-gradient(90deg, transparent, var(--gold), transparent); animation:ulgenAkis 1.5s ease-in-out infinite; }
     .ulgen-link { background:none; border:none; padding:0; color:var(--ink); cursor:pointer; text-align:left; font:inherit; font-weight:600; }
     .ulgen-link:hover { color:var(--gold); text-decoration:underline; text-underline-offset:2px; }
     .ulgen-host { font:500 10.5px var(--font-mono); color:var(--ink-mute); }
@@ -209,18 +226,20 @@ function injectUlgenStyles() {
     .ulgen-note svg { flex-shrink:0; margin-top:2px; color:color-mix(in srgb, var(--gold) 70%, var(--ink-mute)); }
 
     @keyframes ulgenIn { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:none; } }
+    @keyframes ulgenAkis { 0% { transform:translateX(-100%); } 100% { transform:translateX(320%); } }
     @keyframes ulgenTara {
       0%   { -webkit-mask-position:0 -110%; mask-position:0 -110%; }
       100% { -webkit-mask-position:0 110%;  mask-position:0 110%; }
     }
     @media (prefers-reduced-motion: reduce) {
-      .ulgen-msg, .ulgen-info, .ulgen-msg.busy .ulgen-avatar svg,
+      .ulgen-msg, .ulgen-info, .ulgen-msg.busy .ulgen-avatar svg, .ulgen-bekle::after,
       #panel-ulgen.ulgen-isliyor .ulgen-head .ulgen-mark svg, #panel-ulgen.ulgen-isliyor .ulgen-halo .ulgen-mark svg {
         animation:none; -webkit-mask-image:none; mask-image:none;
       }
       .ulgen-chip { transition:none; }
     }
     :root[data-reduce-motion] .ulgen-msg, :root[data-reduce-motion] .ulgen-info,
+    :root[data-reduce-motion] .ulgen-bekle::after,
     :root[data-reduce-motion] .ulgen-msg.busy .ulgen-avatar svg,
     :root[data-reduce-motion] #panel-ulgen.ulgen-isliyor .ulgen-head .ulgen-mark svg,
     :root[data-reduce-motion] #panel-ulgen.ulgen-isliyor .ulgen-halo .ulgen-mark svg {
@@ -336,7 +355,11 @@ const HATA = {
   izin_chat: 'ulgen.off', izin_history: 'ulgen.err.historyOff', gizli_pencere: 'ulgen.err.incognito',
   sayfa_yok: 'ulgen.err.noPage', makale_yok: 'ulgen.err.noArticle', sayfa_degisti: 'ulgen.err.navigated',
   sorgu_bos: 'ulgen.err.emptyQuery',
+  // Araştırma zincirinin kendi sebepleri (src/main/ulgen-arastir.js).
+  kaynak_yok: 'ulgen.res.err.noSource', metin_yok: 'ulgen.res.err.noText',
+  konu_dogrulanmadi: 'ulgen.res.err.offTopic',
 };
+const ARASTIRMA_HATASI = new Set(['kaynak_yok', 'metin_yok', 'konu_dogrulanmadi']);
 
 function yanitiGoster(r, istek) {
   if (!r || !r.ok) {
@@ -381,6 +404,10 @@ function yanitiGoster(r, istek) {
       balon(m2)?.appendChild(satir);
       return;
     }
+    // ⛔ ARAŞTIRMA BOŞ DÖNDÜ: kullanıcıya ham sebep kodu ("metin_yok")
+    //    gösterilmez. Ne olduğunu ve zincirin NEDEN cümle uydurmadığını
+    //    söyleriz; elinde hiçbir şey kalmasın diye aramayı açan düğme durur.
+    if (ARASTIRMA_HATASI.has(sebep)) { arastirmaHatasi(sebep, istek); return; }
     const m = mesaj('biz', T(HATA[sebep] || 'ulgen.err.generic'));
     if (m && (sebep === 'izin_chat' || sebep === 'izin_history')) {
       const satir = el('div', 'ulgen-row');
@@ -429,6 +456,9 @@ function yanitiGoster(r, istek) {
       mesaj('biz', el('h4', null, T('ulgen.hist.head', { q: r.sorgu })), ul);
       return;
     }
+    case 'arastir':
+      arastirmaGoster(r, istek);
+      return;
     case 'web':
     case 'sorgu': {
       // Sorguyu gösterip beklemek yerine arama hemen açılır; kayıt sohbette kalır (Burak, 20 Eyl 2026).
@@ -441,6 +471,106 @@ function yanitiGoster(r, istek) {
     default:
       mesaj('biz', T('ulgen.help'));
   }
+}
+
+/**
+ * ARAŞTIRMA YANITI — zincirin cevabı (src/main/ulgen-arastir.js).
+ *
+ * ⛔ GELEN HER METİN GÜVENİLMEZ: maddeler ve kaynak başlıkları açılmış WEB
+ *    SAYFALARINDAN geliyor, sayfanın kendi yazdığı şey. Hepsi textContent ile
+ *    basılır; bu ağaçta innerHTML, dizge birleştirme ve satır içi işleyici
+ *    YOKTUR. Panelin genel kuralıdır, burası kuralın en çok işe yaradığı yer.
+ * ⚠️ Bağlantılar YENİ BİR DIŞ AÇMA YOLU AÇMAZ: mevcut `sekmedeAc` üzerinden
+ *    ana sürece gider — adres denetimi ve sekme açma tek yerde kalsın.
+ */
+function arastirmaGoster(r, istek) {
+  const adlar = Array.isArray(r.adlar) ? r.adlar : [];
+  const maddeler = Array.isArray(r.maddeler) ? r.maddeler : [];
+  // Zincir `ok` dese de elinde bir şey yoksa boş balon gösterilmez.
+  if (!adlar.length && !maddeler.length) { arastirmaHatasi('metin_yok', istek); return; }
+
+  const parcalar = [el('h4', null, T('ulgen.res.head'))];
+  if (adlar.length) {
+    parcalar.push(el('div', 'ulgen-source', T('ulgen.res.names')));
+    const ol = el('ol', 'ulgen-sum');
+    for (const a of adlar) ol.appendChild(adMaddesi(a));
+    parcalar.push(ol);
+  }
+  if (maddeler.length) {
+    // Ad listesi varken maddeler cevabın KENDİSİ değil, bağlamıdır; öyle yazılır.
+    if (adlar.length) parcalar.push(el('div', 'ulgen-source ulgen-baglam', T('ulgen.res.context')));
+    const ol = el('ol', 'ulgen-sum');
+    for (const m of maddeler) ol.appendChild(maddeMaddesi(m));
+    parcalar.push(ol);
+  }
+  parcalar.push(el('div', 'ulgen-foot', T('ulgen.res.foot', { count: Number(r.kaynakSayisi) || 0 })));
+  mesaj('biz', ...parcalar);
+}
+
+function maddeMaddesi(m) {
+  const li = el('li');
+  const satir = el('div', 'ulgen-madde');
+  satir.appendChild(el('span', null, String((m && m.metin) || '')));
+  satir.appendChild(guvenRozeti(m && m.guven));
+  li.appendChild(satir);
+  const k = kaynakListesi(m && m.kaynaklar);
+  if (k) li.appendChild(k);
+  return li;
+}
+
+// Liste sorusunda zincir ad da döndürebiliyor ({ ad, unvan, yil, kaynaklar }).
+// Ad varsa cevabın kendisi odur; maddeler onun bağlamı olur.
+function adMaddesi(a) {
+  const li = el('li');
+  const satir = el('div', 'ulgen-madde');
+  satir.appendChild(el('span', 'ulgen-ad', String((a && a.ad) || '')));
+  const ek = [a && a.unvan, a && a.yil].filter(Boolean).map(String).join(' · ');
+  if (ek) satir.appendChild(el('span', 'ulgen-host', ek));
+  satir.appendChild(guvenRozeti(a && a.guven));
+  li.appendChild(satir);
+  const k = kaynakListesi(a && a.kaynaklar);
+  if (k) li.appendChild(k);
+  return li;
+}
+
+// Kaynaklar maddenin ALTINDA durur: hangi iddia nereden geldi, görünsün.
+// Başlık sayfadan geliyor; boşsa adres alanı, o da yoksa ham adres yazılır.
+function kaynakListesi(kaynaklar) {
+  const liste = (Array.isArray(kaynaklar) ? kaynaklar : []).filter((k) => k && typeof k.url === 'string' && k.url);
+  if (!liste.length) return null;
+  const ul = el('ul', 'ulgen-kaynak');
+  for (const k of liste) {
+    const li = el('li');
+    const alan = hostOf(k.url);
+    li.appendChild(dugme(String(k.baslik || alan || k.url), () => sekmedeAc({ tur: 'ac', url: k.url }), 'ulgen-link'));
+    if (alan && k.baslik) li.appendChild(el('span', 'ulgen-host', alan));
+    ul.appendChild(li);
+  }
+  return ul;
+}
+
+// ⛔ GÜVEN DÜZEYİ KULLANICIYA GÖRÜNÜR. "İki bağımsız kaynak aynı şeyi
+//    söylüyor" ile "tek kaynak, üstelik sorunun bir terimini taşımıyor" aynı
+//    şey değildir; ikisini aynı görünüşle sunmak kaynak göstermenin anlamını
+//    boşaltır. Bilinmeyen değer `dusuk` sayılır — iyimser varsayım yapılmaz.
+function guvenRozeti(guven) {
+  const kod = guven === 'yuksek' || guven === 'orta' ? guven : 'dusuk';
+  const metin = kod === 'yuksek' ? T('ulgen.res.trust.high')
+    : kod === 'orta' ? T('ulgen.res.trust.mid') : T('ulgen.res.trust.low');
+  const rozet = el('span', 'ulgen-guven ulgen-guven-' + kod, metin);
+  rozet.title = T('ulgen.res.trust.hint');
+  return rozet;
+}
+
+// Zincir boş döndüğünde: sebebi kullanıcının dilinde söyle, uydurmadığını
+// belirt ve aramayı açan bir çıkış bırak.
+function arastirmaHatasi(sebep, istek) {
+  const m = mesaj('biz', T(HATA[sebep] || 'ulgen.res.err.noText'));
+  const soru = (istek && typeof istek.metin === 'string' ? istek.metin.trim() : '');
+  if (!m || !soru) return;
+  const satir = el('div', 'ulgen-row');
+  satir.appendChild(dugme(T('ulgen.web.open'), () => sekmedeAc({ tur: 'ara', sorgu: soru })));
+  balon(m)?.appendChild(satir);
 }
 
 // Sonuç yeni sekmede açılır. Panel açık kalırsa sayfayı örter; bu yüzden kenara çekilir.
@@ -534,12 +664,39 @@ async function gonder(istek, yazdir = true) {
   panel?.classList.add('ulgen-isliyor');          // tamga işlem boyunca yanıp söner
   const bekle = mesaj('biz', T('ulgen.busy'));
   bekle?.classList.add('busy');
+  const beklemeyiBitir = beklemeAsamalari(bekle);
   let r = null;
   try { r = await kopru.sor(istek); } catch { r = null; }
+  beklemeyiBitir();
   bekle?.remove();
   panel?.classList.remove('ulgen-isliyor');
   ulgen.mesgul = false;
   yanitiGoster(r, istek);
+}
+
+/**
+ * BEKLEME GÖSTERGESİ — araştırma 10-13 saniye sürebiliyor.
+ *
+ * ⛔ Tek satırlık "Bakıyorum…" o sürede donmuş gibi görünüyor: kullanıcı
+ *    uygulamanın takıldığını sanır. Aşamalar hem canlı olduğunu hem NE
+ *    yaptığını söyler; belirsiz çubuk da süre sözü vermeden ilerleme gösterir.
+ * ⚠️ İLK AŞAMA GECİKMELİ (2,5 sn): özet ve sayfada arama YEREL işlerdir,
+ *    saniyenin altında döner. Onlara "internette araştırıyorum" demek yanlış
+ *    olurdu — bu yüzden ilk metin herkes için aynı, araştırmaya özgü olan
+ *    ancak iş uzayınca yazılır.
+ */
+function beklemeAsamalari(m) {
+  const kutu = balon(m);
+  if (!kutu) return () => {};
+  const asama = (metin) => {
+    kutu.textContent = metin;                  // önceki aşamayı temizler
+    kutu.appendChild(el('div', 'ulgen-bekle'));
+  };
+  const sayaclar = [
+    setTimeout(() => asama(T('ulgen.res.busy1')), 2500),
+    setTimeout(() => asama(T('ulgen.res.busy2')), 7000),
+  ];
+  return () => sayaclar.forEach(clearTimeout);
 }
 
 function modSec(mod) {

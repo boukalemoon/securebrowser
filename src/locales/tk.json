@@ -1651,5 +1651,18 @@
   "ulgen.gorev.connected": "Baglanyşykly. Ülgen sahypa teksti sorap biler; kukileriňiz we girişli sessiýalaryňyz ulanylmaýar.",
   "ulgen.gorev.pairedOffline": "Baglanyşyk gurlan, emma Ülgene şu wagt ýetip bolmaýar.",
   "ulgen.gorev.unpair": "Baglanyşygy kes",
-  "ulgen.gorev.unpaired": "Baglanyşyk kesildi."
+  "ulgen.gorev.unpaired": "Baglanyşyk kesildi.",
+  "ulgen.res.head": "Barlag netijesi",
+  "ulgen.res.names": "Tapylan atlar",
+  "ulgen.res.context": "Kontekst sözlemleri",
+  "ulgen.res.foot": "{count} çeşmeden ýygnaldy. Her bent — açylan sahypadan alnan hakyky sözlem; Ülgen sözlem oýlap tapmaýar.",
+  "ulgen.res.trust.high": "ýokary ynam",
+  "ulgen.res.trust.mid": "orta ynam",
+  "ulgen.res.trust.low": "pes ynam",
+  "ulgen.res.trust.hint": "Ýokary: iň azyndan iki garaşsyz çeşme şol bir zady aýdýar we bent soragyň ähli adalgasyny göterýär. Orta: ýeke çeşme ýa-da ýetmeýän adalga. Pes: tekst çykarmak ygtybarsyz (PDF ýaly) ýa-da çeşme ýok.",
+  "ulgen.res.busy1": "Internetde gözleýärin…",
+  "ulgen.res.busy2": "Sahypalary okap, çeşmeleri deňeşdirýärin…",
+  "ulgen.res.err.noSource": "Bu sorag üçin okap boljak çeşme tapmadym. Bilmeýän zadymy oýlap tapmaýaryn; soragyňyzy birneme üýtgedip täzeden synanyşyp bilersiňiz.",
+  "ulgen.res.err.noText": "Açan sahypalarymdan bu soraga jogap berýän tekst çykaryp bilmedim. Çeşmesiz sözlem oýlap tapmaýaryn — şonuň üçin boş gaýtdym.",
+  "ulgen.res.err.offTopic": "Tapan sahypalarym soran meseläňiz hakda däldi. Degişli bolmadyk çeşmäni jogap hökmünde hödürlemeýärin; soragy has anyk ýazsaňyz gaýtadan seretmäge taýýar."
 }

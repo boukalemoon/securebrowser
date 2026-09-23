@@ -1645,5 +1645,18 @@
   "ulgen.gorev.connected": "Bağlıdır. Ülgen səhifə mətni istəyə bilər; kukiləriniz və girişli sessiyalarınız istifadə olunmur.",
   "ulgen.gorev.pairedOffline": "Cütləşmə qurulub, lakin Ülgen-ə hazırda çatmaq mümkün deyil.",
   "ulgen.gorev.unpair": "Bağlantını kəs",
-  "ulgen.gorev.unpaired": "Bağlantı kəsildi."
+  "ulgen.gorev.unpaired": "Bağlantı kəsildi.",
+  "ulgen.res.head": "Araşdırma nəticəsi",
+  "ulgen.res.names": "Tapılan adlar",
+  "ulgen.res.context": "Kontekst cümlələri",
+  "ulgen.res.foot": "{count} mənbədən toplandı. Hər bənd açılmış səhifədən götürülmüş həqiqi cümlədir; Ülgen cümlə uydurmur.",
+  "ulgen.res.trust.high": "yüksək etibar",
+  "ulgen.res.trust.mid": "orta etibar",
+  "ulgen.res.trust.low": "aşağı etibar",
+  "ulgen.res.trust.hint": "Yüksək: ən azı iki müstəqil mənbə eyni şeyi deyir və bənd sualın bütün terminlərini daşıyır. Orta: tək mənbə və ya çatışmayan termin. Aşağı: mətnin çıxarılması kövrəkdir (PDF kimi) və ya mənbə yoxdur.",
+  "ulgen.res.busy1": "İnternetdə araşdırıram…",
+  "ulgen.res.busy2": "Səhifələri oxuyub mənbələri tutuşdururam…",
+  "ulgen.res.err.noSource": "Bu sual üçün oxunaqlı mənbə tapmadım. Bilmədiyimi uydurmuram; sualı bir az dəyişib yenidən cəhd edə bilərsiniz.",
+  "ulgen.res.err.noText": "Açdığım səhifələrdən bu suala cavab verən mətn çıxara bilmədim. Mənbə olmadan cümlə uydurmuram — buna görə boş qayıtdım.",
+  "ulgen.res.err.offTopic": "Tapdığım səhifələr soruşduğunuz mövzudan deyildi. Əlaqəsiz mənbəni cavab kimi təqdim etmirəm; sualı bir az dəqiq yazsanız yenidən baxaram."
 }

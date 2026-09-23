@@ -1732,5 +1732,18 @@
   "ulgen.gorev.connected": "Connecté. Ülgen peut demander le texte d’une page ; vos cookies et vos sessions connectées ne sont pas utilisés.",
   "ulgen.gorev.pairedOffline": "Associé, mais Ülgen est actuellement inaccessible.",
   "ulgen.gorev.unpair": "Déconnecter",
-  "ulgen.gorev.unpaired": "Connexion interrompue."
+  "ulgen.gorev.unpaired": "Connexion interrompue.",
+  "ulgen.res.head": "Résultat de la recherche",
+  "ulgen.res.names": "Noms trouvés",
+  "ulgen.res.context": "Phrases de contexte",
+  "ulgen.res.foot": "Compilé à partir de {count} sources. Chaque élément est une phrase réelle tirée d’une page ouverte ; Ülgen n’invente pas de phrases.",
+  "ulgen.res.trust.high": "confiance élevée",
+  "ulgen.res.trust.mid": "confiance moyenne",
+  "ulgen.res.trust.low": "confiance faible",
+  "ulgen.res.trust.hint": "Élevée : au moins deux sources indépendantes disent la même chose et l’élément contient tous les termes de votre question. Moyenne : une seule source, ou un terme manquant. Faible : l’extraction du texte est fragile (PDF par exemple) ou il n’y a pas de source.",
+  "ulgen.res.busy1": "Je cherche sur le web…",
+  "ulgen.res.busy2": "Je lis les pages et compare les sources…",
+  "ulgen.res.err.noSource": "Je n’ai trouvé aucune source lisible pour cette question. Je n’invente rien ; reformulez votre question et réessayez.",
+  "ulgen.res.err.noText": "Je n’ai pas pu extraire des pages ouvertes un texte répondant à cette question. Sans source, je n’invente pas de phrase — c’est pourquoi je reviens les mains vides.",
+  "ulgen.res.err.offTopic": "Les pages trouvées ne traitaient pas de votre sujet. Je ne présente pas une source hors sujet comme une réponse ; précisez un peu la question et je regarderai de nouveau."
 }

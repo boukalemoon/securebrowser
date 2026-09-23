@@ -1717,5 +1717,18 @@
   "ulgen.gorev.connected": "Verbunden. Ülgen kann den Text einer Seite anfordern; Ihre Cookies und angemeldeten Sitzungen werden nicht verwendet.",
   "ulgen.gorev.pairedOffline": "Gekoppelt, aber Ülgen ist derzeit nicht erreichbar.",
   "ulgen.gorev.unpair": "Verbindung trennen",
-  "ulgen.gorev.unpaired": "Verbindung getrennt."
+  "ulgen.gorev.unpaired": "Verbindung getrennt.",
+  "ulgen.res.head": "Rechercheergebnis",
+  "ulgen.res.names": "Gefundene Namen",
+  "ulgen.res.context": "Kontextsätze",
+  "ulgen.res.foot": "Aus {count} Quellen zusammengestellt. Jeder Punkt ist ein echter Satz aus einer geöffneten Seite; Ülgen erfindet keine Sätze.",
+  "ulgen.res.trust.high": "hohe Verlässlichkeit",
+  "ulgen.res.trust.mid": "mittlere Verlässlichkeit",
+  "ulgen.res.trust.low": "geringe Verlässlichkeit",
+  "ulgen.res.trust.hint": "Hoch: Mindestens zwei unabhängige Quellen sagen dasselbe und der Punkt enthält alle Begriffe Ihrer Frage. Mittel: nur eine Quelle oder ein fehlender Begriff. Gering: Die Textgewinnung ist unsicher (etwa bei PDF) oder es gibt keine Quelle.",
+  "ulgen.res.busy1": "Ich recherchiere im Web…",
+  "ulgen.res.busy2": "Ich lese die Seiten und vergleiche die Quellen…",
+  "ulgen.res.err.noSource": "Für diese Frage habe ich keine lesbare Quelle gefunden. Ich erfinde nichts; formulieren Sie die Frage gern etwas anders.",
+  "ulgen.res.err.noText": "Aus den geöffneten Seiten konnte ich keinen Text gewinnen, der diese Frage beantwortet. Ohne Quelle erfinde ich keinen Satz — deshalb komme ich mit leeren Händen zurück.",
+  "ulgen.res.err.offTopic": "Die gefundenen Seiten handelten nicht von Ihrem Thema. Ich gebe keine unpassende Quelle als Antwort aus; schreiben Sie die Frage etwas genauer, dann sehe ich erneut nach."
 }

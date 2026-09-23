@@ -1651,5 +1651,18 @@
   "ulgen.gorev.connected": "Bağlı. Ülgen sayfa metni isteyebilir; çerezleriniz ve girişli oturumlarınız kullanılmaz.",
   "ulgen.gorev.pairedOffline": "Eşleşme kurulu ama Ülgen'e şu anda ulaşılamıyor.",
   "ulgen.gorev.unpair": "Bağlantıyı kes",
-  "ulgen.gorev.unpaired": "Bağlantı kesildi."
+  "ulgen.gorev.unpaired": "Bağlantı kesildi.",
+  "ulgen.res.head": "Araştırma sonucu",
+  "ulgen.res.names": "Bulunan adlar",
+  "ulgen.res.context": "Bağlam cümleleri",
+  "ulgen.res.foot": "{count} kaynaktan derlendi. Her madde açılmış bir sayfadan alınmış gerçek bir cümledir; Ülgen cümle uydurmaz.",
+  "ulgen.res.trust.high": "yüksek güven",
+  "ulgen.res.trust.mid": "orta güven",
+  "ulgen.res.trust.low": "düşük güven",
+  "ulgen.res.trust.hint": "Yüksek: en az iki bağımsız kaynak aynı şeyi söylüyor ve madde sorunun bütün terimlerini taşıyor. Orta: tek kaynak ya da eksik terim. Düşük: metin çıkarımı kırılgan (PDF gibi) ya da kaynak yok.",
+  "ulgen.res.busy1": "İnternette araştırıyorum…",
+  "ulgen.res.busy2": "Sayfaları okuyup kaynakları karşılaştırıyorum…",
+  "ulgen.res.err.noSource": "Bu soru için okunabilir bir kaynak bulamadım. Bilmediğim şeyi uydurmam; sorunuzu biraz değiştirip yeniden deneyebilirsiniz.",
+  "ulgen.res.err.noText": "Açtığım sayfalardan bu soruyu cevaplayan bir metin çıkaramadım. Elimde kaynak yokken cümle uydurmam — bu yüzden boş döndüm.",
+  "ulgen.res.err.offTopic": "Bulduğum sayfalar sorduğunuz konuyu anlatmıyordu. Alakasız bir kaynağı cevap diye sunmam; soruyu biraz daha belirgin yazarsanız yeniden bakabilirim."
 }

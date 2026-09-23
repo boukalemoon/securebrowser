@@ -1729,5 +1729,18 @@
   "ulgen.gorev.connected": "Connected. Ülgen may ask for page text; your cookies and signed-in sessions are not used.",
   "ulgen.gorev.pairedOffline": "Paired, but Ülgen cannot be reached right now.",
   "ulgen.gorev.unpair": "Disconnect",
-  "ulgen.gorev.unpaired": "Disconnected."
+  "ulgen.gorev.unpaired": "Disconnected.",
+  "ulgen.res.head": "Research result",
+  "ulgen.res.names": "Names found",
+  "ulgen.res.context": "Context sentences",
+  "ulgen.res.foot": "Compiled from {count} sources. Every item is a real sentence taken from a page that was opened; Ülgen does not invent sentences.",
+  "ulgen.res.trust.high": "high confidence",
+  "ulgen.res.trust.mid": "medium confidence",
+  "ulgen.res.trust.low": "low confidence",
+  "ulgen.res.trust.hint": "High: at least two independent sources say the same thing and the item carries every term of your question. Medium: a single source, or a missing term. Low: text extraction is fragile (such as a PDF) or there is no source.",
+  "ulgen.res.busy1": "Searching the web…",
+  "ulgen.res.busy2": "Reading the pages and comparing sources…",
+  "ulgen.res.err.noSource": "I could not find a readable source for this question. I will not make things up; try rewording your question.",
+  "ulgen.res.err.noText": "I could not extract any text answering this question from the pages I opened. I will not invent a sentence without a source — that is why I came back empty.",
+  "ulgen.res.err.offTopic": "The pages I found were not about your subject. I will not present an unrelated source as an answer; write the question a bit more precisely and I will look again."
 }
