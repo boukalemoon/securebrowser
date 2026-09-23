@@ -104,18 +104,48 @@ const COP = [
   [/^\s*\^/, 'dipnot_satiri'],
 ];
 
-function metinKalitesi(metin) {
+function metinKalitesi(metin, secenek = {}) {
   const s = String(metin || '');
+  if (secenek.satir) return satirKalitesi(s, secenek.terimler || []);
   if (s.length < 45) return { ok: false, sebep: 'cok_kisa' };
   for (const [desen, sebep] of COP) if (desen.test(s)) return { ok: false, sebep };
-  // Latin/Türkçe dışı karakter oranı: Çince tablo satırı ve bozuk bayt buradan elenir.
-  const yabanci = (s.match(/[^\x20-\x7EçğıöşüÇĞİÖŞÜâîûÂÎÛ‐-‧]/g) || []).length;
-  if (yabanci / s.length > 0.08) return { ok: false, sebep: 'yabanci_karakter' };
+  if (yabanciOran(s) > 0.08) return { ok: false, sebep: 'yabanci_karakter' };
   // Harf oranı düşükse tablo/sayı dökümüdür, cümle değildir.
   const harf = (s.match(/[a-zA-ZçğıöşüÇĞİÖŞÜ]/g) || []).length;
   if (harf / s.length < 0.55) return { ok: false, sebep: 'harf_orani_dusuk' };
   // Gerçek cümle en az bir fiil/yüklem sonu taşır ya da noktayla biter.
   if (!/[.!?]\s*$/.test(s.trim()) && s.length > 220) return { ok: false, sebep: 'cumle_degil' };
+  return { ok: true, sebep: '' };
+}
+
+// Latin/Türkçe dışı karakter oranı: Çince tablo satırı ve bozuk bayt buradan
+// elenir. Satırda da geçerli — bozuk bayt satırda da çöptür.
+const YABANCI = /[^\x20-\x7EçğıöşüÇĞİÖŞÜâîûÂÎÛ‐-‧]/g;
+function yabanciOran(s) {
+  return (String(s).match(YABANCI) || []).length / Math.max(1, String(s).length);
+}
+
+/**
+ * SATIR KALİTESİ — tablo satırının KENDİ ölçüsü.
+ *
+ * ⛔ NEDEN AYRI (ölçüldü 23.09): "Türkiye'nin en yüksek barajları" sorusunda
+ *    her sayfada `varlik: 0` çıkıyordu. Cevap tablodaydı ve satır
+ *    "Yusufeli Barajı | 275 m | Artvin" biçiminde: 45 karakter eşiği onu
+ *    `cok_kisa`, harf oranı denetimi `harf_orani_dusuk` diye eliyordu. İki
+ *    kural da CÜMLE için yazılmıştı; satır cümle değildir, bu yüzden
+ *    uygulanmaz.
+ * ⚠️ Yerine iki ölçü konuyor, çünkü denetimi kaldırmak çöp kapısı açardı:
+ *      · EN AZ İKİ HÜCRE — tek hücre satır değil, kırıntıdır.
+ *      · EN AZ BİR KONU TERİMİ — yoksa gezinti, kaynakça ve dipnot
+ *        satırları da "cevap" diye akardı.
+ *    Çöp desenleri (PDF baytı, wiki şablonu, dipnot) satır için de geçerli.
+ */
+function satirKalitesi(s, terimler) {
+  const hucre = String(s).split(motor.HUCRE_AYRAC).map((x) => x.trim()).filter(Boolean);
+  if (hucre.length < 2) return { ok: false, sebep: 'tek_hucre' };
+  for (const [desen, sebep] of COP) if (desen.test(s)) return { ok: false, sebep };
+  if (yabanciOran(s) > 0.08) return { ok: false, sebep: 'yabanci_karakter' };
+  if (!cumleAlakali(s, terimler)) return { ok: false, sebep: 'konu_disi' };
   return { ok: true, sebep: '' };
 }
 
@@ -125,9 +155,13 @@ function metinKalitesi(metin) {
 function cevapCumleleri(bloklar, coz, azami = 3) {
   const anahtar = motor.sozcukler(coz.sorgu).concat(coz.esanlam.map((e) => e.toLowerCase()));
   if (!anahtar.length) return [];
+  // ⚠️ Tablo satırı cümle yolundan GEÇMEZ: kendi yolu var (satirMaddeleri).
+  //    İkisinden birden geçerse aynı bilgi cevaba iki kez girer; üstelik
+  //    cümle ölçüsü satırı yanlış tartar (harf oranı, cümle sonu noktası).
+  const duzBloklar = (bloklar || []).filter((b) => !motor.satirMi(b));
   const bulgu = new Map();
   for (const kelime of anahtar) {
-    for (const c of motor.sayfadaAra(bloklar, kelime, 6)) {
+    for (const c of motor.sayfadaAra(duzBloklar, kelime, 6)) {
       const v = bulgu.get(c) || { metin: c, isabet: 0 };
       v.isabet++;
       bulgu.set(c, v);
@@ -165,6 +199,29 @@ function cumleAlakali(cumle, terimler) {
 const OZEL_AD = /(?<![.!?]\s)\b[A-ZÇĞİÖŞÜ][a-zçğıöşü]{2,}\b/g;
 function ozelAdSayisi(metin) {
   return (String(metin).match(OZEL_AD) || []).length;
+}
+
+// ── 3a. Tablo satırları (LİSTE soruları) ──────────────────────────────────
+/**
+ * Liste sorusunun cevabı çoğu kez TABLODADIR: "Türkiye'nin en yüksek
+ * barajları" sorusunda adlar da yükseklikler de tablo satırlarındaydı.
+ * Satırlar madde adayıdır.
+ *
+ * ⚠️ EN ÇOK KONU TERİMİ KARŞILAYAN ÖNE ALINIR: "Yusufeli Barajı | 275 m |
+ *    Türkiye" sorunun iki terimini de taşırken "Jinping-I | 305 m | Çin"
+ *    yalnız birini taşır. İkisi aynı kefeye konursa soru Türkiye'yi sorarken
+ *    cevabın başına dünya barajı düşer — ölçülen kusur tam buydu.
+ */
+function satirMaddeleri(bloklar, coz, azami = 6) {
+  const terimler = (coz && coz.terimler) || [];
+  const aday = [];
+  for (const b of bloklar || []) {
+    if (!motor.satirMi(b)) continue;
+    const metin = String(b);
+    if (!metinKalitesi(metin, { satir: true, terimler }).ok) continue;
+    aday.push({ metin, kapsam: terimler.length - eksikTerimler(metin, terimler).length });
+  }
+  return aday.sort((a, b) => b.kapsam - a.kapsam).slice(0, azami).map((x) => x.metin);
 }
 
 // ── 3b. Varlık çıkarımı (LİSTE soruları) ──────────────────────────────────
@@ -274,14 +331,22 @@ function varlikCikar(bloklar, coz, azami = 8) {
 //    gerekir; şimdilik kayıtlı bir sınır olarak duruyor.
 const { registrableDomain } = require('./blocker-main');
 
-function guvenDuzeyi(kaynaklar) {
+function guvenDuzeyi(kaynaklar, secenek = {}) {
   const liste = kaynaklar || [];
   if (!liste.length) return 'dusuk';                       // kaynaksız iddia
   if (liste.every((k) => /\.pdf($|\?)/i.test(k.url || ''))) return 'dusuk';
   const bagimsiz = new Set(liste.map((k) => {
     try { return registrableDomain(new URL(k.url).hostname); } catch { return String(k.url || ''); }
   }));
-  return bagimsiz.size >= 2 ? 'yuksek' : 'orta';
+  // ⛔ İKİ KAYNAK YETMEZ, MADDE KONUYU DA TUTMALI (ölçüldü 23.09): soru
+  //    Türkiye'yi sorarken "Dünya'nın en yüksek barajları listesi…" cümlesi
+  //    cevapta kalıyordu. İki ayrı sitede geçtiği için güveni `yuksek`ti —
+  //    oysa sorunun terimlerinden birini hiç taşımıyor. Güven "kaç yerde
+  //    yazıyor" kadar "sorulan şeyi mi anlatıyor" demektir; eksik terimi
+  //    olan madde en çok `orta` olur.
+  const eksik = (secenek && secenek.eksik) || [];
+  if (bagimsiz.size >= 2) return eksik.length ? 'orta' : 'yuksek';
+  return 'orta';
 }
 
 // ── 3d. KONU DOĞRULAMA ────────────────────────────────────────────────────
@@ -437,18 +502,46 @@ function duzle(s) {
 // ── 4/5. Birleştir ve yaz ─────────────────────────────────────────────────
 // Aynı bilgiyi iki kaynak söylüyorsa bir kez yazılır ama İKİ kaynak gösterilir.
 function birlestir(parcalar, coz) {
+  const terimler = (coz && coz.terimler) || [];
   const kume = [];
   for (const p of parcalar) {
     for (const c of p.cumleler) {
-      const benzer = kume.find((k) => ortakOran(k.metin, c) > 0.6);
+      const benzer = kume.find((k) => ayniBilgi(k.metin, c));
       if (benzer) { if (!benzer.kaynaklar.some((k) => k.url === p.url)) benzer.kaynaklar.push({ url: p.url, baslik: p.baslik }); }
       else kume.push({ metin: c, kaynaklar: [{ url: p.url, baslik: p.baslik }] });
     }
   }
-  // İki kaynağın doğruladığı bilgi öne alınır — tek kaynaklı iddiadan güçlüdür.
-  return kume.sort((a, b) => b.kaynaklar.length - a.kaynaklar.length)
+  // ⛔ SIRALAMA ÖNCE KONU KAPSAMINA BAKAR (ölçüldü 23.09): eskiden yalnız
+  //    "kaç kaynak" sorulduğu için sorunun YARISINI karşılayan bir cümle,
+  //    iki kaynakta geçtiği diye tam isabetli maddenin önüne geçiyordu.
+  //    Kaynak sayısı hâlâ ikinci ölçüt: eşit kapsamda çok kaynaklı öndedir.
+  return kume
+    .map((k) => ({ ...k, eksik: eksikTerimler(k.metin, terimler) }))
+    .sort((a, b) => (a.eksik.length - b.eksik.length) || (b.kaynaklar.length - a.kaynaklar.length))
     .slice(0, coz.tip === 'liste' ? 8 : 5)
-    .map((k) => ({ ...k, guven: guvenDuzeyi(k.kaynaklar) }));
+    .map((k) => ({ ...k, guven: guvenDuzeyi(k.kaynaklar, { eksik: k.eksik }) }));
+}
+
+/**
+ * İki metin AYNI BİLGİ mi? Cümlede ölçü sözcük örtüşmesi, satırda BİREBİR
+ * aynılık.
+ * ⛔ NEDEN (ölçüldü 23.09): "Deriner Barajı | 249 m | Artvin | 2012" ile
+ *    "Yusufeli Barajı | 275 m | Artvin | 2022" örtüşmesi %67 çıkıyor —
+ *    ikisinde de "barajı" ve "artvin" var — ve liste maddesi SESSİZCE
+ *    düşüyordu. Oysa bunlar iki AYRI barajdır. Sözcük örtüşmesi ölçüsü
+ *    düzyazı için yazıldı; tablo satırı ayrı bir kayıttır, aynı sütunları
+ *    paylaşması onu aynı yapmaz.
+ */
+function ayniBilgi(a, b) {
+  if (satirMetni(a) || satirMetni(b)) return String(a) === String(b);
+  return ortakOran(a, b) > 0.6;
+}
+
+// ⚠️ Satır işareti (`motor.satirMi`) yalnız BLOKTA durur; madde havuzuna
+//    düz metin olarak giriyorlar. Hücre ayracı satırın kendi imzasıdır:
+//    düzyazı cümlede " | " geçmez.
+function satirMetni(m) {
+  return String(m).includes(motor.HUCRE_AYRAC);
 }
 
 function ortakOran(a, b) {
@@ -521,10 +614,17 @@ async function arastir(soru, kanca, secenek = {}) {
     const cumleler = cevapCumleleri(sayfa.bloklar, coz, coz.tip === 'liste' ? 4 : 3);
     // LİSTE sorusunda adlar tabloda olabilir; cümle seçimi onları göremez.
     const varliklar = coz.tip === 'liste' ? varlikCikar(sayfa.bloklar, coz) : [];
+    // ⛔ LİSTE sorusunda TABLO SATIRLARI da madde adayıdır (ölçüldü 23.09):
+    //    baraj listesi tablodaydı, cümle yolu onu hiç göremiyordu.
+    const satirlar = coz.tip === 'liste' ? satirMaddeleri(sayfa.bloklar, coz) : [];
     iz.adimlar.push({ adim: 'sayfa', url: s.url, ok: true, cumle: cumleler.length,
-                      varlik: varliklar.length, kirpildi: !!sayfa.kirpildi, ms: Date.now() - t0 });
-    if (cumleler.length || varliklar.length) {
-      parcalar.push({ url: s.url, baslik: sayfa.baslik || s.baslik, cumleler, varliklar });
+                      varlik: varliklar.length, satir: satirlar.length,
+                      kirpildi: !!sayfa.kirpildi, ms: Date.now() - t0 });
+    if (cumleler.length || varliklar.length || satirlar.length) {
+      // Satır önce: kapsam sıralamasını `birlestir` yapıyor, burada yalnız
+      // aday havuzuna giriyorlar.
+      parcalar.push({ url: s.url, baslik: sayfa.baslik || s.baslik,
+                      cumleler: [...satirlar, ...cumleler], varliklar });
     }
   }
   if (!parcalar.length) return { ok: false, sebep: 'metin_yok', iz };
@@ -570,5 +670,5 @@ async function arastir(soru, kanca, secenek = {}) {
 }
 
 module.exports = { arastir, soruCoz, kaynakPuani, kaynaklariSuz, cevapCumleleri,
-                   birlestir, metinKalitesi, varlikCikar, guvenDuzeyi,
+                   birlestir, metinKalitesi, satirKalitesi, satirMaddeleri, varlikCikar, guvenDuzeyi,
                    ayirtEdiciTerimler, konuGecti, eksikTerimler, cumleAlakali, ESANLAM };

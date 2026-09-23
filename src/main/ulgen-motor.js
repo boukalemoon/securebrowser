@@ -59,10 +59,41 @@ function niyet(metin) {
 const BLOK = new Set(['p', 'li', 'blockquote', 'pre', 'td', 'th', 'dd', 'dt', 'figcaption', 'caption', 'div', 'tr']);
 const BASLIK = new Set(['h1', 'h2', 'h3', 'h4', 'h5', 'h6']);
 
+// ── Tablo satırı ──────────────────────────────────────────────────────────────
+// ⛔ NEDEN (ölçüldü 23.09.2026): "Türkiye'nin en yüksek barajları hangileri?"
+//    sorusunda HER sayfada `varlik: 0` çıktı. Cevap sayfada duruyordu ama
+//    zincire hiç ulaşmıyordu: barajlar Vikipedi'de TABLODA ve her td/th ayrı
+//    blok olduğu için satır hücre hücre bölünüyordu — "Yusufeli Barajı",
+//    "275", "Çoruh" tek başına birer kırıntı. Araştırma zinciri onları
+//    (haklı olarak) `cok_kisa` diye eliyordu. Satır bir arada ise anlamlı:
+//    "Yusufeli Barajı | 275 m | Çoruh | 2022".
+const HUCRE_AYRAC = ' | ';
+
+// ⚠️ SATIR İŞARETİ NEDEN `String` SARMALAYICISI: `bloklar` düz metin dizisi
+//    olarak altı yerde tüketiliyor (cumleler, ozetle, sayfadaAra,
+//    anahtarSozcukler, karakter sayımı ve main.js'teki blok kırpma —
+//    sonuncusu `b.length` ile `b.slice()` çağırıyor). Düz nesne
+//    ({ tip:'satir', metin }) koysaydık kırpma sessizce NaN'a düşer, metin
+//    sınırı üretimde devre dışı kalırdı. Sarmalayıcı her tüketici için
+//    KATRESİ KATRESİNE metindir (length, slice, join, regex, String()),
+//    üstüne satır işaretini taşır. Tablo DIŞI bloklar düz dize kalır.
+// ⚠️ İşaret `slice()` sonrası düşer (ilkel dizeye dönülür); kırpılmış satır
+//    satır sayılmaz, cümle yolundan geçer — kaybı olan davranış bu kadardır.
+function satirBlogu(metin) {
+  const b = new String(metin);          // eslint-disable-line no-new-wrappers
+  b.tip = 'satir';
+  return b;
+}
+
+function satirMi(blok) {
+  return !!(blok && blok.tip === 'satir');
+}
+
 function duzMetin(nodes) {
   const bloklar = [];
   const basliklar = [];
   let tampon = '';
+  let satir = null;                     // `tr` içindeyken hücreler buraya birikir
   const bosalt = (hedef) => {
     const t = tampon.replace(/\s+/g, ' ').trim();
     if (t) hedef.push(t);
@@ -75,8 +106,21 @@ function duzMetin(nodes) {
       const [etiket, , cocuk] = n;
       if (etiket === 'img') continue;
       if (etiket === 'br') { tampon += ' '; continue; }
-      if (BASLIK.has(etiket)) { bosalt(bloklar); yuru(cocuk); bosalt(basliklar); continue; }
-      if (BLOK.has(etiket)) { bosalt(bloklar); yuru(cocuk); bosalt(bloklar); continue; }
+      if (etiket === 'tr') {
+        // İç içe tablo: dıştaki satırı bölmeyiz, hücreler aynı satıra akar.
+        if (satir) { yuru(cocuk); continue; }
+        bosalt(bloklar);
+        satir = [];
+        yuru(cocuk);
+        bosalt(satir);                  // kapanmamış son hücrenin artığı
+        const t = satir.join(HUCRE_AYRAC);
+        satir = null;
+        if (t) bloklar.push(satirBlogu(t));
+        continue;
+      }
+      // Satır içindeyken td/th kendi bloğunu AÇMAZ, hücre olarak satıra yazar.
+      if (BASLIK.has(etiket)) { bosalt(satir || bloklar); yuru(cocuk); bosalt(basliklar); continue; }
+      if (BLOK.has(etiket)) { const hedef = satir || bloklar; bosalt(hedef); yuru(cocuk); bosalt(hedef); continue; }
       yuru(cocuk);
     }
   })(nodes);
@@ -93,15 +137,17 @@ const KISALTMA = /(?<![\p{L}\p{N}_])(dr|prof|doç|yrd|av|st|no|vb|vs|bkz|örn|mr
 function cumleler(bloklar) {
   const cikti = [];
   (bloklar || []).forEach((blok, bi) => {
+    // Satır işareti cümleye de geçer: özet onu dışarıda bırakabilsin diye.
+    const satir = satirMi(blok);
     const parca = String(blok).split(BOL);
     let bekleyen = '';
     for (const p of parca) {
       const c = (bekleyen ? bekleyen + ' ' : '') + p.trim();
       if (KISALTMA.test(c)) { bekleyen = c; continue; }
       bekleyen = '';
-      if (c) cikti.push({ metin: c, blok: bi });
+      if (c) cikti.push({ metin: c, blok: bi, satir });
     }
-    if (bekleyen) cikti.push({ metin: bekleyen, blok: bi });
+    if (bekleyen) cikti.push({ metin: bekleyen, blok: bi, satir });
   });
   return cikti;
 }
@@ -136,7 +182,11 @@ const SAYILI = /(\d{2,}|%\s*\d|\d+([.,]\d+)+)/;
 const SAYI_AGIRLIGI = 0.35;
 
 function ozetle(bloklar, secenek = {}) {
-  const tum = cumleler(bloklar).filter((c) => c.metin.length >= 40 && c.metin.length <= 450);
+  // ⚠️ ÖZET CÜMLEDEN KURULUR: tablo satırı cümle değildir. Satırlar araştırma
+  //    zincirinin madde yolundan geçer; sayfa özetine "Yusufeli | 275 | 2022"
+  //    girerse özet okunmaz olur (hücreler ayrıyken 40 karakter eşiği bunu
+  //    zaten yapıyordu, satır birleşince eşik korumayı bırakırdı).
+  const tum = cumleler(bloklar).filter((c) => !c.satir && c.metin.length >= 40 && c.metin.length <= 450);
   if (!tum.length) return { cumleler: [], toplam: 0 };
   const siklik = new Map();
   for (const c of tum) for (const w of sozcukler(c.metin)) siklik.set(w, (siklik.get(w) || 0) + 1);
@@ -278,5 +328,5 @@ function gecmisSonuclari(items, azami = 8) {
 
 module.exports = {
   kucuk, niyet, duzMetin, cumleler, sozcukler, ozetle, sayfadaAra, sorguOner,
-  anahtarSozcukler, ilgiEkle, gecmisSonuclari,
+  anahtarSozcukler, ilgiEkle, gecmisSonuclari, satirBlogu, satirMi, HUCRE_AYRAC,
 };

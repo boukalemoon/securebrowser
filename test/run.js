@@ -1820,6 +1820,33 @@ suite('Keşfet — TrendTech yazılımları');
     eq('daha iyi sorgu: soru/dolgu sözcükleri ve Türkçe ek atılıyor, tırnaklı ifade korunuyor',
       [M.sorguOner("İstanbul'da en iyi kahve nerede içilir acaba?"), M.sorguOner('"Montrö Sözleşmesi" nedir')],
       ['İstanbul en iyi kahve içilir', '"Montrö Sözleşmesi"']);
+
+    // ⛔ TABLO SATIRI TEK BLOK (ölçüldü 23.09.2026): td/th ayrı ayrı blok
+    //    olduğu için "Yusufeli Barajı" ile "275 m" tek başına kalıyordu;
+    //    araştırma zinciri onları `cok_kisa` diye eliyor, cevap sayfada
+    //    durduğu hâlde hiç ulaşılamıyordu (her sayfada `varlik: 0`).
+    const t = M.duzMetin([['p', null, ['Giriş cümlesi.']], ['table', null, [
+      ['tr', null, [['th', null, ['Baraj']], ['th', null, ['Yükseklik']]]],
+      ['tr', null, [['td', null, ['Yusufeli Barajı']], ['td', null, ['275 m']]]]]]]);
+    eq('tablo satırı TEK blok, hücreler " | " ile birleşiyor', t.bloklar.map(String),
+      ['Giriş cümlesi.', 'Baraj | Yükseklik', 'Yusufeli Barajı | 275 m']);
+    eq('blok satır olduğunu söylüyor; tablo DIŞI blok eskisi gibi düz metin',
+      t.bloklar.map((b) => M.satirMi(b)), [false, true, true]);
+    // ⚠️ Satır bloğu her tüketici için metin gibi davranmalı: main.js'teki blok
+    //    kırpma `b.length` ve `b.slice()` çağırıyor, düz nesne olsaydı metin
+    //    sınırı sessizce devre dışı kalırdı.
+    check('satır bloğu metin gibi davranıyor (length/slice/karakter sayımı)',
+      t.bloklar[1].length === 'Baraj | Yükseklik'.length && t.bloklar[1].slice(0, 5) === 'Baraj'
+      && t.karakter === t.bloklar.reduce((a, b) => a + String(b).length, 0));
+    eq('satır işareti cümleye de geçiyor (özet onu ayırt edebilsin)',
+      M.cumleler(['Düz bir cümle.', M.satirBlogu('A | B')]).map((c) => !!c.satir), [false, true]);
+    // ⚠️ Özet CÜMLEDEN kurulur: "Yusufeli | 275 | 2022" özete girerse özet
+    //    okunmaz olur. Hücreler ayrıyken 40 karakter eşiği bunu zaten
+    //    yapıyordu; satır birleşince eşik korumayı bırakırdı.
+    const ozetSatirli = M.ozetle([...bloklar, M.satirBlogu('Çanakkale Boğazı | 1,2 km | Montrö Sözleşmesi | 1936 yılı')],
+      { baslik: 'Çanakkale Boğazı' });
+    check('tablo satırı sayfa ÖZETİNE girmiyor',
+      !ozetSatirli.cumleler.some((c) => c.includes(' | ')), ozetSatirli.cumleler);
     const ilgi = Array.from({ length: 80 }, (_, i) => 'etiket' + i).reduce((acc, w) => M.ilgiEkle(acc, [w]), {});
     check('ilgi etiketleri sınırsız büyümüyor (en çok 60) ve yalnız sözcük saklanıyor',
       Object.keys(ilgi).length === 60 && Object.values(ilgi).every((n) => Number.isInteger(n))
@@ -3481,6 +3508,38 @@ suite('Depo bütünlüğü — çağrılan her yerel modül var');
     check('src altındaki her JS dosyası git tarafından izleniyor', izsiz.length === 0, izsiz.join(', '));
   } else {
     check('src altındaki her JS dosyası git tarafından izleniyor — git yok, atlandı', true);
+  }
+}
+
+// ─── Kardeş sınama dosyaları ──────────────────────────────────────────────────
+// ⛔ NEDEN (23.09.2026): test/ altında kendi başına duran sınama dosyaları
+//    vardı ve `npm test` HİÇBİRİNİ çalıştırmıyordu — yalnız elle
+//    `node test/guven.js` diyen görürdü. Yazılıp koşulmayan sınama, sınama
+//    değildir: kırıldığında kimse duymaz.
+// ⚠️ AĞA ÇIKAN dosyalar (arastir.js, arastir-dusmanca.js) bilerek DIŞARIDA:
+//    `npm test` ağsız ve yan etkisiz kalmalı.
+// ⚠️ Ayrı süreçte koşuyorlar: bu dosyanın sahte `electron` modülü onlara
+//    geçmez, zaten hiçbiri Electron istemiyor (saf mantık sınamaları).
+suite('Kardeş sınama dosyaları — npm test hepsini koşar');
+{
+  const KARDES = ['alaka.js', 'tablo.js', 'guven.js', 'ceviri.js', 'ozet-sayi.js'];
+  const renksiz = (x) => String(x).replace(/\x1b\[[0-9;]*m/g, '');
+  for (const ad of KARDES) {
+    const yol = path.join(__dirname, ad);
+    if (!fs.existsSync(yol)) { check(ad + ' koşuyor', false, 'dosya yok'); continue; }
+    let cikti = '';
+    let kod = 0;
+    try {
+      cikti = require('child_process').execFileSync(process.execPath, [yol], { encoding: 'utf8', timeout: 120000 });
+    } catch (e) {
+      kod = e.status == null ? -1 : e.status;
+      cikti = renksiz(e.stdout || '') + renksiz(e.stderr || '');
+    }
+    const ozet = (renksiz(cikti).match(/SONUÇ: \d+ geçti · \d+ kaldı/) || ['özet satırı yok'])[0];
+    // Düşen sınamanın adı burada görünsün; ayrı süreçte koştuğu için
+    // çıktısı yukarıdaki listeye karışmıyor.
+    const dusen = renksiz(cikti).split('\n').filter((l) => l.includes('✗')).slice(0, 6).join(' | ');
+    check(ad + ' → ' + ozet, kod === 0, dusen || ('çıkış kodu ' + kod));
   }
 }
 
