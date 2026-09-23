@@ -140,6 +140,16 @@ footer a{font-family:var(--font-mono);font-size:12.5px}
 // "En son" etiketi yayınlanmış ilk sürüme verilir.
 const RELEASES = [
   {
+    version: '0.8.9', date: '23 Eylül 2026', title: 'Ülgen sorunuzu internette araştırıp cevaplıyor', upcoming: true,
+    changes: [
+      { t:'new', d:'<b>Ülgen artık soru cevaplıyor.</b> Bir şey sorduğunuzda Ülgen internette araştırır, bulduğu sayfaları okur ve cevabı <b>kaynaklarıyla birlikte</b> yazar. Her madde açılmış bir sayfadan alınmış gerçek bir cümledir ve altında geldiği adres durur — tıklayıp kendiniz bakabilirsiniz. Bilgisayarınıza gigabaytlarca yapay zekâ modeli inmez; İlgezdi bunu kendi parçalarıyla yapar. <b>Uydurma yoktur:</b> bulamazsa "bulamadım" der.' },
+      { t:'sec', d:'<b>Araştırma sizin gezinmenize karışmaz.</b> Ülgen\'in okuduğu sayfalar İlgezdi\'nin korumalı yolundan açılır: temiz ve boş bir oturum, reklam/izleyici engelleyici ve parmak izi kalkanı devrede. Sizin çerezleriniz kullanılmaz, sayfa geçmişinize yazılmaz, iş bitince oturum silinir. Ülgen kendiliğinden hiçbir sekme açmaz.' },
+      { t:'new', d:'<b>Her cevabın yanında güven düzeyi.</b> "Yüksek" demek, en az iki <b>bağımsız</b> kaynağın aynı şeyi söylediği ve maddenin sorunuzun bütün terimlerini taşıdığı anlamına gelir. Tek kaynak varsa ya da madde sorunuzun bir yanını karşılamıyorsa "orta", metin çıkarımı kırılgansa (PDF gibi) "düşük" yazar. Aynı sitenin iki dili ya da mobil sürümü iki ayrı kaynak sayılmaz.' },
+      { t:'imp', d:'<b>Alakasız kaynak cevap diye sunulmuyor.</b> Sorduğunuz konuyu anlatmayan bir sayfa, içinde sorunuzdan bir sözcük geçiyor diye cevaba giremez; sayfanın da, cevaba giren her cümlenin de sorunuzun konusuna değmesi gerekir. Tablolardaki listeler (ör. "en yüksek barajlar") artık satır satır okunabiliyor ve sorunuza en çok uyan satır başa alınıyor.' },
+      { t:'fix', d:'<b>Sayfa özeti artık tanım cümlesiyle başlıyor.</b> "Anatomi" gibi bir sayfanın özeti tanımı atlayıp metnin ortasındaki bir ayrıntıyla başlayabiliyordu; sayfanın giriş cümlesi artık özete girmeyi garanti ediyor.' },
+    ],
+  },
+  {
     version: '0.8.8', date: '21 Eylül 2026', title: 'WhatsApp ve Telegram kenar çubuğunda',
     changes: [
       { t:'new', d:'<b>Mesajlaşma panelleri.</b> WhatsApp, Telegram, Messenger, Instagram, Discord, Slack ve daha fazlası kenar çubuğundan tek tıkla eklenir; sekmelerinizden çıkmadan, panel açıkken gezinmeye devam ederek kullanırsınız. Bunlar servislerin kendi web arayüzleridir — İlgezdi bu şirketlerin API\'sini kullanmaz, hesabınıza erişmez, adınıza hiçbir şey göndermez.' },

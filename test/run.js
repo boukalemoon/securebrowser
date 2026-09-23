@@ -1315,13 +1315,13 @@ suite('Zararlı site koruması — canlı liste durumu');
     && /if \(!threatSubscribed\) \{\s*threatSubscribed = true;/.test(read('renderer/data-center.js')));
 }
 
-suite('Yayın — v0.8.8');
+suite('Yayın — v0.8.9');
 {
   const ROOTD = path.join(__dirname, '..');
-  check('paket sürümü 0.8.8', JSON.parse(fs.readFileSync(path.join(ROOTD, 'package.json'), 'utf8')).version === '0.8.8');
-  check('kilit dosyası da aynı sürümde (npm ci ile derleniyor)', JSON.parse(fs.readFileSync(path.join(ROOTD, 'package-lock.json'), 'utf8')).version === '0.8.8');
+  check('paket sürümü 0.8.9', JSON.parse(fs.readFileSync(path.join(ROOTD, 'package.json'), 'utf8')).version === '0.8.9');
+  check('kilit dosyası da aynı sürümde (npm ci ile derleniyor)', JSON.parse(fs.readFileSync(path.join(ROOTD, 'package-lock.json'), 'utf8')).version === '0.8.9');
   const sur = fs.readFileSync(path.join(ROOTD, 'site', 'surumler.html'), 'utf8');
-  check('site sürüm notlarında 0.8.8 var', /version: '0.8.8'/.test(sur));
+  check('site sürüm notlarında 0.8.9 var', /version: '0.8.9'/.test(sur));
   const wf = fs.readFileSync(path.join(ROOTD, '.github', 'workflows', 'release.yml'), 'utf8');
   check('yayın otomatik güncelleme dosyalarını da yüklüyor (latest*.yml, blockmap)', wf.includes('dist/latest*.yml') && wf.includes('dist/*.blockmap'));
 }
