@@ -3568,6 +3568,33 @@ suite('Ülgen araması — yerel/bizim sunucumuz yok, görev sayfası yolundan')
     }));
 }
 
+// ─── Google hesabıyla giriş (YouTube) ─────────────────────────────────────────
+// ⛔ NEDEN (Burak, 03.10.2026): Google "Bu tarayıcı güvenli olmayabilir" diyerek
+//    girişi reddediyordu. Çözüm yalnız giriş sayfasında tutarlı Firefox kimliği
+//    (google-giris.js). Bu süit bağlantının yerinde durmasını ve istisnanın giriş
+//    sayfası DIŞINA taşmamasını kaynakta kilitler.
+suite('Google ile giriş — yalnız giriş sayfasında tutarlı Firefox kimliği');
+{
+  const m = read('../src/main/main.js');
+  const baslik = (m.match(/ses\.webRequest\.onBeforeSendHeaders\(\(details, callback\) => \{[\s\S]*?\n  \}\);/) || [''])[0];
+  check('başlık kancası Google giriş isteklerini Firefox kimliğine çeviriyor (sekme adresi + kaynak türüyle)',
+    /googleGiris\.firefoxKimligiMi\(details\.url, sekmeUrl, details\.resourceType\)/.test(baslik)
+    && /googleGiris\.basliklariCevir\(headers, GOOGLE_GIRIS_UA\)/.test(baslik));
+  check('Sec-GPC ve DNT, kimlik çevrilmeden ÖNCE ekleniyor (girişte de gizlilik başlıkları gidiyor)',
+    baslik.indexOf("headers['Sec-GPC'] = '1'") > 0 && baslik.indexOf("headers['Sec-GPC'] = '1'") < baslik.indexOf('basliklariCevir'));
+  const fp = (m.match(/function fingerprintScriptFor[\s\S]*?\n\}/) || [''])[0];
+  check('giriş sayfasında gürültü yok ve sayfa içi kimlik başlıkla aynı UA',
+    /if \(googleGiris\.girisSayfasiMi\(topUrl\)\) return shieldScript\(\{ farble: false, seed: '' \}\) \+ googleGiris\.anaDunyaBetigi\(GOOGLE_GIRIS_UA\);/.test(fp));
+  check('istisna kalkan kararından SONRA ve yalnız giriş adresi için; genel kalkan satırı değişmedi',
+    fp.indexOf('const farble = web && config.fingerprintShield !== false && !isWhitelisted(topUrl, topUrl);') > 0
+    && fp.indexOf('const farble') < fp.indexOf('googleGiris.girisSayfasiMi(topUrl)'));
+  check('sekmelerin genel UA\'sı hâlâ temiz Chrome; Firefox kimliği tek bir sabitte',
+    /app\.userAgentFallback = CLEAN_UA;/.test(m) && /const GOOGLE_GIRIS_UA = googleGiris\.firefoxUA\(\);/.test(m)
+    && (m.match(/GOOGLE_GIRIS_UA/g) || []).length === 3);
+  const G = require('../src/main/google-giris.js');
+  check('kapsam yalnız iki giriş adresi', [...G.GIRIS_HOSTLARI].sort().join(',') === 'accounts.google.com,accounts.youtube.com');
+}
+
 // ─── Kardeş sınama dosyaları ──────────────────────────────────────────────────
 // ⛔ NEDEN (23.09.2026): test/ altında kendi başına duran sınama dosyaları
 //    vardı ve `npm test` HİÇBİRİNİ çalıştırmıyordu — yalnız elle
@@ -3579,7 +3606,7 @@ suite('Ülgen araması — yerel/bizim sunucumuz yok, görev sayfası yolundan')
 //    geçmez, zaten hiçbiri Electron istemiyor (saf mantık sınamaları).
 suite('Kardeş sınama dosyaları — npm test hepsini koşar');
 {
-  const KARDES = ['alaka.js', 'tablo.js', 'web-ara.js', 'guven.js', 'ceviri.js', 'ozet-sayi.js'];
+  const KARDES = ['alaka.js', 'tablo.js', 'web-ara.js', 'google-giris.js', 'guven.js', 'ceviri.js', 'ozet-sayi.js'];
   const renksiz = (x) => String(x).replace(/\x1b\[[0-9;]*m/g, '');
   for (const ad of KARDES) {
     const yol = path.join(__dirname, ad);

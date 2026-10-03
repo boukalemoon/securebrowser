@@ -32,6 +32,7 @@ let faviconCache = null;
 const { setupDiscover } = require('./discover-feed');
 const { setupCommunity } = require('./community');
 const { shieldScript, createSeeder } = require('./fingerprint-shield');
+const googleGiris = require('./google-giris');
 const { setupSuggestPopup } = require('./suggest-popup');
 const { createConsentLog } = require('./consent-log');
 const tabGroups = require('./tab-groups');
@@ -289,6 +290,9 @@ const CLEAN_UA = buildUserAgent();
 // kullanılır. Bu satır eksikken sekmeler "Electron/…" içeren UA gönderiyordu (2026-09-16
 // ölçüm): İlgezdi kullanıcılarını diğer Chrome kullanıcılarından ayıran bir iz.
 app.userAgentFallback = CLEAN_UA;
+// Google giriş sayfasına özel tutarlı Firefox kimliği (google-giris.js): YouTube'da
+// "Google ile oturum aç" → "Bu tarayıcı güvenli olmayabilir" engeli (Burak, 03.10.2026).
+const GOOGLE_GIRIS_UA = googleGiris.firefoxUA();
 
 // NOT (denetim O-01): Burada eskiden iki ölü/hatalı parça vardı ve kaldırıldı.
 //  1) BLOCKED_DOMAINS + isBlocked(): `host.includes(d)` ALT DİZE eşleşmesiyle
@@ -595,6 +599,14 @@ function configureSession(ses, gecici = false) {
     }
     if (config.doNotTrack) headers['DNT'] = '1';
     if (config.globalPrivacyControl !== false) headers['Sec-GPC'] = '1';
+    // Google giriş sayfası ve onun yüklediği alt kaynaklar: tutarlı Firefox kimliği,
+    // istemci ipucu yok (google-giris.js). Ana belge isteğinde yalnız gidilen adrese
+    // bakılır — girişten YouTube'a dönüş Chrome kimliğiyle gider.
+    let sekmeUrl = '';
+    try { sekmeUrl = details.webContents ? details.webContents.getURL() : ''; } catch {}
+    if (googleGiris.firefoxKimligiMi(details.url, sekmeUrl, details.resourceType)) {
+      return callback({ requestHeaders: googleGiris.basliklariCevir(headers, GOOGLE_GIRIS_UA) });
+    }
     callback({ requestHeaders: headers });
   });
 
@@ -3347,6 +3359,10 @@ function fingerprintScriptFor(frame, ses) {
   const topUrl = top ? String(top.url || '') : '';
   const web = /^https?:\/\//i.test(topUrl);
   const farble = web && config.fingerprintShield !== false && !isWhitelisted(topUrl, topUrl);
+  // Google giriş sayfası: gürültü YOK ve sayfa içi kimlik başlıkla aynı Firefox. Google
+  // gömülü tarayıcıyı tam bu ölçümlerle tanıyıp girişi reddediyor (google-giris.js).
+  // Orada kullanıcı zaten kendi hesabıyla kimliğini bildiriyor; korunacak anonimlik yok.
+  if (googleGiris.girisSayfasiMi(topUrl)) return shieldScript({ farble: false, seed: '' }) + googleGiris.anaDunyaBetigi(GOOGLE_GIRIS_UA);
   const site = farble ? registrableDomain(new URL(topUrl).hostname) : '';
   return shieldScript({ farble, seed: farble ? fingerprintSeedFor(ses, site) : '' });
 }
