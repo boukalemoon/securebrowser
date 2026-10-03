@@ -2007,6 +2007,7 @@ ipcMain.handle('ulgen-durum', (event) => {
   const { state } = getContextFromEvent(event);
   return { chat: ulgenIzin('ulgenChat'), page: ulgenIzin('ulgenPage'), history: ulgenIzin('ulgenHistory'),
            interests: ulgenIzin('ulgenInterests'), ceviri: ulgenIzin('ulgenTranslate'),
+           profil: ulgenIzin('ulgenProfile'),
            arastirma: ulgenIzin('ulgenResearch'),    // panel metni buna göre değişir
            ceviriPaket: ulgenCeviri.paketDurumu(),   // Veri ve Gizlilik: "kurulu mu" satırı
            gorev: ulgenGorev.durum(),                // Ana Ülgen görev kanalı
@@ -2064,7 +2065,10 @@ async function ulgenWebAra(sorgu) {
   return [];
 }
 
-const ULGEN_TURLER = ['ozet', 'sayfada', 'gecmis', 'web', 'sorgu', 'yardim'];
+const ULGEN_TURLER = ['ozet', 'sayfada', 'gecmis', 'web', 'sorgu', 'yardim', 'profil'];
+// Profil penceresi: son 30 gün, en çok 5000 ziyaret (günlük bellekte; okuma ucuz).
+const ULGEN_PROFIL_GUN = 30;
+const ULGEN_PROFIL_AZAMI = 5000;
 
 ipcMain.handle('ulgen-sor', async (event, istek) => {
   const { state } = getContextFromEvent(event);
@@ -2114,6 +2118,21 @@ ipcMain.handle('ulgen-sor', async (event, istek) => {
       const sirali = [...puan.values()]
         .sort((a, b) => b.n - a.n || (b.it.timestamp || 0) - (a.it.timestamp || 0)).map((x) => x.it);
       return { ok: true, tur, sorgu: sozcuk.join(' '), sonuclar: ulgenMotor.gecmisSonuclari(sirali, 8) };
+    }
+    case 'profil': {
+      // Sınıflandırma + öneri: şifreli günlük bu cihazda okunur, profil SAKLANMAZ
+      // (her istekte yeniden hesaplanır). İki izin birden: geçmişe erişim
+      // (ulgenHistory) ve onu profile çevirme amacı (ulgenProfile) ayrı rızadır.
+      if (gizli) return { ok: false, sebep: 'gizli_pencere', tur };
+      if (!ulgenIzin('ulgenHistory') || !ulgenIzin('ulgenProfile')) return { ok: false, sebep: 'izin_profil', tur };
+      const simdi = Date.now();
+      const ziyaret = secureLog
+        ? (secureLog.search({ dateFrom: simdi - ULGEN_PROFIL_GUN * 24 * 60 * 60 * 1000, limit: ULGEN_PROFIL_AZAMI }).items || [])
+        : [];
+      const ilgi = ulgenIzin('ulgenInterests') ? await ulgenIlgiOku() : {};
+      return { ok: true, tur,
+               profil: ulgenMotor.profilCikar(ziyaret, { simdi, gun: ULGEN_PROFIL_GUN }),
+               oneriler: ulgenMotor.oneriUret(ziyaret, ilgi, { simdi, gun: ULGEN_PROFIL_GUN }) };
     }
     case 'web':
     case 'sorgu': {

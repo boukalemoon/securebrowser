@@ -172,6 +172,16 @@ function injectUlgenStyles() {
     .ulgen-tags { display:flex; flex-wrap:wrap; gap:5px; margin-top:8px; }
     .ulgen-tag { font:500 10.5px var(--font-mono); padding:1px 8px; border-radius:999px; color:var(--gold); border:1px solid color-mix(in srgb, var(--gold) 40%, transparent); }
     .ulgen-hist li { display:flex; flex-direction:column; gap:1px; }
+    /* Profil: kategori çubukları + öneriler (sınıflandırma cihazda, saklanmaz) */
+    .ulgen-kat { list-style:none; margin:8px 0 0; padding:0; display:grid; gap:5px; }
+    .ulgen-kat li { display:grid; grid-template-columns:minmax(78px, 34%) minmax(0, 1fr) 36px; align-items:center; gap:8px; font-size:11.5px; }
+    .ulgen-kat-ad { color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .ulgen-kat-yol { height:7px; border-radius:999px; background:color-mix(in srgb, var(--ink-mute) 18%, transparent); overflow:hidden; }
+    .ulgen-kat-yol i { display:block; height:100%; border-radius:inherit; background:var(--gold); }
+    .ulgen-kat-oran { font:500 10.5px var(--font-mono); color:var(--ink-mute); text-align:right; font-variant-numeric:tabular-nums; }
+    .ulgen-oneri { list-style:none; margin:6px 0 0; padding:0; display:grid; gap:7px; }
+    .ulgen-oneri li { display:flex; flex-direction:column; gap:2px; padding:7px 9px; border-radius:8px; border:1px solid color-mix(in srgb, var(--gold) 28%, transparent); }
+    .ulgen-oneri-neden { font-size:11px; color:var(--ink-mute); line-height:1.45; }
     /* Araştırma yanıtı: madde + güven rozeti + kaynakları */
     .ulgen-madde { display:flex; flex-wrap:wrap; align-items:baseline; gap:6px; color:var(--ink-soft); }
     .ulgen-ad { font-weight:600; color:var(--ink); }
@@ -276,6 +286,7 @@ const IKON = {
   find: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h5"/><path d="M8 8h6M8 12h3"/><circle cx="16.5" cy="15.5" r="3.5"/><path d="M19 18l2.5 2.5"/></svg>',
   history: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3 2"/></svg>',
   web: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/></svg>',
+  profil: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/><path d="M19 3.5l.7 1.5 1.5.7-1.5.7-.7 1.5-.7-1.5-1.5-.7 1.5-.7z"/></svg>',
   send: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M5.5 11.5L12 5l6.5 6.5"/></svg>',
   yeni: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12a8 8 0 0 1-11.6 7.1L4 20l1-4.4A8 8 0 1 1 20 12z"/><path d="M12 9v6M9 12h6"/></svg>',
   kilit: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>',
@@ -354,7 +365,7 @@ function vurgula(metin, sorgu) {
 const HATA = {
   izin_chat: 'ulgen.off', izin_history: 'ulgen.err.historyOff', gizli_pencere: 'ulgen.err.incognito',
   sayfa_yok: 'ulgen.err.noPage', makale_yok: 'ulgen.err.noArticle', sayfa_degisti: 'ulgen.err.navigated',
-  sorgu_bos: 'ulgen.err.emptyQuery', izin_arastirma: 'ulgen.err.researchOff',
+  sorgu_bos: 'ulgen.err.emptyQuery', izin_arastirma: 'ulgen.err.researchOff', izin_profil: 'ulgen.err.profileOff',
   // Araştırma zincirinin kendi sebepleri (src/main/ulgen-arastir.js).
   kaynak_yok: 'ulgen.res.err.noSource', metin_yok: 'ulgen.res.err.noText',
   konu_dogrulanmadi: 'ulgen.res.err.offTopic',
@@ -409,7 +420,7 @@ function yanitiGoster(r, istek) {
     //    söyleriz; elinde hiçbir şey kalmasın diye aramayı açan düğme durur.
     if (ARASTIRMA_HATASI.has(sebep)) { arastirmaHatasi(sebep, istek); return; }
     const m = mesaj('biz', T(HATA[sebep] || 'ulgen.err.generic'));
-    if (m && (sebep === 'izin_chat' || sebep === 'izin_history' || sebep === 'izin_arastirma')) {
+    if (m && (sebep === 'izin_chat' || sebep === 'izin_history' || sebep === 'izin_arastirma' || sebep === 'izin_profil')) {
       const satir = el('div', 'ulgen-row');
       satir.appendChild(dugme(T('ulgen.openData'), veriSayfasi));
       balon(m).appendChild(satir);
@@ -459,6 +470,9 @@ function yanitiGoster(r, istek) {
     case 'arastir':
       arastirmaGoster(r, istek);
       return;
+    case 'profil':
+      profilGoster(r);
+      return;
     case 'web':
     case 'sorgu': {
       // Sorguyu gösterip beklemek yerine arama hemen açılır; kayıt sohbette kalır (Burak, 20 Eyl 2026).
@@ -471,6 +485,51 @@ function yanitiGoster(r, istek) {
     default:
       mesaj('biz', T('ulgen.help'));
   }
+}
+
+/**
+ * PROFİL VE ÖNERİLER — ulgen-motor.js profilCikar/oneriUret.
+ * Her öneri NEDENİYLE gösterilir (sayıyla); düğme mevcut `sekmedeAc` yolundan
+ * gider, kendiliğinden hiçbir şey açılmaz. Metinler textContent ile basılır.
+ */
+function profilGoster(r) {
+  const p = r.profil || {};
+  if (!p.toplam) { mesaj('biz', T('ulgen.prof.empty', { days: p.gun || 30 })); return; }
+  const parcalar = [el('h4', null, T('ulgen.prof.head', { days: p.gun || 30 })),
+    el('div', 'ulgen-source', T('ulgen.prof.summary', { count: p.toplam, days: p.aktifGun || 0 }))];
+  const ul = el('ul', 'ulgen-kat');
+  for (const k of (p.kategoriler || []).filter((x) => x.id !== 'diger').slice(0, 6)) {
+    const li = el('li');
+    li.title = (k.siteler || []).join(' · ');
+    const yol = el('span', 'ulgen-kat-yol');
+    const dolu = el('i');
+    dolu.style.width = Math.max(2, Math.round((k.oran || 0) * 100)) + '%';
+    yol.appendChild(dolu);
+    li.append(el('span', 'ulgen-kat-ad', T('ulgen.kat.' + k.id)), yol, el('span', 'ulgen-kat-oran', '%' + Math.round((k.oran || 0) * 100)));
+    ul.appendChild(li);
+  }
+  parcalar.push(ul);
+  if (p.baskinDilim >= 0) parcalar.push(el('div', 'ulgen-foot', T('ulgen.prof.slot' + p.baskinDilim)));
+  if ((p.siteler || []).length) {
+    parcalar.push(el('div', 'ulgen-foot', T('ulgen.prof.sites')));
+    const kutu = el('div', 'ulgen-tags');
+    for (const s of p.siteler.slice(0, 6)) kutu.appendChild(el('span', 'ulgen-tag', s.alan + ' · ' + s.adet));
+    parcalar.push(kutu);
+  }
+  parcalar.push(el('div', 'ulgen-foot', T('ulgen.prof.foot', { pct: Math.round((100 * (p.siniflanan || 0)) / p.toplam) })));
+  mesaj('biz', ...parcalar);
+
+  const oneriler = r.oneriler || [];
+  if (!oneriler.length) { mesaj('biz', T('ulgen.oneri.none')); return; }
+  const liste = el('ul', 'ulgen-oneri');
+  for (const o of oneriler) {
+    const li = el('li');
+    const ac = o.tur === 'ara' ? { tur: 'ara', sorgu: o.sorgu } : { tur: 'ac', url: o.url };
+    li.appendChild(dugme(o.tur === 'ara' ? '“' + o.sorgu + '”' : o.alan, () => sekmedeAc(ac), 'ulgen-link'));
+    li.appendChild(el('span', 'ulgen-oneri-neden', T('ulgen.oneri.why.' + o.neden, { count: o.adet || 0, days: o.gun || 0 })));
+    liste.appendChild(li);
+  }
+  mesaj('biz', el('h4', null, T('ulgen.oneri.head')), liste, el('div', 'ulgen-foot', T('ulgen.oneri.foot')));
 }
 
 /**
@@ -888,6 +947,7 @@ function ulgenBuildPanel() {
         ${kart(IKON.find, 'ulgen.act.find', 'ulgen.act.findHint', 'data-mod="find"')}
         ${kart(IKON.history, 'ulgen.act.history', 'ulgen.act.historyHint', 'data-mod="history"')}
         ${kart(IKON.web, 'ulgen.act.web', 'ulgen.act.webHint', 'data-mod="web"')}
+        ${kart(IKON.profil, 'ulgen.act.profile', 'ulgen.act.profileHint', 'id="ulgen-act-profile"')}
       </div>
       <div class="ulgen-composer">
         <div class="ulgen-ask">
@@ -921,6 +981,7 @@ function ulgenBuildPanel() {
   document.getElementById('ulgen-info-close').addEventListener('click', () => { bilgiGoster(false); rozet.focus(); });
   document.getElementById('ulgen-mode-clear')?.addEventListener('click', () => { if (ulgen.mod) modSec(ulgen.mod); });
   document.getElementById('ulgen-act-summary')?.addEventListener('click', () => gonder({ tur: 'ozet', metin: T('ulgen.act.summary') }));
+  document.getElementById('ulgen-act-profile')?.addEventListener('click', () => gonder({ tur: 'profil', metin: T('ulgen.act.profile') }));
   document.querySelectorAll('.ulgen-chip[data-mod]').forEach((c) => c.addEventListener('click', () => modSec(c.dataset.mod)));
   // İnce sırada son iş görünene kadar sağ kenar solar; tekerlek sırayı yana kaydırır.
   const isler = panel.querySelector('.ulgen-actions');

@@ -50,6 +50,11 @@
     { id: 'ulgenPage',           section: 'ulgen',   consent: true, def: false, dest: 'device', requires: 'ulgenChat' },
     { id: 'ulgenHistory',        section: 'ulgen',   consent: true, def: false, dest: 'device', requires: 'ulgenChat' },
     { id: 'ulgenInterests',      section: 'ulgen',   consent: true, def: false, dest: 'device', requires: 'ulgenChat' },
+    // Sınıflandırma ve öneri (Burak, 03.10.2026). Geçmiş iznine BAĞLI ama ayrı rıza:
+    // "geçmişimde ara" ile "gezinmemi sınıflandır" farklı amaçlardır. Profil cihazda
+    // her istekte hesaplanır, saklanmaz; öneriler yalnız tıklanınca açılır.
+    // (ulgenRecommend ayrı: TrendTech ürün önerisi — hâlâ "yakında".)
+    { id: 'ulgenProfile',        section: 'ulgen',   consent: true, def: false, dest: 'device', requires: 'ulgenHistory' },
     // İnternette araştırma (Burak, 24 Eyl 2026: ayrı izin, varsayılan kapalı). Genel
     // bir soruda soru bu bilgisayarın KENDİ bağlantısından DuckDuckGo'da (sonuç yoksa
     // Vikipedi'de) aranır, sayfalar çerezsiz geçici oturumda açılır. Sorunun gittiği

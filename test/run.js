@@ -2481,7 +2481,7 @@ suite('Veri ve Gizlilik — izin kataloğu');
   eq('boş yapılandırmada varsayılanlar (hata raporu henüz sorulmadı)', [base.visitLog, base.updateCheck, base.restoreSession, base.diagnostics, base.ulgenChat, base.gpc, base.dnt], [true, true, false, null, false, true, false]);
   eq('metin değerli ayar (başlangıç kipi) açık/kapalı sayılıyor', [C.valueOf(C.BY_ID.restoreSession, { startupMode: 'restore' }), C.configValue(C.BY_ID.restoreSession, true), C.configValue(C.BY_ID.restoreSession, false)], [true, 'restore', 'homepage']);
   eq('fark listesi yalnızca değişenler', C.diff(base, C.snapshot({ consents: { ulgenChat: true }, autoUpdateCheck: false })), [{ id: 'updateCheck', from: true, to: false }, { id: 'ulgenChat', from: false, to: true }]);
-  eq('sohbet izninin bağlı izinleri', C.dependentsOf('ulgenChat').sort(), ['ulgenHistory', 'ulgenInterests', 'ulgenPage', 'ulgenResearch', 'ulgenTranslate']);
+  eq('sohbet izninin bağlı izinleri', C.dependentsOf('ulgenChat').sort(), ['ulgenHistory', 'ulgenInterests', 'ulgenPage', 'ulgenProfile', 'ulgenResearch', 'ulgenTranslate']);
   // Çeviri sayfa iznine bağlı (özeti çevirir) ve dil paketi sunucudan indiği için dışarıya bağlanır.
   check('çeviri izni: sayfa iznine bağlı, varsayılan kapalı, hedefi İlgezdi sunucusu',
     C.BY_ID.ulgenTranslate.requires === 'ulgenPage' && C.BY_ID.ulgenTranslate.def === false
@@ -3551,7 +3551,8 @@ suite('Ülgen araması — yerel/bizim sunucumuz yok, görev sayfası yolundan')
   check('panel izin durumunu okuyor', /arastirma: ulgenIzin\('ulgenResearch'\)/.test(m));
   const pnl = read('../src/renderer/ulgen-panel.js');
   check('izin kapalıyken kullanıcı dilinde mesaj + Veri ve Gizlilik düğmesi',
-    /izin_arastirma: 'ulgen\.err\.researchOff'/.test(pnl) && /sebep === 'izin_arastirma'\)\) \{/.test(pnl));
+    // izin_profil (03.10.2026) aynı koşula eklendi: araştırma izni koşulun sonunda olmak zorunda değil.
+    /izin_arastirma: 'ulgen\.err\.researchOff'/.test(pnl) && /sebep === 'izin_arastirma'(\)\) \{| \|\| sebep === 'izin_profil'\)\) \{)/.test(pnl));
   check('rozet, bilgi kartı ve gizlilik notu izne göre değişiyor (iki durumda da doğru)',
     ['ulgen-status-text', 'ulgen-info-title', 'ulgen-info-device', 'ulgen-info-web-title', 'ulgen-info-web', 'ulgen-privacy']
       .every((id) => pnl.includes(`yaz('${id}', acik ?`))
@@ -3606,7 +3607,7 @@ suite('Google ile giriş — yalnız giriş sayfasında tutarlı Firefox kimliğ
 //    geçmez, zaten hiçbiri Electron istemiyor (saf mantık sınamaları).
 suite('Kardeş sınama dosyaları — npm test hepsini koşar');
 {
-  const KARDES = ['alaka.js', 'tablo.js', 'web-ara.js', 'google-giris.js', 'guven.js', 'ceviri.js', 'ozet-sayi.js'];
+  const KARDES = ['alaka.js', 'tablo.js', 'web-ara.js', 'google-giris.js', 'guven.js', 'ceviri.js', 'ozet-sayi.js', 'profil.js'];
   const renksiz = (x) => String(x).replace(/\x1b\[[0-9;]*m/g, '');
   for (const ad of KARDES) {
     const yol = path.join(__dirname, ad);
