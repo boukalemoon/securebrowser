@@ -3197,9 +3197,6 @@ ipcMain.handle('logs-clear-range', (e, range) => {
   return { ok: true, removed: secureLog.clearSince(since) };
 });
 ipcMain.handle('logs-delete',     (e, ids)      => ({ ok: true, removed: secureLog ? secureLog.deleteEntries(sanitizeLogIds(ids)) : 0 }));
-ipcMain.handle('logs-sync',       async (e, { serverUrl, apiKey }) => {
-  return await secureLog?.syncToServer(serverUrl, apiKey) || { synced: 0, success: false };
-});
 
 // Faz 4 — Ayarlar & Özelleştirme
 ipcMain.handle('pick-download-folder', async () => {

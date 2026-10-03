@@ -109,7 +109,6 @@ contextBridge.exposeInMainWorld('secureBrowser', {
     clearRange: (range)      => ipcRenderer.invoke('logs-clear-range', range),
     deleteEntries: (ids)     => ipcRenderer.invoke('logs-delete', ids),
     httpReport: ()           => ipcRenderer.invoke('logs-http-report'),
-    sync:      (url, apiKey) => ipcRenderer.invoke('logs-sync', { serverUrl: url, apiKey }),
   },
 
   // ── Sekme Görünürlüğü (Faz 5) ───────────────────────────────────────────────

@@ -24,11 +24,9 @@ class SecureLogManager {
     this.keyPath      = path.join(userDataPath, KEY_FILE);
     this.keyPathEnc   = path.join(userDataPath, KEY_FILE_ENC);
     this.logsPath     = path.join(userDataPath, 'ilgezdi-logs.enc');
-    this.syncPath     = path.join(userDataPath, 'sync-queue.json');
     this.canEncrypt   = false;
     this.key          = null;
     this.logs         = [];
-    this.syncQueue    = [];
   }
 
   static create(userDataPath) {
@@ -39,7 +37,7 @@ class SecureLogManager {
     this.canEncrypt = await osCrypto.isAvailable();
     this.key        = this.canEncrypt ? await this._loadOrCreateKey() : null;
     this._loadLogs();
-    this._loadSyncQueue();
+    this._eskiSenkronKuyrugunuSil();
     return this;
   }
 
@@ -167,21 +165,16 @@ class SecureLogManager {
     }
   }
 
-  _loadSyncQueue() {
-    try {
-      if (fs.existsSync(this.syncPath)) {
-        const q = JSON.parse(fs.readFileSync(this.syncPath, 'utf-8'));
-        this.syncQueue = Array.isArray(q) ? q : [];
-      }
-    } catch { this.syncQueue = []; }
-  }
-
-  _saveSyncQueue() {
-    try {
-      this._atomicWrite(this.syncPath, Buffer.from(JSON.stringify(this.syncQueue, null, 2), 'utf8'));
-    } catch (e) {
-      console.error('[SecureLog] Sync kuyruğu yazılamadı:', e.message);
-    }
+  // ⛔ SENKRON KALDIRILDI (Burak, 04.10.2026). Eskiden her ziyaretin kimliği
+  //    'sync-queue.json'a ŞİFRESİZ yazılıyordu; kimlik zaman damgası taşıdığı
+  //    için (log_<ms>_xxxxx) kullanıcının NE ZAMAN gezindiği şifrenin dışında
+  //    görünüyordu (ölçüldü: 322 kayıt). Kuyruğu boşaltan tek yol 'logs-sync'
+  //    idi: şifreli paketi KEYFİ bir sunucuya POST ediyordu, hiçbir arayüz
+  //    çağırmıyordu ve anahtar cihazdan çıkmadığı için alıcı paketi zaten
+  //    açamazdı — yedek değil, yalnız açık bir çıkış kapısıydı. Günlük artık
+  //    yalnız bu cihazda, şifreli tutulur; eski kuyruk dosyası ilk açılışta silinir.
+  _eskiSenkronKuyrugunuSil() {
+    try { fs.rmSync(path.join(this.userDataPath, 'sync-queue.json'), { force: true }); } catch { /* sonraki açılışta yine denenir */ }
   }
 
   // ── Log Ekleme ───────────────────────────────────────────────────────────────
@@ -197,12 +190,9 @@ class SecureLogManager {
       vpnProfile:  data.vpnProfile  || '',
       duration:    data.duration    || 0,
       blockedReqs: data.blockedReqs || 0,
-      synced:      false,
     };
     this.logs.unshift(entry); // En yeni başa
     if (this.logs.length > 10000) this.logs = this.logs.slice(0, 10000); // Max 10k
-    this.syncQueue.push(entry.id);
-    this._saveSyncQueue();
     return entry;
   }
 
@@ -310,9 +300,7 @@ class SecureLogManager {
 
   clearLogs() {
     this.logs      = [];
-    this.syncQueue = [];
     this.saveLogs();
-    this._saveSyncQueue();
   }
 
   /** Geçmiş sayfası › zaman aralığı: verilen andan sonraki ziyaretler silinir. */
@@ -322,18 +310,14 @@ class SecureLogManager {
     return this.deleteEntries(this.logs.filter((l) => Number(l.timestamp) >= since).map((l) => l.id));
   }
 
-  /** Geçmiş sayfasından tek tek silme. Senkron kuyruğundan da çıkarılır. */
+  /** Geçmiş sayfasından tek tek silme. */
   deleteEntries(ids) {
     const remove = new Set(Array.isArray(ids) ? ids : []);
     if (!remove.size) return 0;
     const before = this.logs.length;
     this.logs = this.logs.filter((l) => !remove.has(l.id));
-    this.syncQueue = this.syncQueue.filter((id) => !remove.has(id));
     const removed = before - this.logs.length;
-    if (removed) {
-      this.saveLogs();
-      this._saveSyncQueue();
-    }
+    if (removed) this.saveLogs();
     return removed;
   }
 
@@ -375,54 +359,6 @@ class SecureLogManager {
     });
     // CRLF: Excel'in beklediği satır sonu (RFC 4180)
     return [headers.map(cell).join(','), ...rows].join('\r\n');
-  }
-
-  // ── Oracle Senkronizasyon ─────────────────────────────────────────────────────
-  // Şifreli paket olarak gönderilir — sunucu içeriği göremez
-
-  async syncToServer(serverUrl, apiKey) {
-    if (!serverUrl || !this.syncQueue.length) return { synced: 0 };
-    // Şifreleme yoksa logları düz metin göndermeyiz.
-    if (!this.canEncrypt) return { synced: 0, success: false, error: 'encryption_unavailable' };
-
-    const pendingIds  = [...this.syncQueue];
-    const pendingLogs = this.logs.filter(l => pendingIds.includes(l.id));
-
-    // Şifreli paket oluştur
-    const packet = this._encrypt(pendingLogs);
-    const b64    = packet.toString('base64');
-
-    try {
-      const res = await fetch(`${serverUrl}/sync`, {
-        method:  'POST',
-        headers: {
-          'Content-Type':  'application/json',
-          'X-API-Key':     apiKey || '',
-          'X-Client-Version': '3.0',
-        },
-        body: JSON.stringify({
-          payload:   b64,
-          count:     pendingLogs.length,
-          timestamp: Date.now(),
-        }),
-        signal: AbortSignal.timeout(15000),
-      });
-
-      if (res.ok) {
-        // Senkronize edilenleri işaretle
-        this.logs.forEach(l => {
-          if (pendingIds.includes(l.id)) l.synced = true;
-        });
-        this.syncQueue = this.syncQueue.filter(id => !pendingIds.includes(id));
-        this._saveSyncQueue();
-        this.saveLogs();
-        return { synced: pendingLogs.length, success: true };
-      } else {
-        return { synced: 0, success: false, error: `HTTP ${res.status}` };
-      }
-    } catch (e) {
-      return { synced: 0, success: false, error: e.message };
-    }
   }
 }
 

@@ -979,7 +979,12 @@ suite('İndirme güvenliği ve indirme geçmişi');
   const e1 = lm.addVisit({ url: 'https://a.com/', domain: 'a.com', title: 'A' });
   const e2 = lm.addVisit({ url: 'https://b.com/', domain: 'b.com', title: 'B' });
   eq('ziyaret günlüğünden tek kayıt silinir', [lm.deleteEntries([e1.id]), lm.search({}).items.map((x) => x.id)], [1, [e2.id]]);
-  check('silinen kayıt senkron kuyruğundan da çıkar', !lm.syncQueue.includes(e1.id) && lm.syncQueue.includes(e2.id));
+  check('günlük dışarı gönderilemez: senkron yöntemi ve kuyruğu yok', typeof lm.syncToServer === 'undefined' && !('syncQueue' in lm));
+  const eskiKuyruk = path.join(dir, 'sync-queue.json');
+  fs.writeFileSync(eskiKuyruk, JSON.stringify(['log_1790000000000_abcde']));
+  lm._eskiSenkronKuyrugunuSil();
+  check('eski şifresiz senkron kuyruğu (zaman damgalı kimlikler) silinir', !fs.existsSync(eskiKuyruk));
+  check('ziyaret kaydında senkron alanı yok, diske yalnız şifreli günlük yazılır', !('synced' in e2) && !fs.existsSync(eskiKuyruk));
   fs.rmSync(dir, { recursive: true, force: true });
 
   const mainJs = read('main/main.js');
@@ -2288,9 +2293,8 @@ suite('Keşfet — TrendTech yazılımları');
     lm.logs = [
       { id: 'a', timestamp: now - 10 * 60000 }, { id: 'b', timestamp: now - 2 * 3600000 }, { id: 'c', timestamp: now - 3 * 86400000 },
     ];
-    lm.syncQueue = ['a', 'b', 'c'];
     const removed = lm.clearSince(S2.historyRangeStart('hour', now));
-    eq('son 1 saat: yalnızca o aralıktaki ziyaret ve senkron kuyruğu kaydı siliniyor', [removed, lm.logs.map((l) => l.id), lm.syncQueue], [1, ['b', 'c'], ['b', 'c']]);
+    eq('son 1 saat: yalnızca o aralıktaki ziyaret siliniyor', [removed, lm.logs.map((l) => l.id)], [1, ['b', 'c']]);
     eq('geçersiz zaman hiçbir şey silmiyor', [lm.clearSince('x'), lm.logs.length], [0, 2]);
     fs.rmSync(tmp3, { recursive: true, force: true });
 
