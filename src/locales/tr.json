@@ -1664,5 +1664,15 @@
   "ulgen.res.busy2": "Sayfaları okuyup kaynakları karşılaştırıyorum…",
   "ulgen.res.err.noSource": "Bu soru için okunabilir bir kaynak bulamadım. Bilmediğim şeyi uydurmam; sorunuzu biraz değiştirip yeniden deneyebilirsiniz.",
   "ulgen.res.err.noText": "Açtığım sayfalardan bu soruyu cevaplayan bir metin çıkaramadım. Elimde kaynak yokken cümle uydurmam — bu yüzden boş döndüm.",
-  "ulgen.res.err.offTopic": "Bulduğum sayfalar sorduğunuz konuyu anlatmıyordu. Alakasız bir kaynağı cevap diye sunmam; soruyu biraz daha belirgin yazarsanız yeniden bakabilirim."
+  "ulgen.res.err.offTopic": "Bulduğum sayfalar sorduğunuz konuyu anlatmıyordu. Alakasız bir kaynağı cevap diye sunmam; soruyu biraz daha belirgin yazarsanız yeniden bakabilirim.",
+  "data.item.ulgenResearch.title": "İnternette araştırma",
+  "data.item.ulgenResearch.desc": "Ülgen'e genel bir soru sorduğunuzda cevabı internette arar: sorunuz bu bilgisayarın kendi bağlantısından DuckDuckGo'da (sonuç çıkmazsa Vikipedi'de) aranır, bulunan sayfalar çerezsiz ve geçici bir oturumda açılır, cevap kaynaklarıyla yazılır. Sorunuz İlgezdi'nin sunucusuna gitmez; oturumunuz ve geçmişiniz kullanılmaz.",
+  "data.dest.web": "DuckDuckGo · Vikipedi",
+  "ulgen.err.researchOff": "İnternette araştırma kapalı. Genel sorulara internette cevap aramam için Veri ve Gizlilik sayfasında “İnternette araştırma” iznini açın. Açık sayfayı özetleme ve sayfada bulma bu izin olmadan da çalışır.",
+  "ulgen.localOnline": "Bu cihazda · Araştırma açık",
+  "ulgen.localWhyOnline": "Araştırma nasıl çalışır?",
+  "ulgen.privacyOnline": "Ülgen bu cihazda çalışır; sayfa metni ve geçmişiniz hiçbir sunucuya gönderilmez. İnternette araştırma açık: genel bir soru sorduğunuzda yalnız sorunuz DuckDuckGo'da (gerekirse Vikipedi'de) aranır.",
+  "ulgen.info.deviceBodyOnline": "Özet, sayfada bulma ve geçmişte arama bilgisayarınızda yapılır; sayfa metni ve geçmişiniz hiçbir sunucuya gönderilmez.",
+  "ulgen.info.webTitleOnline": "Araştırma sizin bağlantınızdan",
+  "ulgen.info.webBodyOnline": "Genel bir soru sorduğunuzda Ülgen sorunuzu bu bilgisayarın kendi internet bağlantısından DuckDuckGo'da arar (sonuç çıkmazsa Vikipedi'de). Bulunan sayfalar çerezsiz, geçici bir oturumda açılır; oturumunuz ve geçmişiniz kullanılmaz. Sorunuz İlgezdi'nin sunucusuna gitmez. Kapatmak için: Veri ve Gizlilik › Ülgen."
 }

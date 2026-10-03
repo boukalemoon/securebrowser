@@ -21,6 +21,7 @@ const { setupPasswordManager, getForOrigin, classifyCapture, canSavePasswords, s
 const { generatePassword } = require('./password-generator');
 const reader = require('./reader');
 const gorevSayfa = require('./gorev-sayfa');
+const ulgenArama = require('./ulgen-web-ara');
 const { PWNED_RANGE_URL } = require('./pwned-check');
 const { setupAutoUpdater } = require('./auto-updater');
 const { setupDiagnostics, log: diag, logError } = require('./diagnostics');
@@ -1882,6 +1883,26 @@ async function ulgenGorevSayfasi(url, opts = {}) {
     const sonAdres = gorevSayfa.gecerliGorevAdresi(wc.getURL());
     if (!sonAdres.ok) { await temizle(); return { ok: false, sebep: 'engellendi' }; }
 
+    // ── BAĞLANTI KİPİ (araştırma zincirinin arama adımı) ────────────────────
+    // Arama sonuç sayfası da bir web sayfasıdır ve okunan sayfalarla AYNI
+    // korumalı yoldan açılır. Sayfadan yalnız sonuç bağlantıları sayılır;
+    // seçme, reklam ayıklama ve adres denetimi ulgen-web-ara.js'te (sınanabilir
+    // saf mantık). Readability çalıştırılmaz — sonuç sayfasında makale yok.
+    // ⛔ `opts.baglantilar` bir KAYNAK ADIDIR, betik değil: betik ulgen-web-ara.js
+    //    tablosundan seçilir. Görev sayfasını çağıran hiçbir yol yalıtılmış dünyada
+    //    kendi kodunu çalıştıramaz; bilinmeyen ad hiçbir şey çalıştırmaz.
+    if (opts.baglantilar !== undefined) {
+      const betik = ulgenArama.betik(opts.baglantilar);
+      let bag = null;
+      if (betik) { try { bag = await wc.executeJavaScriptInIsolatedWorld(GOREV_WORLD_ID, [{ code: betik }]); } catch {} }
+      await temizle();
+      if (!betik) return { ok: false, sebep: 'gecersiz_kaynak' };
+      const sonuclar = bag && Array.isArray(bag.sonuclar) ? bag.sonuclar.slice(0, 40) : [];
+      // Tanılamaya ADRES de SORGU da yazılmaz — yalnız ölçü.
+      diag.info('ulgen', 'Arama sayfası okundu', { kaynak: opts.baglantilar, sonuc: sonuclar.length });
+      return { ok: true, sonuclar, engel: !!(bag && bag.engel) };
+    }
+
     if (!readerScript) readerScript = reader.buildExtractScript(fs.readFileSync(require.resolve('@mozilla/readability/Readability.js'), 'utf8'));
     let ham = null;
     try { ham = await wc.executeJavaScriptInIsolatedWorld(GOREV_WORLD_ID, [{ code: readerScript }]); } catch {}
@@ -1974,6 +1995,7 @@ ipcMain.handle('ulgen-durum', (event) => {
   const { state } = getContextFromEvent(event);
   return { chat: ulgenIzin('ulgenChat'), page: ulgenIzin('ulgenPage'), history: ulgenIzin('ulgenHistory'),
            interests: ulgenIzin('ulgenInterests'), ceviri: ulgenIzin('ulgenTranslate'),
+           arastirma: ulgenIzin('ulgenResearch'),    // panel metni buna göre değişir
            ceviriPaket: ulgenCeviri.paketDurumu(),   // Veri ve Gizlilik: "kurulu mu" satırı
            gorev: ulgenGorev.durum(),                // Ana Ülgen görev kanalı
            gizli: state === incognitoState };
@@ -1991,35 +2013,43 @@ async function ulgenOzetCevir(cumleler, hedefDil) {
 }
 
 // ── Klon Ülgen web araması (araştırma zincirinin "ara" kancası) ─────────────
-// Sorgu KENDİ arama sunucumuza gider (SearXNG, varsayılan yerel): Google'a da
-// Bing'e de kullanıcı sorusu düşmez. Adres yalnız geliştirme için ortam
-// değişkeniyle değiştirilebilir; uygulama hiçbir yerde kendiliğinden değiştirmez.
+// ⛔ HALKA AÇIK UYGULAMA (Burak, 24.09.2026): arama, uygulamanın kurulu olduğu
+//    bilgisayarın KENDİ internet bağlantısından, dış kaynakta yapılır. Ne bizim
+//    sunucumuza ne geliştirici makinesine gider; yerel adrese HİÇ gidilmez.
+//    Eskiden `http://127.0.0.1:8888`'deki SearXNG'e çıplak `fetch` atılıyordu:
+//    kullanıcıda orada bir şey yoktu (her soru "bulamadım"), olsaydı o porttaki
+//    herhangi bir süreç cevaba içerik enjekte edebilirdi. Ayrıntı: ulgen-web-ara.js.
+// Sonuç sayfası, okunan sayfalarla AYNI korumalı görev sayfası yolundan açılır:
+// kalıcı olmayan temiz oturum, engelleyici, parmak izi kalkanı, adres denetimi.
 // ⛔ Tanılamaya SORGU DA ADRES DE yazılmaz — yalnız hatanın TÜRÜ. Kullanıcının
 //    ne sorduğu günlüğe düşerse gizlilik sözü ölçüsünde bozulur.
-const ULGEN_SEARX = process.env.ILGEZDI_SEARX || 'http://127.0.0.1:8888';
 const ULGEN_ARA_ZAMAN_ASIMI_MS = 15 * 1000;
 const ULGEN_ARA_AZAMI_SONUC = 12;
+// ⛔ DuckDuckGo bot doğrulaması isterse (ölçüldü 24.09: birkaç dakikada ~6
+//    sorgudan sonra HTTP 202 + doğrulama sayfası) bir süre ona HİÇ gidilmez:
+//    kullanıcı her soruda boşuna beklemez, engel de büyümez. Yedek kaynak
+//    (Vikipedi) devreye girer. Yalnız bellekte; uygulama kapanınca sıfırlanır.
+const ULGEN_ARA_DINLENME_MS = 10 * 60 * 1000;
+let ulgenAraDinlenme = 0;
 
 async function ulgenWebAra(sorgu) {
-  const q = String(sorgu || '').trim();
-  if (!q) return [];
-  try {
-    const r = await fetch(`${ULGEN_SEARX}/search?q=${encodeURIComponent(q)}&format=json&language=tr`, {
-      headers: { Accept: 'application/json' },
-      signal: AbortSignal.timeout(ULGEN_ARA_ZAMAN_ASIMI_MS),
-    });
-    if (!r.ok) { diag.warn('ulgen', 'Arama başarısız', { tur: 'http_' + r.status }); return []; }
-    const d = await r.json();
-    const sonuclar = Array.isArray(d && d.results) ? d.results : [];
-    return sonuclar.slice(0, ULGEN_ARA_AZAMI_SONUC).map((s) => ({
-      baslik: typeof s?.title === 'string' ? s.title : '',
-      url: typeof s?.url === 'string' ? s.url : '',
-      parcacik: typeof s?.content === 'string' ? s.content : '',
-    })).filter((s) => s.url);
-  } catch (e) {
-    diag.warn('ulgen', 'Arama başarısız', { tur: (e && e.name) || 'hata' });
-    return [];
+  for (const kaynak of ulgenArama.KAYNAK_SIRASI) {
+    if (kaynak === 'ddg' && Date.now() < ulgenAraDinlenme) continue;
+    const adres = ulgenArama.aramaAdresi(sorgu, kaynak);
+    if (!adres) return [];
+    const r = await ulgenGorevSayfasi(adres, { baglantilar: kaynak, temizOturum: true, zamanAsimiMs: ULGEN_ARA_ZAMAN_ASIMI_MS });
+    if (!r || !r.ok) { diag.warn('ulgen', 'Arama başarısız', { kaynak, tur: (r && r.sebep) || 'hata' }); continue; }
+    if (r.engel) {
+      if (kaynak === 'ddg') ulgenAraDinlenme = Date.now() + ULGEN_ARA_DINLENME_MS;
+      diag.warn('ulgen', 'Arama motoru doğrulama istedi', { kaynak });
+      continue;
+    }
+    const sonuclar = ulgenArama.sonuclariAyikla(r.sonuclar, ULGEN_ARA_AZAMI_SONUC, kaynak);
+    if (sonuclar.length) { diag.info('ulgen', 'Arama sonuç verdi', { kaynak, sonuc: sonuclar.length }); return sonuclar; }
+    // Sayfa geldi ama sonuç çıkmadı: sıradaki kaynak denenir, nedeni görünür kalır.
+    diag.warn('ulgen', 'Arama sonuç vermedi', { kaynak, ham: r.sonuclar.length });
   }
+  return [];
 }
 
 const ULGEN_TURLER = ['ozet', 'sayfada', 'gecmis', 'web', 'sorgu', 'yardim'];
@@ -2085,6 +2115,9 @@ ipcMain.handle('ulgen-sor', async (event, istek) => {
       //    sayfaları TEMİZ oturumda açar ve cevabı kaynağıyla yazar. Cümle
       //    uydurulmaz; bulunamazsa zincirin kendi `ok:false` sebebi döner.
       if (tur === 'bilinmiyor') {
+        // ⛔ İnternette araştırma AYRI izindir, varsayılan kapalı (Burak, 24.09.2026).
+        //    İzin yokken soru hiçbir yere gitmez: arama sayfası da açılmaz.
+        if (!ulgenIzin('ulgenResearch')) return { ok: false, sebep: 'izin_arastirma', tur: 'arastir' };
         const sonuc = await ulgenArastir.arastir(metin, {
           ara: ulgenWebAra,
           // Sayfa İLGEZDİ'NİN korumalı yolundan açılır: temiz oturum, engelleyici,

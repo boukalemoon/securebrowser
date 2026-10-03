@@ -1745,5 +1745,15 @@
   "ulgen.res.busy2": "Je lis les pages et compare les sources…",
   "ulgen.res.err.noSource": "Je n’ai trouvé aucune source lisible pour cette question. Je n’invente rien ; reformulez votre question et réessayez.",
   "ulgen.res.err.noText": "Je n’ai pas pu extraire des pages ouvertes un texte répondant à cette question. Sans source, je n’invente pas de phrase — c’est pourquoi je reviens les mains vides.",
-  "ulgen.res.err.offTopic": "Les pages trouvées ne traitaient pas de votre sujet. Je ne présente pas une source hors sujet comme une réponse ; précisez un peu la question et je regarderai de nouveau."
+  "ulgen.res.err.offTopic": "Les pages trouvées ne traitaient pas de votre sujet. Je ne présente pas une source hors sujet comme une réponse ; précisez un peu la question et je regarderai de nouveau.",
+  "data.item.ulgenResearch.title": "Recherche sur le web",
+  "data.item.ulgenResearch.desc": "Lorsque vous posez une question générale à Ülgen, il cherche la réponse sur le web : votre question est recherchée sur DuckDuckGo (ou sur Wikipédia si rien ne ressort) via la propre connexion de cet ordinateur, les pages trouvées s’ouvrent dans une session temporaire sans cookies et la réponse est rédigée avec ses sources. Votre question ne va pas au serveur d’İlgezdi ; votre session et votre historique ne sont pas utilisés.",
+  "data.dest.web": "DuckDuckGo · Wikipédia",
+  "ulgen.err.researchOff": "La recherche sur le web est désactivée. Pour que je cherche des réponses aux questions générales sur le web, activez « Recherche sur le web » dans Données et confidentialité. Le résumé et la recherche dans la page ouverte fonctionnent sans cette autorisation.",
+  "ulgen.localOnline": "Sur cet appareil · Recherche activée",
+  "ulgen.localWhyOnline": "Comment fonctionne la recherche ?",
+  "ulgen.privacyOnline": "Ülgen fonctionne sur cet appareil ; le texte de la page et votre historique ne sont envoyés à aucun serveur. La recherche sur le web est activée : lorsque vous posez une question générale, seule votre question est recherchée sur DuckDuckGo (ou Wikipédia si besoin).",
+  "ulgen.info.deviceBodyOnline": "Le résumé, la recherche dans la page et la recherche dans l’historique se font sur votre ordinateur ; le texte de la page et votre historique ne sont envoyés à aucun serveur.",
+  "ulgen.info.webTitleOnline": "La recherche passe par votre connexion",
+  "ulgen.info.webBodyOnline": "Lorsque vous posez une question générale, Ülgen la recherche sur DuckDuckGo via la propre connexion internet de cet ordinateur (sur Wikipédia si rien ne ressort). Les pages trouvées s’ouvrent dans une session temporaire sans cookies ; votre session et votre historique ne sont pas utilisés. Votre question ne va pas au serveur d’İlgezdi. Pour la désactiver : Données et confidentialité › Ülgen."
 }

@@ -581,7 +581,7 @@ img.lr-icon { object-fit: contain; background: transparent; }
 .dc-dest::before { content: ''; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: currentColor; margin-right: 5px; vertical-align: 1px; }
 .dc-dest-device { color: var(--success, #4ade80); border-color: color-mix(in srgb, var(--success, #4ade80) 40%, transparent); }
 .dc-dest-ilgezdi { color: var(--gold); border-color: color-mix(in srgb, var(--gold) 45%, transparent); }
-.dc-dest-github, .dc-dest-qrtim { color: #7aa7e0; border-color: color-mix(in srgb, #7aa7e0 45%, transparent); }
+.dc-dest-github, .dc-dest-qrtim, .dc-dest-web { color: #7aa7e0; border-color: color-mix(in srgb, #7aa7e0 45%, transparent); }
 .dc-dest-ulgen { color: var(--copper); border-color: color-mix(in srgb, var(--copper) 45%, transparent); }
 .dc-soon { color: var(--ink-mute); }
 .dc-soon::before { display: none; }

@@ -1730,5 +1730,15 @@
   "ulgen.res.busy2": "Ich lese die Seiten und vergleiche die Quellen…",
   "ulgen.res.err.noSource": "Für diese Frage habe ich keine lesbare Quelle gefunden. Ich erfinde nichts; formulieren Sie die Frage gern etwas anders.",
   "ulgen.res.err.noText": "Aus den geöffneten Seiten konnte ich keinen Text gewinnen, der diese Frage beantwortet. Ohne Quelle erfinde ich keinen Satz — deshalb komme ich mit leeren Händen zurück.",
-  "ulgen.res.err.offTopic": "Die gefundenen Seiten handelten nicht von Ihrem Thema. Ich gebe keine unpassende Quelle als Antwort aus; schreiben Sie die Frage etwas genauer, dann sehe ich erneut nach."
+  "ulgen.res.err.offTopic": "Die gefundenen Seiten handelten nicht von Ihrem Thema. Ich gebe keine unpassende Quelle als Antwort aus; schreiben Sie die Frage etwas genauer, dann sehe ich erneut nach.",
+  "data.item.ulgenResearch.title": "Im Web recherchieren",
+  "data.item.ulgenResearch.desc": "Wenn Sie Ülgen eine allgemeine Frage stellen, sucht es die Antwort im Web: Ihre Frage wird über die eigene Verbindung dieses Computers bei DuckDuckGo gesucht (ohne Ergebnis bei Wikipedia), die gefundenen Seiten werden in einer cookiefreien, temporären Sitzung geöffnet und die Antwort wird mit ihren Quellen geschrieben. Ihre Frage geht nicht an den İlgezdi-Server; Ihre Sitzung und Ihr Verlauf werden nicht verwendet.",
+  "data.dest.web": "DuckDuckGo · Wikipedia",
+  "ulgen.err.researchOff": "Die Web-Recherche ist aus. Damit ich Antworten auf allgemeine Fragen im Web suchen kann, aktivieren Sie „Im Web recherchieren“ unter Daten und Datenschutz. Zusammenfassen und Suchen auf der offenen Seite funktionieren auch ohne diese Berechtigung.",
+  "ulgen.localOnline": "Auf diesem Gerät · Recherche an",
+  "ulgen.localWhyOnline": "Wie funktioniert die Recherche?",
+  "ulgen.privacyOnline": "Ülgen läuft auf diesem Gerät; der Seitentext und Ihr Verlauf werden an keinen Server gesendet. Die Web-Recherche ist an: Bei einer allgemeinen Frage wird nur Ihre Frage bei DuckDuckGo (bei Bedarf bei Wikipedia) gesucht.",
+  "ulgen.info.deviceBodyOnline": "Zusammenfassen, Suchen auf der Seite und Suchen im Verlauf geschehen auf Ihrem Computer; der Seitentext und Ihr Verlauf werden an keinen Server gesendet.",
+  "ulgen.info.webTitleOnline": "Recherche über Ihre Verbindung",
+  "ulgen.info.webBodyOnline": "Bei einer allgemeinen Frage sucht Ülgen über die eigene Internetverbindung dieses Computers bei DuckDuckGo (ohne Ergebnis bei Wikipedia). Die gefundenen Seiten werden in einer cookiefreien, temporären Sitzung geöffnet; Ihre Sitzung und Ihr Verlauf werden nicht verwendet. Ihre Frage geht nicht an den İlgezdi-Server. Ausschalten: Daten und Datenschutz › Ülgen."
 }

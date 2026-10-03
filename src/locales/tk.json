@@ -1664,5 +1664,15 @@
   "ulgen.res.busy2": "Sahypalary okap, çeşmeleri deňeşdirýärin…",
   "ulgen.res.err.noSource": "Bu sorag üçin okap boljak çeşme tapmadym. Bilmeýän zadymy oýlap tapmaýaryn; soragyňyzy birneme üýtgedip täzeden synanyşyp bilersiňiz.",
   "ulgen.res.err.noText": "Açan sahypalarymdan bu soraga jogap berýän tekst çykaryp bilmedim. Çeşmesiz sözlem oýlap tapmaýaryn — şonuň üçin boş gaýtdym.",
-  "ulgen.res.err.offTopic": "Tapan sahypalarym soran meseläňiz hakda däldi. Degişli bolmadyk çeşmäni jogap hökmünde hödürlemeýärin; soragy has anyk ýazsaňyz gaýtadan seretmäge taýýar."
+  "ulgen.res.err.offTopic": "Tapan sahypalarym soran meseläňiz hakda däldi. Degişli bolmadyk çeşmäni jogap hökmünde hödürlemeýärin; soragy has anyk ýazsaňyz gaýtadan seretmäge taýýar.",
+  "data.item.ulgenResearch.title": "Internetde barlag",
+  "data.item.ulgenResearch.desc": "Ülgen-e umumy sorag berseňiz, jogaby internetde gözleýär: soragyňyz bu kompýuteriň öz baglanyşygy arkaly DuckDuckGo-da (netije çykmasa Wikipediýada) gözlenýär, tapylan sahypalar kukisiz wagtlaýyn sessiýada açylýar, jogap çeşmeleri bilen ýazylýar. Soragyňyz İlgezdi serwerine gitmeýär; sessiýaňyz we taryhyňyz ulanylmaýar.",
+  "data.dest.web": "DuckDuckGo · Wikipediýa",
+  "ulgen.err.researchOff": "Internetde barlag öçük. Umumy soraglara internetde jogap gözlemegim üçin Maglumatlar we gizlinlik bölüminde “Internetde barlag” rugsadyny açyň. Açyk sahypany gysgaltmak we sahypada tapmak bu rugsatsyz hem işleýär.",
+  "ulgen.localOnline": "Bu enjamda · Barlag açyk",
+  "ulgen.localWhyOnline": "Barlag nähili işleýär?",
+  "ulgen.privacyOnline": "Ülgen bu enjamda işleýär; sahypanyň teksti we taryhyňyz hiç bir serwere iberilmeýär. Internetde barlag açyk: umumy sorag berseňiz diňe soragyňyz DuckDuckGo-da (gerek bolsa Wikipediýada) gözlenýär.",
+  "ulgen.info.deviceBodyOnline": "Gysgaltma, sahypada tapmak we taryhda gözleg kompýuteriňizde edilýär; sahypanyň teksti we taryhyňyz hiç bir serwere iberilmeýär.",
+  "ulgen.info.webTitleOnline": "Barlag siziň baglanyşygyňyz arkaly",
+  "ulgen.info.webBodyOnline": "Umumy sorag berseňiz, Ülgen soragyňyzy bu kompýuteriň öz internet baglanyşygy arkaly DuckDuckGo-da gözleýär (netije çykmasa Wikipediýada). Tapylan sahypalar kukisiz, wagtlaýyn sessiýada açylýar; sessiýaňyz we taryhyňyz ulanylmaýar. Soragyňyz İlgezdi serwerine gitmeýär. Öçürmek üçin: Maglumatlar we gizlinlik › Ülgen."
 }

@@ -2481,7 +2481,7 @@ suite('Veri ve Gizlilik — izin kataloğu');
   eq('boş yapılandırmada varsayılanlar (hata raporu henüz sorulmadı)', [base.visitLog, base.updateCheck, base.restoreSession, base.diagnostics, base.ulgenChat, base.gpc, base.dnt], [true, true, false, null, false, true, false]);
   eq('metin değerli ayar (başlangıç kipi) açık/kapalı sayılıyor', [C.valueOf(C.BY_ID.restoreSession, { startupMode: 'restore' }), C.configValue(C.BY_ID.restoreSession, true), C.configValue(C.BY_ID.restoreSession, false)], [true, 'restore', 'homepage']);
   eq('fark listesi yalnızca değişenler', C.diff(base, C.snapshot({ consents: { ulgenChat: true }, autoUpdateCheck: false })), [{ id: 'updateCheck', from: true, to: false }, { id: 'ulgenChat', from: false, to: true }]);
-  eq('sohbet izninin bağlı izinleri', C.dependentsOf('ulgenChat').sort(), ['ulgenHistory', 'ulgenInterests', 'ulgenPage', 'ulgenTranslate']);
+  eq('sohbet izninin bağlı izinleri', C.dependentsOf('ulgenChat').sort(), ['ulgenHistory', 'ulgenInterests', 'ulgenPage', 'ulgenResearch', 'ulgenTranslate']);
   // Çeviri sayfa iznine bağlı (özeti çevirir) ve dil paketi sunucudan indiği için dışarıya bağlanır.
   check('çeviri izni: sayfa iznine bağlı, varsayılan kapalı, hedefi İlgezdi sunucusu',
     C.BY_ID.ulgenTranslate.requires === 'ulgenPage' && C.BY_ID.ulgenTranslate.def === false
@@ -3511,6 +3511,63 @@ suite('Depo bütünlüğü — çağrılan her yerel modül var');
   }
 }
 
+// ─── Ülgen araması: halka açık uygulama, kullanıcının kendi bağlantısı ─────────
+// ⛔ NEDEN (Burak, 24.09.2026): araştırma zinciri aramayı 127.0.0.1:8888'deki
+//    SearXNG'e çıplak `fetch` ile gönderiyordu ve v0.8.9 böyle yayına çıktı.
+//    Kullanıcıda orada bir şey yok (her soru "bulamadım"); olsaydı o porttaki
+//    süreç cevaba içerik enjekte edebilirdi. Bu süit aynı hatanın geri
+//    gelmesini kaynakta yakalar: arama YALNIZ korumalı görev sayfası yolundan.
+suite('Ülgen araması — yerel/bizim sunucumuz yok, görev sayfası yolundan');
+{
+  const m = read('../src/main/main.js');
+  const govde = (m.match(/async function ulgenWebAra[\s\S]*?\n\}\n/) || [''])[0];
+  check('ulgenWebAra var', govde.length > 0);
+  check('SearXNG ve ortam değişkeniyle arama adresi yok',
+    !/ULGEN_SEARX|ILGEZDI_SEARX|format=json&language/.test(m));
+  check('arama çıplak fetch/net ile YAPILMIYOR — görev sayfası yolundan geçiyor',
+    /ulgenGorevSayfasi\(adres, \{ baglantilar: kaynak, temizOturum: true/.test(govde)
+    && !/\bfetch\(|net\.request|http\.get|https\.get/.test(govde));
+  check('arama gövdesinde sabit ya da yerel adres yok (adresler ulgen-web-ara.js\'ten)',
+    !/https?:\/\/|127\.0\.0\.1|localhost/.test(govde));
+  check('görev sayfasına betik değil KAYNAK ADI geçiyor; betik modülden seçiliyor',
+    /const betik = ulgenArama\.betik\(opts\.baglantilar\)/.test(m)
+    && /if \(!betik\) return \{ ok: false, sebep: 'gecersiz_kaynak' \}/.test(m));
+  check('bağlantı kipi de yalıtılmış görev dünyasında ve günlüğe adres/sorgu yazmıyor',
+    /executeJavaScriptInIsolatedWorld\(GOREV_WORLD_ID, \[\{ code: betik \}\]\)/.test(m)
+    && /'Arama sayfası okundu', \{ kaynak: opts\.baglantilar, sonuc: sonuclar\.length \}/.test(m));
+  check('motor doğrulama isterse DuckDuckGo dinlendiriliyor, yedek kaynak deneniyor',
+    /if \(r\.engel\)/.test(govde) && /ulgenAraDinlenme = Date\.now\(\) \+ ULGEN_ARA_DINLENME_MS/.test(govde)
+    && /for \(const kaynak of ulgenArama\.KAYNAK_SIRASI\)/.test(govde));
+  // ⛔ İNTERNETTE ARAŞTIRMA AYRI İZİN, VARSAYILAN KAPALI (Burak, 24.09.2026).
+  //    Panel "İnternetsiz" ve "yazdıklarınız hiçbir sunucuya gönderilmez"
+  //    diyordu; oysa genel soru hiçbir izin sorulmadan internete çıkıyordu.
+  const C = require('../src/renderer/data-catalog.js');
+  const izin = C.ITEMS.find((i) => i.id === 'ulgenResearch');
+  check('araştırma kendi izni: onay kaydına düşer, varsayılan KAPALI, sohbete bağlı, rozeti üçüncü taraf',
+    !!izin && izin.consent === true && izin.def === false && izin.requires === 'ulgenChat' && izin.dest === 'web');
+  const dal = (m.match(/if \(tur === 'bilinmiyor'\) \{[\s\S]*?ulgenArastir\.arastir\(/) || [''])[0];
+  check('izin yokken araştırma HİÇ başlamıyor (kapı arastir çağrısından ÖNCE)',
+    /if \(!ulgenIzin\('ulgenResearch'\)\) return \{ ok: false, sebep: 'izin_arastirma', tur: 'arastir' \}/.test(dal));
+  check('panel izin durumunu okuyor', /arastirma: ulgenIzin\('ulgenResearch'\)/.test(m));
+  const pnl = read('../src/renderer/ulgen-panel.js');
+  check('izin kapalıyken kullanıcı dilinde mesaj + Veri ve Gizlilik düğmesi',
+    /izin_arastirma: 'ulgen\.err\.researchOff'/.test(pnl) && /sebep === 'izin_arastirma'\)\) \{/.test(pnl));
+  check('rozet, bilgi kartı ve gizlilik notu izne göre değişiyor (iki durumda da doğru)',
+    ['ulgen-status-text', 'ulgen-info-title', 'ulgen-info-device', 'ulgen-info-web-title', 'ulgen-info-web', 'ulgen-privacy']
+      .every((id) => pnl.includes(`yaz('${id}', acik ?`))
+    && /function durumuUygula[\s\S]*?arastirmaMetinleriniUygula\(\)/.test(pnl));
+  const trj = JSON.parse(read('locales/tr.json'));
+  check('izin açıkken metinler sorunun nereye gittiğini SÖYLÜYOR, "İnternetsiz" demiyor',
+    /DuckDuckGo/.test(trj['ulgen.privacyOnline']) && /DuckDuckGo/.test(trj['ulgen.info.webBodyOnline'])
+    && !/İnternetsiz/.test(trj['ulgen.localOnline']) && !/Yazdıklarınız/.test(trj['ulgen.info.deviceBodyOnline']));
+  // Ağa çıkan ölçüm betikleri de SearXNG'e gitmiyor (ürünle aynı yol).
+  check('ölçüm betikleri (arastir.js, arastir-dusmanca.js) SearXNG kullanmıyor',
+    ['arastir.js', 'arastir-dusmanca.js'].every((f) => {
+      const t = fs.readFileSync(path.join(__dirname, f), 'utf8');
+      return !/SEARX|:8888|format=json/.test(t) && /aramaKancasi\(getir\)/.test(t);
+    }));
+}
+
 // ─── Kardeş sınama dosyaları ──────────────────────────────────────────────────
 // ⛔ NEDEN (23.09.2026): test/ altında kendi başına duran sınama dosyaları
 //    vardı ve `npm test` HİÇBİRİNİ çalıştırmıyordu — yalnız elle
@@ -3522,7 +3579,7 @@ suite('Depo bütünlüğü — çağrılan her yerel modül var');
 //    geçmez, zaten hiçbiri Electron istemiyor (saf mantık sınamaları).
 suite('Kardeş sınama dosyaları — npm test hepsini koşar');
 {
-  const KARDES = ['alaka.js', 'tablo.js', 'guven.js', 'ceviri.js', 'ozet-sayi.js'];
+  const KARDES = ['alaka.js', 'tablo.js', 'web-ara.js', 'guven.js', 'ceviri.js', 'ozet-sayi.js'];
   const renksiz = (x) => String(x).replace(/\x1b\[[0-9;]*m/g, '');
   for (const ad of KARDES) {
     const yol = path.join(__dirname, ad);

@@ -1658,5 +1658,15 @@
   "ulgen.res.busy2": "Sahifalarni oʻqib, manbalarni solishtiryapman…",
   "ulgen.res.err.noSource": "Bu savol uchun oʻqiladigan manba topa olmadim. Bilmaganimni toʻqimayman; savolingizni biroz oʻzgartirib qayta urinib koʻring.",
   "ulgen.res.err.noText": "Ochgan sahifalarimdan bu savolga javob beradigan matn ajratib ololmadim. Manbasiz gap toʻqimayman — shuning uchun boʻsh qaytdim.",
-  "ulgen.res.err.offTopic": "Topgan sahifalarim siz soʻragan mavzuda emas edi. Aloqasiz manbani javob sifatida koʻrsatmayman; savolni aniqroq yozsangiz yana qarayman."
+  "ulgen.res.err.offTopic": "Topgan sahifalarim siz soʻragan mavzuda emas edi. Aloqasiz manbani javob sifatida koʻrsatmayman; savolni aniqroq yozsangiz yana qarayman.",
+  "data.item.ulgenResearch.title": "Internetda tadqiqot",
+  "data.item.ulgenResearch.desc": "Ülgen'ga umumiy savol berganingizda u javobni internetdan qidiradi: savolingiz shu kompyuterning oʻz ulanishi orqali DuckDuckGo'da (natija chiqmasa Vikipediyada) qidiriladi, topilgan sahifalar cookie'siz vaqtinchalik seansda ochiladi, javob manbalari bilan yoziladi. Savolingiz İlgezdi serveriga bormaydi; seansingiz va tarixingiz ishlatilmaydi.",
+  "data.dest.web": "DuckDuckGo · Vikipediya",
+  "ulgen.err.researchOff": "Internetda tadqiqot oʻchiq. Umumiy savollarga internetdan javob qidirishim uchun Maʼlumotlar va maxfiylik boʻlimida “Internetda tadqiqot” ruxsatini yoqing. Ochiq sahifani qisqacha bayon qilish va sahifada topish bu ruxsatsiz ham ishlaydi.",
+  "ulgen.localOnline": "Shu qurilmada · Tadqiqot yoqilgan",
+  "ulgen.localWhyOnline": "Tadqiqot qanday ishlaydi?",
+  "ulgen.privacyOnline": "Ülgen shu qurilmada ishlaydi; sahifa matni va tarixingiz hech qanday serverga yuborilmaydi. Internetda tadqiqot yoqilgan: umumiy savol berganingizda faqat savolingiz DuckDuckGo'da (kerak boʻlsa Vikipediyada) qidiriladi.",
+  "ulgen.info.deviceBodyOnline": "Qisqacha bayon, sahifada topish va tarixdan qidirish kompyuteringizda bajariladi; sahifa matni va tarixingiz hech qanday serverga yuborilmaydi.",
+  "ulgen.info.webTitleOnline": "Tadqiqot sizning ulanishingiz orqali",
+  "ulgen.info.webBodyOnline": "Umumiy savol berganingizda Ülgen savolingizni shu kompyuterning oʻz internet ulanishi orqali DuckDuckGo'da qidiradi (natija chiqmasa Vikipediyada). Topilgan sahifalar cookie'siz, vaqtinchalik seansda ochiladi; seansingiz va tarixingiz ishlatilmaydi. Savolingiz İlgezdi serveriga bormaydi. Oʻchirish uchun: Maʼlumotlar va maxfiylik › Ülgen."
 }

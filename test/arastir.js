@@ -15,8 +15,7 @@
 const http = require('http');
 const https = require('https');
 const arastirma = require('../src/main/ulgen-arastir.js');
-
-const SEARX = process.env.SEARX || 'http://127.0.0.1:8888';
+const { aramaKancasi } = require('./helpers/ddg-baglantilar.js');
 
 const getir = (u, yonlendirme = 0) => new Promise((coz, red) => {
   const m = u.startsWith('https') ? https : http;
@@ -32,12 +31,10 @@ const getir = (u, yonlendirme = 0) => new Promise((coz, red) => {
   }).on('error', red);
 });
 
-// ── kanca 1: arama (yerel SearXNG — Ülgen'in zaten kullandığı) ────────────
-async function ara(sorgu) {
-  const { govde } = await getir(`${SEARX}/search?q=${encodeURIComponent(sorgu)}&format=json&language=tr`);
-  let j; try { j = JSON.parse(govde); } catch { return []; }
-  return (j.results || []).slice(0, 12).map((r) => ({ baslik: r.title, url: r.url, parcacik: r.content }));
-}
+// ── kanca 1: arama (üründeki gibi: kullanıcının kendi bağlantısından DuckDuckGo) ─
+// SearXNG YOK — halka açık uygulama aramayı yerel ya da bizim sunucumuzdan
+// yapmaz. Ayıklama üretimdeki `sonuclariAyikla` ile (bkz. ulgen-web-ara.js).
+const ara = aramaKancasi(getir);
 
 // ── kanca 2: sayfa aç (üründe İlgezdi'nin korumalı görev sayfası) ─────────
 async function sayfaAc(url) {

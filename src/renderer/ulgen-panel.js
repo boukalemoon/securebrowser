@@ -354,7 +354,7 @@ function vurgula(metin, sorgu) {
 const HATA = {
   izin_chat: 'ulgen.off', izin_history: 'ulgen.err.historyOff', gizli_pencere: 'ulgen.err.incognito',
   sayfa_yok: 'ulgen.err.noPage', makale_yok: 'ulgen.err.noArticle', sayfa_degisti: 'ulgen.err.navigated',
-  sorgu_bos: 'ulgen.err.emptyQuery',
+  sorgu_bos: 'ulgen.err.emptyQuery', izin_arastirma: 'ulgen.err.researchOff',
   // Araştırma zincirinin kendi sebepleri (src/main/ulgen-arastir.js).
   kaynak_yok: 'ulgen.res.err.noSource', metin_yok: 'ulgen.res.err.noText',
   konu_dogrulanmadi: 'ulgen.res.err.offTopic',
@@ -409,7 +409,7 @@ function yanitiGoster(r, istek) {
     //    söyleriz; elinde hiçbir şey kalmasın diye aramayı açan düğme durur.
     if (ARASTIRMA_HATASI.has(sebep)) { arastirmaHatasi(sebep, istek); return; }
     const m = mesaj('biz', T(HATA[sebep] || 'ulgen.err.generic'));
-    if (m && (sebep === 'izin_chat' || sebep === 'izin_history')) {
+    if (m && (sebep === 'izin_chat' || sebep === 'izin_history' || sebep === 'izin_arastirma')) {
       const satir = el('div', 'ulgen-row');
       satir.appendChild(dugme(T('ulgen.openData'), veriSayfasi));
       balon(m).appendChild(satir);
@@ -743,6 +743,28 @@ async function durumuUygula() {
   }
   document.querySelectorAll('.ulgen-chip').forEach((c) => { c.disabled = !acik; });
   gorevKartiniUygula();
+  arastirmaMetinleriniUygula();
+}
+
+/**
+ * ⛔ PANEL NE SÖYLÜYORSA O OLMALI (Burak, 24.09.2026). Rozet "İnternetsiz",
+ *    gizlilik notu "yazdıklarınız hiçbir sunucuya gönderilmez" diyordu; oysa
+ *    genel soru internette araştırılıyordu. Araştırma artık AYRI izin, varsayılan
+ *    kapalı. Kapalıyken eski metinler DOĞRUDUR ve aynen kalır; açıkken soru
+ *    DuckDuckGo'ya gittiği için rozet, bilgi kartı ve not ona göre değişir.
+ *    İki durum da kullanıcıya doğruyu söyler.
+ */
+function arastirmaMetinleriniUygula() {
+  const acik = !!(ulgen.durum && ulgen.durum.arastirma);
+  const yaz = (id, metin) => { const e = document.getElementById(id); if (e) e.textContent = metin; };
+  yaz('ulgen-status-text', acik ? T('ulgen.localOnline') : T('ulgen.local'));
+  yaz('ulgen-info-title', acik ? T('ulgen.localWhyOnline') : T('ulgen.localWhy'));
+  yaz('ulgen-info-device', acik ? T('ulgen.info.deviceBodyOnline') : T('ulgen.info.deviceBody'));
+  yaz('ulgen-info-web-title', acik ? T('ulgen.info.webTitleOnline') : T('ulgen.info.webTitle'));
+  yaz('ulgen-info-web', acik ? T('ulgen.info.webBodyOnline') : T('ulgen.info.webBody'));
+  yaz('ulgen-privacy', acik ? T('ulgen.privacyOnline') : T('ulgen.privacy'));
+  const rozet = document.getElementById('ulgen-status');
+  if (rozet) rozet.title = acik ? T('ulgen.localWhyOnline') : T('ulgen.localWhy');
 }
 
 // Ana Ülgen görev kanalı. Kart YALNIZCA izin açıkken görünür; izin Veri ve
@@ -817,7 +839,7 @@ function ulgenBuildPanel() {
       <div class="ulgen-id">
         <h2 id="ulgen-title">Ülgen</h2>
         <div class="ulgen-rune" aria-hidden="true">𐰇𐰞𐰏𐰤</div>
-        <button type="button" class="ulgen-status" id="ulgen-status" aria-expanded="false" aria-controls="ulgen-info" title="${TH('ulgen.localWhy')}">${TH('ulgen.local')}${IKON.bilgi}</button>
+        <button type="button" class="ulgen-status" id="ulgen-status" aria-expanded="false" aria-controls="ulgen-info" title="${TH('ulgen.localWhy')}"><span id="ulgen-status-text">${TH('ulgen.local')}</span>${IKON.bilgi}</button>
       </div>
       <div class="ulgen-head-actions">
         <button type="button" class="ulgen-icon-btn" id="ulgen-new" title="${TH('ulgen.newChat')}" aria-label="${TH('ulgen.newChat')}">${IKON.yeni}</button>
@@ -830,8 +852,8 @@ function ulgenBuildPanel() {
           <h3 id="ulgen-info-title">${TH('ulgen.localWhy')}</h3>
           <button type="button" class="ulgen-icon-btn" id="ulgen-info-close" title="${TH('common.close')}" aria-label="${TH('common.close')}">${IKON.kapat}</button>
           <ul>
-            <li><span class="ulgen-info-icon">${IKON.cihaz}</span><div><strong>${TH('ulgen.info.deviceTitle')}</strong><span>${TH('ulgen.info.deviceBody')}</span></div></li>
-            <li><span class="ulgen-info-icon">${IKON.web}</span><div><strong>${TH('ulgen.info.webTitle')}</strong><span>${TH('ulgen.info.webBody')}</span></div></li>
+            <li><span class="ulgen-info-icon">${IKON.cihaz}</span><div><strong>${TH('ulgen.info.deviceTitle')}</strong><span id="ulgen-info-device">${TH('ulgen.info.deviceBody')}</span></div></li>
+            <li><span class="ulgen-info-icon">${IKON.web}</span><div><strong id="ulgen-info-web-title">${TH('ulgen.info.webTitle')}</strong><span id="ulgen-info-web">${TH('ulgen.info.webBody')}</span></div></li>
             <li><span class="ulgen-info-icon">${IKON.cevrimdisi}</span><div><strong>${TH('ulgen.info.offlineTitle')}</strong><span>${TH('ulgen.info.offlineBody')}</span></div></li>
           </ul>
         </section>
@@ -875,7 +897,7 @@ function ulgenBuildPanel() {
           <button type="button" class="ulgen-send" id="ulgen-ask-send" disabled title="${TH('feedback.send')}" aria-label="${TH('feedback.send')}">${IKON.send}</button>
         </div>
         <div class="ulgen-notes">
-          <p class="ulgen-note">${IKON.kilit}<span>${TH('ulgen.privacy')}</span></p>
+          <p class="ulgen-note">${IKON.kilit}<span id="ulgen-privacy">${TH('ulgen.privacy')}</span></p>
           <p class="ulgen-note" id="ulgen-account-note">${IKON.kilit}<span>${TH('ulgen.account')}</span></p>
         </div>
       </div>

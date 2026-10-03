@@ -12,7 +12,7 @@
  *  - soon:    henüz olmayan izinler (senkron türleri, Ülgen hesap/öneri/geliştirme); anahtar
  *             kapalı ve dokunulamaz görünür, değeri kayda girmez.
  *
- * dest: verinin gittiği yer (rozet) — device | ilgezdi | github | qrtim | ulgen.
+ * dest: verinin gittiği yer (rozet) — device | ilgezdi | github | qrtim | ulgen | web.
  * requires: üst izin kapalıyken bu izin açılamaz; üst izin kapanınca bu da kapanır.
  */
 (function (root, factory) {
@@ -50,6 +50,11 @@
     { id: 'ulgenPage',           section: 'ulgen',   consent: true, def: false, dest: 'device', requires: 'ulgenChat' },
     { id: 'ulgenHistory',        section: 'ulgen',   consent: true, def: false, dest: 'device', requires: 'ulgenChat' },
     { id: 'ulgenInterests',      section: 'ulgen',   consent: true, def: false, dest: 'device', requires: 'ulgenChat' },
+    // İnternette araştırma (Burak, 24 Eyl 2026: ayrı izin, varsayılan kapalı). Genel
+    // bir soruda soru bu bilgisayarın KENDİ bağlantısından DuckDuckGo'da (sonuç yoksa
+    // Vikipedi'de) aranır, sayfalar çerezsiz geçici oturumda açılır. Sorunun gittiği
+    // yer İlgezdi değil üçüncü taraf; rozet bunu söyler (dest: 'web').
+    { id: 'ulgenResearch',       section: 'ulgen',   consent: true, def: false, dest: 'web', requires: 'ulgenChat' },
     // Çeviri: sayfa metni cihazdan çıkmaz, ama dil paketi İlgezdi sunucusundan iner.
     { id: 'ulgenTranslate',      section: 'ulgen',   consent: true, def: false, dest: 'ilgezdi', requires: 'ulgenPage' },
     // Ana Ülgen'in istediği sayfaları İlgezdi TEMİZ bir oturumda açar (çerezsiz,

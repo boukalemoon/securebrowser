@@ -1742,5 +1742,15 @@
   "ulgen.res.busy2": "Reading the pages and comparing sources…",
   "ulgen.res.err.noSource": "I could not find a readable source for this question. I will not make things up; try rewording your question.",
   "ulgen.res.err.noText": "I could not extract any text answering this question from the pages I opened. I will not invent a sentence without a source — that is why I came back empty.",
-  "ulgen.res.err.offTopic": "The pages I found were not about your subject. I will not present an unrelated source as an answer; write the question a bit more precisely and I will look again."
+  "ulgen.res.err.offTopic": "The pages I found were not about your subject. I will not present an unrelated source as an answer; write the question a bit more precisely and I will look again.",
+  "data.item.ulgenResearch.title": "Research on the web",
+  "data.item.ulgenResearch.desc": "When you ask Ülgen a general question, it looks for the answer on the web: your question is searched on DuckDuckGo (or on Wikipedia if nothing comes up) over this computer's own connection, the pages found are opened in a cookie-free temporary session, and the answer is written with its sources. Your question does not go to İlgezdi's server; your session and history are not used.",
+  "data.dest.web": "DuckDuckGo · Wikipedia",
+  "ulgen.err.researchOff": "Web research is off. To let me look for answers to general questions on the web, turn on “Research on the web” in Data and Privacy. Summarizing and finding on the open page work without this permission.",
+  "ulgen.localOnline": "On this device · Research on",
+  "ulgen.localWhyOnline": "How does research work?",
+  "ulgen.privacyOnline": "Ülgen runs on this device; the page text and your history are never sent to any server. Web research is on: when you ask a general question, only your question is searched on DuckDuckGo (or Wikipedia if needed).",
+  "ulgen.info.deviceBodyOnline": "Summarizing, finding on the page and searching your history happen on your computer; the page text and your history are never sent to any server.",
+  "ulgen.info.webTitleOnline": "Research over your connection",
+  "ulgen.info.webBodyOnline": "When you ask a general question, Ülgen searches for it on DuckDuckGo over this computer's own internet connection (on Wikipedia if nothing comes up). The pages found are opened in a cookie-free temporary session; your session and history are not used. Your question does not go to İlgezdi's server. To turn it off: Data and Privacy › Ülgen."
 }
