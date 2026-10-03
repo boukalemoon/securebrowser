@@ -22,5 +22,3 @@ site/lists/
 build/win-hello/*.exe
 
 .claude/settings.local.json
-
-.claude/settings.local.json

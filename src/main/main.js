@@ -3254,7 +3254,7 @@ ipcMain.handle('show-notification', (e, { title, body }) => {
   if (config.notifications === false || config.vpnNotify === false) return;
   const { Notification } = require('electron');
   if (Notification.isSupported()) {
-    new Notification({ title, body, icon: path.join(__dirname, '../renderer/assets/ilgezdi-logo.png') }).show();
+    new Notification({ title, body, icon: path.join(__dirname, '../renderer/assets/logo-mark.png') }).show();
   }
 });
 
@@ -3754,7 +3754,7 @@ function panelUnreadGuncelle(win, panel, sayi) {
         new Notification({
           title: panel.title || webPanels.titleFor(panel.url),
           body: T('webpanel.unreadNotify', { count: sayi }),
-          icon: path.join(__dirname, '../renderer/assets/ilgezdi-logo.png'),
+          icon: path.join(__dirname, '../renderer/assets/logo-mark.png'),
         }).show();
       }
     } catch {}
@@ -4239,7 +4239,7 @@ app.whenReady().then(async () => {
           new Notification({
             title: T('notify.vpnDropped.title'),
             body:  T('notify.vpnDropped.body'),
-            icon:  path.join(__dirname, '../renderer/assets/ilgezdi-logo.png'),
+            icon:  path.join(__dirname, '../renderer/assets/logo-mark.png'),
           }).show();
         }
       } catch {}
