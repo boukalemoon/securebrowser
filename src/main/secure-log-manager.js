@@ -27,6 +27,8 @@ class SecureLogManager {
     this.canEncrypt   = false;
     this.key          = null;
     this.logs         = [];
+    // Açılışta günlükle ilgili olaylar (tanılama için): YALNIZ tür + bayt sayısı; adres/başlık ASLA.
+    this.yuklemeOlaylari = [];
   }
 
   static create(userDataPath) {
@@ -37,6 +39,7 @@ class SecureLogManager {
     this.canEncrypt = await osCrypto.isAvailable();
     this.key        = this.canEncrypt ? await this._loadOrCreateKey() : null;
     this._loadLogs();
+    this._bozuklariKurtar();
     this._eskiSenkronKuyrugunuSil();
     return this;
   }
@@ -134,24 +137,73 @@ class SecureLogManager {
     fs.renameSync(tmp, target);
   }
 
+  // ⛔ ESKİ HATA (Burak'ın geçmişi iki kez "bozuk" sayıldı: 23.09 ve 04.10, ÖLÇÜLDÜ):
+  //    biçim İLK BAYTA bakılarak seçiliyordu — '[' ya da '{' ise "şifresiz JSON" sayılıyordu.
+  //    Şifreli dosya RASTGELE 16 baytlık IV ile başlar; IV'nin ilk baytı her kayıtta 2/256
+  //    (~%0,8) olasılıkla 0x5b/0x7b olur → JSON.parse düşer → SAĞLAM dosya kenara alınır,
+  //    geçmiş boş başlar. İki bozuk dosyanın da ilk baytı 0x7b idi.
+  //    Doğrusu: anahtar varsa ÖNCE şifre çöz (GCM etiketi yanlış anahtarı/bozulmayı kesin
+  //    söyler); JSON yalnız eski şifresiz dosya için yedek yol.
+  _cozumle(buffer) {
+    const jsonGibi = buffer[0] === 0x5b /* [ */ || buffer[0] === 0x7b /* { */;
+    if (this.key) {
+      try { return { logs: this._decrypt(buffer), sifreli: true }; } catch (e) {
+        if (!jsonGibi) throw e;
+      }
+    }
+    return { logs: JSON.parse(buffer.toString('utf8')), sifreli: false };
+  }
+
   _loadLogs() {
     try {
       if (!fs.existsSync(this.logsPath)) return;
       const buffer = fs.readFileSync(this.logsPath);
       if (!buffer.length) return;
-      // Şifreli format iv(16)+tag(16)+ct ile başlar; şifresiz format JSON'dur.
-      const isJson = buffer[0] === 0x5b /* [ */ || buffer[0] === 0x7b /* { */;
-      this.logs = isJson
-        ? JSON.parse(buffer.toString('utf8'))
-        : this._decrypt(buffer);
-      if (!Array.isArray(this.logs)) this.logs = [];
-      console.log(`[SecureLog] ${this.logs.length} log yüklendi (şifreli: ${!isJson})`);
+      const { logs, sifreli } = this._cozumle(buffer);
+      this.logs = Array.isArray(logs) ? logs : [];
+      console.log(`[SecureLog] ${this.logs.length} log yüklendi (şifreli: ${sifreli})`);
     } catch (e) {
       console.warn('[SecureLog] Log yüklenemedi, sıfırlanıyor:', e.message);
+      this.yuklemeOlaylari.push({ tur: 'gunluk_acilamadi', sebep: /auth|tag/i.test(e.message) ? 'anahtar_ya_da_bozulma' : 'bicim', bayt: fs.statSync(this.logsPath).size });
       // Bir sonraki kayıt dosyanın üzerine yazacak: çözülemeyen geçmiş önce saklanır.
       try { fs.copyFileSync(this.logsPath, this.logsPath + '.bozuk-' + Date.now()); } catch {}
       this.logs = [];
     }
+  }
+
+  // Kenara alınmış ".bozuk-*" günlükleri bugünkü anahtarla yeniden dener. Açılanlar
+  // kimlikle tekilleştirilip geçmişe katılır ve dosya ".kurtarildi-*" diye adlandırılır
+  // (silinmez). Açılamayan dokunulmadan kalır. Her açılışta yalnız henüz denenmemiş
+  // (.bozuk-) dosyalar denenir; maliyet: dosya başına bir okuma + bir şifre çözme.
+  _bozuklariKurtar() {
+    let dosyalar = [];
+    try {
+      const ad = path.basename(this.logsPath) + '.bozuk-';
+      dosyalar = fs.readdirSync(this.userDataPath).filter((f) => f.startsWith(ad));
+    } catch { return 0; }
+    if (!dosyalar.length) return 0;
+    const gorulen = new Set(this.logs.map((l) => l && l.id));
+    let eklenen = 0;
+    for (const f of dosyalar) {
+      const tam = path.join(this.userDataPath, f);
+      try {
+        const { logs } = this._cozumle(fs.readFileSync(tam));
+        if (!Array.isArray(logs)) throw new Error('dizi değil');
+        for (const l of logs) {
+          if (l && l.url && !gorulen.has(l.id)) { this.logs.push(l); gorulen.add(l.id); eklenen++; }
+        }
+        fs.renameSync(tam, tam.replace('.bozuk-', '.kurtarildi-'));
+        this.yuklemeOlaylari.push({ tur: 'gunluk_kurtarildi', kayit: logs.length, bayt: fs.statSync(tam.replace('.bozuk-', '.kurtarildi-')).size });
+      } catch (e) {
+        this.yuklemeOlaylari.push({ tur: 'gunluk_kurtarilamadi', sebep: /auth|tag/i.test(e.message) ? 'anahtar_ya_da_bozulma' : 'bicim' });
+      }
+    }
+    if (eklenen) {
+      this.logs.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+      if (this.logs.length > 10000) this.logs = this.logs.slice(0, 10000);
+      this.saveLogs();
+    }
+    return eklenen;
   }
 
   saveLogs() {

@@ -3664,7 +3664,7 @@ suite('Windows uygulama kimliği — kurulu sürüm ve geliştirme kopyası ayr�
 //    geçmez, zaten hiçbiri Electron istemiyor (saf mantık sınamaları).
 suite('Kardeş sınama dosyaları — npm test hepsini koşar');
 {
-  const KARDES = ['alaka.js', 'tablo.js', 'web-ara.js', 'google-giris.js', 'yerlesim.js', 'guven.js', 'ceviri.js', 'ozet-sayi.js', 'profil.js'];
+  const KARDES = ['alaka.js', 'tablo.js', 'web-ara.js', 'google-giris.js', 'yerlesim.js', 'guven.js', 'ceviri.js', 'ozet-sayi.js', 'profil.js', 'gunluk.js'];
   const renksiz = (x) => String(x).replace(/\x1b\[[0-9;]*m/g, '');
   for (const ad of KARDES) {
     const yol = path.join(__dirname, ad);
