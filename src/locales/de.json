@@ -1786,5 +1786,12 @@
   "settings.layout.pos.right": "Rechts",
   "settings.layout.pos.bottom": "Unten",
   "settings.layout.pos.top": "Oben",
-  "settings.layout.pos.auto": "Ausgeblendet (öffnet beim Überfahren)"
+  "settings.layout.pos.auto": "Ausgeblendet (öffnet beim Überfahren)",
+  "settings.googleLogin.title": "Mit Google anmelden (Test)",
+  "settings.googleLogin.label": "Anmeldemethode",
+  "settings.googleLogin.hint": "Vorübergehende Testeinstellung für die Warnung „Dieser Browser oder diese App ist möglicherweise nicht sicher“ bei YouTube und anderen Google-Diensten. Wird nur auf der Google-Anmeldeseite angewendet; auf anderen Websites ändert sich nichts. Methode wählen, Speichern drücken und die Google-Anmeldung erneut versuchen.",
+  "settings.googleLogin.mode.firefox": "Als Firefox erscheinen",
+  "settings.googleLogin.mode.chrome": "Als Chrome erscheinen",
+  "settings.googleLogin.mode.edge": "Als Edge erscheinen",
+  "settings.googleLogin.mode.kapali": "Aus (keine Änderung)"
 }

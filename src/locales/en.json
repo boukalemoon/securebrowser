@@ -1798,5 +1798,12 @@
   "settings.layout.pos.right": "Right",
   "settings.layout.pos.bottom": "Bottom",
   "settings.layout.pos.top": "Top",
-  "settings.layout.pos.auto": "Hidden (opens on hover)"
+  "settings.layout.pos.auto": "Hidden (opens on hover)",
+  "settings.googleLogin.title": "Sign in with Google (trial)",
+  "settings.googleLogin.label": "Sign-in method",
+  "settings.googleLogin.hint": "Temporary trial setting for the \"This browser or app may not be secure\" warning on YouTube and other Google services. Applied only on the Google sign-in page; nothing changes on other sites. Pick a method, press Save, then try signing in to Google again.",
+  "settings.googleLogin.mode.firefox": "Appear as Firefox",
+  "settings.googleLogin.mode.chrome": "Appear as Chrome",
+  "settings.googleLogin.mode.edge": "Appear as Edge",
+  "settings.googleLogin.mode.kapali": "Off (no change)"
 }

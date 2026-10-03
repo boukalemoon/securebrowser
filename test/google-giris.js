@@ -4,12 +4,13 @@
  *
  * Çalıştır:  node test/google-giris.js   (npm test de koşar)
  *
- * ⛔ NEDEN VAR (Burak, 03.10.2026): YouTube'da Google ile oturum açarken Google
- *    "Bu tarayıcı veya uygulama güvenli olmayabilir" diyerek girişi reddediyordu.
- *    Çözüm yalnız Google giriş sayfasında tutarlı bir Firefox kimliği. Bu sınama
- *    iki şeyi birlikte kilitler: giriş ÇALIŞSIN diye kimlik her katmanda aynı
- *    olsun, ve istisna giriş sayfasının DIŞINA taşmasın (YouTube'un kendisi,
- *    Google araması, benzer görünen alan adları Chrome kimliğinde ve kalkanlı kalır).
+ * ⛔ NEDEN VAR (Burak, 03-04.10.2026): YouTube'da Google ile oturum açarken Google
+ *    "Bu tarayıcı veya uygulama güvenli olmayabilir" diyor. İlk deneme (JS ile
+ *    navigator taklidi) kimlik sayfasını geçti, sonraki adımda reddedildi. Şimdi
+ *    kimlik tarayıcının yerel geçersiz kılmasıyla veriliyor ve dört deneme kipi var.
+ *    Bu sınama kilitler: (1) her kipte başlık, navigator ve istemci ipuçları AYNI
+ *    tarayıcıyı anlatır; (2) istisna giriş sayfasının DIŞINA taşmaz; (3) JS taklidi
+ *    geri gelmez.
  */
 const G = require('../src/main/google-giris.js');
 
@@ -19,69 +20,75 @@ const ol = (ad, k, d) => {
   else { kalan++; console.log(`  \x1b[31m✗ ${ad}\x1b[0m${d !== undefined ? '  → ' + d : ''}`); }
 };
 const g = (x) => JSON.stringify(x);
+const ORTAM = { platform: 'win32', chromeSurumu: '152.0.7977.78', simdi: Date.UTC(2026, 9, 4) };
 
-// ── 1. Kapsam: yalnız giriş sayfası ───────────────────────────────────────
+// ── 1. Kapsam ─────────────────────────────────────────────────────────────
 console.log('\n\x1b[1m1) Kapsam — istisna yalnız Google giriş sayfasında\x1b[0m');
 {
-  ol('accounts.google.com giriş sayfası', G.girisSayfasiMi('https://accounts.google.com/v3/signin/identifier?continue=https%3A%2F%2Fwww.youtube.com'));
-  ol('accounts.youtube.com (YouTube oturum eşitlemesi)', G.girisSayfasiMi('https://accounts.youtube.com/accounts/SetSID'));
+  ol('accounts.google.com ve accounts.youtube.com', G.girisSayfasiMi('https://accounts.google.com/v3/signin/challenge/pk') && G.girisSayfasiMi('https://accounts.youtube.com/accounts/SetSID'));
   const DISARI = ['https://www.youtube.com/', 'https://www.google.com/search?q=x', 'https://mail.google.com/',
                   'https://myaccount.google.com/', 'http://accounts.google.com/', 'https://accounts.google.com.kotu.com/',
                   'https://kotu.com/accounts.google.com', 'javascript:alert(1)', '', null];
   ol('⛔ YouTube, Google arama, Gmail, http://, benzer görünen alan adı: istisna YOK',
      DISARI.every((u) => !G.girisSayfasiMi(u)), g(DISARI.filter((u) => G.girisSayfasiMi(u))));
-}
-
-// ── 2. Firefox kimliği ────────────────────────────────────────────────────
-console.log('\n\x1b[1m2) Firefox kimliği — güncel, gerçekçi\x1b[0m');
-{
-  ol('taban: 2024-07-09 → 128', G.firefoxSurumu(Date.UTC(2024, 6, 9)) === 128);
-  ol('dört haftada bir artıyor, bir eksiği alınıyor', G.firefoxSurumu(Date.UTC(2025, 6, 9)) === 128 + 13 - 1, G.firefoxSurumu(Date.UTC(2025, 6, 9)));
-  ol('geçmiş tarihte tabanın altına inmiyor', G.firefoxSurumu(Date.UTC(2020, 0, 1)) === 128);
-  const uaW = G.firefoxUA('win32', Date.UTC(2026, 9, 3));
-  ol('Windows biçimi gerçek Firefox gibi', uaW === 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:156.0) Gecko/20100101 Firefox/156.0', uaW);
-  ol('macOS ve Linux biçimleri', /Macintosh; Intel Mac OS X 10\.15; rv:\d+\.0\) Gecko\/20100101 Firefox\/\d+\.0$/.test(G.firefoxUA('darwin'))
-     && /\(X11; Linux x86_64; rv:\d+\.0\) Gecko\/20100101 Firefox\/\d+\.0$/.test(G.firefoxUA('linux')));
-  ol('Electron ya da Chrome izi yok', !/Electron|Chrome|İlgezdi|Ilgezdi/i.test(G.firefoxUA()));
-}
-
-// ── 3. Hangi istek Firefox kimliğiyle gider ───────────────────────────────
-console.log('\n\x1b[1m3) İstek kararı — başlıklar arası tutarlılık\x1b[0m');
-{
   const GIRIS = 'https://accounts.google.com/v3/signin';
-  ol('giriş sayfasının kendi isteği', G.firefoxKimligiMi(GIRIS, 'https://www.youtube.com/', 'mainFrame'));
-  ol('giriş sayfasının yüklediği alt kaynak (gstatic)', G.firefoxKimligiMi('https://ssl.gstatic.com/x.js', GIRIS, 'script'));
-  ol('⛔ girişten YouTube\'a DÖNÜŞ isteği Chrome kimliğiyle', !G.firefoxKimligiMi('https://www.youtube.com/', GIRIS, 'mainFrame'));
-  ol('YouTube sayfasındaki alt kaynak Chrome kimliğiyle', !G.firefoxKimligiMi('https://i.ytimg.com/a.jpg', 'https://www.youtube.com/', 'image'));
+  ol('giriş sayfası isteği ve onun alt kaynakları giriş kimliğiyle',
+     G.girisIstegiMi(GIRIS, 'https://www.youtube.com/', 'mainFrame') && G.girisIstegiMi('https://ssl.gstatic.com/x.js', GIRIS, 'script'));
+  ol('⛔ girişten YouTube\'a dönüş ve YouTube\'un kendi kaynakları normal kimlikle',
+     !G.girisIstegiMi('https://www.youtube.com/', GIRIS, 'mainFrame') && !G.girisIstegiMi('https://i.ytimg.com/a.jpg', 'https://www.youtube.com/', 'image'));
 }
 
-// ── 4. Başlıklar ──────────────────────────────────────────────────────────
-console.log('\n\x1b[1m4) Başlıklar — Firefox istemci ipucu göndermez\x1b[0m');
+// ── 2. Kipler ─────────────────────────────────────────────────────────────
+console.log('\n\x1b[1m2) Deneme kipleri\x1b[0m');
 {
-  const ua = G.firefoxUA('win32');
-  const h = G.basliklariCevir({ 'User-Agent': 'Mozilla/5.0 … Chrome/140', 'sec-ch-ua': '"Chromium";v="140"',
-    'Sec-CH-UA-Mobile': '?0', 'sec-ch-ua-platform': '"Windows"', 'Sec-GPC': '1', Accept: 'text/html' }, ua);
-  ol('tüm Sec-CH-UA* başlıkları silindi (büyük/küçük harf fark etmez)', !Object.keys(h).some((k) => /^sec-ch-ua/i.test(k)), g(Object.keys(h)));
-  ol('tek bir User-Agent var ve Firefox', Object.keys(h).filter((k) => /^user-agent$/i.test(k)).length === 1 && h['User-Agent'] === ua);
-  ol('diğer başlıklar (Sec-GPC dahil) korunuyor', h['Sec-GPC'] === '1' && h.Accept === 'text/html');
+  ol('dört kip, varsayılan firefox, bilinmeyen değer varsayılana düşer',
+     g(G.KIPLER) === g(['firefox', 'chrome', 'edge', 'kapali']) && G.kipDuzelt('xyz') === 'firefox' && G.kipDuzelt(undefined) === 'firefox' && G.kipDuzelt('__proto__') === 'firefox');
+  ol('kapali → kimlik yok (hiçbir şey değişmez)', G.kimlik('kapali', ORTAM) === null);
+
+  const f = G.kimlik('firefox', ORTAM);
+  ol('firefox: gerçek Firefox UA, istemci ipucu ve userAgentData yok',
+     f.userAgent === 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:156.0) Gecko/20100101 Firefox/156.0' && f.metadata === null && f.basliklar === null, f.userAgent);
+
+  const c = G.kimlik('chrome', ORTAM);
+  ol('chrome: KISALTILMIŞ UA (gerçek Chrome gibi "152.0.0.0", tam sürüm değil)',
+     c.userAgent === 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36', c.userAgent);
+  ol('chrome: istemci ipuçlarında "Google Chrome" markası, Electron/İlgezdi YOK',
+     c.metadata.brands.some((b) => b.brand === 'Google Chrome' && b.version === '152') && !/Electron|lgezdi/i.test(g(c)));
+  ol('chrome: başlık ipuçları ile userAgentData aynı markaları anlatıyor',
+     c.basliklar['Sec-CH-UA'] === c.metadata.brands.map((b) => `"${b.brand}";v="${b.version}"`).join(', ')
+     && c.basliklar['Sec-CH-UA-Platform'] === `"${c.metadata.platform}"` && c.basliklar['Sec-CH-UA-Mobile'] === '?0');
+  ol('chrome: tam sürüm yalnız fullVersionList\'te (gerçek Chrome gibi)',
+     c.metadata.fullVersion === '152.0.7977.78' && c.metadata.fullVersionList.some((b) => b.brand === 'Google Chrome' && b.version === '152.0.7977.78'));
+
+  const e = G.kimlik('edge', ORTAM);
+  ol('edge: UA sonunda "Edg/152.0.0.0", markada "Microsoft Edge", Chrome markası yok',
+     e.userAgent.endsWith(' Edg/152.0.0.0') && e.metadata.brands.some((b) => b.brand === 'Microsoft Edge') && !e.metadata.brands.some((b) => b.brand === 'Google Chrome'));
+  ol('macOS ve Linux platform adları', G.kimlik('chrome', { ...ORTAM, platform: 'darwin' }).metadata.platform === 'macOS' && G.kimlik('chrome', { ...ORTAM, platform: 'linux' }).metadata.platform === 'Linux');
 }
 
-// ── 5. Sayfa içi kimlik başlıkla aynı ─────────────────────────────────────
-console.log('\n\x1b[1m5) Sayfa içi kimlik — başlıkla aynı\x1b[0m');
+// ── 3. Başlıklar ve yerel geçersiz kılma parametreleri ────────────────────
+console.log('\n\x1b[1m3) Başlıklar ve yerel geçersiz kılma — aynı kimlik\x1b[0m');
 {
-  const ua = G.firefoxUA('win32');
-  const N = { userAgentData: { brands: [{ brand: 'Chromium' }] } };
-  Object.defineProperty(N, 'userAgentData', { value: N.userAgentData, configurable: true, writable: true });
-  const betik = G.anaDunyaBetigi(ua);
-  new Function('Navigator', betik)({ prototype: N });
-  ol('navigator.userAgent başlıktaki UA ile aynı', N.userAgent === ua, N.userAgent);
-  ol('appVersion "Mozilla/" olmadan', N.appVersion === ua.slice(8));
-  ol('vendor boş, productSub 20100101 (Firefox değerleri)', N.vendor === '' && N.productSub === '20100101');
-  ol('navigator.userAgentData kaldırıldı (Firefox\'ta yok)', !('userAgentData' in N));
-  ol('betik değer döndürmüyor (executeJavaScript seri hale getirmesin)', betik.endsWith('void 0;'));
-  ol('UA metni betiğe kaçışlı giriyor (tırnak betiği kıramaz)', (() => {
-    const N2 = {}; new Function('Navigator', G.anaDunyaBetigi('a"b\'c'))({ prototype: N2 }); return N2.userAgent === 'a"b\'c';
-  })());
+  const ELECTRON = { 'User-Agent': 'Mozilla/5.0 … Chrome/152.0.7977.78 Safari/537.36', 'sec-ch-ua': '"Chromium";v="152", "Not-A.Brand";v="24"',
+    'Sec-CH-UA-Mobile': '?0', 'sec-ch-ua-platform': '"Windows"', 'Sec-GPC': '1', Accept: 'text/html' };
+  const f = G.basliklariCevir(ELECTRON, G.kimlik('firefox', ORTAM));
+  ol('firefox: Electron\'un ipuçları silindi, tek User-Agent ve Firefox', !Object.keys(f).some((k) => /^sec-ch-ua/i.test(k))
+     && Object.keys(f).filter((k) => /^user-agent$/i.test(k)).length === 1 && /Firefox\/156\.0$/.test(f['User-Agent']));
+  const ck = G.kimlik('chrome', ORTAM);
+  const c = G.basliklariCevir(ELECTRON, ck);
+  ol('chrome: Electron ipuçları yerine Chrome ipuçları; tek kopya',
+     Object.keys(c).filter((k) => /^sec-ch-ua$/i.test(k)).length === 1 && c['Sec-CH-UA'].includes('"Google Chrome"'));
+  ol('Sec-GPC ve diğer başlıklar korunuyor', f['Sec-GPC'] === '1' && c.Accept === 'text/html');
+  ol('yerel geçersiz kılma (CDP) başlıkla AYNI UA ve aynı markalar',
+     g(G.cdpParametreleri(ck)) === g({ userAgent: ck.userAgent, userAgentMetadata: ck.metadata })
+     && g(G.cdpParametreleri(G.kimlik('firefox', ORTAM))) === g({ userAgent: G.kimlik('firefox', ORTAM).userAgent }));
+}
+
+// ── 4. JS taklidi geri gelmesin ───────────────────────────────────────────
+console.log('\n\x1b[1m4) JS taklidi yok\x1b[0m');
+{
+  ol('modülde sayfaya enjekte edilen navigator betiği yok (ilk denemenin izi)',
+     !('anaDunyaBetigi' in G) && !/defineProperty\(N|Navigator\.prototype/.test(require('fs').readFileSync(require.resolve('../src/main/google-giris.js'), 'utf8').replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, '')));
 }
 
 console.log(`\n${kalan ? '\x1b[31m' : '\x1b[32m'}SONUÇ: ${gecen} geçti · ${kalan} kaldı\x1b[0m`);

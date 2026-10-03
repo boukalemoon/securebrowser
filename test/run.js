@@ -1463,7 +1463,7 @@ suite('Keşfet — TrendTech yazılımları');
     const fields = [...spJs.matchAll(/^\s*'([\w-]+)':\s*\['(\w+)', '(value|checked)'\]/gm)];
     const valuesFn = spJs.slice(spJs.indexOf('function formValuesFrom'), spJs.indexOf('function initFormState'));
     check('form alan listesi sekmelerdeki kimliklerle ve varsayılan değerlerle eşleşiyor',
-      fields.length === 22
+      fields.length === 23
       && fields.every(([, id]) => spJs.includes(`id="${id}"`) || spJs.includes(`row('${id}'`))
       && fields.every(([, , key]) => new RegExp(`\\n\\s*${key}:\\s`).test(valuesFn)), fields.length);
 
@@ -3581,26 +3581,49 @@ suite('Ülgen araması — yerel/bizim sunucumuz yok, görev sayfası yolundan')
 //    girişi reddediyordu. Çözüm yalnız giriş sayfasında tutarlı Firefox kimliği
 //    (google-giris.js). Bu süit bağlantının yerinde durmasını ve istisnanın giriş
 //    sayfası DIŞINA taşmamasını kaynakta kilitler.
-suite('Google ile giriş — yalnız giriş sayfasında tutarlı Firefox kimliği');
+suite('Google ile giriş — yerel kimlik geçersiz kılma, deneme kipleri');
 {
   const m = read('../src/main/main.js');
   const baslik = (m.match(/ses\.webRequest\.onBeforeSendHeaders\(\(details, callback\) => \{[\s\S]*?\n  \}\);/) || [''])[0];
-  check('başlık kancası Google giriş isteklerini Firefox kimliğine çeviriyor (sekme adresi + kaynak türüyle)',
-    /googleGiris\.firefoxKimligiMi\(details\.url, sekmeUrl, details\.resourceType\)/.test(baslik)
-    && /googleGiris\.basliklariCevir\(headers, GOOGLE_GIRIS_UA\)/.test(baslik));
+  check('başlık kancası giriş isteklerini kipin kimliğine çeviriyor (sekme adresi + kaynak türüyle)',
+    /const gk = googleGirisKimligi\(\);/.test(baslik)
+    && /googleGiris\.girisIstegiMi\(details\.url, sekmeUrl, details\.resourceType\)/.test(baslik)
+    && /googleGiris\.basliklariCevir\(headers, gk\)/.test(baslik));
   check('Sec-GPC ve DNT, kimlik çevrilmeden ÖNCE ekleniyor (girişte de gizlilik başlıkları gidiyor)',
     baslik.indexOf("headers['Sec-GPC'] = '1'") > 0 && baslik.indexOf("headers['Sec-GPC'] = '1'") < baslik.indexOf('basliklariCevir'));
   const fp = (m.match(/function fingerprintScriptFor[\s\S]*?\n\}/) || [''])[0];
-  check('giriş sayfasında gürültü yok ve sayfa içi kimlik başlıkla aynı UA',
-    /if \(googleGiris\.girisSayfasiMi\(topUrl\)\) return shieldScript\(\{ farble: false, seed: '' \}\) \+ googleGiris\.anaDunyaBetigi\(GOOGLE_GIRIS_UA\);/.test(fp));
-  check('istisna kalkan kararından SONRA ve yalnız giriş adresi için; genel kalkan satırı değişmedi',
+  check('giriş sayfasında gürültü yok; sayfaya JS ile kimlik ENJEKTE EDİLMİYOR (ilk denemenin hatası)',
+    /if \(googleGirisKimligi\(\) && googleGiris\.girisSayfasiMi\(topUrl\)\) return shieldScript\(\{ farble: false, seed: '' \}\);/.test(fp)
+    && !/anaDunyaBetigi|GOOGLE_GIRIS_UA/.test(m));
+  check('istisna kalkan kararından SONRA; genel kalkan satırı değişmedi',
     fp.indexOf('const farble = web && config.fingerprintShield !== false && !isWhitelisted(topUrl, topUrl);') > 0
     && fp.indexOf('const farble') < fp.indexOf('googleGiris.girisSayfasiMi(topUrl)'));
-  check('sekmelerin genel UA\'sı hâlâ temiz Chrome; Firefox kimliği tek bir sabitte',
-    /app\.userAgentFallback = CLEAN_UA;/.test(m) && /const GOOGLE_GIRIS_UA = googleGiris\.firefoxUA\(\);/.test(m)
-    && (m.match(/GOOGLE_GIRIS_UA/g) || []).length === 3);
+  const sekme = (m.match(/async function googleGirisSekmesi[\s\S]*?\n\}/) || [''])[0];
+  check('sekme kimliği tarayıcının YEREL geçersiz kılmasıyla (CDP), giriş dışında bırakılıyor',
+    /wc\.debugger\.sendCommand\('Emulation\.setUserAgentOverride', googleGiris\.cdpParametreleri\(gk\)\)/.test(sekme)
+    && /if \(wc\.debugger\.isAttached\(\)\) wc\.debugger\.detach\(\);/.test(sekme));
+  check('sekme olayları bağlı: gezinti başlarken/yönlendirmede uygula, sayfa açılınca doğrula',
+    /view\.webContents\.on\('did-start-navigation', googleGezinti\)/.test(m)
+    && /view\.webContents\.on\('did-redirect-navigation', googleGezinti\)/.test(m)
+    && /googleGirisDogrula\(view\.webContents, navUrl\)/.test(m));
+  const dogrula = (m.match(/async function googleGirisDogrula[\s\S]*?\n\}/) || [''])[0];
+  check('doğrulama tanılamaya ADRESSİZ yazıyor ve en fazla BİR KEZ yeniliyor',
+    /diag\.info\('google-giris', 'Giriş sayfası kimliği', \{ kip: gk\.kip, uyum, yenilendi \}\)/.test(dogrula)
+    && /if \(!yenilendi\) \{ googleGirisYenilenen\.add\(wc\); try \{ wc\.reload\(\); \} catch \{\} \}/.test(dogrula));
+  check('sekmelerin genel UA\'sı hâlâ temiz Chrome', /app\.userAgentFallback = CLEAN_UA;/.test(m));
+  check('kip ayarı: varsayılan firefox, kayıtta doğrulanıyor, cihaza özgü (senkron yok)',
+    /\n  googleLoginMode:\s+'firefox',/.test(m)
+    && m.includes("if ('googleLoginMode' in incoming) incoming.googleLoginMode = googleGiris.kipDuzelt(incoming.googleLoginMode);")
+    && !read('renderer/sync-manager.js').includes('googleLoginMode'));
+  const sp = read('renderer/settings-panel.js');
+  check('Ayarlar › Genel: dört kip, ana süreçle aynı liste',
+    sp.includes("const GOOGLE_LOGIN_MODES_UI = ['firefox', 'chrome', 'edge', 'kapali'];") && sp.includes('<select id="cfg-google-login">'));
   const G = require('../src/main/google-giris.js');
-  check('kapsam yalnız iki giriş adresi', [...G.GIRIS_HOSTLARI].sort().join(',') === 'accounts.google.com,accounts.youtube.com');
+  check('kapsam yalnız iki giriş adresi; kip listesi aynı',
+    [...G.GIRIS_HOSTLARI].sort().join(',') === 'accounts.google.com,accounts.youtube.com'
+    && G.KIPLER.join(',') === 'firefox,chrome,edge,kapali');
+  check('ziyaret günlüğü yükleme olayları tanılamaya yazılıyor (korumalı)',
+    m.includes("for (const o of (secureLog && secureLog.yuklemeOlaylari) || []) diag.warn('günlük', o.tur, o);"));
 }
 
 // ─── Yerleşim: kenar çubuğunun yeri ───────────────────────────────────────────

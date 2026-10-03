@@ -1714,5 +1714,12 @@
   "settings.layout.pos.right": "Оң",
   "settings.layout.pos.bottom": "Төмен",
   "settings.layout.pos.top": "Жоғары",
-  "settings.layout.pos.auto": "Жасырын (тінтуір келгенде ашылады)"
+  "settings.layout.pos.auto": "Жасырын (тінтуір келгенде ашылады)",
+  "settings.googleLogin.title": "Google арқылы кіру (сынақ)",
+  "settings.googleLogin.label": "Кіру тәсілі",
+  "settings.googleLogin.hint": "YouTube және басқа Google қызметтеріндегі «Бұл браузер қауіпсіз болмауы мүмкін» ескертуіне арналған уақытша сынақ параметрі. Тек Google кіру бетінде қолданылады; басқа сайттарда ештеңе өзгермейді. Тәсілді таңдап, Сақтау түймесін басыңыз, содан кейін Google-ға қайта кіріп көріңіз.",
+  "settings.googleLogin.mode.firefox": "Firefox ретінде көріну",
+  "settings.googleLogin.mode.chrome": "Chrome ретінде көріну",
+  "settings.googleLogin.mode.edge": "Edge ретінде көріну",
+  "settings.googleLogin.mode.kapali": "Өшірулі (өзгеріс жоқ)"
 }

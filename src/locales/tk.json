@@ -1720,5 +1720,12 @@
   "settings.layout.pos.right": "Sag",
   "settings.layout.pos.bottom": "Aşak",
   "settings.layout.pos.top": "Ýokary",
-  "settings.layout.pos.auto": "Gizlin (syçanjyk gelende açylýar)"
+  "settings.layout.pos.auto": "Gizlin (syçanjyk gelende açylýar)",
+  "settings.googleLogin.title": "Google bilen giriş (synag)",
+  "settings.googleLogin.label": "Giriş usuly",
+  "settings.googleLogin.hint": "YouTube we beýleki Google hyzmatlaryndaky “Bu brauzer howpsuz bolmazlygy mümkin” duýduryşy üçin wagtlaýyn synag sazlamasy. Diňe Google giriş sahypasynda ulanylýar; beýleki saýtlarda hiç zat üýtgemeýär. Usuly saýlap, Ýatda sakla düwmesine basyň, soňra Google girişini täzeden synap görüň.",
+  "settings.googleLogin.mode.firefox": "Firefox ýaly görün",
+  "settings.googleLogin.mode.chrome": "Chrome ýaly görün",
+  "settings.googleLogin.mode.edge": "Edge ýaly görün",
+  "settings.googleLogin.mode.kapali": "Öçük (üýtgeşme ýok)"
 }
