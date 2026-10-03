@@ -318,6 +318,7 @@ const SETTINGS_FIELDS = {
   'cfg-reduce-motion': ['reduceMotion', 'checked'],
   'cfg-high-contrast': ['highContrast', 'checked'],
   'cfg-vertical-tabs': ['verticalTabs', 'checked'],
+  'cfg-sidebar-pos':   ['sidebarPosition', 'value'],
   'cfg-block-autoplay': ['blockAutoplay', 'checked'],
   'cfg-clear-site-exit': ['clearSiteDataOnExit', 'checked'],
   'cfg-clear-history-exit': ['clearHistoryOnExit', 'checked'],
@@ -348,6 +349,7 @@ function formValuesFrom(cfg) {
     reduceMotion:           c.reduceMotion === true,
     highContrast:           c.highContrast === true,
     verticalTabs:           c.verticalTabs === true,
+    sidebarPosition:        SIDEBAR_POSITIONS_UI.includes(c.sidebarPosition) ? c.sidebarPosition : 'left',
     blockAutoplay:          c.blockAutoplay !== false,
     clearSiteDataOnExit:    c.clearSiteDataOnExit === true,
     clearHistoryOnExit:     c.clearHistoryOnExit === true,
@@ -362,6 +364,8 @@ const TAB_SLEEP_UI = [[0, 'settings.off'], [15, 'settings.tabSleep.15'], [30, 's
 
 // Ana süreçteki listelerle aynı (browser-commands.js → normalizePageZoom / normalizeMinFontSize).
 const PAGE_ZOOMS_UI = [0.8, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2];
+// Kenar çubuğunun yeri (Ayarlar › Görünüm › Yerleşim). Ana süreç aynı listeyle doğrular.
+const SIDEBAR_POSITIONS_UI = ['left', 'right', 'bottom', 'top', 'auto'];
 const MIN_FONTS_UI = [[0, null], [10, '10 px'], [12, '12 px'], [14, '14 px'], [16, '16 px'], [18, '18 px'], [20, '20 px'], [24, '24 px']];
 
 // Erişilebilirlik (Ayarlar › Özelleştir): arayüzde hareketi azalt ve yüksek karşıtlık.
@@ -517,6 +521,15 @@ function renderCustomizationTab(cfg) {
         <div><div class="s-toggle-label">${TH('settings.tabs.vertical')}</div><div class="s-toggle-sub">${TH('settings.tabs.verticalHint')}</div></div>
         <label class="switch"><input type="checkbox" id="cfg-vertical-tabs" ${cfg.verticalTabs === true ? 'checked' : ''}/><span class="slider"></span></label>
       </div>
+    </div>
+    <div class="settings-section"><h3>${TH('settings.layout.title')}</h3>
+      <div class="s-input-row">
+        <label for="cfg-sidebar-pos">${TH('settings.layout.sidebar')}</label>
+        <select id="cfg-sidebar-pos">
+          ${SIDEBAR_POSITIONS_UI.map((p) => `<option value="${p}" ${(cfg.sidebarPosition || 'left') === p ? 'selected' : ''}>${TH('settings.layout.pos.' + p)}</option>`).join('')}
+        </select>
+      </div>
+      <p class="s-hint">${TH('settings.layout.sidebarHint')}</p>
     </div>
     <div class="settings-section"><h3>${TH('settings.a11y.title')}</h3>
       <div class="s-input-row">

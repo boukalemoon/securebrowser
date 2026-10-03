@@ -1706,5 +1706,13 @@
   "ulgen.privacyOnline": "Ülgen shu qurilmada ishlaydi; sahifa matni va tarixingiz hech qanday serverga yuborilmaydi. Internetda tadqiqot yoqilgan: umumiy savol berganingizda faqat savolingiz DuckDuckGo'da (kerak boʻlsa Vikipediyada) qidiriladi.",
   "ulgen.info.deviceBodyOnline": "Qisqacha bayon, sahifada topish va tarixdan qidirish kompyuteringizda bajariladi; sahifa matni va tarixingiz hech qanday serverga yuborilmaydi.",
   "ulgen.info.webTitleOnline": "Tadqiqot sizning ulanishingiz orqali",
-  "ulgen.info.webBodyOnline": "Umumiy savol berganingizda Ülgen savolingizni shu kompyuterning oʻz internet ulanishi orqali DuckDuckGo'da qidiradi (natija chiqmasa Vikipediyada). Topilgan sahifalar cookie'siz, vaqtinchalik seansda ochiladi; seansingiz va tarixingiz ishlatilmaydi. Savolingiz İlgezdi serveriga bormaydi. Oʻchirish uchun: Maʼlumotlar va maxfiylik › Ülgen."
+  "ulgen.info.webBodyOnline": "Umumiy savol berganingizda Ülgen savolingizni shu kompyuterning oʻz internet ulanishi orqali DuckDuckGo'da qidiradi (natija chiqmasa Vikipediyada). Topilgan sahifalar cookie'siz, vaqtinchalik seansda ochiladi; seansingiz va tarixingiz ishlatilmaydi. Savolingiz İlgezdi serveriga bormaydi. Oʻchirish uchun: Maʼlumotlar va maxfiylik › Ülgen.",
+  "settings.layout.title": "Joylashuv",
+  "settings.layout.sidebar": "Yon panelning joyi",
+  "settings.layout.sidebarHint": "Tugmalar turadigan joy. Oʻngda boʻlsa, yon panellar chapdan ochiladi. Yashirin boʻlsa, chap chetda ingichka chiziq qoladi; sichqonchani u yerga olib borganda ochiladi va sahifani chetga suradi.",
+  "settings.layout.pos.left": "Chap",
+  "settings.layout.pos.right": "Oʻng",
+  "settings.layout.pos.bottom": "Past",
+  "settings.layout.pos.top": "Yuqori",
+  "settings.layout.pos.auto": "Yashirin (sichqoncha kelganda ochiladi)"
 }

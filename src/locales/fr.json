@@ -1793,5 +1793,13 @@
   "ulgen.privacyOnline": "Ülgen fonctionne sur cet appareil ; le texte de la page et votre historique ne sont envoyés à aucun serveur. La recherche sur le web est activée : lorsque vous posez une question générale, seule votre question est recherchée sur DuckDuckGo (ou Wikipédia si besoin).",
   "ulgen.info.deviceBodyOnline": "Le résumé, la recherche dans la page et la recherche dans l’historique se font sur votre ordinateur ; le texte de la page et votre historique ne sont envoyés à aucun serveur.",
   "ulgen.info.webTitleOnline": "La recherche passe par votre connexion",
-  "ulgen.info.webBodyOnline": "Lorsque vous posez une question générale, Ülgen la recherche sur DuckDuckGo via la propre connexion internet de cet ordinateur (sur Wikipédia si rien ne ressort). Les pages trouvées s’ouvrent dans une session temporaire sans cookies ; votre session et votre historique ne sont pas utilisés. Votre question ne va pas au serveur d’İlgezdi. Pour la désactiver : Données et confidentialité › Ülgen."
+  "ulgen.info.webBodyOnline": "Lorsque vous posez une question générale, Ülgen la recherche sur DuckDuckGo via la propre connexion internet de cet ordinateur (sur Wikipédia si rien ne ressort). Les pages trouvées s’ouvrent dans une session temporaire sans cookies ; votre session et votre historique ne sont pas utilisés. Votre question ne va pas au serveur d’İlgezdi. Pour la désactiver : Données et confidentialité › Ülgen.",
+  "settings.layout.title": "Disposition",
+  "settings.layout.sidebar": "Position de la barre latérale",
+  "settings.layout.sidebarHint": "Emplacement des boutons. À droite, les panneaux latéraux s’ouvrent depuis la gauche. Masquée, une fine bande reste au bord gauche ; amenez la souris dessus pour l’ouvrir, elle décale alors la page.",
+  "settings.layout.pos.left": "Gauche",
+  "settings.layout.pos.right": "Droite",
+  "settings.layout.pos.bottom": "Bas",
+  "settings.layout.pos.top": "Haut",
+  "settings.layout.pos.auto": "Masquée (s’ouvre au survol)"
 }

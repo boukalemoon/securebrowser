@@ -1458,7 +1458,7 @@ suite('Keşfet — TrendTech yazılımları');
     const fields = [...spJs.matchAll(/^\s*'([\w-]+)':\s*\['(\w+)', '(value|checked)'\]/gm)];
     const valuesFn = spJs.slice(spJs.indexOf('function formValuesFrom'), spJs.indexOf('function initFormState'));
     check('form alan listesi sekmelerdeki kimliklerle ve varsayılan değerlerle eşleşiyor',
-      fields.length === 21
+      fields.length === 22
       && fields.every(([, id]) => spJs.includes(`id="${id}"`) || spJs.includes(`row('${id}'`))
       && fields.every(([, , key]) => new RegExp(`\\n\\s*${key}:\\s`).test(valuesFn)), fields.length);
 
@@ -2561,17 +2561,20 @@ suite('Veri ve Gizlilik — ana süreç ve arayüz bağlantıları');
 suite('Sekmeler — dikey sekmeler ve etkin sekme şeridi');
 {
   const mj = read('main/main.js');
-  check('sayfa görünümü arayüzün bildirdiği sol kenardan başlıyor (doğrulanmış)',
-    /ipcMain\.on\('ui-layout'[\s\S]{0,200}if \(!Number\.isFinite\(left\) \|\| left < 0 \|\| left > 800\) return;\s*state\.leftInset = Math\.round\(left\);/.test(mj)
-    && /function contentRect\(win, state\) \{[\s\S]{0,200}const left = Number\.isFinite\(state\.leftInset\) \? state\.leftInset : SIDEBAR_WIDTH;/.test(mj)
-    && mj.includes('tab.view.setBounds(contentRect(win, state));'));
+  // Yerleşim özelleştirmesiyle (03.10.2026) sol kenar yerine DÖRT kenar bildiriliyor;
+  // doğrulama ve hesap yerlesim.js'te (test/yerlesim.js varsayılanın değişmediğini kilitler).
+  check('sayfa görünümü arayüzün bildirdiği içerik alanına yerleşiyor (doğrulanmış)',
+    /ipcMain\.on\('ui-layout'[\s\S]{0,250}const yer = yerlesim\.yerlesimDenetle\(layout, YERLESIM_YEDEK\);\s*if \(!yer\) return;\s*state\.yerlesim = yer;/.test(mj)
+    && /function contentRect\(win, state\) \{\s*return yerlesim\.icerikDikdortgeni\(win\.getContentBounds\(\), state\.yerlesim, state\.panelIsOpen, PANEL_WIDTH, YERLESIM_YEDEK\);/.test(mj)
+    && mj.includes('tab.view.setBounds(contentRect(win, state));') && !/leftInset/.test(mj));
   check('dikey sekme ayarları boolean olarak kaydediliyor ve senkronlanıyor',
     mj.includes("for (const k of ['verticalTabs', 'verticalTabsCollapsed']) if (k in incoming) incoming[k] = incoming[k] === true;")
     && read('renderer/sync-manager.js').includes("'fingerprintShield', 'verticalTabs',"));
   const app = read('renderer/app.js');
-  check('aynı sekme listesi ve düğmeler taşınıyor (olaylar korunur), sol kenar bildiriliyor',
-    /function applyTabLayout\(cfg\) \{[\s\S]{0,900}document\.getElementById\('vtabs-list'\)\?\.append\(tabs\);[\s\S]{0,120}strip\.append\(tabs, \.\.\.buttons\);[\s\S]{0,1200}reportContentLeft\(\);/.test(app)
-    && /sb\.setLayout\?\.\(\{ left: Math\.round\(area\.getBoundingClientRect\(\)\.left\) \}\)/.test(app));
+  check('aynı sekme listesi ve düğmeler taşınıyor (olaylar korunur), içerik alanının kenarları bildiriliyor',
+    /function applyTabLayout\(cfg\) \{[\s\S]{0,900}document\.getElementById\('vtabs-list'\)\?\.append\(tabs\);[\s\S]{0,120}strip\.append\(tabs, \.\.\.buttons\);[\s\S]{0,1300}reportContentRect\(\);/.test(app)
+    && /left: Math\.round\(r\.left\),\s*top: Math\.round\(r\.top\),/.test(app)
+    && /const yer = contentInsets\(\);\s*if \(yer\) sb\.setLayout\?\.\(yer\);/.test(app));
   check('dikeyde ok tuşları yukarı/aşağı da çalışıyor', app.includes("['ArrowRight', 'ArrowLeft', 'ArrowDown', 'ArrowUp', 'Home', 'End']"));
   const css = read('renderer/styles/main.css');
   check('etkin sekme: üstte tema renginde tek şerit; dikeyde sol kenarda; gizli pencerede mor',
@@ -3596,6 +3599,42 @@ suite('Google ile giriş — yalnız giriş sayfasında tutarlı Firefox kimliğ
   check('kapsam yalnız iki giriş adresi', [...G.GIRIS_HOSTLARI].sort().join(',') === 'accounts.google.com,accounts.youtube.com');
 }
 
+// ─── Yerleşim: kenar çubuğunun yeri ───────────────────────────────────────────
+// ⛔ NEDEN (Burak, 03.10.2026): menülerin yeri özelleştirilebilsin — kenar çubuğu sağ,
+//    alt, üst ya da gizli. Sayfa arayüzün ÜSTÜNDE çizildiği için yalnız CSS yetmez:
+//    arayüz içerik alanının kenarlarını bildirir, sayfa oraya taşınır. Varsayılan sol
+//    hiçbir sınıf eklemez (bugünkü görünüm aynen; piksel eşitliği test/yerlesim.js'te).
+suite('Yerleşim — kenar çubuğunun yeri');
+{
+  const m = read('../src/main/main.js');
+  const app = read('renderer/app.js');
+  const sp = read('renderer/settings-panel.js');
+  const css = read('renderer/styles/main.css');
+  const YERLER = ['left', 'right', 'bottom', 'top', 'auto'];
+  check('ayar: varsayılan sol, kayıtta beş değerden biri değilse sola düşüyor',
+    /\n  sidebarPosition:\s+'left',/.test(m)
+    && m.includes("const KENAR_CUBUGU_YERLERI = Object.freeze(['left', 'right', 'bottom', 'top', 'auto']);")
+    && m.includes("if ('sidebarPosition' in incoming) incoming.sidebarPosition = KENAR_CUBUGU_YERLERI.includes(incoming.sidebarPosition) ? incoming.sidebarPosition : 'left';"));
+  check('ayar cihaza özgü (senkronlanmıyor: ekran boyu cihazdan cihaza değişir)',
+    !read('renderer/sync-manager.js').includes('sidebarPosition'));
+  check('Ayarlar › Görünüm › Yerleşim: beş seçenek, ana süreçle aynı liste',
+    sp.includes("const SIDEBAR_POSITIONS_UI = ['left', 'right', 'bottom', 'top', 'auto'];")
+    && sp.includes("'cfg-sidebar-pos':   ['sidebarPosition', 'value'],") && sp.includes('<select id="cfg-sidebar-pos">'));
+  check('arayüz: sol hiçbir sınıf eklemiyor; sağda paneller soldan açılıyor; yerleşim bildiriliyor',
+    app.includes("const SIDEBAR_POSITIONS = ['right', 'bottom', 'top', 'auto'];")
+    && app.includes("document.body.classList.toggle('panels-left', yer === 'right');")
+    && /applySidebarPosition\(cfg\);\s*reportContentRect\(\);/.test(app));
+  check('her konumun CSS kuralı var; içerik alanının boyu değişince yeniden bildiriliyor',
+    ['right', 'bottom', 'top', 'auto'].every((p) => css.includes('body.sidebar-' + p + ' '))
+    && css.includes('body.panels-left #content-area > .side-panel')
+    && /new ResizeObserver\(\(\) => reportContentRect\(\)\)\.observe\(alan\)/.test(app));
+  check('web paneli de yan panelle aynı kenarda; yerleşim değişince yeniden konumlanıyor',
+    /function webPanelRect\(win\) \{[\s\S]{0,200}yerlesim\.webPanelDikdortgeni\(/.test(m)
+    && /state\.yerlesim = yer;[\s\S]{0,300}if \(wp\) wp\.setBounds\(webPanelRect\(win\)\);/.test(m));
+  const tr = JSON.parse(read('locales/tr.json'));
+  check('seçenek metinleri var (9 dil genel çeviri denetiminde)', YERLER.every((p) => !!tr['settings.layout.pos.' + p]));
+}
+
 // ─── Kardeş sınama dosyaları ──────────────────────────────────────────────────
 // ⛔ NEDEN (23.09.2026): test/ altında kendi başına duran sınama dosyaları
 //    vardı ve `npm test` HİÇBİRİNİ çalıştırmıyordu — yalnız elle
@@ -3607,7 +3646,7 @@ suite('Google ile giriş — yalnız giriş sayfasında tutarlı Firefox kimliğ
 //    geçmez, zaten hiçbiri Electron istemiyor (saf mantık sınamaları).
 suite('Kardeş sınama dosyaları — npm test hepsini koşar');
 {
-  const KARDES = ['alaka.js', 'tablo.js', 'web-ara.js', 'google-giris.js', 'guven.js', 'ceviri.js', 'ozet-sayi.js', 'profil.js'];
+  const KARDES = ['alaka.js', 'tablo.js', 'web-ara.js', 'google-giris.js', 'yerlesim.js', 'guven.js', 'ceviri.js', 'ozet-sayi.js', 'profil.js'];
   const renksiz = (x) => String(x).replace(/\x1b\[[0-9;]*m/g, '');
   for (const ad of KARDES) {
     const yol = path.join(__dirname, ad);

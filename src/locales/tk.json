@@ -1712,5 +1712,13 @@
   "ulgen.privacyOnline": "Ülgen bu enjamda işleýär; sahypanyň teksti we taryhyňyz hiç bir serwere iberilmeýär. Internetde barlag açyk: umumy sorag berseňiz diňe soragyňyz DuckDuckGo-da (gerek bolsa Wikipediýada) gözlenýär.",
   "ulgen.info.deviceBodyOnline": "Gysgaltma, sahypada tapmak we taryhda gözleg kompýuteriňizde edilýär; sahypanyň teksti we taryhyňyz hiç bir serwere iberilmeýär.",
   "ulgen.info.webTitleOnline": "Barlag siziň baglanyşygyňyz arkaly",
-  "ulgen.info.webBodyOnline": "Umumy sorag berseňiz, Ülgen soragyňyzy bu kompýuteriň öz internet baglanyşygy arkaly DuckDuckGo-da gözleýär (netije çykmasa Wikipediýada). Tapylan sahypalar kukisiz, wagtlaýyn sessiýada açylýar; sessiýaňyz we taryhyňyz ulanylmaýar. Soragyňyz İlgezdi serwerine gitmeýär. Öçürmek üçin: Maglumatlar we gizlinlik › Ülgen."
+  "ulgen.info.webBodyOnline": "Umumy sorag berseňiz, Ülgen soragyňyzy bu kompýuteriň öz internet baglanyşygy arkaly DuckDuckGo-da gözleýär (netije çykmasa Wikipediýada). Tapylan sahypalar kukisiz, wagtlaýyn sessiýada açylýar; sessiýaňyz we taryhyňyz ulanylmaýar. Soragyňyz İlgezdi serwerine gitmeýär. Öçürmek üçin: Maglumatlar we gizlinlik › Ülgen.",
+  "settings.layout.title": "Ýerleşiş",
+  "settings.layout.sidebar": "Gapdal paneliň ýeri",
+  "settings.layout.sidebarHint": "Düwmeleriň durjak ýeri. Sagda bolanda gapdal paneller çepden açylýar. Gizlin bolanda çep gyrada inçe zolak galýar; syçanjygy şol ýere getireniňizde açylýar we sahypany gyra süýşürýär.",
+  "settings.layout.pos.left": "Çep",
+  "settings.layout.pos.right": "Sag",
+  "settings.layout.pos.bottom": "Aşak",
+  "settings.layout.pos.top": "Ýokary",
+  "settings.layout.pos.auto": "Gizlin (syçanjyk gelende açylýar)"
 }

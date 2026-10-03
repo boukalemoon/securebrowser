@@ -1706,5 +1706,13 @@
   "ulgen.privacyOnline": "Ülgen bu cihazda işləyir; səhifənin mətni və tarixçəniz heç bir serverə göndərilmir. İnternetdə araşdırma açıqdır: ümumi sual verdikdə yalnız sualınız DuckDuckGo-da (lazım olsa Vikipediyada) axtarılır.",
   "ulgen.info.deviceBodyOnline": "Xülasə, səhifədə tapmaq və tarixçədə axtarış kompüterinizdə aparılır; səhifənin mətni və tarixçəniz heç bir serverə göndərilmir.",
   "ulgen.info.webTitleOnline": "Araşdırma sizin bağlantınızla",
-  "ulgen.info.webBodyOnline": "Ümumi sual verdikdə Ülgen sualınızı bu kompüterin öz internet bağlantısı ilə DuckDuckGo-da axtarır (nəticə çıxmasa Vikipediyada). Tapılan səhifələr kukisiz, müvəqqəti seansda açılır; seansınız və tarixçəniz istifadə olunmur. Sualınız İlgezdi serverinə getmir. Bağlamaq üçün: Məlumatlar və məxfilik › Ülgen."
+  "ulgen.info.webBodyOnline": "Ümumi sual verdikdə Ülgen sualınızı bu kompüterin öz internet bağlantısı ilə DuckDuckGo-da axtarır (nəticə çıxmasa Vikipediyada). Tapılan səhifələr kukisiz, müvəqqəti seansda açılır; seansınız və tarixçəniz istifadə olunmur. Sualınız İlgezdi serverinə getmir. Bağlamaq üçün: Məlumatlar və məxfilik › Ülgen.",
+  "settings.layout.title": "Yerləşim",
+  "settings.layout.sidebar": "Yan panelin yeri",
+  "settings.layout.sidebarHint": "Düymələrin duracağı yer. Sağda olduqda yan panellər soldan açılır. Gizli olduqda sol kənarda nazik bir zolaq qalır; siçanı ora gətirdikdə açılır və səhifəni kənara itələyir.",
+  "settings.layout.pos.left": "Sol",
+  "settings.layout.pos.right": "Sağ",
+  "settings.layout.pos.bottom": "Alt",
+  "settings.layout.pos.top": "Üst",
+  "settings.layout.pos.auto": "Gizli (siçan gələndə açılır)"
 }

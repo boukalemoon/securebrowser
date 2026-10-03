@@ -540,12 +540,30 @@ function startGroupRename(groupId) {
 // ─── Sekme konumu: üstte ya da yanda ─────────────────────────────────────────
 // Dikey sekmelerde sekme listesi ve sekme düğmeleri (yeni sekme, sekmelerde ara, konum)
 // kenar çubuğunun yanındaki sütuna taşınır; aynı öğeler taşındığı için olaylar korunur.
-// Sayfa görünümü arayüzün üstünde çizildiği için içerik alanının yeni sol kenarı ana
-// sürece bildirilir (ui-layout).
-function reportContentLeft() {
+// Sayfa görünümü arayüzün ÜSTÜNDE çizildiği için içerik alanının yeri ana sürece
+// bildirilir (ui-layout). ⚠️ DÖRT KENAR birden (yerleşim özelleştirme, Burak 03.10.2026):
+// kenar çubuğu sağa, alta ya da üste taşınınca sayfa da yerini buradan bulur. Eskiden
+// yalnız sol kenar bildiriliyor, üst (128) ve alt (24) ana süreçte sabit yazılıydı —
+// arayüz değişince sayfa araç çubuğunun altında ya da boşluk bırakarak kalırdı.
+// panelSide: yan paneller (Ülgen, Not Defteri…) hangi kenardan açılıyor; ana süreç
+// sayfayı o taraftan daraltır.
+function contentInsets() {
+  const area = document.getElementById('content-area');
+  if (!area) return null;
+  const r = area.getBoundingClientRect();
+  return {
+    left: Math.round(r.left),
+    top: Math.round(r.top),
+    right: Math.max(0, Math.round(window.innerWidth - r.right)),
+    bottom: Math.max(0, Math.round(window.innerHeight - r.bottom)),
+    panelSide: document.body.classList.contains('panels-left') ? 'left' : 'right',
+  };
+}
+
+function reportContentRect() {
   requestAnimationFrame(() => {
-    const area = document.getElementById('content-area');
-    if (area) sb.setLayout?.({ left: Math.round(area.getBoundingClientRect().left) });
+    const yer = contentInsets();
+    if (yer) sb.setLayout?.(yer);
   });
 }
 
@@ -581,7 +599,18 @@ function applyTabLayout(cfg) {
     collapseBtn.setAttribute('aria-label', label);
     collapseBtn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
   }
-  reportContentLeft();
+  applySidebarPosition(cfg);
+  reportContentRect();
+}
+
+// Kenar çubuğunun yeri (Ayarlar › Görünüm › Yerleşim — Burak, 03.10.2026). Konumlar
+// main.css'te body sınıflarıyla kurulur; sol varsayılandır ve hiçbir sınıf eklemez.
+// Sağdayken yan paneller soldan açılır (panels-left) — sayfa da o kenardan daralır.
+const SIDEBAR_POSITIONS = ['right', 'bottom', 'top', 'auto'];
+function applySidebarPosition(cfg) {
+  const yer = SIDEBAR_POSITIONS.includes(cfg && cfg.sidebarPosition) ? cfg.sidebarPosition : 'left';
+  for (const p of SIDEBAR_POSITIONS) document.body.classList.toggle('sidebar-' + p, yer === p);
+  document.body.classList.toggle('panels-left', yer === 'right');
 }
 
 // ─── Adres Çubuğu ────────────────────────────────────────────────────────────
@@ -2077,7 +2106,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
   window.addEventListener('ilgezdi-settings-saved', async () => { currentConfig = await sb.getConfig(); applyTabLayout(currentConfig); });
   window.addEventListener('ilgezdi-sync-applied', async () => { currentConfig = await sb.getConfig(); applyTabLayout(currentConfig); });
-  window.addEventListener('resize', reportContentLeft);
+  window.addEventListener('resize', reportContentRect);
+  // İçerik alanının boyu/eni değişen her şey (yer imleri çubuğu, bul çubuğu, kenar
+  // çubuğunun yeri) sayfanın yerini de değiştirir; tek tek çağırmak yerine izlenir.
+  try {
+    const alan = document.getElementById('content-area');
+    if (alan && typeof ResizeObserver === 'function') new ResizeObserver(() => reportContentRect()).observe(alan);
+  } catch { /* izleyici yoksa resize ve açık çağrılar yeter */ }
   document.getElementById('vtabs-list')?.addEventListener('dblclick', (e) => {
     if (!e.target.closest('.tab')) openNewTab();
   });

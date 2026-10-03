@@ -1778,5 +1778,13 @@
   "ulgen.privacyOnline": "Ülgen läuft auf diesem Gerät; der Seitentext und Ihr Verlauf werden an keinen Server gesendet. Die Web-Recherche ist an: Bei einer allgemeinen Frage wird nur Ihre Frage bei DuckDuckGo (bei Bedarf bei Wikipedia) gesucht.",
   "ulgen.info.deviceBodyOnline": "Zusammenfassen, Suchen auf der Seite und Suchen im Verlauf geschehen auf Ihrem Computer; der Seitentext und Ihr Verlauf werden an keinen Server gesendet.",
   "ulgen.info.webTitleOnline": "Recherche über Ihre Verbindung",
-  "ulgen.info.webBodyOnline": "Bei einer allgemeinen Frage sucht Ülgen über die eigene Internetverbindung dieses Computers bei DuckDuckGo (ohne Ergebnis bei Wikipedia). Die gefundenen Seiten werden in einer cookiefreien, temporären Sitzung geöffnet; Ihre Sitzung und Ihr Verlauf werden nicht verwendet. Ihre Frage geht nicht an den İlgezdi-Server. Ausschalten: Daten und Datenschutz › Ülgen."
+  "ulgen.info.webBodyOnline": "Bei einer allgemeinen Frage sucht Ülgen über die eigene Internetverbindung dieses Computers bei DuckDuckGo (ohne Ergebnis bei Wikipedia). Die gefundenen Seiten werden in einer cookiefreien, temporären Sitzung geöffnet; Ihre Sitzung und Ihr Verlauf werden nicht verwendet. Ihre Frage geht nicht an den İlgezdi-Server. Ausschalten: Daten und Datenschutz › Ülgen.",
+  "settings.layout.title": "Anordnung",
+  "settings.layout.sidebar": "Position der Seitenleiste",
+  "settings.layout.sidebarHint": "Wo die Schaltflächen sitzen. Rechts angeordnet öffnen sich Seitenpanels von links. Ausgeblendet bleibt am linken Rand ein schmaler Streifen; fahren Sie mit der Maus darauf, öffnet sie sich und schiebt die Seite zur Seite.",
+  "settings.layout.pos.left": "Links",
+  "settings.layout.pos.right": "Rechts",
+  "settings.layout.pos.bottom": "Unten",
+  "settings.layout.pos.top": "Oben",
+  "settings.layout.pos.auto": "Ausgeblendet (öffnet beim Überfahren)"
 }

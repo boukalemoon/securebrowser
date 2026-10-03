@@ -33,6 +33,7 @@ const { setupDiscover } = require('./discover-feed');
 const { setupCommunity } = require('./community');
 const { shieldScript, createSeeder } = require('./fingerprint-shield');
 const googleGiris = require('./google-giris');
+const yerlesim = require('./yerlesim');
 const { setupSuggestPopup } = require('./suggest-popup');
 const { createConsentLog } = require('./consent-log');
 const tabGroups = require('./tab-groups');
@@ -116,6 +117,7 @@ const DEFAULT_CONFIG = {
   webPanels:             [],           // kenar çubuğundaki web panelleri (yalnızca ana süreç yazar)
   verticalTabs:          false,        // sekmeler üstte (false) ya da kenar çubuğunun yanında (true)
   verticalTabsCollapsed: false,        // dikey sekmelerde yalnızca simgeler
+  sidebarPosition:       'left',       // kenar çubuğunun yeri: left | right | bottom | top | auto (gizli, fare gelince açılır)
   passwordNeverSave:     [],           // "bu sitede asla" denen site kökleri (yalnızca ana süreç yazar)
   homepage:              '',           // boş = İlgezdi başlangıç sayfası; URL = o sayfa açılır
   searchEngine:          'duckduckgo', // varsayılan; kullanıcı ayarlardan değiştirebilir
@@ -731,6 +733,10 @@ const PANEL_WIDTH      = 420;
 const SIDEBAR_WIDTH    = 56;
 const TOOLBAR_HEIGHT   = 128; // 40 titlebar + 52 toolbar + 36 bookmarks bar
 const STATUSBAR_HEIGHT = 24;
+// Arayüz içerik alanının dört kenarını ölçüp bildirene kadar (ui-layout) kullanılan
+// yedek: bugünkü varsayılan düzen (kenar çubuğu solda). Hesap yerlesim.js'te.
+const YERLESIM_YEDEK = Object.freeze({ left: SIDEBAR_WIDTH, top: TOOLBAR_HEIGHT, right: 0, bottom: STATUSBAR_HEIGHT, panelSide: 'right' });
+const KENAR_CUBUGU_YERLERI = Object.freeze(['left', 'right', 'bottom', 'top', 'auto']);
 
 function getContextFromEvent(event) {
   const win = BrowserWindow.fromWebContents(event.sender);
@@ -1282,19 +1288,11 @@ function endSplit(win, state) {
   else sendSplitState(win, state);
 }
 
-// Sayfa görünümünün yeri: kenar çubuğunun (dikey sekmeler açıksa onların da) sağı, araç
-// çubuğunun altı; yan panel açıksa sağdan daralır. Sol kenarı arayüz ölçüp bildirir
-// (ui-layout), bilinmiyorsa kenar çubuğu genişliği.
+// Sayfa görünümünün yeri: arayüzün ölçüp bildirdiği içerik alanı (ui-layout, dört kenar);
+// yan panel açıksa panelin olduğu kenardan daralır. Ölçüm gelene kadar bugünkü varsayılan
+// düzen (YERLESIM_YEDEK). Kenar çubuğu sağa/alta/üste taşınınca sayfa buradan yer bulur.
 function contentRect(win, state) {
-  const bounds = win.getContentBounds();
-  const left = Number.isFinite(state.leftInset) ? state.leftInset : SIDEBAR_WIDTH;
-  const usableWidth = bounds.width - left;
-  return {
-    x:      left,
-    y:      TOOLBAR_HEIGHT,
-    width:  state.panelIsOpen ? Math.max(usableWidth - PANEL_WIDTH, 100) : Math.max(usableWidth, 100),
-    height: bounds.height - TOOLBAR_HEIGHT - STATUSBAR_HEIGHT,
-  };
+  return yerlesim.icerikDikdortgeni(win.getContentBounds(), state.yerlesim, state.panelIsOpen, PANEL_WIDTH, YERLESIM_YEDEK);
 }
 
 function setActiveTab(win, state, tabId) {
@@ -3014,6 +3012,7 @@ ipcMain.handle('save-config', (e, newCfg) => {
   for (const k of ['clearSiteDataOnExit', 'clearHistoryOnExit', 'warnOnCloseTabs', 'doNotTrack']) if (k in incoming) incoming[k] = incoming[k] === true;
   for (const k of ['omniboxHistory', 'autoUpdateCheck', 'discoverFeed', 'syncSettings', 'syncBookmarks', 'logEnabled', 'offerToSavePasswords']) if (k in incoming) incoming[k] = incoming[k] !== false;
   for (const k of ['verticalTabs', 'verticalTabsCollapsed']) if (k in incoming) incoming[k] = incoming[k] === true;
+  if ('sidebarPosition' in incoming) incoming.sidebarPosition = KENAR_CUBUGU_YERLERI.includes(incoming.sidebarPosition) ? incoming.sidebarPosition : 'left';
   if ('hardwareAcceleration' in incoming) incoming.hardwareAcceleration = incoming.hardwareAcceleration !== false;
   if ('tabSleepMinutes' in incoming) incoming.tabSleepMinutes = normalizeTabSleepMinutes(incoming.tabSleepMinutes);
   if ('language' in incoming) incoming.language = i18n.LANGUAGES.some((l) => l.code === incoming.language) ? incoming.language : 'auto';
@@ -3740,10 +3739,10 @@ ipcMain.handle('profiles-remove', async (event, id) => {
 const webPanelViews = new Map();   // id → WebContentsView (yalnızca ana pencere)
 let webPanelOpenId = null;
 
+// Web paneli yan panelle aynı kenarda, panel başlığının altında (kenar çubuğu sağdayken solda).
 function webPanelRect(win) {
-  const b = win.getContentBounds();
-  const top = TOOLBAR_HEIGHT + webPanels.HEADER_HEIGHT;
-  return { x: Math.max(b.width - PANEL_WIDTH, 0), y: top, width: PANEL_WIDTH, height: Math.max(b.height - top - STATUSBAR_HEIGHT, 100) };
+  const state = win === incognitoWindow ? incognitoState : mainState;
+  return yerlesim.webPanelDikdortgeni(win.getContentBounds(), state.yerlesim, PANEL_WIDTH, webPanels.HEADER_HEIGHT, YERLESIM_YEDEK);
 }
 
 function webPanelList() {
@@ -4116,13 +4115,17 @@ ipcMain.handle('notes-export', async (event, id) => {
   }
 });
 
-// Arayüz yerleşimi değişti (dikey sekmeler açıldı/daraldı): içerik alanının sol kenarı.
+// Arayüz yerleşimi değişti (dikey sekmeler, kenar çubuğunun yeri, pencere boyu): içerik
+// alanının dört kenarı ve yan panelin tarafı. Bozuk ölçüm yok sayılır (yerlesim.js).
 ipcMain.on('ui-layout', (event, layout) => {
   const { win, state } = getContextFromEvent(event);
-  const left = Number(layout && layout.left);
-  if (!Number.isFinite(left) || left < 0 || left > 800) return;
-  state.leftInset = Math.round(left);
+  const yer = yerlesim.yerlesimDenetle(layout, YERLESIM_YEDEK);
+  if (!yer) return;
+  state.yerlesim = yer;
   resizeActiveView(win, state);
+  // Açık web paneli de yeni kenara taşınsın (kenar çubuğu sağa alınınca panel sola geçer).
+  const wp = win === mainWindow && webPanelOpenId && webPanelViews.get(webPanelOpenId);
+  if (wp) wp.setBounds(webPanelRect(win));
 });
 
 // Pencere kontrollerini doğru pencereye yönlendir

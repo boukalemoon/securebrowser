@@ -972,3 +972,64 @@ body.vtabs-collapsed .tab-split-mark { display: none; }
 .pf-status { margin: 0; min-height: 1em; font-size: 12.5px; color: var(--success, #4ade80); }
 .pf-status.is-error { color: var(--danger); }
 #private-profile-badge { margin-left: 8px; font: 700 10px var(--font-ui); letter-spacing: .06em; text-transform: uppercase; color: #9b7cf0; border: 1px solid color-mix(in srgb, #9b7cf0 55%, transparent); border-radius: 999px; padding: 1px 7px; }
+
+/* ══ Kenar çubuğunun yeri (Ayarlar › Görünüm › Yerleşim — Burak, 03.10.2026) ══════
+   Sayfa görünümü arayüzün ÜSTÜNDE çizilir: içerik alanının yeri değişince app.js
+   (contentInsets) dört kenarı ana sürece bildirir, sayfa oraya taşınır (yerlesim.js).
+   Bu yüzden kenar çubuğu sayfanın ÜZERİNE kayamaz; "gizli" kipte açılınca sayfayı iter.
+   Varsayılan (sol) için hiçbir kural yok — bugünkü görünüm aynen kalır. */
+
+/* Sağ: çubuk içerik alanının sağında; yan paneller soldan açılır (panels-left). */
+body.sidebar-right #vtabs { order: 1; }
+body.sidebar-right #content-area { order: 2; }
+body.sidebar-right #sidebar { order: 3; border-right: none; border-left: 1px solid var(--line); }
+body.sidebar-right .sidebar::after { right: auto; left: 0; }
+body.sidebar-right .sidebar-btn.active::before { left: auto; right: -8px; border-radius: 3px 0 0 3px; }
+body.panels-left #content-area > .side-panel,
+body.panels-left #app > .side-panel, body.panels-left #app > #panel-vpn {
+  right: auto; left: 0; border-left: none; border-right: 1px solid var(--line);
+}
+body.panels-left #content-area > .side-panel:not(.visible) { transform: translateX(-100%); }
+
+/* Alt ve üst: çubuk yatay bir şerit; dikey sekmeler açıksa onlar yine solda. */
+body.sidebar-bottom #main, body.sidebar-top #main { display: grid; grid-template-columns: auto minmax(0, 1fr); }
+body.sidebar-bottom #main { grid-template-rows: minmax(0, 1fr) auto; }
+body.sidebar-top #main    { grid-template-rows: auto minmax(0, 1fr); }
+body.sidebar-bottom #vtabs, body.sidebar-top #vtabs { grid-column: 1; min-height: 0; }
+body.sidebar-bottom #content-area, body.sidebar-top #content-area { grid-column: 2; min-height: 0; }
+body.sidebar-bottom #vtabs, body.sidebar-bottom #content-area { grid-row: 1; }
+body.sidebar-top #vtabs, body.sidebar-top #content-area { grid-row: 2; }
+body.sidebar-bottom #sidebar { grid-row: 2; grid-column: 1 / -1; border-top: 1px solid var(--line); }
+body.sidebar-top #sidebar    { grid-row: 1; grid-column: 1 / -1; border-bottom: 1px solid var(--line); }
+body.sidebar-bottom .sidebar, body.sidebar-top .sidebar {
+  width: auto; height: var(--sidebar-w); flex-direction: row; padding: 0 12px;
+  border-right: none; overflow-x: auto; overflow-y: hidden;
+}
+body.sidebar-bottom .sidebar::-webkit-scrollbar, body.sidebar-top .sidebar::-webkit-scrollbar { height: 0; }
+body.sidebar-bottom .sidebar::after, body.sidebar-top .sidebar::after {
+  top: auto; bottom: 0; left: 0; right: 0; width: auto; height: 2px;
+  background: linear-gradient(90deg, transparent 0%, var(--gold) 12%, var(--copper) 50%, var(--gold) 88%, transparent 100%);
+}
+body.sidebar-bottom .sidebar::after { top: 0; bottom: auto; }
+body.sidebar-bottom .sidebar-divider, body.sidebar-top .sidebar-divider { width: 1px; height: 28px; margin: 0 6px; }
+body.sidebar-bottom .webpanel-list, body.sidebar-top .webpanel-list {
+  flex-direction: row; min-height: 0; min-width: 40px; overflow-x: auto; overflow-y: hidden;
+}
+/* Öneri ve Ayarlar şeridin sağ ucuna yapışır (dikeydeki alta yapışmanın karşılığı). */
+body.sidebar-bottom .sidebar-foot, body.sidebar-top .sidebar-foot {
+  margin-top: 0; margin-left: auto; flex-direction: row;
+  bottom: auto; right: 0; padding-top: 0; padding-left: 6px;
+  background: linear-gradient(90deg, transparent, var(--bg-elev) 40%);
+}
+body.sidebar-bottom .sidebar-btn.active::before, body.sidebar-top .sidebar-btn.active::before {
+  left: 25%; right: 25%; width: auto; height: 3px;
+}
+body.sidebar-bottom .sidebar-btn.active::before { top: -8px; bottom: auto; border-radius: 0 0 3px 3px; }
+body.sidebar-top .sidebar-btn.active::before    { top: auto; bottom: -8px; border-radius: 3px 3px 0 0; }
+
+/* Gizli (otomatik): solda 6 piksellik bir şerit kalır; fare gelince açılır, sayfayı
+   iter, fare çıkınca kısa bir gecikmeyle kapanır (titremesin). Klavyeyle de açılır. */
+body.sidebar-auto .sidebar { width: 6px; transition: width .15s ease .3s; }
+body.sidebar-auto .sidebar > * { opacity: 0; transition: opacity .1s ease .3s; }
+body.sidebar-auto .sidebar:hover, body.sidebar-auto .sidebar:focus-within { width: var(--sidebar-w); transition-delay: 0s; }
+body.sidebar-auto .sidebar:hover > *, body.sidebar-auto .sidebar:focus-within > * { opacity: 1; transition-delay: 0s; }

@@ -1790,5 +1790,13 @@
   "ulgen.privacyOnline": "Ülgen runs on this device; the page text and your history are never sent to any server. Web research is on: when you ask a general question, only your question is searched on DuckDuckGo (or Wikipedia if needed).",
   "ulgen.info.deviceBodyOnline": "Summarizing, finding on the page and searching your history happen on your computer; the page text and your history are never sent to any server.",
   "ulgen.info.webTitleOnline": "Research over your connection",
-  "ulgen.info.webBodyOnline": "When you ask a general question, Ülgen searches for it on DuckDuckGo over this computer's own internet connection (on Wikipedia if nothing comes up). The pages found are opened in a cookie-free temporary session; your session and history are not used. Your question does not go to İlgezdi's server. To turn it off: Data and Privacy › Ülgen."
+  "ulgen.info.webBodyOnline": "When you ask a general question, Ülgen searches for it on DuckDuckGo over this computer's own internet connection (on Wikipedia if nothing comes up). The pages found are opened in a cookie-free temporary session; your session and history are not used. Your question does not go to İlgezdi's server. To turn it off: Data and Privacy › Ülgen.",
+  "settings.layout.title": "Layout",
+  "settings.layout.sidebar": "Sidebar position",
+  "settings.layout.sidebarHint": "Where the buttons sit. When on the right, side panels open from the left. When hidden, a thin strip stays at the left edge; move the mouse there to open it, and it pushes the page aside.",
+  "settings.layout.pos.left": "Left",
+  "settings.layout.pos.right": "Right",
+  "settings.layout.pos.bottom": "Bottom",
+  "settings.layout.pos.top": "Top",
+  "settings.layout.pos.auto": "Hidden (opens on hover)"
 }
