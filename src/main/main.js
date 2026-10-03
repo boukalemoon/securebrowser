@@ -4196,8 +4196,15 @@ ipcMain.handle('default-browser-set', async () => {
 app.whenReady().then(async () => {
   // Aynı profille ikinci başlatma: bağlantı ilk sürece iletildi, bu süreç kapanıyor.
   if (isDuplicateInstance) return;
-  // Windows: görev çubuğu / bildirimlerde doğru uygulama kimliği + ikon eşleşmesi
-  if (process.platform === 'win32') app.setAppUserModelId('com.ilgezdi.browser');
+  // Windows: görev çubuğu / bildirimlerde doğru uygulama kimliği + ikon eşleşmesi.
+  // ⛔ GELİŞTİRME KİPİ AYRI KİMLİK (ölçüldü 04.10.2026): `npm start` ile çalışan çıplak
+  //    Electron, bildirim gösterebilmek için Başlat menüsüne "Electron.lnk" kısayolu
+  //    oluşturmuştu — AYNI kimlikle (com.ilgezdi.browser) ve depodaki electron.exe'yi
+  //    göstererek. Windows görev çubuğu simgesini bu kimliğe sahip kısayoldan aldığı için
+  //    kurulu İlgezdi'nin görev çubuğunda Electron'un atom simgesi çıktı. Kurulu sürümün
+  //    kimliği kurulum kısayollarıyla (package.json build.appId) aynı kalmalı; geliştirme
+  //    kopyası ona hiç karışmamalı.
+  if (process.platform === 'win32') app.setAppUserModelId(app.isPackaged ? 'com.ilgezdi.browser' : 'com.ilgezdi.browser.dev');
 
   // Tanılama İLK kurulur: bundan sonraki her kurulum adımında oluşan hata
   // yakalanıp günlüğe yazılabilsin. (Çökme yakalayıcıları da burada takılıyor.)

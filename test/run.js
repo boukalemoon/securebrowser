@@ -3639,6 +3639,20 @@ suite('Yerleşim — kenar çubuğunun yeri');
   check('seçenek metinleri var (9 dil genel çeviri denetiminde)', YERLER.every((p) => !!tr['settings.layout.pos.' + p]));
 }
 
+// ─── Windows uygulama kimliği (görev çubuğu simgesi) ──────────────────────────
+// ⛔ NEDEN (Burak, 04.10.2026): kurulu İlgezdi'nin görev çubuğunda Electron'un atom
+//    simgesi çıktı. Geliştirme kipindeki çıplak Electron aynı kimlikle Başlat menüsüne
+//    "Electron.lnk" yazmıştı; Windows simgeyi o kısayoldan aldı.
+suite('Windows uygulama kimliği — kurulu sürüm ve geliştirme kopyası ayrı');
+{
+  const m = read('../src/main/main.js');
+  const appId = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8')).build.appId;
+  check('kurulu sürümün kimliği kurulum kısayollarının kimliğiyle (build.appId) aynı',
+    m.includes("app.setAppUserModelId(app.isPackaged ? '" + appId + "' : '" + appId + ".dev')"));
+  check('kimlik başka hiçbir yerde sabit yazılmıyor (tek kaynak)',
+    (m.match(/setAppUserModelId\(/g) || []).length === 1);
+}
+
 // ─── Kardeş sınama dosyaları ──────────────────────────────────────────────────
 // ⛔ NEDEN (23.09.2026): test/ altında kendi başına duran sınama dosyaları
 //    vardı ve `npm test` HİÇBİRİNİ çalıştırmıyordu — yalnız elle
