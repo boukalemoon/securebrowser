@@ -123,5 +123,26 @@ console.log('\n\x1b[1m6) Görev sayfası — betik değil, bilinen kaynak adı\x
      PROTO.every((k) => W.betik(k) === null && W.aramaAdresi('x', k) === null && W.sonuclariAyikla([{ href: 'https://a.org/' }], 5, k).length === 0));
 }
 
-console.log(`\n${kalan ? '\x1b[31m' : '\x1b[32m'}SONUÇ: ${gecen} geçti · ${kalan} kaldı\x1b[0m`);
-process.exit(kalan ? 1 : 0);
+// ── 7. Ağa çıkan ölçüm aracı ürünle aynı davranıyor ─────────────────────────
+console.log('\n\x1b[1m7) Ölçüm aracı (test/helpers/ddg-baglantilar.js) — ürünle aynı sıra\x1b[0m');
+{
+  // ⛔ ulgen-79 ölçtü (04.10.2026): araç bot sayfasında Vikipedi'ye düşmüyordu; ölçüm
+  //    "kaynak_yok" diyordu, ürün ise Vikipedi'den 10 sonuç alıyordu.
+  const H = require('./helpers/ddg-baglantilar.js');
+  const VIKI = '<ul><li class="mw-search-result mw-search-result-ns-0"><div class="mw-search-result-heading">' +
+    '<a href="/wiki/Bilim_insan%C4%B1" title="Bilim insan&#039;ı">Bilim</a></div>' +
+    '<div class="searchresult">bilimsel <span>yöntem</span></div></li></ul>';
+  const v = H.vikiBaglantilar(VIKI);
+  ol('Vikipedi sonucu ayrıştırılıyor, kesme işareti (&#039;) çözülüyor',
+     v.length === 1 && v[0].baslik === "Bilim insan'ı" && v[0].parcacik === 'bilimsel yöntem', g(v));
+  ol('bot doğrulama sayfası tanınıyor (202 ya da challenge-form)',
+     H.ddgEngelMi(202, '') && H.ddgEngelMi(200, '<form id="challenge-form">') && !H.ddgEngelMi(200, '<div class="result ">'));
+  const getir = async (u) => (u.includes('duckduckgo')
+    ? { kod: 202, govde: '<form id="challenge-form"></form>' }
+    : { kod: 200, govde: VIKI });
+  H.aramaKancasi(getir)('Bilim insanı').then((s) => {
+    ol("DDG engelliyken Vikipedi'ye düşüyor (ürünle aynı)", s.kaynak === 'viki' && s.length === 1, g(s));
+    console.log(`\n${kalan ? '\x1b[31m' : '\x1b[32m'}SONUÇ: ${gecen} geçti · ${kalan} kaldı\x1b[0m`);
+    process.exit(kalan ? 1 : 0);
+  });
+}
