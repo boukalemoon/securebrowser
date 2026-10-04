@@ -150,6 +150,10 @@ async function dongu() {
       const is_ = await isAl();
       sonDurum = { bagli: true, sonIs: sonDurum.sonIs, hata: '' };
       if (!is_) continue;
+      // ⛔ YARIŞ (yayın öncesi denetim, 04.10.2026): uzun yoklama ≤ 20 sn sürer; bu sırada kullanıcı izni
+      //    kapatabilir ya da gizli pencere açabilir. Dönen iş o zaman AÇILMAZ ve Ülgen'e hiçbir şey
+      //    gönderilmez (izin kapandıysa kanal da konuşmaz; Ülgen tarafı işi zaman aşımıyla düşürür).
+      if (durdur || !izinVar() || gizliAcik() || !jeton) continue;
       // ⚠️ Adres ÜLGEN'den gelir ve Ülgen'in Dış Kapısı'ndan geçmiştir; burada
       // yine de biçim denetimi yapılır (http/https dışına çıkılmaz).
       if (!/^https?:\/\//i.test(is_.url || '')) {
@@ -172,7 +176,9 @@ async function dongu() {
 const bekle = (ms) => new Promise((r) => setTimeout(r, ms));
 
 async function baslat() {
-  if (calisiyor) return;
+  // Eski döngü dur() ile kapanmayı beklerken yeniden eşleşilirse (Kaldır → hemen yeniden eşleş) döngü
+  // SÜRMELİ: yalnız durdurma isteğini geri al. Yoksa görevler yeniden başlatmaya kadar gelmiyordu.
+  if (calisiyor) { durdur = false; return; }
   if (!jeton) jeton = await jetonOku();
   if (!jeton) return;                    // eşleşme yoksa döngü hiç başlamaz
   calisiyor = true; durdur = false;

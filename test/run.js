@@ -3404,7 +3404,8 @@ suite('Ülgen görev sayfası — ana süreçteki sınırlar');
   check('görev sayfası İlgezdi\'nin kendi oturum yapılandırmasından geçiyor (korumalar devrede)',
     /async function ulgenGorevSayfasi[\s\S]{0,3000}?configureSession\(wc\.session, true\)/.test(m));
   check('sayfa ön yüklemesi var — parmak izi kalkanı ve GPC görev sayfasında da çalışıyor',
-    /async function ulgenGorevSayfasi[\s\S]{0,1500}?page-preload\.js/.test(m));
+    // Pencere 1500 → 3500 (04.10.2026): zaman sınırı ve bekçi kodu işlevin başına eklendi; güvence aynı.
+    /async function ulgenGorevSayfasi[\s\S]{0,3500}?page-preload\.js/.test(m));
   check('temiz oturum ZORUNLU; false geçilirse reddediliyor',
     /opts\.temizOturum !== true\) return \{ ok: false, sebep: 'temiz_oturum_zorunlu' \}/.test(m));
   check('kullanıcının çerezleri kullanılmıyor: kalıcı olmayan ayrı bölüm ve iş sonunda temizlik',
@@ -3687,7 +3688,7 @@ suite('Windows uygulama kimliği — kurulu sürüm ve geliştirme kopyası ayr�
 //    geçmez, zaten hiçbiri Electron istemiyor (saf mantık sınamaları).
 suite('Kardeş sınama dosyaları — npm test hepsini koşar');
 {
-  const KARDES = ['alaka.js', 'tablo.js', 'web-ara.js', 'google-giris.js', 'yerlesim.js', 'guven.js', 'ceviri.js', 'ozet-sayi.js', 'profil.js', 'gunluk.js'];
+  const KARDES = ['alaka.js', 'tablo.js', 'web-ara.js', 'google-giris.js', 'yerlesim.js', 'guven.js', 'ceviri.js', 'ozet-sayi.js', 'profil.js', 'gunluk.js', 'ulgen-yayin.js'];
   const renksiz = (x) => String(x).replace(/\x1b\[[0-9;]*m/g, '');
   for (const ad of KARDES) {
     const yol = path.join(__dirname, ad);

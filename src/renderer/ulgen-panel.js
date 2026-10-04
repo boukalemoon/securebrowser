@@ -117,6 +117,7 @@ function injectUlgenStyles() {
     .ulgen-chip:focus-visible { outline:2px solid var(--gold); outline-offset:2px; }
     .ulgen-chip.active { border-color:var(--gold); background:color-mix(in srgb, var(--gold) 13%, var(--bg-elev)); }
     .ulgen-chip[disabled] { opacity:.45; cursor:not-allowed; transform:none; }
+    #ulgen-ask-input.ulgen-bekliyor { outline:1px solid var(--gold); outline-offset:2px; }
     .ulgen-chip-icon { width:28px; height:28px; border-radius:8px; display:grid; place-items:center; color:var(--gold);
       background:color-mix(in srgb, var(--gold) 13%, transparent); flex-shrink:0; }
     .ulgen-chip-title { font-size:12.5px; font-weight:600; line-height:1.3; }
@@ -681,19 +682,41 @@ async function paketIndir(btn, kaynakDil, istek) {
   const eski = btn.textContent;
   btn.disabled = true;
   btn.textContent = T('ulgen.tr.downloading');
-  // Motor ilerleme bildiriyorsa yüzde yazılır; bildirmiyorsa düğme "iniyor" der ve bekler.
+  // ⛔ YAYIN ÖNCESİ DENETİM (04.10.2026): ana süreç 1,5 sn sonra {durum:'iniyor'} ile döner (indirme sürer).
+  //    Eskiden panel bu dönüşü "bitti" sayıp ilerleme dinleyicisini bırakıyor ve özeti hemen yeniden istiyordu →
+  //    paket_yok, düğme yeniden çıkıyor, yüzde hiç ilerlemiyor, bitince kimse haber vermiyordu. Artık iş
+  //    OLAYLARLA biter: 'indi' → özet yeniden istenir, 'hata' → hata yazılır. Üst süre: 10 dk.
   let birak = null;
+  let bitti = false;
+  let ust = null;
+  const sonlandir = (r) => {
+    if (bitti) return;
+    bitti = true;
+    clearTimeout(ust);
+    if (typeof birak === 'function') { try { birak(); } catch {} }
+    btn.disabled = false;
+    btn.textContent = eski;
+    paketSonucu(r, istek);
+  };
   try {
     birak = kopru.onCeviriDurum?.((d) => {
-      if (!d || d.durum !== 'iniyor' || !Number.isFinite(d.yuzde)) return;
-      btn.textContent = T('ulgen.tr.downloadingPct', { pct: Math.max(0, Math.min(100, Math.round(d.yuzde))) });
+      if (!d) return;
+      if (d.durum === 'indi') sonlandir({ ok: true, durum: 'indi' });
+      else if (d.durum === 'hata') sonlandir({ ok: false, durum: 'hata' });
+      else if (d.durum === 'iniyor' && Number.isFinite(d.yuzde)) {
+        btn.textContent = T('ulgen.tr.downloadingPct', { pct: Math.max(0, Math.min(100, Math.round(d.yuzde))) });
+      }
     });
   } catch { birak = null; }
+  ust = setTimeout(() => sonlandir({ ok: false, durum: 'hata' }), 10 * 60 * 1000);
   let r = null;
   try { r = await kopru.eylem({ tur: 'ceviriPaketi', kaynakDil, hedefDil: hedefDil() }); } catch { r = null; }
-  if (typeof birak === 'function') { try { birak(); } catch {} }
-  btn.disabled = false;
-  btn.textContent = eski;
+  // İndirme sürüyorsa bitişi olay bildirir; dinleyici yoksa (eski köprü) sonucu beklemeden kapatırız.
+  if (r && r.durum === 'iniyor' && typeof birak === 'function') return;
+  sonlandir(r);
+}
+
+function paketSonucu(r, istek) {
   if (r && r.ok !== false && r.durum !== 'hata') {
     // Paket indi: aynı özet yeniden istenir, bu kez çeviriyle gelir.
     gonder({ tur: (istek && istek.tur) || 'ozet', metin: T('ulgen.act.summary'), onay: istek && istek.onay });
@@ -778,6 +801,9 @@ function sor() {
   const g = document.getElementById('ulgen-ask-input');
   const metin = (g && g.value || '').trim();
   if (!metin) return;
+  // Ülgen önceki soruyla meşgulken yazılan soru SİLİNMEZ (eskiden kutu boşalıyor, soru sessizce kayboluyordu);
+  // yanıt gelince kullanıcı yeniden gönderebilir.
+  if (ulgen.mesgul) { g.classList.add('ulgen-bekliyor'); setTimeout(() => g.classList.remove('ulgen-bekliyor'), 900); return; }
   g.value = '';
   const TUR = { find: 'sayfada', history: 'gecmis', web: 'web' };
   gonder(ulgen.mod ? { tur: TUR[ulgen.mod], metin } : { metin });

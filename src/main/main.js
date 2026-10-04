@@ -1869,6 +1869,12 @@ function ulgenIlgiSil() {
 //     bir adrese çıkılırsa iş kesilir (dış sayfa 302 ile 127.0.0.1'e atamasın).
 const GOREV_WORLD_ID = 1021;
 const GOREV_ZAMAN_ASIMI_MS = 30 * 1000;
+// ⛔ YAYIN ÖNCESİ DENETİM (04.10.2026): yalıtılmış dünyadaki betik çağrılarında ZAMAN SINIRI YOKTU. Sayfa
+//    yüklendikten sonra ana iş parçacığını kilitleyen bir sayfa (sonsuz döngü) betiği hiç döndürmüyor,
+//    `temizle()` çalışmıyor ve `gorevCalisiyor` sonsuza dek true kalıyordu → uygulama yeniden başlatılana
+//    kadar HER araştırma, arama ve görev "meşgul". Artık her betik çağrısı sınırlı; aşılırsa sayfa
+//    beklemeden kapatılır. Ayrıca bir BEKÇİ, ne olursa olsun işi üst süre sonunda bırakır.
+const GOREV_BETIK_SINIRI_MS = 10 * 1000;
 let gorevCalisiyor = false;
 let gorevSayac = 0;
 
@@ -1897,16 +1903,35 @@ async function ulgenGorevSayfasi(url, opts = {}) {
   if (gorevCalisiyor) return { ok: false, sebep: 'mesgul' };
   gorevCalisiyor = true;
 
-  const bolum = 'gorev-' + (++gorevSayac) + '-' + Date.now();
+  const benim = ++gorevSayac;
+  // Bayrağı YALNIZ sahibi indirir: bekçi takılan işi bıraktıktan sonra eski iş geç dönerse yeni işin
+  // "meşgul" bayrağını indirmesin.
+  const birak = () => { if (gorevSayac === benim) gorevCalisiyor = false; };
+  const bolum = 'gorev-' + benim + '-' + Date.now();
   const zamanAsimi = Math.min(Math.max(Number(opts.zamanAsimiMs) || GOREV_ZAMAN_ASIMI_MS, 5000), 60000);
   let view = null;
   let engellendi = false;
+  let takildi = false;
+  // Betik çağrısı sınırı: süre dolarsa null döner ve sayfa "takıldı" sayılır.
+  const sinirli = (soz) => new Promise((coz) => {
+    const z = setTimeout(() => { takildi = true; coz(null); }, GOREV_BETIK_SINIRI_MS);
+    Promise.resolve(soz).then((v) => { clearTimeout(z); coz(v); }, () => { clearTimeout(z); coz(null); });
+  });
+  const bekci = setTimeout(() => {
+    takildi = true;
+    // close(): beforeunload BEKLENMEDEN içerik yok edilir (Electron belgesi). forcefullyCrashRenderer
+    // KULLANILMAZ: çöküş işleyicisi (diagnostics.js) sayfa ADRESİNİ tanılamaya yazar — görev adresi yazılmaz.
+    try { if (view && !view.webContents.isDestroyed()) view.webContents.close(); } catch {}
+    birak();
+    diag.warn('ulgen', 'Görev sayfası üst süreyi aştı, bırakıldı', { sure_ms: zamanAsimi + 3 * GOREV_BETIK_SINIRI_MS });
+  }, zamanAsimi + 3 * GOREV_BETIK_SINIRI_MS);
 
   const temizle = async () => {
+    clearTimeout(bekci);
     try { if (view && !view.webContents.isDestroyed()) view.webContents.close(); } catch {}
     // Bölüm kalıcı değil (persist: yok) ama yine de açıkça boşaltılır.
     try { const s = session.fromPartition(bolum); await s.clearStorageData(); await s.clearCache(); } catch {}
-    gorevCalisiyor = false;
+    birak();
   };
 
   try {
@@ -1921,6 +1946,10 @@ async function ulgenGorevSayfasi(url, opts = {}) {
       },
     });
     const wc = view.webContents;
+    // ⛔ Görünmez sayfa İNDİRME İŞLEYİCİSİNE bağlanmaz (yayın öncesi denetim): `setupDownloads` güvensiz
+    //    indirmede EŞZAMANLI bir onay kutusu açıyordu — ana süreci donduruyor ve kullanıcıya görmediği bir
+    //    sayfa yüzünden soru soruyordu. Oturum "kurulmuş" işaretlenir; aşağıdaki will-download her şeyi reddeder.
+    configuredSessions.add(wc.session);
     configureSession(wc.session, true);   // gecici = true: izin kararları diske yazılmaz
     applyWebrtcPolicy(wc);
 
@@ -1940,6 +1969,13 @@ async function ulgenGorevSayfasi(url, opts = {}) {
     };
     wc.on('will-redirect', (_e, hedef) => zincirDenetle(hedef));
     wc.on('will-navigate', (_e, hedef) => zincirDenetle(hedef));
+    // Adı dış görünüp YEREL IP'ye çözülen adresler (ör. 192.168.1.1.nip.io) adres denetiminden geçer;
+    // bağlanılan gerçek IP'ye bakılır. Bu olay bu geçici oturumda başka yerde kullanılmıyor.
+    try {
+      wc.session.webRequest.onResponseStarted((d) => {
+        if (d.ip && gorevSayfa.yerelAdresMi(d.ip)) { engellendi = true; try { wc.stop(); } catch {} }
+      });
+    } catch {}
 
     const yuklendi = new Promise((resolve) => {
       let bitti = false;
@@ -1972,9 +2008,11 @@ async function ulgenGorevSayfasi(url, opts = {}) {
     if (opts.baglantilar !== undefined) {
       const betik = ulgenArama.betik(opts.baglantilar);
       let bag = null;
-      if (betik) { try { bag = await wc.executeJavaScriptInIsolatedWorld(GOREV_WORLD_ID, [{ code: betik }]); } catch {} }
+      if (betik) { try { bag = await sinirli(wc.executeJavaScriptInIsolatedWorld(GOREV_WORLD_ID, [{ code: betik }])); } catch {} }
       await temizle();
       if (!betik) return { ok: false, sebep: 'gecersiz_kaynak' };
+      if (engellendi) return { ok: false, sebep: 'engellendi' };
+      if (takildi && !bag) return { ok: false, sebep: 'zaman_asimi' };
       const sonuclar = bag && Array.isArray(bag.sonuclar) ? bag.sonuclar.slice(0, 40) : [];
       // Tanılamaya ADRES de SORGU da yazılmaz — yalnız ölçü.
       diag.info('ulgen', 'Arama sayfası okundu', { kaynak: opts.baglantilar, sonuc: sonuclar.length });
@@ -1983,7 +2021,9 @@ async function ulgenGorevSayfasi(url, opts = {}) {
 
     if (!readerScript) readerScript = reader.buildExtractScript(fs.readFileSync(require.resolve('@mozilla/readability/Readability.js'), 'utf8'));
     let ham = null;
-    try { ham = await wc.executeJavaScriptInIsolatedWorld(GOREV_WORLD_ID, [{ code: readerScript }]); } catch {}
+    try { ham = await sinirli(wc.executeJavaScriptInIsolatedWorld(GOREV_WORLD_ID, [{ code: readerScript }])); } catch {}
+    // Çıkarım sırasında yerel IP'ye ya da başka bir belgeye kayan sayfanın metni kullanılmaz.
+    if (engellendi) { await temizle(); return { ok: false, sebep: 'engellendi' }; }
 
     // ── BLOK KİPİ (araştırma zinciri) ────────────────────────────────────────
     // Cümle seçimi PARAGRAF sınırı ister: tek bir düz metinde menü satırıyla
@@ -2018,8 +2058,8 @@ async function ulgenGorevSayfasi(url, opts = {}) {
     }
     if (!metin) {
       try {
-        const yedek = await wc.executeJavaScriptInIsolatedWorld(GOREV_WORLD_ID, [{ code:
-          "({ b: document.title || '', m: (document.body && document.body.innerText) || '' })" }]);
+        const yedek = await sinirli(wc.executeJavaScriptInIsolatedWorld(GOREV_WORLD_ID, [{ code:
+          "({ b: document.title || '', m: (document.body && document.body.innerText) || '' })" }]));
         metin = String((yedek && yedek.m) || '').replace(/\n{3,}/g, '\n\n').trim();
         if (!baslik) baslik = gorevSayfa.basligiKirp(yedek && yedek.b);
       } catch {}

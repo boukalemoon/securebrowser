@@ -74,9 +74,13 @@ console.log('\n\x1b[1m3) ⛔ Adres kuralı — sonuç zinciri yerel/ev ağı adr
     'http://[::1]/',
     'file:///C:/Windows/win.ini',
     'https://kullanici:parola@ornek.org/',
+    // Yayın öncesi denetim (04.10.2026): IPv4-eşlemeli IPv6 ve CGNAT (100.64/10) yasağı aşıyordu
+    'http://[::ffff:127.0.0.1]:8765/',
+    'http://[::ffff:192.168.1.1]/',
+    'http://100.64.0.1/',
   ];
   const s = W.sonuclariAyikla(TUZAK.map((h) => ({ href: ddgSar(h), baslik: 'tuzak', parcacik: '', reklam: false })));
-  ol('yönlendirme içine gizlenmiş 7 tuzak adresin HİÇBİRİ sonuç olmadı', s.length === 0, g(s.map((x) => x.url)));
+  ol('yönlendirme içine gizlenmiş 10 tuzak adresin HİÇBİRİ sonuç olmadı', s.length === 0, g(s.map((x) => x.url)));
   const d = W.sonuclariAyikla(TUZAK.map((h) => ({ href: h, baslik: 'tuzak', parcacik: '', reklam: false })));
   ol('doğrudan verilen aynı adresler de elendi', d.length === 0, g(d.map((x) => x.url)));
 }

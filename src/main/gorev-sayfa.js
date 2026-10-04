@@ -23,6 +23,32 @@
 
 const { isLocalOrReserved, normalizeHost } = require('./threat-lists');
 
+// ⛔ ÖLÇÜLDÜ (04.10.2026, yayın öncesi denetim): IPv4-EŞLEMELİ IPv6 adresler yerel ağ yasağını aşıyordu —
+//    `http://[::ffff:127.0.0.1]:8765/` ve `http://[::ffff:192.168.1.1]/` ok:true dönüyordu (URL ayrıştırıcısı
+//    bunları `::ffff:7f00:1` biçimine çevirir, ortak denetim yalnız `::1`, `fc00::/7`, `fe80::` bakıyordu).
+//    CGNAT aralığı 100.64.0.0/10 (operatör iç ağı) da açıktı. Ortak `isLocalOrReserved` tehdit listesi
+//    ayrıştırmasında da kullanıldığı için orada değil, GÖREV adresine özel burada genişletildi.
+function ipv4Esle(host) {
+  const m = /^(?:0{0,4}:){0,5}:?(?:ffff:)?(?:(\d{1,3}(?:\.\d{1,3}){3})|([0-9a-f]{1,4}):([0-9a-f]{1,4}))$/i.exec(host);
+  if (!m || !host.includes(':')) return null;
+  if (m[1]) return m[1];
+  const a = parseInt(m[2], 16), b = parseInt(m[3], 16);
+  return [a >> 8, a & 255, b >> 8, b & 255].join('.');
+}
+
+function yerelAdresMi(hostname) {
+  const h = normalizeHost(hostname);
+  if (isLocalOrReserved(h)) return true;
+  const v4 = ipv4Esle(h);
+  if (v4 && isLocalOrReserved(v4)) return true;
+  const ip = v4 || h;
+  if (/^\d{1,3}(\.\d{1,3}){3}$/.test(ip)) {
+    const [a, b] = ip.split('.').map(Number);
+    if (a === 100 && b >= 64 && b <= 127) return true;          // 100.64.0.0/10 — CGNAT
+  }
+  return false;
+}
+
 const METIN_SINIRI = 100 * 1024;        // 100 KB — IPC ve model bağlamı için yeterli
 const BASLIK_SINIRI = 300;
 const IZINLI_SEMALAR = new Set(['http:', 'https:']);
@@ -40,7 +66,7 @@ function gecerliGorevAdresi(deger) {
   // Kimlik gömülü adres: hem kimlik sızdırır hem de bazı sunucularda adresin
   // gerçek hedefini gizlemek için kullanılır.
   if (u.username || u.password) return { ok: false, sebep: 'gecersiz_adres' };
-  if (isLocalOrReserved(normalizeHost(u.hostname))) return { ok: false, sebep: 'yerel_adres' };
+  if (yerelAdresMi(u.hostname)) return { ok: false, sebep: 'yerel_adres' };
   return { ok: true, url: u.toString() };
 }
 
@@ -78,4 +104,4 @@ function basligiKirp(baslik) {
   return String(baslik == null ? '' : baslik).replace(/\s+/g, ' ').trim().slice(0, BASLIK_SINIRI);
 }
 
-module.exports = { gecerliGorevAdresi, metniKirp, nodlardanMetin, basligiKirp, METIN_SINIRI, BASLIK_SINIRI };
+module.exports = { gecerliGorevAdresi, yerelAdresMi, metniKirp, nodlardanMetin, basligiKirp, METIN_SINIRI, BASLIK_SINIRI };

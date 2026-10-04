@@ -309,8 +309,15 @@ function anahtarSozcukler(bloklar, n = 5) {
     .sort((a, b) => b[1] - a[1]).slice(0, n).map(([w]) => w);
 }
 
+// ⛔ ÖLÇÜLDÜ (04.10.2026, yayın öncesi denetim): düz nesnede `d['constructor'] || 0` PROTOTİPTEKİ işlevi
+//    döndürüyordu; "constructor" sık geçen bir sayfadan sonra sayaç `"function Object() { [native code] }11"`
+//    oluyor, her özette uzuyor ve sıralama NaN'a düşüyordu. Sayaç prototipsiz nesnede tutulur; diskte
+//    önceden bozulmuş (sayı olmayan) değerler okunurken atılır.
 function ilgiEkle(eski, sozcuk, azami = 60) {
-  const d = { ...(eski && typeof eski === 'object' ? eski : {}) };
+  const d = Object.create(null);
+  if (eski && typeof eski === 'object') {
+    for (const [k, v] of Object.entries(eski)) if (Number.isFinite(v) && v > 0) d[k] = v;
+  }
   for (const w of sozcuk || []) {
     if (typeof w !== 'string' || !w || w.length > 40) continue;
     d[w] = (d[w] || 0) + 1;
