@@ -29,14 +29,8 @@ try {
   if (typeof shield === 'string' && shield) webFrame.executeJavaScript(shield);
 } catch (e) { /* koruma olmadan devam */ }
 
-// Global Privacy Control: Sec-GPC başlığını ana süreç ekler; sayfa betikleri
-// navigator.globalPrivacyControl'ü okur. Özellik sayfanın kendi dünyasında tanımlanmalı
-// (bu betik yalıtılmış dünyada). Bayrak sekme açılırken ayardan gelir. Betik değer
-// döndürmemeli: executeJavaScript sonucu seri hale getirir, Navigator.prototype'ın
-// alıcıları orada "Illegal invocation" hatası verir.
-if (process.argv.includes('--ilgezdi-gpc')) {
-  webFrame.executeJavaScript("Object.defineProperty(Navigator.prototype, 'globalPrivacyControl', { get() { return true; }, configurable: true, enumerable: true }); void 0;");
-}
+// Global Privacy Control: navigator.globalPrivacyControl artık ana süreçten gelen betikle
+// ('fp-script', main.js gpcScriptFor) — Google giriş sayfası hariç.
 
 // Şifre yardımcıları yalnızca ana çerçevede: alt çerçeve (başka sitenin iframe'i) üst sayfanın
 // adına şifre kaydettiremez ya da doldurma menüsü açamaz.

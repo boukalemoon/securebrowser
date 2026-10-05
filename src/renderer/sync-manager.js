@@ -19,7 +19,7 @@
   const SYNC_SETTING_KEYS = [
     'homepage', 'searchEngine', 'theme', 'accentColor', 'fontSize', 'fontFamily',
     'newTabMode', 'customNewTabUrl', 'blockTrackers', 'blockAds',
-    'fingerprintProtection', 'httpsOnly', 'doNotTrack', 'userAgentRotation',
+    'fingerprintProtection', 'httpsOnly', 'doNotTrack',
     'notifications', 'askDownloadLocation', 'blockLevel', 'whitelist',
     'globalPrivacyControl', 'cleanLinks', 'blockAutoplay', 'clearSiteDataOnExit', 'clearHistoryOnExit',
     'fingerprintShield', 'verticalTabs',

@@ -2416,8 +2416,8 @@ suite('Keşfet — TrendTech yazılımları');
       mj5.includes("if (config.globalPrivacyControl !== false) headers['Sec-GPC'] = '1';")
       && /threats\.check\(details\.url, ses\)[\s\S]{0,1500}shouldBlockUrl[\s\S]{0,900}rewriteNavigation\(\{[\s\S]{0,300}thirdParty: isThirdParty/.test(mj5)
       && !mj5.includes("details.resourceType === 'mainFrame' && details.url.startsWith('http://')"));
-    check('sekme: otomatik oynatma politikası ve GPC bayrağı açılışta veriliyor',
-      mj5.includes('autoplayPolicy: autoplayPolicyFor(config),') && mj5.includes("additionalArguments: config.globalPrivacyControl !== false ? ['--ilgezdi-gpc'] : [],"));
+    check('sekme: otomatik oynatma politikası açılışta veriliyor; eski GPC başlatma bayrağı yok (betik ana süreçten, adrese göre)',
+      mj5.includes('autoplayPolicy: autoplayPolicyFor(config),') && !/additionalArguments:[^\n]*--ilgezdi-gpc/.test(mj5));
     check('kapanış bir kez erteleniyor, silme en çok 8 sn bekleniyor, sonra yeniden kapanıyor',
       /app\.on\('before-quit', \(event\) => \{\s*if \(exitCleanupStarted\) return;\s*const steps = exitCleanupPlan\(config\);\s*if \(!steps\.length\) return;\s*exitCleanupStarted = true;\s*event\.preventDefault\(\);/.test(mj5)
       && mj5.includes('setTimeout(resolve, 8000)') && mj5.includes('Promise.race([work, limit]).finally(() => app.quit());'));
@@ -2425,8 +2425,12 @@ suite('Keşfet — TrendTech yazılımları');
       mj5.includes("for (const k of ['globalPrivacyControl', 'cleanLinks', 'blockAutoplay', 'fingerprintShield']) if (k in incoming) incoming[k] = incoming[k] !== false;")
       && mj5.includes("for (const k of ['clearSiteDataOnExit', 'clearHistoryOnExit', 'warnOnCloseTabs', 'doNotTrack']) if (k in incoming) incoming[k] = incoming[k] === true;"));
     const pp5 = read('preload/page-preload.js');
-    check('navigator.globalPrivacyControl yalnızca bayrakla ve sayfa dünyasında tanımlanıyor',
-      /if \(process\.argv\.includes\('--ilgezdi-gpc'\)\) \{\s*webFrame\.executeJavaScript\("Object\.defineProperty\(Navigator\.prototype, 'globalPrivacyControl'/.test(pp5));
+    const gpcFn = (mj5.match(/function gpcScriptFor[\s\S]*?\n\}/) || [''])[0];
+    check('navigator.globalPrivacyControl ayar açıkken, sayfa dünyasında, Google giriş sayfası HARİÇ tanımlanıyor (denetim A3)',
+      /const GPC_BETIGI = "Object\.defineProperty\(Navigator\.prototype, 'globalPrivacyControl'/.test(mj5)
+      && /if \(config\.globalPrivacyControl === false\) return '';/.test(gpcFn)
+      && /return googleGiris\.girisSayfasiMi\(topUrl\) \? '' : GPC_BETIGI;/.test(gpcFn)
+      && !pp5.includes('--ilgezdi-gpc') && !pp5.includes('globalPrivacyControl\''));
     const sp5 = read('renderer/settings-panel.js');
     check('dil seçimi: sistem dili ya da desteklenen diller; bilinmeyen değer "auto"',
       sp5.includes("<option value=\"auto\" ${(cfg.language || 'auto') === 'auto' ? 'selected' : ''}>${TH('settings.language.auto')}</option>")
@@ -3588,9 +3592,11 @@ suite('Google ile giriş — window.chrome tamamlanıyor, kimlik taklidi yok');
 {
   const m = read('../src/main/main.js');
   const fpIpc = (m.match(/ipcMain\.on\('fp-script', \(event\) => \{[\s\S]*?\n\}\);/) || [''])[0];
-  check('fp-script önce window.chrome tamamlamasını, sonra kalkanı veriyor; kalkan hata verse de tamamlama gidiyor',
+  check('fp-script önce window.chrome tamamlamasını, sonra kalkanı, sonra GPC\'yi veriyor; biri hata verse de tamamlama gidiyor',
     /const chromeNesnesi = require\('\.\/chrome-nesnesi'\);/.test(m)
-    && /let kalkan = '';\s*try \{ kalkan = fingerprintScriptFor\(event\.senderFrame, event\.sender\.session\); \} catch \{\}\s*event\.returnValue = chromeNesnesi\.BETIK \+ kalkan;/.test(fpIpc));
+    && /let kalkan = '';\s*try \{ kalkan = fingerprintScriptFor\(event\.senderFrame, event\.sender\.session\); \} catch \{\}/.test(fpIpc)
+    && /let gpc = '';\s*try \{ gpc = gpcScriptFor\(event\.senderFrame\); \} catch \{\}/.test(fpIpc)
+    && fpIpc.includes("event.returnValue = chromeNesnesi.BETIK + kalkan + (gpc ? '\\n' + gpc : '');"));
   const pp = read('preload/page-preload.js');
   const ppKod = pp.replace(/\/\*[\s\S]*?\*\//g, '');
   check('sekme ön yüklemesi betiği HER çerçevede ve sayfanın kendi dünyasında çalıştırıyor',
@@ -3600,8 +3606,8 @@ suite('Google ile giriş — window.chrome tamamlanıyor, kimlik taklidi yok');
     (m.match(/preload: path\.join\(__dirname, '\.\.\/preload\/page-preload\.js'\),/g) || []).length >= 2
     && (m.match(/nodeIntegrationInSubFrames: true,/g) || []).length >= 2);
   const fp = (m.match(/function fingerprintScriptFor[\s\S]*?\n\}/) || [''])[0];
-  check('giriş sayfasında gürültü yok; istisna kalkan kararından SONRA, genel satır değişmedi',
-    /if \(googleGiris\.girisSayfasiMi\(topUrl\)\) return shieldScript\(\{ farble: false, seed: '' \}\);/.test(fp)
+  check('giriş sayfasında kalkan HİÇ kurulmuyor (toString/deviceMemory değişikliği yok, denetim A2); istisna kalkan kararından SONRA, genel satır değişmedi',
+    /if \(googleGiris\.girisSayfasiMi\(topUrl\)\) return '';/.test(fp) && !/shieldScript\(\{ farble: false/.test(fp)
     && fp.indexOf('const farble = web && config.fingerprintShield !== false && !isWhitelisted(topUrl, topUrl);') > 0
     && fp.indexOf('const farble') < fp.indexOf('googleGiris.girisSayfasiMi(topUrl)'));
   const baslik = (m.match(/ses\.webRequest\.onBeforeSendHeaders\(\(details, callback\) => \{[\s\S]*?\n  \}\);/) || [''])[0];

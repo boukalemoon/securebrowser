@@ -144,7 +144,6 @@ const DEFAULT_CONFIG = {
   // Zararlı site koruması: açık tehdit listeleri cihaza indirilir, eşleşme yerelde
   // yapılır (threat-lists.js). Google Safe Browsing yok; adresler gönderilmez.
   threatProtection:      true,
-  userAgentRotation:     true,
   logEnabled:            true,
   logSyncServer:         '',
   theme:                 'otuken',
@@ -279,8 +278,11 @@ let secureLog  = null;
 // da aynı şekilde işaretlenir. Bu yüzden gerçek Chromium sürümüyle eşleşen tek
 // bir temiz UA kullanıp session.setUserAgent ile navigator.userAgent'ı da
 // aynı değere sabitliyoruz (başlık ↔ JS tutarlı).
+// Sürüm KISALTILMIŞ yazılır ("Chrome/152.0.0.0"): gerçek Chrome 2023'ten beri böyle
+// gönderiyor. Tam sürüm ("152.0.7977.78") gömülü Chromium'u ele veren bir iz (denetim A6,
+// 06.10.2026). Tam sürüm gerekirse siteler istemci ipuçlarından ister, Chrome'daki gibi.
 function buildUserAgent() {
-  const ver = process.versions.chrome || '120.0.0.0';
+  const ver = String(process.versions.chrome || '120.0.0.0').split('.')[0] + '.0.0.0';
   const osToken =
     process.platform === 'darwin' ? 'Macintosh; Intel Mac OS X 10_15_7' :
     process.platform === 'linux'  ? 'X11; Linux x86_64' :
@@ -853,7 +855,6 @@ function createTabView(win, state, tabId) {
       minimumFontSize: normalizeMinFontSize(config.minimumFontSize),
       // Otomatik oynatma ve GPC de yalnızca sekme açılırken verilebilir (ön yükleme argv'den okur).
       autoplayPolicy: autoplayPolicyFor(config),
-      additionalArguments: config.globalPrivacyControl !== false ? ['--ilgezdi-gpc'] : [],
       // Ön yükleme alt çerçevelerde de çalışır: parmak izi koruması ve GPC her çerçevede
       // sayfa betiklerinden önce kurulur. Şifre yardımcıları yalnızca ana çerçevede
       // (page-preload.js process.isMainFrame; ana süreç de alt çerçeveden geleni reddeder).
@@ -1880,8 +1881,7 @@ async function ulgenGorevSayfasi(url, opts = {}) {
     view = new WebContentsView({
       webPreferences: {
         preload: path.join(__dirname, '../preload/page-preload.js'),
-        additionalArguments: config.globalPrivacyControl !== false ? ['--ilgezdi-gpc'] : [],
-        nodeIntegrationInSubFrames: true,
+          nodeIntegrationInSubFrames: true,
         contextIsolation: true, nodeIntegration: false, sandbox: true,
         webSecurity: true, allowRunningInsecureContent: false,
         partition: bolum,          // persist: YOK → çerezler diske yazılmaz
@@ -3424,18 +3424,34 @@ function fingerprintScriptFor(frame, ses) {
   const topUrl = top ? String(top.url || '') : '';
   const web = /^https?:\/\//i.test(topUrl);
   const farble = web && config.fingerprintShield !== false && !isWhitelisted(topUrl, topUrl);
-  // Google giriş sayfası: gürültü YOK (Google'ın bot denetimi tuval/ses/WebGL ölçüyor).
-  // Orada kullanıcı zaten kendi hesabıyla kimliğini bildiriyor; korunacak anonimlik yok.
-  if (googleGiris.girisSayfasiMi(topUrl)) return shieldScript({ farble: false, seed: '' });
+  // ⛔ Google giriş sayfası: kalkan HİÇ KURULMAZ (denetim A2, 06.10.2026). Gürültü kapalıyken
+  // bile kalkan Function.prototype.toString'i ve deviceMemory alıcısını değiştiriyordu;
+  // Google'ın bot denetimi değiştirilmiş yerel işlevi "oynanmış ortam" sayar. Orada kullanıcı
+  // zaten kendi hesabıyla kimliğini bildiriyor; korunacak anonimlik yok.
+  if (googleGiris.girisSayfasiMi(topUrl)) return '';
   const site = farble ? registrableDomain(new URL(topUrl).hostname) : '';
   return shieldScript({ farble, seed: farble ? fingerprintSeedFor(ses, site) : '' });
 }
 // Önce window.chrome Chrome'daki gibi tamamlanır (chrome-nesnesi.js — Google girişi bunsuz
 // reddediliyor), sonra kalkan. Kalkan hata verse bile tamamlama gider.
+// Global Privacy Control: Sec-GPC başlığı onBeforeSendHeaders'ta; sayfa betikleri
+// navigator.globalPrivacyControl'ü okur. Özellik JS ile tanımlandığı için yerel değildir
+// (toString kaynağı gösterir) ve Chrome'da yoktur → Google giriş sayfasında KONMAZ
+// (denetim A3, 06.10.2026); başlık orada da gider. Eskiden ön yükleme bunu bir başlatma
+// bayrağıyla (--ilgezdi-gpc) sayfanın adresine bakmadan her yerde koyuyordu.
+const GPC_BETIGI = "Object.defineProperty(Navigator.prototype, 'globalPrivacyControl', { get() { return true; }, configurable: true, enumerable: true }); void 0;";
+function gpcScriptFor(frame) {
+  if (config.globalPrivacyControl === false) return '';
+  const top = frame ? (frame.top || frame) : null;
+  const topUrl = top ? String(top.url || '') : '';
+  return googleGiris.girisSayfasiMi(topUrl) ? '' : GPC_BETIGI;
+}
 ipcMain.on('fp-script', (event) => {
   let kalkan = '';
   try { kalkan = fingerprintScriptFor(event.senderFrame, event.sender.session); } catch {}
-  event.returnValue = chromeNesnesi.BETIK + kalkan;
+  let gpc = '';
+  try { gpc = gpcScriptFor(event.senderFrame); } catch {}
+  event.returnValue = chromeNesnesi.BETIK + kalkan + (gpc ? '\n' + gpc : '');
 });
 
 // ─── Şifre kaydetme önerisi ve doldurma (preload/page-preload.js) ─────────────
@@ -3851,7 +3867,6 @@ function createWebPanelView(win, panel) {
       preload: path.join(__dirname, '../preload/page-preload.js'),
       minimumFontSize: normalizeMinFontSize(config.minimumFontSize),
       autoplayPolicy: autoplayPolicyFor(config),
-      additionalArguments: config.globalPrivacyControl !== false ? ['--ilgezdi-gpc'] : [],
       nodeIntegrationInSubFrames: true,
       contextIsolation: true,
       nodeIntegration: false,
