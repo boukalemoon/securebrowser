@@ -140,6 +140,18 @@ footer a{font-family:var(--font-mono);font-size:12.5px}
 // "En son" etiketi yayınlanmış ilk sürüme verilir.
 const RELEASES = [
   {
+    version: '0.8.10', date: 'Ekim 2026', title: 'Mac\'te kurulum, Ülgen araması herkeste çalışıyor', upcoming: true,
+    changes: [
+      { t:'fix', d:'<b>Mac\'te "hasarlı, açılamıyor" hatası giderildi.</b> 0.8.9\'un Mac sürümü imzasız paketlenmişti ve macOS onu bozuk sayıp açmıyordu. Uygulama artık imzalı paketleniyor ve her yayında imza gerçek bir Mac\'te denetleniyor. İmza henüz Apple onaylı (notarize) değil: ilk açılışta macOS bir uyarı gösterir; indirme sayfasındaki adımlarla bir kez "Yine de Aç" demeniz yeterli. Mac\'te otomatik güncelleme bu nedenle henüz yok, yeni sürümleri bu siteden indirin.' },
+      { t:'fix', d:'<b>Ülgen\'in internet araştırması artık her bilgisayarda çalışıyor.</b> 0.8.9\'da araştırma yalnızca geliştirme bilgisayarında bulunan bir arama sunucusuna gidiyordu; kullanıcıların bilgisayarında her soru "bulamadım" ile bitiyordu. Arama artık sizin bağlantınızdan DuckDuckGo\'da (gerekirse Vikipedi\'de) yapılıyor. İnternette araştırma ayrı bir izindir ve varsayılan olarak kapalıdır.' },
+      { t:'imp', d:'<b>Arama motorlarına karşı ölçülü.</b> Ülgen arka arkaya çok sayıda arama yapmıyor: iki arama arasında en az 8 saniye, saatte en fazla 30 arama. Böylece bağlantınız arama motorlarının "robot musunuz" doğrulamasına düşmüyor; sınır dolarsa soru Vikipedi\'den cevaplanır.' },
+      { t:'imp', d:'<b>Google hesabıyla girişte iyileştirme.</b> Google, uygulama içine gömülü tarayıcılarda "Bu tarayıcı veya uygulama güvenli olmayabilir" diyerek girişi reddedebiliyor. İlgezdi\'yi gömülü tarayıcı gibi gösteren izler azaltıldı ve giriş sayfasında tarayıcı ortamı artık değiştirilmiyor. Bu kararı Google verdiği için her hesapta çalışacağını henüz garanti edemiyoruz; sorun yaşarsanız Öneri sayfasından bildirin.' },
+      { t:'sec', d:'<b>Ziyaret günlüğünüz yalnız cihazınızda.</b> Hiçbir arayüzün kullanmadığı bir eşitleme kapısı ve şifrelenmemiş bir senkron kuyruğu kaldırıldı; günlük AES-256 ile şifreli olarak yalnız bu bilgisayarda durur. Ayrıca şifreli günlüğün nadiren yanlışlıkla "bozuk" sayılması düzeltildi ve kenara alınmış günlükler kurtarılıyor.' },
+      { t:'new', d:'<b>Kenar çubuğunu istediğiniz yere taşıyın.</b> Sol, sağ, alt, üst ya da gizli (fare kenara gelince açılır).' },
+      { t:'new', d:'<b>Ülgen: profilim ve öneriler.</b> İsterseniz Ülgen son 30 günlük gezinmenizden ilgi alanlarınızı çıkarır ve öneri sunar. Tamamen cihazınızda hesaplanır, saklanmaz, hiçbir yere gönderilmez; varsayılan olarak kapalıdır.' },
+    ],
+  },
+  {
     version: '0.8.9', date: '23 Eylül 2026', title: 'Ülgen sorunuzu internette araştırıp cevaplıyor',
     changes: [
       { t:'new', d:'<b>Ülgen artık soru cevaplıyor.</b> Bir şey sorduğunuzda Ülgen internette araştırır, bulduğu sayfaları okur ve cevabı <b>kaynaklarıyla birlikte</b> yazar. Her madde açılmış bir sayfadan alınmış gerçek bir cümledir ve altında geldiği adres durur — tıklayıp kendiniz bakabilirsiniz. Bilgisayarınıza gigabaytlarca yapay zekâ modeli inmez; İlgezdi bunu kendi parçalarıyla yapar. <b>Uydurma yoktur:</b> bulamazsa "bulamadım" der.' },
@@ -304,7 +316,7 @@ const RELEASES = [
       { t:'fix', d:'<b>Gerçek kurulum sihirbazı.</b> İndirilen dosya artık bilgisayara düzgün kurulur, Başlat menüsünde ve masaüstünde çıkar. (Önceki "sadece çalışan" sorun giderildi.)' },
       { t:'fix', d:'<b>Ana sayfa açılışı.</b> Ayarlarda belirlediğiniz ana sayfa artık uygulama açılışında ve Ana Sayfa düğmesinde açılıyor.' },
       { t:'new', d:'<b>Arama motoru seçimi.</b> Ayarlardan arama motorunuzu seçin: DuckDuckGo, Google, Bing, Yandex, Yahoo, Brave, Ecosia, Startpage.' },
-      { t:'fix', d:'<b>Web\'de hesap girişleri.</b> Google ve diğer sitelere giriş yaparken çıkan "bu tarayıcı güvenli olmayabilir" engeli kaldırıldı.' },
+      { t:'fix', d:'<b>Web\'de hesap girişleri.</b> Google girişinde çıkan "bu tarayıcı güvenli olmayabilir" engeli için ilk düzeltme yapıldı. <i>Düzeltme (Ekim 2026): bu değişiklik sonradan yetersiz kaldı; engel tamamen kalkmadı. Güncel durum için 0.8.10 notuna bakın.</i>' },
       { t:'imp', d:'<b>İzin hatırlama.</b> Bir siteye verdiğiniz (ya da reddettiğiniz) kamera/konum izni artık tekrar tekrar sorulmuyor.' },
     ],
   },

@@ -1320,13 +1320,17 @@ suite('Zararlı site koruması — canlı liste durumu');
     && /if \(!threatSubscribed\) \{\s*threatSubscribed = true;/.test(read('renderer/data-center.js')));
 }
 
-suite('Yayın — v0.8.9');
+suite('Yayın — v0.8.10');
 {
   const ROOTD = path.join(__dirname, '..');
-  check('paket sürümü 0.8.9', JSON.parse(fs.readFileSync(path.join(ROOTD, 'package.json'), 'utf8')).version === '0.8.9');
-  check('kilit dosyası da aynı sürümde (npm ci ile derleniyor)', JSON.parse(fs.readFileSync(path.join(ROOTD, 'package-lock.json'), 'utf8')).version === '0.8.9');
+  check('paket sürümü 0.8.10', JSON.parse(fs.readFileSync(path.join(ROOTD, 'package.json'), 'utf8')).version === '0.8.10');
+  const lock = JSON.parse(fs.readFileSync(path.join(ROOTD, 'package-lock.json'), 'utf8'));
+  check('kilit dosyası da aynı sürümde (npm ci ile derleniyor)', lock.version === '0.8.10' && lock.packages[''].version === '0.8.10');
   const sur = fs.readFileSync(path.join(ROOTD, 'site', 'surumler.html'), 'utf8');
-  check('site sürüm notlarında 0.8.9 var', /version: '0.8.9'/.test(sur));
+  check('site sürüm notlarında 0.8.10 var; 0.7.1\'in yanlış "engel kaldırıldı" cümlesi düzeltildi (denetim D)',
+    /version: '0.8.10'/.test(sur) && !sur.includes('"bu tarayıcı güvenli olmayabilir" engeli kaldırıldı.'));
+  const idx = fs.readFileSync(path.join(ROOTD, 'site', 'index.html'), 'utf8');
+  check('indirme sayfasında Mac "Yine de Aç" rehberi var (denetim C)', idx.includes('Gizlilik ve Güvenlik</b>\'i açın') && idx.includes('"Çöp Kutusuna Taşı"ya basmayın'));
   const wf = fs.readFileSync(path.join(ROOTD, '.github', 'workflows', 'release.yml'), 'utf8');
   check('yayın otomatik güncelleme dosyalarını da yüklüyor (latest*.yml, blockmap)', wf.includes('dist/latest*.yml') && wf.includes('dist/*.blockmap'));
 }

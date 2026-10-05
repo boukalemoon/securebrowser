@@ -296,7 +296,24 @@ footer{border-top:1px solid var(--line);padding:52px 0 40px;margin-top:20px}
           <li>Açılan <b>"Yine de çalıştır"</b> (Run anyway) düğmesine basın.</li>
           <li>Kurulum sihirbazı başlar; kurulum bitince İlgezdi, Başlat menüsünde ve masaüstünde çıkar.</li>
         </ol>
-        <p class="ss-note">Not: Bu uyarı zamanla, yeterli sayıda kullanıcı indirdikçe kendiliğinden kaybolur. Antivirüs uyarısı görürseniz de aynı şekilde "güven / izin ver" diyebilirsiniz.</p>
+        <p class="ss-note">Not: Bu uyarı zamanla, yeterli sayıda kullanıcı indirdikçe kendiliğinden kaybolur. Antivirüs uyarısı görürseniz önce aşağıdaki SHA-256 doğrulamasıyla dosyanın bizim dosyamız olduğundan emin olun.</p>
+      </div>
+    </details>
+
+    <!-- macOS Gatekeeper açıklaması (bağımsız denetim C, 06.10.2026). Uygulama ad-hoc
+         imzalı, notarize değil: macOS ilk açılışta uyarır ve "Çöp Kutusuna Taşı" seçeneği
+         sunar. Apple Developer ID + notarization gelince bu kutu kaldırılır. -->
+    <details class="smartscreen">
+      <summary>Mac'te "Apple doğrulayamadı" ya da "Çöp Kutusuna Taşı" uyarısı mı çıktı? &nbsp;<span>Ne yapmalı?</span></summary>
+      <div class="ss-body">
+        <p>İlgezdi henüz Apple'ın onay sürecinden (notarization) geçmedi; bu yüzden macOS ilk açılışta uyarı gösterir. Uygulama Apple onaylı olmayan bir imzayla paketlenir; kaynak kodu GitHub'da açıktır ve dosyayı aşağıdaki SHA-256 özetiyle doğrulayabilirsiniz. <b>"Çöp Kutusuna Taşı"ya basmayın.</b> Bir kez şu adımları yapmanız yeterli:</p>
+        <ol>
+          <li>İndirdiğiniz <span class="ss-cmd">.dmg</span> dosyasını açın ve İlgezdi'yi <b>Uygulamalar</b> klasörüne sürükleyin.</li>
+          <li>İlgezdi'yi açın. Uyarı penceresinde <b>"Bitti"</b> (Done) düğmesine basın.</li>
+          <li><b>Sistem Ayarları › Gizlilik ve Güvenlik</b>'i açın. Aşağıdaki "İlgezdi engellendi" satırında <b>"Yine de Aç"</b> (Open Anyway) düğmesine basın ve Mac parolanızı girin.</li>
+          <li>Açılan son pencerede yeniden <b>"Yine de Aç"</b>'a basın. Bundan sonra İlgezdi normal açılır.</li>
+        </ol>
+        <p class="ss-note">macOS 14 ve öncesinde: Uygulamalar klasöründe İlgezdi'ye sağ tıklayıp <b>"Aç"</b> demeniz yeterli. "Hasarlı, açılamıyor" hatası görüyorsanız eski bir sürümü (0.8.9 ya da öncesi) indirmişsinizdir; bu sayfadan güncel sürümü indirin. Mac'te otomatik güncelleme henüz yok; yeni sürümleri buradan indirin.</p>
       </div>
     </details>
 
