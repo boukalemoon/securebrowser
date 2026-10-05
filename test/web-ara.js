@@ -141,6 +141,20 @@ console.log('\n\x1b[1m7) Ölçüm aracı (test/helpers/ddg-baglantilar.js) — �
      v.length === 1 && v[0].baslik === "Bilim insan'ı" && v[0].parcacik === 'bilimsel yöntem', g(v));
   ol('bot doğrulama sayfası tanınıyor (202 ya da challenge-form)',
      H.ddgEngelMi(202, '') && H.ddgEngelMi(200, '<form id="challenge-form">') && !H.ddgEngelMi(200, '<div class="result ">'));
+  // Hız sınırı (denetim B): sorgular doğrulama gelmeden önce seyreltiliyor.
+  const hs = W.hizSiniri({ aralikMs: 8000, saatlikAzami: 3 });
+  const t0 = 1e9;
+  const ilk = hs.izinVar(t0); hs.kaydet(t0);
+  const erken = hs.izinVar(t0 + 7999);
+  const sonra = hs.izinVar(t0 + 8000); hs.kaydet(t0 + 8000); hs.kaydet(t0 + 16000);
+  const saatDolu = hs.izinVar(t0 + 30000);
+  const saatSonra = hs.izinVar(t0 + 60 * 60 * 1000 + 1);
+  ol('hız sınırı: ilk sorgu serbest, 8 sn dolmadan ikinci yok, sonra var',
+     ilk && !erken && sonra, g({ ilk, erken, sonra }));
+  ol('hız sınırı: saatlik tavan dolunca yok, bir saat sonra yeniden var',
+     !saatDolu && saatSonra, g({ saatDolu, saatSonra }));
+  ol('varsayılan sınır insan hızına göre: 8 sn aralık, saatte 30',
+     W.DDG_ARALIK_MS === 8000 && W.DDG_SAATLIK_AZAMI === 30);
   const getir = async (u) => (u.includes('duckduckgo')
     ? { kod: 202, govde: '<form id="challenge-form"></form>' }
     : { kod: 200, govde: VIKI });

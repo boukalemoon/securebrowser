@@ -211,7 +211,39 @@ function sonuclariAyikla(ham, azami = 12, kaynak = 'ddg') {
   return cikti;
 }
 
+// ── Hız sınırı ────────────────────────────────────────────────────────────
+// ⛔ NEDEN (bağımsız denetim B, 06.10.2026): DuckDuckGo aynı IP'den kısa sürede
+//    gelen sorgulara bot doğrulama sayfası gösteriyor (ölçüldü 24.09: ~6 sorgu).
+//    Eskiden yalnız doğrulama GÖRÜLDÜKTEN SONRA 10 dk beklenirdi; yani engel
+//    her seferinde önce tetikleniyor, IP itibarı her seferinde biraz daha
+//    düşüyordu. Artık sorgular baştan seyreltilir: iki DuckDuckGo sorgusu
+//    arasında en az ARALIK_MS, kayan bir saat içinde en çok SAATLIK_AZAMI.
+//    Sınır aşılırsa o soru için DuckDuckGo'ya HİÇ gidilmez; zincir Vikipedi'ye
+//    düşer. Kullanıcı başına bir soru 1-2 arama yapar; insan hızında sınıra
+//    takılınmaz, yalnız döngüye giren bir otomasyon takılır.
+const DDG_ARALIK_MS = 8 * 1000;
+const DDG_SAATLIK_AZAMI = 30;
+const SAAT_MS = 60 * 60 * 1000;
+
+/**
+ * Saf hız sınırlayıcı (saat dışarıdan verilir, sınanabilir).
+ *   izinVar(simdi) → bu anda bir sorgu yapılabilir mi
+ *   kaydet(simdi)  → yapılan sorguyu say
+ */
+function hizSiniri({ aralikMs = DDG_ARALIK_MS, saatlikAzami = DDG_SAATLIK_AZAMI } = {}) {
+  let zamanlar = [];
+  return {
+    izinVar(simdi = Date.now()) {
+      zamanlar = zamanlar.filter((t) => simdi - t < SAAT_MS);
+      if (zamanlar.length >= saatlikAzami) return false;
+      const son = zamanlar.length ? zamanlar[zamanlar.length - 1] : -Infinity;
+      return simdi - son >= aralikMs;
+    },
+    kaydet(simdi = Date.now()) { zamanlar.push(simdi); },
+  };
+}
+
 module.exports = {
-  aramaAdresi, betik, sonuclariAyikla, ddgHedef, vikiHedef,
-  KAYNAK_SIRASI, DDG_KOKU, VIKI_KOKU,
+  aramaAdresi, betik, sonuclariAyikla, ddgHedef, vikiHedef, hizSiniri,
+  KAYNAK_SIRASI, DDG_KOKU, VIKI_KOKU, DDG_ARALIK_MS, DDG_SAATLIK_AZAMI,
 };

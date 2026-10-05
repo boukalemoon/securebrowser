@@ -2092,12 +2092,16 @@ const ULGEN_ARA_AZAMI_SONUC = 12;
 //    (Vikipedi) devreye girer. Yalnız bellekte; uygulama kapanınca sıfırlanır.
 const ULGEN_ARA_DINLENME_MS = 10 * 60 * 1000;
 let ulgenAraDinlenme = 0;
+// Doğrulama görülmeden ÖNCE de seyreltilir (ulgen-web-ara.js hizSiniri, denetim B).
+const ulgenDdgSiniri = ulgenArama.hizSiniri();
 
 async function ulgenWebAra(sorgu) {
   for (const kaynak of ulgenArama.KAYNAK_SIRASI) {
     if (kaynak === 'ddg' && Date.now() < ulgenAraDinlenme) continue;
+    if (kaynak === 'ddg' && !ulgenDdgSiniri.izinVar()) { diag.info('ulgen', 'Arama hız sınırında', { kaynak }); continue; }
     const adres = ulgenArama.aramaAdresi(sorgu, kaynak);
     if (!adres) return [];
+    if (kaynak === 'ddg') ulgenDdgSiniri.kaydet();
     const r = await ulgenGorevSayfasi(adres, { baglantilar: kaynak, temizOturum: true, zamanAsimiMs: ULGEN_ARA_ZAMAN_ASIMI_MS });
     if (!r || !r.ok) { diag.warn('ulgen', 'Arama başarısız', { kaynak, tur: (r && r.sebep) || 'hata' }); continue; }
     if (r.engel) {

@@ -12,6 +12,14 @@
  *    İlgezdi'nin kendi `reader.extract()` yoluna (korumalı, temiz oturum)
  *    bağlanacak. Yani bu ölçüm ZİNCİRİ ölçer, okuyucuyu değil.
  */
+// ⛔ AĞ ONAYI (bağımsız denetim B, 06.10.2026): bu betik çalıştığı bilgisayarın IP'sinden
+//    DuckDuckGo'yu ve sonuç sayfalarını otomatik tarar. Peş peşe çalıştırmak o IP'yi
+//    DuckDuckGo'nun bot doğrulamasına düşürdü. Yalnız açık onayla çalışır:
+//      ILGEZDI_AGA_CIK=1 node test/<bu dosya>
+if (process.env.ILGEZDI_AGA_CIK !== '1') {
+  console.error('Bu ölçüm ağa çıkar ve bu bilgisayarın IP\'sinden DuckDuckGo\'yu tarar. Çalıştırmak için: ILGEZDI_AGA_CIK=1 node ' + require('path').relative(process.cwd(), __filename));
+  process.exit(2);
+}
 const http = require('http');
 const https = require('https');
 const arastirma = require('../src/main/ulgen-arastir.js');
