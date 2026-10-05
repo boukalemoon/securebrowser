@@ -112,7 +112,9 @@
       ],
       "icon": "build/icon.png",
       "category": "public.app-category.utilities",
-      "darkModeSupport": true
+      "darkModeSupport": true,
+      "identity": "-",
+      "hardenedRuntime": false
     },
     "dmg": {
       "title": "İlgezdi ${version}",

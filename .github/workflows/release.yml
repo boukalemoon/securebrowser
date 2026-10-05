@@ -47,8 +47,37 @@ jobs:
         run: npm run dist:${{ matrix.platform }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # macOS imzasını atla (Developer ID yoksa)
+          # Anahtar zincirinde sertifika ARANMAZ (Developer ID yok). Mac uygulaması yine de
+          # ad-hoc imzalanır: package.json mac.identity "-" açık ayarı bunu ezmez.
           CSC_IDENTITY_AUTO_DISCOVERY: false
+
+      # ⛔ MAC: İMZASIZ UYGULAMA "HASARLI" SAYILIR (Burak, 05.10.2026 — kullanıcılar Mac'te
+      #    kuramıyordu). 0.8.9 günlüğü iki mimaride de "skipped macOS application code
+      #    signing" diyordu: Electron'un kendi imzası, ad/simge/asar değişince geçersiz kalıyor
+      #    ve Apple Silicon bu uygulamayı "hasarlı, açılamıyor" diye reddediyor. Artık ad-hoc
+      #    imzalanıyor; burada GERÇEK macOS'ta doğrulanır. İmza bozuksa ya da arm64 ikilisi
+      #    imzasıyla açılmıyorsa iş DURUR — hasarlı kurulum bir daha yayına çıkamaz.
+      # ⚠️ Ad-hoc imza Apple onaylı değildir: ilk açılışta macOS "Apple denetleyemedi" der,
+      #    kullanıcı Sistem Ayarları › Gizlilik ve Güvenlik › "Yine de Aç" ile açar. Tam çözüm
+      #    Apple Developer ID + notarization (karar Burak'ta).
+      - name: Mac imzasını doğrula
+        if: matrix.platform == 'mac'
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          uygulamalar=(dist/mac*/*.app)
+          if [ ${#uygulamalar[@]} -eq 0 ]; then echo "Hiç .app üretilmedi"; exit 1; fi
+          for app in "${uygulamalar[@]}"; do
+            echo "== $app"
+            codesign --verify --deep --strict --verbose=2 "$app"
+            codesign -dv "$app" 2>&1 | grep -E '^(Identifier|Format|Signature|TeamIdentifier)=' || true
+          done
+          # Çalıştırıcı Apple Silicon: arm64 ikilisi imzasıyla gerçekten açılıyor mu (arayüzsüz,
+          # Node kipinde). İmza geçersiz olsaydı çekirdek ikiliyi öldürürdü (Killed: 9).
+          # ⚠️ Electron "RunAsNode" sigortası ileride kapatılırsa bu satır güncellenmeli.
+          ikili=(dist/mac-arm64/*.app/Contents/MacOS/*)
+          ELECTRON_RUN_AS_NODE=1 "${ikili[0]}" -e "console.log('arm64 ikili imzasıyla açıldı, Electron', process.versions.electron)"
 
       # Etiketli yayınlarda ara ürün üretilmez: aynı dosyalar zaten GitHub Release'e
       # ekleniyor ve kimse ara ürünü indirmiyordu. 32 ara ürün 9,3 GB yer kaplayıp

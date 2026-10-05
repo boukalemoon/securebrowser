@@ -3677,6 +3677,23 @@ suite('Windows uygulama kimliği — kurulu sürüm ve geliştirme kopyası ayr�
     (m.match(/setAppUserModelId\(/g) || []).length === 1);
 }
 
+// ─── Mac paketi imzalı ────────────────────────────────────────────────────────
+// ⛔ NEDEN (Burak, 05.10.2026): Mac kullanıcıları kuramıyordu — "hasarlı, açılamıyor".
+//    0.8.9 Mac uygulaması hiç imzasızdı (günlük: "skipped macOS application code signing").
+suite('Mac paketi — ad-hoc imza ve gerçek macOS doğrulaması');
+{
+  const mac = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8')).build.mac;
+  check('Mac uygulaması ad-hoc imzalanıyor, hardened runtime kapalı (ad-hoc ile açılış düşmesin)',
+    mac.identity === '-' && mac.hardenedRuntime === false);
+  const wf = fs.readFileSync(path.join(__dirname, '..', '.github', 'workflows', 'release.yml'), 'utf8');
+  check('yayın iş akışı imzayı gerçek macOS\'ta doğruluyor ve arm64 ikilisini çalıştırıyor',
+    /- name: Mac imzasını doğrula\n\s+if: matrix\.platform == 'mac'/.test(wf)
+    && wf.includes('codesign --verify --deep --strict --verbose=2 "$app"')
+    && wf.includes('ELECTRON_RUN_AS_NODE=1 "${ikili[0]}"'));
+  check('doğrulama yayına eklemeden ÖNCE (bozuk imzada yayın durur)',
+    wf.indexOf('- name: Mac imzasını doğrula') < wf.indexOf("- name: GitHub Release'e ekle"));
+}
+
 // ─── Kardeş sınama dosyaları ──────────────────────────────────────────────────
 // ⛔ NEDEN (23.09.2026): test/ altında kendi başına duran sınama dosyaları
 //    vardı ve `npm test` HİÇBİRİNİ çalıştırmıyordu — yalnız elle
