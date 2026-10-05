@@ -1801,12 +1801,5 @@
   "settings.layout.pos.right": "Droite",
   "settings.layout.pos.bottom": "Bas",
   "settings.layout.pos.top": "Haut",
-  "settings.layout.pos.auto": "Masquée (s’ouvre au survol)",
-  "settings.googleLogin.title": "Connexion avec Google (essai)",
-  "settings.googleLogin.label": "Méthode de connexion",
-  "settings.googleLogin.hint": "Réglage d’essai temporaire pour l’avertissement « Ce navigateur ou cette application n’est peut-être pas sécurisé » sur YouTube et les autres services Google. Appliqué uniquement sur la page de connexion Google ; rien ne change sur les autres sites. Choisissez une méthode, appuyez sur Enregistrer, puis réessayez de vous connecter à Google.",
-  "settings.googleLogin.mode.firefox": "Apparaître comme Firefox",
-  "settings.googleLogin.mode.chrome": "Apparaître comme Chrome",
-  "settings.googleLogin.mode.edge": "Apparaître comme Edge",
-  "settings.googleLogin.mode.kapali": "Désactivé (aucun changement)"
+  "settings.layout.pos.auto": "Masquée (s’ouvre au survol)"
 }

@@ -1720,12 +1720,5 @@
   "settings.layout.pos.right": "Sağ",
   "settings.layout.pos.bottom": "Alt",
   "settings.layout.pos.top": "Üst",
-  "settings.layout.pos.auto": "Gizli (fare gelince açılır)",
-  "settings.googleLogin.title": "Google ile giriş (deneme)",
-  "settings.googleLogin.label": "Giriş yöntemi",
-  "settings.googleLogin.hint": "YouTube ve diğer Google hizmetlerinde \"Bu tarayıcı güvenli olmayabilir\" uyarısı için geçici deneme ayarı. Yalnız Google giriş sayfasında uygulanır; diğer sitelerde hiçbir şey değişmez. Bir yöntemi seçip Kaydet'e basın, sonra Google girişini yeniden deneyin.",
-  "settings.googleLogin.mode.firefox": "Firefox gibi görün",
-  "settings.googleLogin.mode.chrome": "Chrome gibi görün",
-  "settings.googleLogin.mode.edge": "Edge gibi görün",
-  "settings.googleLogin.mode.kapali": "Kapalı (değişiklik yok)"
+  "settings.layout.pos.auto": "Gizli (fare gelince açılır)"
 }

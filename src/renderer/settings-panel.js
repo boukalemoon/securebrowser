@@ -319,7 +319,6 @@ const SETTINGS_FIELDS = {
   'cfg-high-contrast': ['highContrast', 'checked'],
   'cfg-vertical-tabs': ['verticalTabs', 'checked'],
   'cfg-sidebar-pos':   ['sidebarPosition', 'value'],
-  'cfg-google-login':  ['googleLoginMode', 'value'],
   'cfg-block-autoplay': ['blockAutoplay', 'checked'],
   'cfg-clear-site-exit': ['clearSiteDataOnExit', 'checked'],
   'cfg-clear-history-exit': ['clearHistoryOnExit', 'checked'],
@@ -351,7 +350,6 @@ function formValuesFrom(cfg) {
     highContrast:           c.highContrast === true,
     verticalTabs:           c.verticalTabs === true,
     sidebarPosition:        SIDEBAR_POSITIONS_UI.includes(c.sidebarPosition) ? c.sidebarPosition : 'left',
-    googleLoginMode:        GOOGLE_LOGIN_MODES_UI.includes(c.googleLoginMode) ? c.googleLoginMode : 'firefox',
     blockAutoplay:          c.blockAutoplay !== false,
     clearSiteDataOnExit:    c.clearSiteDataOnExit === true,
     clearHistoryOnExit:     c.clearHistoryOnExit === true,
@@ -366,10 +364,8 @@ const TAB_SLEEP_UI = [[0, 'settings.off'], [15, 'settings.tabSleep.15'], [30, 's
 
 // Ana süreçteki listelerle aynı (browser-commands.js → normalizePageZoom / normalizeMinFontSize).
 const PAGE_ZOOMS_UI = [0.8, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2];
-// Kenar çubuğunun yeri (Ayarlar › Görünüm › Yerleşim). Ana süreç aynı listeyle doğrular.
+// Kenar çubuğunun yeri (Ayarlar › Özelleştir › Yerleşim). Ana süreç aynı listeyle doğrular.
 const SIDEBAR_POSITIONS_UI = ['left', 'right', 'bottom', 'top', 'auto'];
-// Google ile giriş — GEÇİCİ deneme seçimi (google-giris.js). Çalışan kip kalıcı yapılınca kalkacak.
-const GOOGLE_LOGIN_MODES_UI = ['firefox', 'chrome', 'edge', 'kapali'];
 const MIN_FONTS_UI = [[0, null], [10, '10 px'], [12, '12 px'], [14, '14 px'], [16, '16 px'], [18, '18 px'], [20, '20 px'], [24, '24 px']];
 
 // Erişilebilirlik (Ayarlar › Özelleştir): arayüzde hareketi azalt ve yüksek karşıtlık.
@@ -626,15 +622,6 @@ function renderGeneralTab(cfg) {
         </div>
       </div>
       <p class="s-hint">${TH('settings.language.hint')}</p>
-    </div>
-    <div class="settings-section"><h3>${TH('settings.googleLogin.title')}</h3>
-      <div class="s-input-row">
-        <label for="cfg-google-login">${TH('settings.googleLogin.label')}</label>
-        <select id="cfg-google-login">
-          ${GOOGLE_LOGIN_MODES_UI.map((k) => `<option value="${k}" ${(cfg.googleLoginMode || 'firefox') === k ? 'selected' : ''}>${TH('settings.googleLogin.mode.' + k)}</option>`).join('')}
-        </select>
-      </div>
-      <p class="s-hint">${TH('settings.googleLogin.hint')}</p>
     </div>
     <div class="settings-section"><h3>${TH('settings.download.title')}</h3>
       <div class="s-input-row"><label>${TH('settings.download.folder')}</label>

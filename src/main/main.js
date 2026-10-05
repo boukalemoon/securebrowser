@@ -33,6 +33,7 @@ const { setupDiscover } = require('./discover-feed');
 const { setupCommunity } = require('./community');
 const { shieldScript, createSeeder } = require('./fingerprint-shield');
 const googleGiris = require('./google-giris');
+const chromeNesnesi = require('./chrome-nesnesi');
 const yerlesim = require('./yerlesim');
 const { setupSuggestPopup } = require('./suggest-popup');
 const { createConsentLog } = require('./consent-log');
@@ -117,7 +118,6 @@ const DEFAULT_CONFIG = {
   webPanels:             [],           // kenar çubuğundaki web panelleri (yalnızca ana süreç yazar)
   verticalTabs:          false,        // sekmeler üstte (false) ya da kenar çubuğunun yanında (true)
   verticalTabsCollapsed: false,        // dikey sekmelerde yalnızca simgeler
-  googleLoginMode:       'firefox',    // Google ile giriş deneme kipi: firefox | chrome | edge | kapali (google-giris.js)
   sidebarPosition:       'left',       // kenar çubuğunun yeri: left | right | bottom | top | auto (gizli, fare gelince açılır)
   passwordNeverSave:     [],           // "bu sitede asla" denen site kökleri (yalnızca ana süreç yazar)
   homepage:              '',           // boş = İlgezdi başlangıç sayfası; URL = o sayfa açılır
@@ -293,57 +293,20 @@ const CLEAN_UA = buildUserAgent();
 // kullanılır. Bu satır eksikken sekmeler "Electron/…" içeren UA gönderiyordu (2026-09-16
 // ölçüm): İlgezdi kullanıcılarını diğer Chrome kullanıcılarından ayıran bir iz.
 app.userAgentFallback = CLEAN_UA;
-// Google ile giriş uyumluluğu (google-giris.js): YouTube'da "Google ile oturum aç" →
-// "Bu tarayıcı güvenli olmayabilir" engeli (Burak, 03-04.10.2026). Kip Ayarlar › Genel'den
-// (geçici deneme seçimi). Her istekte çağrıldığı için kipe göre önbellekli.
-let googleGirisOnbellek = { kip: undefined, deger: null };
-function googleGirisKimligi() {
-  const kip = googleGiris.kipDuzelt(config.googleLoginMode);
-  if (googleGirisOnbellek.kip !== kip) {
-    googleGirisOnbellek = { kip, deger: googleGiris.kimlik(kip, { platform: process.platform, chromeSurumu: process.versions.chrome }) };
-  }
-  return googleGirisOnbellek.deger;
-}
-
-// ⛔ Sekmenin kimliği tarayıcının YEREL kullanıcı aracısı geçersiz kılmasıyla (CDP) verilir,
-//    JavaScript taklidiyle DEĞİL: ilk denemede (04.10) sayfa içi değerleri JS ile tanımladık;
-//    alıcılar "[native code]" görünmediği için Google'ın bot denetimi ortamı "oynanmış" saydı
-//    (kimlik sayfası geçti, sonraki adım reddedildi). Yerel geçersiz kılmada navigator,
-//    userAgentData ve worker'lar dahil hepsi tutarlı. Sekme giriş sayfasından çıkınca hata
-//    ayıklayıcı bırakılır — bırakınca geçersiz kılma da kalkar, YouTube Chrome kimliğine döner.
-const GOOGLE_GIRIS_WORLD_ID = 1024;
-const googleGirisSekmeleri = new WeakSet();
-const googleGirisYenilenen = new WeakSet();
-async function googleGirisSekmesi(wc, url) {
-  const gk = googleGirisKimligi();
-  const giris = !!gk && googleGiris.girisSayfasiMi(url);
-  try {
-    if (giris) {
-      if (!wc.debugger.isAttached()) wc.debugger.attach('1.3');
-      await wc.debugger.sendCommand('Emulation.setUserAgentOverride', googleGiris.cdpParametreleri(gk));
-      googleGirisSekmeleri.add(wc);
-    } else if (googleGirisSekmeleri.has(wc)) {
-      googleGirisSekmeleri.delete(wc);
-      googleGirisYenilenen.delete(wc);
-      if (wc.debugger.isAttached()) wc.debugger.detach();
-    }
-  } catch (e) {
-    diag.warn('google-giris', 'Kimlik uygulanamadı', { kip: gk ? gk.kip : 'kapali', tur: String((e && e.message) || 'hata').slice(0, 80) });
-  }
-}
-
-// Sayfa açıldıktan sonra doğrula: sayfanın GÖRDÜĞÜ kimlik kipin kimliği mi? Geçersiz kılma
-// bu gezintiye yetişmediyse sayfa BİR KEZ yenilenir. Sonuç tanılamaya — ADRES yazılmaz.
-async function googleGirisDogrula(wc, url) {
-  const gk = googleGirisKimligi();
-  if (!gk || !googleGiris.girisSayfasiMi(url)) return;
-  let gorunen = '';
-  try { gorunen = await wc.executeJavaScriptInIsolatedWorld(GOOGLE_GIRIS_WORLD_ID, [{ code: 'navigator.userAgent' }]); } catch {}
-  const uyum = gorunen === gk.userAgent;
-  const yenilendi = googleGirisYenilenen.has(wc);
-  diag.info('google-giris', 'Giriş sayfası kimliği', { kip: gk.kip, uyum, yenilendi });
-  if (uyum) { googleGirisYenilenen.delete(wc); return; }
-  if (!yenilendi) { googleGirisYenilenen.add(wc); try { wc.reload(); } catch {} }
+// Google ile giriş (YouTube → "Google ile oturum aç"): sonuç tanılama günlüğüne. Asıl
+// düzeltme chrome-nesnesi.js'te (her sayfada window.chrome Chrome'daki gibi). Giriş sayfası
+// açılınca, sayfanın KENDİ dünyasında window.chrome'un tamamlanmış olduğu ölçülür — betik
+// bir gün yetişmezse bu kayıtta görünür. Google reddederse ret kodu ayrıca yazılır.
+// Yalnız yol yazılır (ör. /v3/signin/challenge/pwd); sorgu, e-posta, belirteç YAZILMAZ.
+// ⛔ Kimlik taklidi (Firefox/Chrome/Edge kipleri) 06.10.2026'da kaldırıldı — google-giris.js.
+const CHROME_NESNESI_OLCUMU = "(() => { const c = window.chrome; return !!(c && c.app && typeof c.csi === 'function' && typeof c.loadTimes === 'function'); })()";
+async function googleGirisIzle(wc, url) {
+  if (!googleGiris.girisSayfasiMi(url)) return;
+  let chromeApp = null;
+  try { chromeApp = (await wc.executeJavaScript(CHROME_NESNESI_OLCUMU)) === true; } catch {}
+  const ret = googleGiris.reddedildiMi(url);
+  if (ret) diag.warn('google-giris', 'Google girişi reddetti', { chromeApp, rrk: ret.rrk });
+  else diag.info('google-giris', 'Giriş adımı', { adim: googleGiris.girisAdimi(url), chromeApp });
 }
 
 // NOT (denetim O-01): Burada eskiden iki ölü/hatalı parça vardı ve kaldırıldı.
@@ -651,18 +614,6 @@ function configureSession(ses, gecici = false) {
     }
     if (config.doNotTrack) headers['DNT'] = '1';
     if (config.globalPrivacyControl !== false) headers['Sec-GPC'] = '1';
-    // Google giriş sayfası ve onun yüklediği alt kaynaklar: kipin kimliği ve istemci
-    // ipuçları (google-giris.js). Başlık burada KESİN konur — sekmenin yerel geçersiz
-    // kılması bu isteğe yetişmese bile. Ana belge isteğinde yalnız gidilen adrese
-    // bakılır — girişten YouTube'a dönüş Chrome kimliğiyle gider.
-    const gk = googleGirisKimligi();
-    if (gk) {
-      let sekmeUrl = '';
-      try { sekmeUrl = details.webContents ? details.webContents.getURL() : ''; } catch {}
-      if (googleGiris.girisIstegiMi(details.url, sekmeUrl, details.resourceType)) {
-        return callback({ requestHeaders: googleGiris.basliklariCevir(headers, gk) });
-      }
-    }
     callback({ requestHeaders: headers });
   });
 
@@ -922,19 +873,10 @@ function createTabView(win, state, tabId) {
   applyWebrtcPolicy(view.webContents);
   bindBrowserInput(view.webContents, win, state, 'page');
 
-  // Google ile giriş: sekme giriş sayfasına GİDERKEN kimlik yerel ayarla değişir, sayfa
-  // açılınca doğrulanır (googleGirisSekmesi / googleGirisDogrula). Yalnız ana çerçeve,
-  // yalnız yeni belge. Electron 44 ayrıntıları olay nesnesinde verir; eski konumsal
-  // argümanlar da desteklenir.
-  const googleGezinti = (e, a1, a2, a3) => {
-    const url = (e && e.url) || a1;
-    const ana = e && typeof e.isMainFrame === 'boolean' ? e.isMainFrame : a3;
-    const ayniBelge = e && typeof e.isSameDocument === 'boolean' ? e.isSameDocument : a2;
-    if (ana && !ayniBelge) googleGirisSekmesi(view.webContents, url);
-  };
-  view.webContents.on('did-start-navigation', googleGezinti);
-  view.webContents.on('did-redirect-navigation', googleGezinti);
-  view.webContents.on('did-navigate', (e, navUrl) => { googleGirisDogrula(view.webContents, navUrl); });
+  // Google ile giriş: her adım ve olası ret tanılamaya (googleGirisIzle). Google bazı
+  // adımlar arasında sayfayı yenilemeden geçer — sayfa içi gezinti de izlenir.
+  view.webContents.on('did-navigate', (e, navUrl) => { googleGirisIzle(view.webContents, navUrl); });
+  view.webContents.on('did-navigate-in-page', (e, navUrl, anaCerceve) => { if (anaCerceve) googleGirisIzle(view.webContents, navUrl); });
 
   // Açılır pencere kararı için son kullanıcı etkileşimi (sayfa taklit edemez).
   view.webContents.on('input-event', (e, ev) => {
@@ -3121,7 +3063,6 @@ ipcMain.handle('save-config', (e, newCfg) => {
   for (const k of ['omniboxHistory', 'autoUpdateCheck', 'discoverFeed', 'syncSettings', 'syncBookmarks', 'logEnabled', 'offerToSavePasswords']) if (k in incoming) incoming[k] = incoming[k] !== false;
   for (const k of ['verticalTabs', 'verticalTabsCollapsed']) if (k in incoming) incoming[k] = incoming[k] === true;
   if ('sidebarPosition' in incoming) incoming.sidebarPosition = KENAR_CUBUGU_YERLERI.includes(incoming.sidebarPosition) ? incoming.sidebarPosition : 'left';
-  if ('googleLoginMode' in incoming) incoming.googleLoginMode = googleGiris.kipDuzelt(incoming.googleLoginMode);
   if ('hardwareAcceleration' in incoming) incoming.hardwareAcceleration = incoming.hardwareAcceleration !== false;
   if ('tabSleepMinutes' in incoming) incoming.tabSleepMinutes = normalizeTabSleepMinutes(incoming.tabSleepMinutes);
   if ('language' in incoming) incoming.language = i18n.LANGUAGES.some((l) => l.code === incoming.language) ? incoming.language : 'auto';
@@ -3484,14 +3425,17 @@ function fingerprintScriptFor(frame, ses) {
   const web = /^https?:\/\//i.test(topUrl);
   const farble = web && config.fingerprintShield !== false && !isWhitelisted(topUrl, topUrl);
   // Google giriş sayfası: gürültü YOK (Google'ın bot denetimi tuval/ses/WebGL ölçüyor).
-  // Sayfa içi kimlik JS ile DEĞİL, sekmenin yerel geçersiz kılmasıyla (googleGirisSekmesi).
   // Orada kullanıcı zaten kendi hesabıyla kimliğini bildiriyor; korunacak anonimlik yok.
-  if (googleGirisKimligi() && googleGiris.girisSayfasiMi(topUrl)) return shieldScript({ farble: false, seed: '' });
+  if (googleGiris.girisSayfasiMi(topUrl)) return shieldScript({ farble: false, seed: '' });
   const site = farble ? registrableDomain(new URL(topUrl).hostname) : '';
   return shieldScript({ farble, seed: farble ? fingerprintSeedFor(ses, site) : '' });
 }
+// Önce window.chrome Chrome'daki gibi tamamlanır (chrome-nesnesi.js — Google girişi bunsuz
+// reddediliyor), sonra kalkan. Kalkan hata verse bile tamamlama gider.
 ipcMain.on('fp-script', (event) => {
-  try { event.returnValue = fingerprintScriptFor(event.senderFrame, event.sender.session); } catch { event.returnValue = ''; }
+  let kalkan = '';
+  try { kalkan = fingerprintScriptFor(event.senderFrame, event.sender.session); } catch {}
+  event.returnValue = chromeNesnesi.BETIK + kalkan;
 });
 
 // ─── Şifre kaydetme önerisi ve doldurma (preload/page-preload.js) ─────────────

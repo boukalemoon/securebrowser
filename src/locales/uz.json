@@ -1714,12 +1714,5 @@
   "settings.layout.pos.right": "Oʻng",
   "settings.layout.pos.bottom": "Past",
   "settings.layout.pos.top": "Yuqori",
-  "settings.layout.pos.auto": "Yashirin (sichqoncha kelganda ochiladi)",
-  "settings.googleLogin.title": "Google orqali kirish (sinov)",
-  "settings.googleLogin.label": "Kirish usuli",
-  "settings.googleLogin.hint": "YouTube va boshqa Google xizmatlaridagi “Bu brauzer xavfsiz boʻlmasligi mumkin” ogohlantirishi uchun vaqtinchalik sinov sozlamasi. Faqat Google kirish sahifasida qoʻllanadi; boshqa saytlarda hech narsa oʻzgarmaydi. Usulni tanlab, Saqlash tugmasini bosing, soʻng Google’ga qayta kirib koʻring.",
-  "settings.googleLogin.mode.firefox": "Firefox sifatida koʻrinish",
-  "settings.googleLogin.mode.chrome": "Chrome sifatida koʻrinish",
-  "settings.googleLogin.mode.edge": "Edge sifatida koʻrinish",
-  "settings.googleLogin.mode.kapali": "Oʻchiq (oʻzgarish yoʻq)"
+  "settings.layout.pos.auto": "Yashirin (sichqoncha kelganda ochiladi)"
 }

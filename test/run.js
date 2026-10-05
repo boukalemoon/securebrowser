@@ -1463,7 +1463,7 @@ suite('Keşfet — TrendTech yazılımları');
     const fields = [...spJs.matchAll(/^\s*'([\w-]+)':\s*\['(\w+)', '(value|checked)'\]/gm)];
     const valuesFn = spJs.slice(spJs.indexOf('function formValuesFrom'), spJs.indexOf('function initFormState'));
     check('form alan listesi sekmelerdeki kimliklerle ve varsayılan değerlerle eşleşiyor',
-      fields.length === 23
+      fields.length === 22
       && fields.every(([, id]) => spJs.includes(`id="${id}"`) || spJs.includes(`row('${id}'`))
       && fields.every(([, , key]) => new RegExp(`\\n\\s*${key}:\\s`).test(valuesFn)), fields.length);
 
@@ -1968,7 +1968,7 @@ suite('Keşfet — TrendTech yazılımları');
     const ppF = read('preload/page-preload.js');
     check('ana süreç: site ve tohum çerçeve ağacından (alt çerçeve üst siteyi kullanır); ayar ve sitede engelleme kapalıysa gürültü yok',
       mjF.includes("ipcMain.on('fp-script', (event) => {")
-      && mjF.includes('try { event.returnValue = fingerprintScriptFor(event.senderFrame, event.sender.session); } catch { event.returnValue = \'\'; }')
+      && mjF.includes('try { kalkan = fingerprintScriptFor(event.senderFrame, event.sender.session); } catch {}')
       && mjF.includes("const top = frame ? (frame.top || frame) : null;")
       && mjF.includes("const farble = web && config.fingerprintShield !== false && !isWhitelisted(topUrl, topUrl);")
       && /\n  fingerprintShield:\s+true,/.test(mjF));
@@ -3578,51 +3578,53 @@ suite('Ülgen araması — yerel/bizim sunucumuz yok, görev sayfası yolundan')
 }
 
 // ─── Google hesabıyla giriş (YouTube) ─────────────────────────────────────────
-// ⛔ NEDEN (Burak, 03.10.2026): Google "Bu tarayıcı güvenli olmayabilir" diyerek
-//    girişi reddediyordu. Çözüm yalnız giriş sayfasında tutarlı Firefox kimliği
-//    (google-giris.js). Bu süit bağlantının yerinde durmasını ve istisnanın giriş
-//    sayfası DIŞINA taşmamasını kaynakta kilitler.
-suite('Google ile giriş — yerel kimlik geçersiz kılma, deneme kipleri');
+// ⛔ NEDEN (Burak, 03-06.10.2026): Google "Bu tarayıcı güvenli olmayabilir" diyerek
+//    girişi reddediyordu. Kimlik taklidi (Firefox/Chrome/Edge kipleri) ölçümde işe
+//    yaramadı (05.10 günlüğü: kimlik uygulanmış, yine ret) ve KALDIRILDI. Asıl neden
+//    Electron'un boş window.chrome nesnesi (chrome-nesnesi.js). Bu süit tamamlamanın HER
+//    çerçevede sayfa betiklerinden önce gitmesini, taklidin geri gelmemesini ve sonucun
+//    tanılamaya adressiz yazılmasını kaynakta kilitler.
+suite('Google ile giriş — window.chrome tamamlanıyor, kimlik taklidi yok');
 {
   const m = read('../src/main/main.js');
-  const baslik = (m.match(/ses\.webRequest\.onBeforeSendHeaders\(\(details, callback\) => \{[\s\S]*?\n  \}\);/) || [''])[0];
-  check('başlık kancası giriş isteklerini kipin kimliğine çeviriyor (sekme adresi + kaynak türüyle)',
-    /const gk = googleGirisKimligi\(\);/.test(baslik)
-    && /googleGiris\.girisIstegiMi\(details\.url, sekmeUrl, details\.resourceType\)/.test(baslik)
-    && /googleGiris\.basliklariCevir\(headers, gk\)/.test(baslik));
-  check('Sec-GPC ve DNT, kimlik çevrilmeden ÖNCE ekleniyor (girişte de gizlilik başlıkları gidiyor)',
-    baslik.indexOf("headers['Sec-GPC'] = '1'") > 0 && baslik.indexOf("headers['Sec-GPC'] = '1'") < baslik.indexOf('basliklariCevir'));
+  const fpIpc = (m.match(/ipcMain\.on\('fp-script', \(event\) => \{[\s\S]*?\n\}\);/) || [''])[0];
+  check('fp-script önce window.chrome tamamlamasını, sonra kalkanı veriyor; kalkan hata verse de tamamlama gidiyor',
+    /const chromeNesnesi = require\('\.\/chrome-nesnesi'\);/.test(m)
+    && /let kalkan = '';\s*try \{ kalkan = fingerprintScriptFor\(event\.senderFrame, event\.sender\.session\); \} catch \{\}\s*event\.returnValue = chromeNesnesi\.BETIK \+ kalkan;/.test(fpIpc));
+  const pp = read('preload/page-preload.js');
+  const ppKod = pp.replace(/\/\*[\s\S]*?\*\//g, '');
+  check('sekme ön yüklemesi betiği HER çerçevede ve sayfanın kendi dünyasında çalıştırıyor',
+    /const shield = ipcRenderer\.sendSync\('fp-script'\);\s*if \(typeof shield === 'string' && shield\) webFrame\.executeJavaScript\(shield\);/.test(ppKod)
+    && ppKod.indexOf("sendSync('fp-script')") < ppKod.indexOf('function setupPasswordHelpers'));
+  check('sekmeler ve açılır pencereler bu ön yüklemeyle, alt çerçevelerde de',
+    (m.match(/preload: path\.join\(__dirname, '\.\.\/preload\/page-preload\.js'\),/g) || []).length >= 2
+    && (m.match(/nodeIntegrationInSubFrames: true,/g) || []).length >= 2);
   const fp = (m.match(/function fingerprintScriptFor[\s\S]*?\n\}/) || [''])[0];
-  check('giriş sayfasında gürültü yok; sayfaya JS ile kimlik ENJEKTE EDİLMİYOR (ilk denemenin hatası)',
-    /if \(googleGirisKimligi\(\) && googleGiris\.girisSayfasiMi\(topUrl\)\) return shieldScript\(\{ farble: false, seed: '' \}\);/.test(fp)
-    && !/anaDunyaBetigi|GOOGLE_GIRIS_UA/.test(m));
-  check('istisna kalkan kararından SONRA; genel kalkan satırı değişmedi',
-    fp.indexOf('const farble = web && config.fingerprintShield !== false && !isWhitelisted(topUrl, topUrl);') > 0
+  check('giriş sayfasında gürültü yok; istisna kalkan kararından SONRA, genel satır değişmedi',
+    /if \(googleGiris\.girisSayfasiMi\(topUrl\)\) return shieldScript\(\{ farble: false, seed: '' \}\);/.test(fp)
+    && fp.indexOf('const farble = web && config.fingerprintShield !== false && !isWhitelisted(topUrl, topUrl);') > 0
     && fp.indexOf('const farble') < fp.indexOf('googleGiris.girisSayfasiMi(topUrl)'));
-  const sekme = (m.match(/async function googleGirisSekmesi[\s\S]*?\n\}/) || [''])[0];
-  check('sekme kimliği tarayıcının YEREL geçersiz kılmasıyla (CDP), giriş dışında bırakılıyor',
-    /wc\.debugger\.sendCommand\('Emulation\.setUserAgentOverride', googleGiris\.cdpParametreleri\(gk\)\)/.test(sekme)
-    && /if \(wc\.debugger\.isAttached\(\)\) wc\.debugger\.detach\(\);/.test(sekme));
-  check('sekme olayları bağlı: gezinti başlarken/yönlendirmede uygula, sayfa açılınca doğrula',
-    /view\.webContents\.on\('did-start-navigation', googleGezinti\)/.test(m)
-    && /view\.webContents\.on\('did-redirect-navigation', googleGezinti\)/.test(m)
-    && /googleGirisDogrula\(view\.webContents, navUrl\)/.test(m));
-  const dogrula = (m.match(/async function googleGirisDogrula[\s\S]*?\n\}/) || [''])[0];
-  check('doğrulama tanılamaya ADRESSİZ yazıyor ve en fazla BİR KEZ yeniliyor',
-    /diag\.info\('google-giris', 'Giriş sayfası kimliği', \{ kip: gk\.kip, uyum, yenilendi \}\)/.test(dogrula)
-    && /if \(!yenilendi\) \{ googleGirisYenilenen\.add\(wc\); try \{ wc\.reload\(\); \} catch \{\} \}/.test(dogrula));
-  check('sekmelerin genel UA\'sı hâlâ temiz Chrome', /app\.userAgentFallback = CLEAN_UA;/.test(m));
-  check('kip ayarı: varsayılan firefox, kayıtta doğrulanıyor, cihaza özgü (senkron yok)',
-    /\n  googleLoginMode:\s+'firefox',/.test(m)
-    && m.includes("if ('googleLoginMode' in incoming) incoming.googleLoginMode = googleGiris.kipDuzelt(incoming.googleLoginMode);")
-    && !read('renderer/sync-manager.js').includes('googleLoginMode'));
+  const baslik = (m.match(/ses\.webRequest\.onBeforeSendHeaders\(\(details, callback\) => \{[\s\S]*?\n  \}\);/) || [''])[0];
+  check('⛔ kimlik taklidi geri gelmedi: kip ayarı, CDP kimliği, başlık çevirme, JS navigator taklidi YOK',
+    baslik.length > 100 && !/googleGiris|basliklariCevir|User-Agent/.test(baslik)
+    && !/googleLoginMode|googleGirisKimligi|setUserAgentOverride|wc\.debugger\.attach|anaDunyaBetigi|GOOGLE_GIRIS_UA/.test(m));
+  check('sekmelerin genel UA\'sı hâlâ temiz Chrome, her yerde aynı', /app\.userAgentFallback = CLEAN_UA;/.test(m) && /ses\.setUserAgent\(CLEAN_UA\)/.test(m));
+  const izle = (m.match(/async function googleGirisIzle[\s\S]*?\n\}/) || [''])[0];
+  check('giriş adımı ve Google\'ın reddi tanılamaya; sayfada chrome.app ölçülüyor; ADRES yazılmıyor',
+    /wc\.executeJavaScript\(CHROME_NESNESI_OLCUMU\)/.test(izle)
+    && /diag\.warn\('google-giris', 'Google girişi reddetti', \{ chromeApp, rrk: ret\.rrk \}\)/.test(izle)
+    && /diag\.info\('google-giris', 'Giriş adımı', \{ adim: googleGiris\.girisAdimi\(url\), chromeApp \}\)/.test(izle)
+    && !/diag\.\w+\([^)]*\burl\b(?!\))/.test(izle.replace(/girisAdimi\(url\)/g, '')));
+  check('sekme olayları bağlı (tam ve sayfa içi gezinti, yalnız ana çerçeve)',
+    /view\.webContents\.on\('did-navigate', \(e, navUrl\) => \{ googleGirisIzle\(view\.webContents, navUrl\); \}\);/.test(m)
+    && /view\.webContents\.on\('did-navigate-in-page', \(e, navUrl, anaCerceve\) => \{ if \(anaCerceve\) googleGirisIzle\(view\.webContents, navUrl\); \}\);/.test(m));
   const sp = read('renderer/settings-panel.js');
-  check('Ayarlar › Genel: dört kip, ana süreçle aynı liste',
-    sp.includes("const GOOGLE_LOGIN_MODES_UI = ['firefox', 'chrome', 'edge', 'kapali'];") && sp.includes('<select id="cfg-google-login">'));
+  const tr = JSON.parse(read('locales/tr.json'));
+  check('Ayarlar\'daki geçici "Google ile giriş (deneme)" seçimi ve metinleri kaldırıldı',
+    !/cfg-google-login|GOOGLE_LOGIN_MODES_UI|googleLoginMode/.test(sp) && !Object.keys(tr).some((k) => k.startsWith('settings.googleLogin.')));
   const G = require('../src/main/google-giris.js');
-  check('kapsam yalnız iki giriş adresi; kip listesi aynı',
-    [...G.GIRIS_HOSTLARI].sort().join(',') === 'accounts.google.com,accounts.youtube.com'
-    && G.KIPLER.join(',') === 'firefox,chrome,edge,kapali');
+  check('gürültü istisnasının kapsamı yalnız iki giriş adresi',
+    [...G.GIRIS_HOSTLARI].sort().join(',') === 'accounts.google.com,accounts.youtube.com');
   check('ziyaret günlüğü yükleme olayları tanılamaya yazılıyor (korumalı)',
     m.includes("for (const o of (secureLog && secureLog.yuklemeOlaylari) || []) diag.warn('günlük', o.tur, o);"));
 }

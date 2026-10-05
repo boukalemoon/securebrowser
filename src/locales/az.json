@@ -1714,12 +1714,5 @@
   "settings.layout.pos.right": "Sağ",
   "settings.layout.pos.bottom": "Alt",
   "settings.layout.pos.top": "Üst",
-  "settings.layout.pos.auto": "Gizli (siçan gələndə açılır)",
-  "settings.googleLogin.title": "Google ilə giriş (sınaq)",
-  "settings.googleLogin.label": "Giriş üsulu",
-  "settings.googleLogin.hint": "YouTube və digər Google xidmətlərində \"Bu brauzer təhlükəsiz olmaya bilər\" xəbərdarlığı üçün müvəqqəti sınaq ayarı. Yalnız Google giriş səhifəsində tətbiq olunur; digər saytlarda heç nə dəyişmir. Bir üsul seçib Yadda saxla düyməsini basın, sonra Google girişini yenidən sınayın.",
-  "settings.googleLogin.mode.firefox": "Firefox kimi görün",
-  "settings.googleLogin.mode.chrome": "Chrome kimi görün",
-  "settings.googleLogin.mode.edge": "Edge kimi görün",
-  "settings.googleLogin.mode.kapali": "Bağlı (dəyişiklik yoxdur)"
+  "settings.layout.pos.auto": "Gizli (siçan gələndə açılır)"
 }

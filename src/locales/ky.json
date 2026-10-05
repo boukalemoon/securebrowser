@@ -1720,12 +1720,5 @@
   "settings.layout.pos.right": "Оң",
   "settings.layout.pos.bottom": "Ылдый",
   "settings.layout.pos.top": "Өйдө",
-  "settings.layout.pos.auto": "Жашыруун (чычкан келгенде ачылат)",
-  "settings.googleLogin.title": "Google аркылуу кирүү (сыноо)",
-  "settings.googleLogin.label": "Кирүү ыкмасы",
-  "settings.googleLogin.hint": "YouTube жана башка Google кызматтарындагы «Бул браузер коопсуз болбошу мүмкүн» эскертүүсү үчүн убактылуу сыноо жөндөөсү. Google кирүү барагында гана колдонулат; башка сайттарда эч нерсе өзгөрбөйт. Ыкманы тандап, Сактоо баскычын басыңыз, андан кийин Google'га кайра кирип көрүңүз.",
-  "settings.googleLogin.mode.firefox": "Firefox катары көрүнүү",
-  "settings.googleLogin.mode.chrome": "Chrome катары көрүнүү",
-  "settings.googleLogin.mode.edge": "Edge катары көрүнүү",
-  "settings.googleLogin.mode.kapali": "Өчүк (өзгөрүү жок)"
+  "settings.layout.pos.auto": "Жашыруун (чычкан келгенде ачылат)"
 }
