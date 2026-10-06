@@ -140,6 +140,13 @@ footer a{font-family:var(--font-mono);font-size:12.5px}
 // "En son" etiketi yayınlanmış ilk sürüme verilir.
 const RELEASES = [
   {
+    version: '0.8.11', date: '6 Ekim 2026', title: 'Sağ tık menüleri',
+    changes: [
+      { t:'new', d:'<b>Yer imlerinde sağ tık.</b> Yer imi çubuğundaki ya da Yer İmleri panelindeki bir bağlantıya sağ tıklayınca menü açılır: aç, yeni sekmede aç, düzenle, bağlantıyı kopyala, sil. Artık işinize yaramayan bir bağlantıyı çubuktan tek tıkla kaldırabilirsiniz.' },
+      { t:'new', d:'<b>Kenar çubuğu ve yeni sekmede sağ tık.</b> WhatsApp, Telegram gibi panellerin simgesine sağ tıklayıp paneli açabilir ya da kenar çubuğundan kaldırabilirsiniz. Yeni sekme sayfasındaki kısayolları sağ tıkla kaldırabilir, kaldırdıklarınızı yine aynı menüden geri getirebilirsiniz.' },
+    ],
+  },
+  {
     version: '0.8.10', date: '6 Ekim 2026', title: 'Mac\'te kurulum, Ülgen araması herkeste çalışıyor',
     changes: [
       { t:'fix', d:'<b>Mac\'te "hasarlı, açılamıyor" hatası giderildi.</b> 0.8.9\'un Mac sürümü imzasız paketlenmişti ve macOS onu bozuk sayıp açmıyordu. Uygulama artık imzalı paketleniyor ve her yayında imza gerçek bir Mac\'te denetleniyor. İmza henüz Apple onaylı (notarize) değil: ilk açılışta macOS bir uyarı gösterir; indirme sayfasındaki adımlarla bir kez "Yine de Aç" demeniz yeterli. Mac\'te otomatik güncelleme bu nedenle henüz yok, yeni sürümleri bu siteden indirin.' },
