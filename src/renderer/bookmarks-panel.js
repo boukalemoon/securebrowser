@@ -773,11 +773,46 @@ function bmInitPanelEvents() {
     if (url) { e.preventDefault(); bmOpenUrl(url, bmOpenMode(e, true)); }
   });
   list?.addEventListener('mousedown', (e) => { if (e.button === 1 && rowUrl(e)) e.preventDefault(); });
+  list?.addEventListener('contextmenu', (e) => {
+    const row = e.target.closest?.('.bm-item');
+    if (!row || !row.dataset.id) return;
+    e.preventDefault();
+    bmItemMenu(row.dataset.id);
+  });
   list?.addEventListener('keydown', (e) => {
     if (e.key !== 'Enter' || !e.target.classList?.contains('bm-item')) return;
     const url = window.ilgezdiHtml.safeUrl(e.target.dataset.url);
     if (url) { e.preventDefault(); bmOpenUrl(url, bmOpenMode(e, false)); }
   });
+}
+
+// Sağ tık menüsü (yer imi çubuğu ve paneldeki satır): aç, yeni sekmede aç, düzenle,
+// bağlantıyı kopyala, sil. Burak (06.10.2026): çubuktaki gereksiz bağlantıyı silmenin yolu
+// yoktu, sağ tık hiçbir şey yapmıyordu. Düzenleme penceresi arayüzde çizildiği için sayfa
+// görünümünün altında kalmasın diye önce Yer İmleri paneli açılır.
+async function bmItemMenu(id) {
+  const item = bmItems.find((i) => i.id === id);
+  const sb = window.secureBrowser;
+  const url = item ? window.ilgezdiHtml.safeUrl(item.url) : '';
+  if (!url || !sb?.uiMenu) return;
+  const secim = await sb.uiMenu([
+    { id: 'open', label: T('uiMenu.open') },
+    { id: 'open-tab', label: T('uiMenu.openTab') },
+    { type: 'separator' },
+    { id: 'edit', label: T('bookmarks.edit') },
+    { id: 'copy', label: T('menu.copyLink'), copyText: url },
+    { type: 'separator' },
+    { id: 'delete', label: T('bookmarks.delete') },
+  ]);
+  if (secim === 'open') bmOpenUrl(url, 'current');
+  else if (secim === 'open-tab') bmOpenUrl(url, 'foreground');
+  else if (secim === 'edit') {
+    if (!_bmPanelOpen) document.getElementById('btn-bookmarks')?.click();
+    setTimeout(() => bmShowEditModal(id), 0);
+  } else if (secim === 'delete') {
+    bmDeleteItem(id);                       // bmSaveItems → çubuk kendiliğinden yenilenir
+    if (_bmPanelOpen) { bmRenderPanel(); bmRenderFolders(); }
+  }
 }
 
 // 'current' bu sekmede · 'background' arka planda yeni sekme · 'foreground' önde yeni sekme
@@ -853,6 +888,7 @@ function bmRenderBar() {
     chip.type = 'button';
     chip.className = 'bookmark-chip';
     chip.dataset.url = item.url;
+    chip.dataset.id = item.id;
     chip.title = (item.title || domain) + '\n' + item.url;
     const fav = document.createElement('span');
     fav.className = 'chip-favicon';
@@ -933,6 +969,12 @@ function bmInit() {
   bar?.addEventListener('auxclick', (e) => {
     const url = e.button === 1 ? chipUrl(e) : '';
     if (url) { e.preventDefault(); sb?.newTab?.(url, { background: true }); }
+  });
+  bar?.addEventListener('contextmenu', (e) => {
+    const chip = e.target.closest?.('.bookmark-chip');
+    if (!chip || !chip.dataset.id) return;
+    e.preventDefault();
+    bmItemMenu(chip.dataset.id);
   });
   // Yer imi değişince (panel, ☆ açılır penceresi, senkron, başka pencere) çubuk yenilenir.
   window.addEventListener('ilgezdi-bookmarks-changed', bmRenderBar);

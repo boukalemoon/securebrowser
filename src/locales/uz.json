@@ -1714,5 +1714,9 @@
   "settings.layout.pos.right": "Oʻng",
   "settings.layout.pos.bottom": "Past",
   "settings.layout.pos.top": "Yuqori",
-  "settings.layout.pos.auto": "Yashirin (sichqoncha kelganda ochiladi)"
+  "settings.layout.pos.auto": "Yashirin (sichqoncha kelganda ochiladi)",
+  "uiMenu.open": "Ochish",
+  "uiMenu.openTab": "Yangi varaqda ochish",
+  "uiMenu.removeShortcut": "Yorliqni olib tashlash",
+  "uiMenu.restoreShortcuts": "Olib tashlangan yorliqlarni tiklash"
 }

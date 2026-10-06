@@ -1801,5 +1801,9 @@
   "settings.layout.pos.right": "Droite",
   "settings.layout.pos.bottom": "Bas",
   "settings.layout.pos.top": "Haut",
-  "settings.layout.pos.auto": "Masquée (s’ouvre au survol)"
+  "settings.layout.pos.auto": "Masquée (s’ouvre au survol)",
+  "uiMenu.open": "Ouvrir",
+  "uiMenu.openTab": "Ouvrir dans un nouvel onglet",
+  "uiMenu.removeShortcut": "Supprimer le raccourci",
+  "uiMenu.restoreShortcuts": "Restaurer les raccourcis supprimés"
 }

@@ -1786,5 +1786,9 @@
   "settings.layout.pos.right": "Rechts",
   "settings.layout.pos.bottom": "Unten",
   "settings.layout.pos.top": "Oben",
-  "settings.layout.pos.auto": "Ausgeblendet (öffnet beim Überfahren)"
+  "settings.layout.pos.auto": "Ausgeblendet (öffnet beim Überfahren)",
+  "uiMenu.open": "Öffnen",
+  "uiMenu.openTab": "In neuem Tab öffnen",
+  "uiMenu.removeShortcut": "Verknüpfung entfernen",
+  "uiMenu.restoreShortcuts": "Entfernte Verknüpfungen wiederherstellen"
 }

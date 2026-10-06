@@ -1714,5 +1714,9 @@
   "settings.layout.pos.right": "Sağ",
   "settings.layout.pos.bottom": "Alt",
   "settings.layout.pos.top": "Üst",
-  "settings.layout.pos.auto": "Gizli (siçan gələndə açılır)"
+  "settings.layout.pos.auto": "Gizli (siçan gələndə açılır)",
+  "uiMenu.open": "Aç",
+  "uiMenu.openTab": "Yeni vərəqdə aç",
+  "uiMenu.removeShortcut": "Qısayolu sil",
+  "uiMenu.restoreShortcuts": "Silinmiş qısayolları bərpa et"
 }

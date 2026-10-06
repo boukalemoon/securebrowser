@@ -57,7 +57,7 @@ const {
   nextZoomFactor, zoomKeyForUrl, createZoomStore, snapshotHistory, pushClosedTab, isWebUrl,
   normalizePageZoom, normalizeMinFontSize, urlsFromArgv,
   TAB_ACTIONS, moveTabId, orderAfterPin, buildTabMenuModel, normalizeStartupMode, serializeSession, parseSession,
-  resetConfig, normalizeTabSleepMinutes, shouldSleepTab, DEFAULT_TAB_SLEEP_MINUTES,
+  resetConfig, normalizeTabSleepMinutes, shouldSleepTab, DEFAULT_TAB_SLEEP_MINUTES, uiMenuModel,
 } = require('./browser-commands');
 const {
   ACTIVATION_EVENTS, ACTIVATION_WINDOW_MS, popupVerdict, validatePermissionChange, listDecisions, decisionsForOrigin, permissionLabel,
@@ -2832,6 +2832,30 @@ ipcMain.handle('tab-context-menu', (event, payload) => {
   });
   Menu.buildFromTemplate(model.map(toTemplate)).popup({ window: win });
   return { ok: true };
+});
+
+// Arayüz sağ tık menüsü (browser-commands.js uiMenuModel). Yalnız pencerenin KENDİ arayüzü
+// çağırabilir (sekmedeki bir sayfa değil). Seçilen kimlik döner, menü boş kapanırsa null.
+// "Bağlantıyı kopyala" panoya ana süreçte yazılır.
+ipcMain.handle('ui-menu', (event, payload) => {
+  const { win } = getContextFromEvent(event);
+  if (!win || win.isDestroyed() || event.sender !== win.webContents) return null;
+  const items = uiMenuModel(payload && payload.items);
+  if (!items.length) return null;
+  return new Promise((resolve) => {
+    let bitti = false;
+    const sec = (deger) => { if (!bitti) { bitti = true; resolve(deger); } };
+    const template = items.map((it) => (it.type ? { type: 'separator' } : {
+      label: it.label,
+      enabled: it.enabled,
+      click: () => {
+        if (it.copyText) { try { clipboard.writeText(it.copyText); } catch (e) { logError('ui-menu', e, { id: it.id }); } }
+        sec(it.id);
+      },
+    }));
+    // Windows'ta kapanış geri çağrısı tıklamadan ÖNCE gelebilir: boş kapanış kısa bir beklemeyle.
+    Menu.buildFromTemplate(template).popup({ window: win, callback: () => setTimeout(() => sec(null), 150) });
+  });
 });
 
 // Ekranı bölme: araç çubuğu düğmesi (sağ bölme için seçim), seçim, oran, kapatma.

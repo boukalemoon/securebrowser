@@ -1913,6 +1913,19 @@ const QUICK_LINKS = [
   { name: 'Arşiv', url: 'https://archive.org',             color: '#3a5a4a', letter: 'A' },
 ];
 
+// Yeni sekme kısayolları sağ tıkla kaldırılabilir (Burak, 06.10.2026). Kaldırılanlar bu
+// cihazda hatırlanır; menüden geri getirilir.
+const QL_HIDDEN_KEY = 'ilgezdi-ql-hidden';
+function quickLinksHidden() {
+  try {
+    const v = JSON.parse(localStorage.getItem(QL_HIDDEN_KEY) || '[]');
+    return Array.isArray(v) ? v.filter((u) => typeof u === 'string') : [];
+  } catch { return []; }
+}
+function quickLinksSetHidden(list) {
+  try { localStorage.setItem(QL_HIDDEN_KEY, JSON.stringify(list)); } catch {}
+}
+
 function shuffle(arr) {
   const a = arr.slice();
   for (let i = a.length - 1; i > 0; i--) {
@@ -1942,7 +1955,8 @@ function renderNewTab() {
     if (picked.length === 5) break;
     if (!seenCategories.has(c.category)) { seenCategories.add(c.category); picked.push(c); }
   }
-  const shortcutsHtml = QUICK_LINKS.map(link => `
+  const gizliKisayollar = quickLinksHidden();
+  const shortcutsHtml = QUICK_LINKS.filter((link) => !gizliKisayollar.includes(link.url)).map(link => `
     <button class="shortcut" data-url="${link.url}" title="${link.name}">
       <span class="tile-mark" style="background:linear-gradient(135deg,${link.color},color-mix(in srgb,${link.color} 55%,#000));box-shadow:0 6px 14px -8px ${link.color}88">
         <span>${link.letter}</span>
@@ -2021,6 +2035,25 @@ function initNewTabEvents() {
   });
   document.querySelectorAll('.shortcut[data-url]').forEach(btn => {
     btn.addEventListener('click', () => { hideScreen(); sb.navigate(btn.dataset.url); });
+    btn.addEventListener('contextmenu', async (e) => {
+      e.preventDefault();
+      if (!sb.uiMenu) return;
+      const url = window.ilgezdiHtml.safeUrl(btn.dataset.url);
+      if (!url) return;
+      const gizli = quickLinksHidden();
+      const secim = await sb.uiMenu([
+        { id: 'open', label: T('uiMenu.open') },
+        { id: 'open-tab', label: T('uiMenu.openTab') },
+        { id: 'copy', label: T('menu.copyLink'), copyText: url },
+        { type: 'separator' },
+        { id: 'remove', label: T('uiMenu.removeShortcut') },
+        ...(gizli.length ? [{ id: 'restore', label: T('uiMenu.restoreShortcuts') }] : []),
+      ]);
+      if (secim === 'open') { hideScreen(); sb.navigate(url); }
+      else if (secim === 'open-tab') sb.newTab(url);
+      else if (secim === 'remove') { quickLinksSetHidden([...new Set([...gizli, btn.dataset.url])]); btn.remove(); }
+      else if (secim === 'restore') quickLinksSetHidden([]);   // sonraki yeni sekmede görünür
+    });
   });
   // Bilgi kartı → kaynağı: tıklama/Enter aynı sekmede (kısayollar gibi), orta tık yeni sekmede.
   document.querySelectorAll('.news-card[data-source]').forEach((card) => {

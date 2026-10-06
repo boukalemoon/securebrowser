@@ -635,7 +635,34 @@ function resetConfig(current, defaults) {
   return next;
 }
 
+// ─── Arayüz sağ tık menüsü (yer imi çubuğu, yer imleri paneli, kenar çubuğu, kısayollar) ───
+// ⛔ NEDEN (Burak, 06.10.2026): arayüzde sağ tık hiçbir şey yapmıyordu; yer imi çubuğundaki
+//    gereksiz bir bağlantıyı silmenin yolu yoktu. Menüyü arayüz önerir, ana süreç yerel
+//    menüyle gösterir ve yalnız seçilen kimliği geri verir. Burada yalnız BİÇİM süzülür:
+//    en çok 16 öğe, kısa etiket, basit kimlik; kopyalanacak metin en çok 2000 karakter.
+const UI_MENU_AZAMI = 16;
+function uiMenuModel(items) {
+  const out = [];
+  for (const it of Array.isArray(items) ? items.slice(0, UI_MENU_AZAMI) : []) {
+    if (!it || typeof it !== 'object') continue;
+    if (it.type === 'separator') {
+      if (out.length && out[out.length - 1].type !== 'separator') out.push({ type: 'separator' });
+      continue;
+    }
+    const id = typeof it.id === 'string' && /^[a-z][a-z-]{0,31}$/.test(it.id) ? it.id : '';
+    const label = typeof it.label === 'string' ? it.label.replace(/\s+/g, ' ').trim().slice(0, 80) : '';
+    if (!id || !label) continue;
+    const item = { id, label, enabled: it.enabled !== false };
+    if (typeof it.copyText === 'string' && it.copyText && it.copyText.length <= 2000) item.copyText = it.copyText;
+    out.push(item);
+  }
+  while (out.length && out[out.length - 1].type === 'separator') out.pop();
+  while (out.length && out[0].type === 'separator') out.shift();
+  return out;
+}
+
 module.exports = {
+  uiMenuModel,
   TAB_SLEEP_CHOICES,
   DEFAULT_TAB_SLEEP_MINUTES,
   normalizeTabSleepMinutes,

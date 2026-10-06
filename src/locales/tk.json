@@ -1720,5 +1720,9 @@
   "settings.layout.pos.right": "Sag",
   "settings.layout.pos.bottom": "Aşak",
   "settings.layout.pos.top": "Ýokary",
-  "settings.layout.pos.auto": "Gizlin (syçanjyk gelende açylýar)"
+  "settings.layout.pos.auto": "Gizlin (syçanjyk gelende açylýar)",
+  "uiMenu.open": "Aç",
+  "uiMenu.openTab": "Täze goýmada aç",
+  "uiMenu.removeShortcut": "Gysga ýoly aýyr",
+  "uiMenu.restoreShortcuts": "Aýrylan gysga ýollary dikelt"
 }

@@ -1798,5 +1798,9 @@
   "settings.layout.pos.right": "Right",
   "settings.layout.pos.bottom": "Bottom",
   "settings.layout.pos.top": "Top",
-  "settings.layout.pos.auto": "Hidden (opens on hover)"
+  "settings.layout.pos.auto": "Hidden (opens on hover)",
+  "uiMenu.open": "Open",
+  "uiMenu.openTab": "Open in new tab",
+  "uiMenu.removeShortcut": "Remove shortcut",
+  "uiMenu.restoreShortcuts": "Restore removed shortcuts"
 }

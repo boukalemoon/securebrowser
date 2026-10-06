@@ -1720,5 +1720,9 @@
   "settings.layout.pos.right": "Sağ",
   "settings.layout.pos.bottom": "Alt",
   "settings.layout.pos.top": "Üst",
-  "settings.layout.pos.auto": "Gizli (fare gelince açılır)"
+  "settings.layout.pos.auto": "Gizli (fare gelince açılır)",
+  "uiMenu.open": "Aç",
+  "uiMenu.openTab": "Yeni sekmede aç",
+  "uiMenu.removeShortcut": "Kısayolu kaldır",
+  "uiMenu.restoreShortcuts": "Kaldırılan kısayolları geri getir"
 }

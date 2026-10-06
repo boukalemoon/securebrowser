@@ -1714,5 +1714,9 @@
   "settings.layout.pos.right": "Оң",
   "settings.layout.pos.bottom": "Төмен",
   "settings.layout.pos.top": "Жоғары",
-  "settings.layout.pos.auto": "Жасырын (тінтуір келгенде ашылады)"
+  "settings.layout.pos.auto": "Жасырын (тінтуір келгенде ашылады)",
+  "uiMenu.open": "Ашу",
+  "uiMenu.openTab": "Жаңа қойындыда ашу",
+  "uiMenu.removeShortcut": "Таңбашаны алып тастау",
+  "uiMenu.restoreShortcuts": "Алынған таңбашаларды қайтару"
 }

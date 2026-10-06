@@ -1720,5 +1720,9 @@
   "settings.layout.pos.right": "Оң",
   "settings.layout.pos.bottom": "Ылдый",
   "settings.layout.pos.top": "Өйдө",
-  "settings.layout.pos.auto": "Жашыруун (чычкан келгенде ачылат)"
+  "settings.layout.pos.auto": "Жашыруун (чычкан келгенде ачылат)",
+  "uiMenu.open": "Ачуу",
+  "uiMenu.openTab": "Жаңы өтмөктө ачуу",
+  "uiMenu.removeShortcut": "Кыска жолду өчүрүү",
+  "uiMenu.restoreShortcuts": "Өчүрүлгөн кыска жолдорду кайтаруу"
 }

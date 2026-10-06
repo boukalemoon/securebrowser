@@ -1320,6 +1320,48 @@ suite('Zararlı site koruması — canlı liste durumu');
     && /if \(!threatSubscribed\) \{\s*threatSubscribed = true;/.test(read('renderer/data-center.js')));
 }
 
+suite('Arayüz sağ tık menüsü — yer imi çubuğu, yer imleri paneli, kenar çubuğu, kısayollar');
+{
+  // ⛔ NEDEN (Burak, 06.10.2026): arayüzde sağ tık tepki vermiyordu; yer imi çubuğundaki
+  //    bağlantıyı silmenin yolu yoktu.
+  const { uiMenuModel } = require('../src/main/browser-commands.js');
+  const m = uiMenuModel([
+    { type: 'separator' },
+    { id: 'open', label: '  Aç  ' },
+    { type: 'separator' }, { type: 'separator' },
+    { id: 'copy', label: 'Kopyala', copyText: 'https://a.com/' },
+    { id: 'Kötü id', label: 'x' }, { id: 'bos', label: '' }, null, 'metin',
+    { id: 'off', label: 'Kapalı', enabled: false },
+    { type: 'separator' },
+  ]);
+  eq('model süzülüyor: baştaki/sondaki/çift ayraç yok, geçersiz kimlik ve boş etiket atılıyor',
+    JSON.stringify(m),
+    JSON.stringify([{ id: 'open', label: 'Aç', enabled: true }, { type: 'separator' }, { id: 'copy', label: 'Kopyala', enabled: true, copyText: 'https://a.com/' }, { id: 'off', label: 'Kapalı', enabled: false }]));
+  check('en çok 16 öğe, etiket 80 karakter, kopyalanacak metin 2000 karakter',
+    uiMenuModel(Array.from({ length: 40 }, (_, i) => ({ id: 'a', label: 'x' + i }))).length === 16
+    && uiMenuModel([{ id: 'a', label: 'y'.repeat(200) }])[0].label.length === 80
+    && !('copyText' in uiMenuModel([{ id: 'a', label: 'b', copyText: 'z'.repeat(2001) }])[0])
+    && uiMenuModel('yok').length === 0);
+  const mj = read('main/main.js');
+  const h = (mj.match(/ipcMain\.handle\('ui-menu'[\s\S]*?\n\}\);/) || [''])[0];
+  check('ana süreç: yalnız pencerenin kendi arayüzü çağırabiliyor, menü süzülüyor, seçim ya da null dönüyor',
+    h.includes('event.sender !== win.webContents') && h.includes('uiMenuModel(payload && payload.items)')
+    && h.includes('clipboard.writeText(it.copyText)') && /callback: \(\) => setTimeout\(\(\) => sec\(null\), 150\)/.test(h));
+  check('preload uiMenu açık', read('preload/preload.js').includes("uiMenu: (items) => ipcRenderer.invoke('ui-menu', { items }),"));
+  const bp = read('renderer/bookmarks-panel.js');
+  check('yer imi çubuğu ve paneldeki satır sağ tıkla menü açıyor (aç, yeni sekme, düzenle, kopyala, sil)',
+    bp.includes('chip.dataset.id = item.id;')
+    && (bp.match(/addEventListener\('contextmenu'/g) || []).length === 2
+    && /async function bmItemMenu\(id\)[\s\S]*?'uiMenu\.open'[\s\S]*?'uiMenu\.openTab'[\s\S]*?'bookmarks\.edit'[\s\S]*?copyText: url[\s\S]*?'bookmarks\.delete'[\s\S]*?bmDeleteItem\(id\)/.test(bp));
+  check('kenar çubuğundaki web paneli sağ tıkla açılıyor ya da kaldırılıyor',
+    /getElementById\('webpanel-list'\)\?\.addEventListener\('contextmenu'[\s\S]*?'webpanel\.remove'[\s\S]*?sb\.webPanels\.remove\(id\)/.test(read('renderer/web-panel.js')));
+  const ap = read('renderer/app.js');
+  check('yeni sekme kısayolu sağ tıkla kaldırılıyor, kaldırılanlar geri getirilebiliyor',
+    ap.includes("const QL_HIDDEN_KEY = 'ilgezdi-ql-hidden';") && ap.includes('QUICK_LINKS.filter((link) => !gizliKisayollar.includes(link.url))')
+    && /btn\.addEventListener\('contextmenu'[\s\S]*?'uiMenu\.removeShortcut'[\s\S]*?'uiMenu\.restoreShortcuts'/.test(ap));
+  check('sekme sağ tık menüsü yerinde', ap.includes('sb.tabs?.contextMenu(tab.id);'));
+}
+
 suite('Yayın — v0.8.10');
 {
   const ROOTD = path.join(__dirname, '..');

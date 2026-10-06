@@ -127,6 +127,8 @@ contextBridge.exposeInMainWorld('secureBrowser', {
   maximize:    ()       => ipcRenderer.send('window-maximize'),
   close:       ()       => ipcRenderer.send('window-close'),
   panelOpened: (isOpen) => ipcRenderer.send('panel-opened', isOpen),
+  // Arayüz sağ tık menüsü: [{id,label,enabled?,copyText?}|{type:'separator'}] → seçilen id ya da null
+  uiMenu: (items) => ipcRenderer.invoke('ui-menu', { items }),
   // İçerik alanının sol kenarı (dikey sekmeler açılıp kapanınca sayfa görünümü kayar)
   setLayout:   (layout) => ipcRenderer.send('ui-layout', layout),
 

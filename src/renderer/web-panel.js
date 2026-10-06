@@ -214,6 +214,24 @@
       const b = e.target.closest('.webpanel-btn');
       if (b) openPanel(b.dataset.id);
     });
+    // Sağ tık: aç ya da kenar çubuğundan kaldır (Burak, 06.10.2026: sağ tık tepki vermiyordu).
+    document.getElementById('webpanel-list')?.addEventListener('contextmenu', async (e) => {
+      const b = e.target.closest('.webpanel-btn');
+      if (!b || !sb.uiMenu) return;
+      e.preventDefault();
+      const id = b.dataset.id;
+      const secim = await sb.uiMenu([
+        { id: 'open', label: T('uiMenu.open') },
+        { type: 'separator' },
+        { id: 'remove', label: T('webpanel.remove') },
+      ]);
+      if (secim === 'open') openPanel(id);
+      else if (secim === 'remove') {
+        if (openId === id) window.ilgezdiCloseAllPanels?.();
+        const r = await sb.webPanels.remove(id);
+        if (r && r.panels) { panels = r.panels; delete favicons[id]; delete unread[id]; renderList(); }
+      }
+    });
     document.getElementById('btn-webpanel-add')?.addEventListener('click', () => {
       const panel = panelEl();
       if (panel?.classList.contains('visible') && panel.dataset.mode === 'add') { window.ilgezdiCloseAllPanels?.(); return; }
